@@ -257,7 +257,7 @@
     <string name="storage_usage_header">Sur cet appareil</string>
     <string name="storage_free_up_space">Libérer de l\'espace</string>
     <string name="storage_delete_transfers">Supprimer tous les transferts</string>
-    <string name="storage_delete_transfers_description">Cela efface de votre historique tous les enregistrements de transferts envoyés et reçus. Vos fichiers reçus ne sont pas supprimés. Le contenu partagé mis en cache qui n’est plus nécessaire est récupéré automatiquement, ce qui peut prendre un peu de temps. Cette action est irréversible.</string>
+    <string name="storage_delete_transfers_description">Cela efface tous les transferts envoyés et reçus de l’historique et libère immédiatement le cache inutilisé. Les transferts en cours et les fichiers reçus ne sont pas supprimés. Cette action est irréversible.</string>
     <string name="storage_app_data">Données de l’app</string>
     <string name="storage_deleting">Suppression…</string>
     <string name="storage_footer">Les données de transfert comprennent votre historique et le contenu mis en cache pour les partages actifs. Le cache inutile est récupéré automatiquement après la suppression des enregistrements, ce qui peut prendre un peu de temps. Les fichiers reçus sont suivis pour ce récapitulatif, mais ne sont jamais supprimés ici.</string>

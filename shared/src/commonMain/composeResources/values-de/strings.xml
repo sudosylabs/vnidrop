@@ -257,7 +257,7 @@
     <string name="storage_usage_header">Auf diesem Gerät</string>
     <string name="storage_free_up_space">Speicher freigeben</string>
     <string name="storage_delete_transfers">Alle Übertragungen löschen</string>
-    <string name="storage_delete_transfers_description">Dadurch werden alle Datensätze gesendeter und empfangener Übertragungen aus Ihrem Verlauf gelöscht. Ihre empfangenen Dateien werden nicht gelöscht. Nicht mehr benötigte zwischengespeicherte freigegebene Inhalte werden automatisch bereinigt; dies kann etwas dauern. Dies kann nicht rückgängig gemacht werden.</string>
+    <string name="storage_delete_transfers_description">Dadurch werden alle Datensätze gesendeter und empfangener Übertragungen aus Ihrem Verlauf gelöscht und nicht benötigter Übertragungscache sofort freigegeben. Laufende Übertragungen und empfangene Dateien werden nicht gelöscht. Dies kann nicht rückgängig gemacht werden.</string>
     <string name="storage_app_data">App-Daten</string>
     <string name="storage_deleting">Wird gelöscht…</string>
     <string name="storage_footer">Übertragungsdaten umfassen Ihren Verlauf und zwischengespeicherte Inhalte aktiver Freigaben. Nicht mehr benötigter Cache wird nach dem Löschen der Datensätze automatisch bereinigt; dies kann etwas dauern. Empfangene Dateien werden für diese Übersicht erfasst, aber hier niemals gelöscht.</string>

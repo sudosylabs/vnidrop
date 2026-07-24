@@ -213,11 +213,10 @@ class FoundationComposeTest {
 		runOnIdle { assertTrue(cacheClearRequested) }
 
 		onNodeWithText("Delete all transfers").performClick()
-			onNodeWithText(
-				"This clears all sent and received transfer records from your history. Your received files are not deleted. " +
-					"Cached shared content that is no longer needed is reclaimed automatically, which may take a little time. " +
-					"This can’t be undone.",
-			).assertIsDisplayed()
+		onNodeWithText(
+			"This clears all sent and received transfer records from your history and immediately reclaims unused transfer cache. " +
+				"Ongoing transfers and received files are not deleted. This can’t be undone.",
+		).assertIsDisplayed()
 		runOnIdle { assertFalse(deleteRequested) }
 
 		onNodeWithTag("confirm-delete-all-transfers").performClick()

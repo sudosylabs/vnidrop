@@ -257,7 +257,7 @@
     <string name="storage_usage_header">En este dispositivo</string>
     <string name="storage_free_up_space">Liberar espacio</string>
     <string name="storage_delete_transfers">Eliminar todas las transferencias</string>
-    <string name="storage_delete_transfers_description">Esto borra de su historial todos los registros de transferencias enviadas y recibidas. Sus archivos recibidos no se eliminan. El contenido compartido en caché que ya no se necesita se recupera automáticamente, lo que puede tardar un poco. Esto no se puede deshacer.</string>
+    <string name="storage_delete_transfers_description">Esto borra del historial todos los registros de transferencias enviadas y recibidas y libera inmediatamente la caché de transferencia no utilizada. Las transferencias en curso y los archivos recibidos no se eliminan. Esto no se puede deshacer.</string>
     <string name="storage_app_data">Datos de la aplicación</string>
     <string name="storage_deleting">Eliminando…</string>
     <string name="storage_footer">Los datos de transferencia incluyen su historial y el contenido en caché de los recursos compartidos activos. La caché innecesaria se recupera automáticamente tras eliminar los registros, lo que puede tardar un poco. Los archivos recibidos se registran para este resumen, pero nunca se eliminan aquí.</string>

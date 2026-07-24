@@ -80,7 +80,7 @@ struct NetworkSettings: View {
 	var body: some View {
 		Section {
 			Picker(
-				String(localized: "settings_network_title"),
+				"",
 				selection: Binding(get: { model.state.relayMode }, set: { model.setRelayMode($0) })
 			) {
 				ForEach(RelayPreferenceMode.allCases, id: \.self) { mode in
@@ -88,7 +88,10 @@ struct NetworkSettings: View {
 				}
 			}
 			.pickerStyle(.inline)
+			.labelsHidden()
 			.disabled(model.state.isApplyingRelayConfiguration)
+		} header: {
+			Text(String(localized: L10n.Settings.networkTitle))
 		} footer: {
 			Text(LocalizedStringKey(relayModeDescriptionKey(model.state.relayMode)))
 		}
@@ -127,7 +130,7 @@ struct NetworkSettings: View {
 					VStack(alignment: .leading, spacing: 6) {
 						HStack {
 							TextField(
-								"https://relay.example.com",
+								"",
 								text: Binding(
 									get: {
 										model.state.relayURLs.indices.contains(index)
@@ -135,8 +138,12 @@ struct NetworkSettings: View {
 											: ""
 									},
 									set: { model.setRelayURL($0, at: index) }
-								)
+								),
+								// `Text(verbatim:)` avoids macOS markdown-linkifying the
+								// URL-shaped placeholder into a purple link.
+								prompt: Text(verbatim: "https://relay.example.com")
 							)
+							.labelsHidden()
 							#if os(iOS)
 							.keyboardType(.URL)
 							.textInputAutocapitalization(.never)

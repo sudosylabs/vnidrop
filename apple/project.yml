@@ -69,6 +69,21 @@ targets:
       - sdk: SystemConfiguration.framework
       - sdk: Security.framework
       - sdk: libresolv.tbd
+    preBuildScripts:
+      # Enforce the typed-resources convention (see .swiftlint.yml). Required: fails
+      # the build if SwiftLint is missing so the rules can't be silently bypassed.
+      - name: SwiftLint (typed resources)
+        basedOnDependencyAnalysis: false
+        script: |
+          # Xcode runs build phases with a minimal PATH that omits Homebrew, so add
+          # the common Homebrew bin dirs (Apple Silicon + Intel) before resolving it.
+          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+          if which swiftlint >/dev/null; then
+            swiftlint lint --config "${SRCROOT}/.swiftlint.yml"
+          else
+            echo "error: SwiftLint not installed — run 'brew install swiftlint'"
+            exit 1
+          fi
 
   VniDropTests:
     type: bundle.unit-test

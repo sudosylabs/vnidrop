@@ -52,7 +52,7 @@ struct SettingsState: Equatable {
 	var isApplyingRelayConfiguration = false
 	var hasActiveNetworkWork = false
 	var endpointId: String?
-	var relayApplyErrorKey: String?
+	var relayApplyErrorKey: String.LocalizationValue?
 	var deviceInfo: DeviceInfo?
 	var appVersion = ""
 	var isLoadingDeviceInfo = false
@@ -169,7 +169,7 @@ final class SettingsModel: ObservableObject {
 					|| coreState.transfers.contains(where: { $0.status.isActiveTransfer })
 				self.state.hasActiveNetworkWork = hasActiveWork
 				self.state.endpointId = coreState.status?.endpointId
-				if !hasActiveWork && self.state.relayApplyErrorKey == "relay_apply_active_transfers" {
+				if !hasActiveWork && self.state.relayApplyErrorKey == L10n.Relay.applyActiveTransfers {
 					self.state.relayApplyErrorKey = nil
 				}
 			}
@@ -296,8 +296,8 @@ final class SettingsModel: ObservableObject {
 			|| coreState.transfers.contains(where: { $0.status.isActiveTransfer })
 		guard !hasActiveWork else {
 			state.hasActiveNetworkWork = true
-			state.relayApplyErrorKey = "relay_apply_active_transfers"
-			messages.show(UiMessage(text: .resource("relay_apply_active_transfers"), tone: .warning))
+			state.relayApplyErrorKey = L10n.Relay.applyActiveTransfers
+			messages.show(UiMessage(text: .resource(L10n.Relay.applyActiveTransfers), tone: .warning))
 			return
 		}
 
@@ -316,16 +316,16 @@ final class SettingsModel: ObservableObject {
 				preferences.setRelayConfiguration(configuration)
 				state.isApplyingRelayConfiguration = false
 				state.relayConfigurationIsDirty = false
-				messages.show(UiMessage(text: .resource("relay_settings_applied"), tone: .success))
+				messages.show(UiMessage(text: .resource(L10n.Relay.settingsApplied), tone: .success))
 			case .failure(let error):
 				if let lifecycleError = error as? CoreNetworkLifecycleError {
 					state.isApplyingRelayConfiguration = false
 					switch lifecycleError {
 					case .activeNetworkWork:
 						state.hasActiveNetworkWork = true
-						state.relayApplyErrorKey = "relay_apply_active_transfers"
+						state.relayApplyErrorKey = L10n.Relay.applyActiveTransfers
 					case .transitionInProgress:
-						state.relayApplyErrorKey = "relay_apply_failed"
+						state.relayApplyErrorKey = L10n.Relay.applyFailed
 					}
 					return
 				}
@@ -335,11 +335,11 @@ final class SettingsModel: ObservableObject {
 				)
 				state.isApplyingRelayConfiguration = false
 				if case .success = rollbackResult {
-					state.relayApplyErrorKey = "relay_apply_failed"
-					messages.show(UiMessage(text: .resource("relay_apply_failed"), tone: .error))
+					state.relayApplyErrorKey = L10n.Relay.applyFailed
+					messages.show(UiMessage(text: .resource(L10n.Relay.applyFailed), tone: .error))
 				} else {
-					state.relayApplyErrorKey = "relay_restore_failed"
-					messages.show(UiMessage(text: .resource("relay_restore_failed"), tone: .error))
+					state.relayApplyErrorKey = L10n.Relay.restoreFailed
+					messages.show(UiMessage(text: .resource(L10n.Relay.restoreFailed), tone: .error))
 				}
 			}
 		}

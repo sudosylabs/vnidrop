@@ -303,9 +303,9 @@ struct TransferSharePanel: View {
 				image.interpolation(.none).resizable().scaledToFit().padding(14)
 			} else {
 				VStack(spacing: 10) {
-					Image(systemName: "qrcode")
+					Image(systemSymbol: .qrcode)
 						.font(.system(size: 36, weight: .medium))
-					Text(LocalizedStringKey("transfer_qr_unavailable"))
+					Text(String(localized: L10n.Transfer.qrUnavailable))
 						.font(VniType.bodySmall)
 						.multilineTextAlignment(.center)
 				}

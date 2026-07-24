@@ -93,22 +93,22 @@ struct NetworkSettings: View {
 		} header: {
 			Text(String(localized: L10n.Settings.networkTitle))
 		} footer: {
-			Text(LocalizedStringKey(relayModeDescriptionKey(model.state.relayMode)))
+			Text(String(localized: relayModeDescription(model.state.relayMode)))
 		}
 
 		Section {
 			Label {
-				Text(LocalizedStringKey("relay_privacy_description"))
+				Text(String(localized: L10n.Relay.privacyDescription))
 					.fixedSize(horizontal: false, vertical: true)
 			} icon: {
-				Image(systemName: "lock.shield")
+				Image(systemSymbol: .lockShield)
 			}
 			.foregroundStyle(.secondary)
 		}
 
 		if let endpointId = model.state.endpointId, !endpointId.isEmpty {
 			Section {
-				Text(String(format: String(localized: "approval_endpoint_id"), endpointId))
+				Text(L10n.Approval.endpointId(deviceId: endpointId))
 					.font(.footnote.monospaced())
 					.textSelection(.enabled)
 			}
@@ -118,10 +118,10 @@ struct NetworkSettings: View {
 			Section {
 				if model.state.relayMode == .strictCustom {
 					Label {
-						Text(LocalizedStringKey("relay_strict_warning"))
+						Text(String(localized: L10n.Relay.strictWarning))
 							.fixedSize(horizontal: false, vertical: true)
 					} icon: {
-						Image(systemName: "exclamationmark.shield.fill")
+						Image(systemSymbol: .exclamationmarkShieldFill)
 					}
 					.foregroundStyle(.orange)
 				}
@@ -154,10 +154,10 @@ struct NetworkSettings: View {
 							Button(role: .destructive) {
 								model.removeRelayURL(at: index)
 							} label: {
-								Image(systemName: "minus.circle.fill")
+								Image(systemSymbol: .minusCircleFill)
 							}
 							.buttonStyle(.borderless)
-							.accessibilityLabel(Text(LocalizedStringKey("relay_remove_url")))
+							.accessibilityLabel(Text(String(localized: L10n.Relay.removeUrl)))
 							.disabled(model.state.isApplyingRelayConfiguration)
 						}
 
@@ -170,16 +170,16 @@ struct NetworkSettings: View {
 				}
 
 				Button(action: model.addRelayURL) {
-					Label(String(localized: "relay_add_url"), systemImage: "plus.circle")
+					Label(String(localized: L10n.Relay.addUrl), systemSymbol: .plusCircle)
 				}
 				.disabled(
 					model.state.relayURLs.count >= RelayConfigurationValidator.maximumRelayCount
 						|| model.state.isApplyingRelayConfiguration
 				)
 			} header: {
-				Text(LocalizedStringKey("relay_custom_urls_label"))
+				Text(String(localized: L10n.Relay.customUrlsLabel))
 			} footer: {
-				Text(LocalizedStringKey("relay_custom_urls_help"))
+				Text(String(localized: L10n.Relay.customUrlsHelp))
 			}
 		}
 
@@ -188,7 +188,7 @@ struct NetworkSettings: View {
 				Label {
 					Text(relayValidationMessage(error))
 				} icon: {
-					Image(systemName: "exclamationmark.triangle.fill")
+					Image(systemSymbol: .exclamationmarkTriangleFill)
 				}
 				.foregroundStyle(.red)
 			}
@@ -197,13 +197,9 @@ struct NetworkSettings: View {
 		if model.state.hasActiveNetworkWork || model.state.relayApplyErrorKey != nil {
 			Section {
 				Label {
-					Text(LocalizedStringKey(
-						model.state.hasActiveNetworkWork
-							? "relay_apply_active_transfers"
-							: model.state.relayApplyErrorKey ?? "relay_apply_failed"
-					))
+					Text(String(localized: model.state.hasActiveNetworkWork ? L10n.Relay.applyActiveTransfers : (model.state.relayApplyErrorKey ?? L10n.Relay.applyFailed)))
 				} icon: {
-					Image(systemName: "exclamationmark.triangle.fill")
+					Image(systemSymbol: .exclamationmarkTriangleFill)
 				}
 				.foregroundStyle(.red)
 			}
@@ -212,9 +208,7 @@ struct NetworkSettings: View {
 		Section {
 			Button(action: model.applyRelayConfiguration) {
 				HStack {
-					Text(LocalizedStringKey(
-						model.state.isApplyingRelayConfiguration ? "relay_applying" : "relay_apply"
-					))
+					Text(String(localized: model.state.isApplyingRelayConfiguration ? L10n.Relay.applying : L10n.Relay.apply))
 					if model.state.isApplyingRelayConfiguration {
 						Spacer()
 						ProgressView()
@@ -227,7 +221,7 @@ struct NetworkSettings: View {
 					|| model.state.hasActiveNetworkWork
 			)
 		} footer: {
-			Text(LocalizedStringKey("relay_apply_restart_description"))
+			Text(String(localized: L10n.Relay.applyRestartDescription))
 		}
 	}
 }
@@ -235,18 +229,15 @@ struct NetworkSettings: View {
 private func relayValidationMessage(_ error: RelayConfigurationValidationError) -> String {
 	switch error {
 	case .missingURL:
-		return String(localized: "relay_validation_missing_url")
+		return String(localized: L10n.Relay.validationMissingUrl)
 	case .tooManyURLs:
-		return String(
-			format: String(localized: "relay_validation_too_many_urls"),
-			RelayConfigurationValidator.maximumRelayCount
-		)
+		return L10n.Relay.validationTooManyUrls(maximum: RelayConfigurationValidator.maximumRelayCount)
 	case .httpsRequired(let index):
-		return String(format: String(localized: "relay_validation_https_required"), index + 1)
+		return L10n.Relay.validationHttpsRequired(line: index + 1)
 	case .invalidURL(let index):
-		return String(format: String(localized: "relay_validation_invalid_url"), index + 1)
+		return L10n.Relay.validationInvalidUrl(line: index + 1)
 	case .duplicateURL(let index):
-		return String(format: String(localized: "relay_validation_duplicate_url"), index + 1)
+		return L10n.Relay.validationDuplicateUrl(line: index + 1)
 	}
 }
 

@@ -125,19 +125,19 @@ private struct SettingsSectionContent: View {
 
 func relayModeLabel(_ mode: RelayPreferenceMode) -> String {
 	switch mode {
-	case .automatic: return String(localized: "relay_mode_automatic")
-	case .strictCustom: return String(localized: "relay_mode_custom")
-	case .customWithDirectFallback: return String(localized: "relay_mode_custom_direct_fallback")
-	case .localOnly: return String(localized: "relay_mode_local_only")
+	case .automatic: return String(localized: L10n.Relay.modeAutomatic)
+	case .strictCustom: return String(localized: L10n.Relay.modeCustom)
+	case .customWithDirectFallback: return String(localized: L10n.Relay.modeCustomDirectFallback)
+	case .localOnly: return String(localized: L10n.Relay.modeLocalOnly)
 	}
 }
 
-func relayModeDescriptionKey(_ mode: RelayPreferenceMode) -> String {
+func relayModeDescription(_ mode: RelayPreferenceMode) -> String.LocalizationValue {
 	switch mode {
-	case .automatic: return "relay_mode_automatic_description"
-	case .strictCustom: return "relay_mode_custom_description"
-	case .customWithDirectFallback: return "relay_mode_custom_direct_fallback_description"
-	case .localOnly: return "relay_mode_local_only_description"
+	case .automatic: return L10n.Relay.modeAutomaticDescription
+	case .strictCustom: return L10n.Relay.modeCustomDescription
+	case .customWithDirectFallback: return L10n.Relay.modeCustomDirectFallbackDescription
+	case .localOnly: return L10n.Relay.modeLocalOnlyDescription
 	}
 }
 

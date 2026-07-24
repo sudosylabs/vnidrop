@@ -1948,6 +1948,50 @@
         "ru": "Передача получена"
       }
     },
+    "notifications_receiver_failed_body": {
+      "context": "Notification body shown to the sender when a receiver's download fails. {receiver} = receiver name, {transferName} = transfer name.",
+      "targets": [
+        "apple"
+      ],
+      "args": [
+        {
+          "name": "receiver",
+          "type": "string"
+        },
+        {
+          "name": "transferName",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "{receiver} couldn't receive “{transferName}”",
+        "fr": "{receiver} n'a pas pu recevoir « {transferName} »",
+        "es": "{receiver} no pudo recibir «{transferName}»",
+        "it": "{receiver} non ha potuto ricevere “{transferName}”",
+        "de": "{receiver} konnte „{transferName}“ nicht empfangen",
+        "pt": "{receiver} não conseguiu receber “{transferName}”",
+        "pl": "{receiver} nie mógł odebrać „{transferName}”",
+        "nl": "{receiver} kon “{transferName}” niet ontvangen",
+        "ru": "{receiver} не удалось получить «{transferName}»"
+      }
+    },
+    "notifications_receiver_failed_title": {
+      "context": "Notification title shown to the sender when a receiver's download fails.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "Delivery failed",
+        "fr": "Échec de l'envoi",
+        "es": "Error en la entrega",
+        "it": "Consegna non riuscita",
+        "de": "Übertragung fehlgeschlagen",
+        "pt": "Falha na entrega",
+        "pl": "Dostarczenie nie powiodło się",
+        "nl": "Levering mislukt",
+        "ru": "Ошибка доставки"
+      }
+    },
     "notifications_send_failed_body": {
       "context": "Notification body shown to the sender when a shared transfer fails. {transferName} = transfer name.",
       "targets": [

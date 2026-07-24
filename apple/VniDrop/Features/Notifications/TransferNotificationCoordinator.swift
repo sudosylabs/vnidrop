@@ -7,6 +7,7 @@ enum TransferNotificationKind: Equatable {
 	case receiveCompleted    // An incoming transfer finished downloading.
 	case receiveFailed       // An incoming transfer failed.
 	case receiverCompleted   // A receiver finished downloading your shared transfer.
+	case receiverFailed      // A receiver's download of your shared transfer failed.
 }
 
 /// A notification resolved from core state but not yet published. `transferName`
@@ -39,11 +40,17 @@ func plannedTransferNotifications(_ transfers: [Transfer], published: Set<String
 /// transfer, excluding already-published ids.
 func plannedReceiverNotifications(_ requests: [ReceiverRequestModel], published: Set<String>) -> [PlannedNotification] {
 	requests.compactMap { request in
-		guard request.status == .completed else { return nil }
-		let id = "receiver-completed-\(request.id)"
+		let kind: TransferNotificationKind
+		let idPrefix: String
+		switch request.status {
+		case .completed: kind = .receiverCompleted; idPrefix = "receiver-completed"
+		case .failed: kind = .receiverFailed; idPrefix = "receiver-failed"
+		default: return nil
+		}
+		let id = "\(idPrefix)-\(request.id)"
 		guard !published.contains(id) else { return nil }
 		return PlannedNotification(
-			id: id, kind: .receiverCompleted,
+			id: id, kind: kind,
 			transferName: request.transferName,
 			receiver: request.receiverName ?? request.receiverDeviceName
 		)
@@ -56,6 +63,7 @@ private func transferNotificationId(_ kind: TransferNotificationKind, transferId
 	case .receiveCompleted: return "receive-completed-\(transferId)"
 	case .receiveFailed: return "receive-failed-\(transferId)"
 	case .receiverCompleted: return "receiver-completed-\(transferId)"
+	case .receiverFailed: return "receiver-failed-\(transferId)"
 	}
 }
 
@@ -176,6 +184,12 @@ final class TransferNotificationCoordinator: ObservableObject {
 				id: plan.id,
 				title: String(localized: L10n.Notifications.receiverCompletedTitle),
 				body: L10n.Notifications.receiverCompletedBody(receiver: receiver, transferName: name))
+		case .receiverFailed:
+			let receiver = plan.receiver ?? String(localized: L10n.Approval.nearbyDevice)
+			notification = LocalNotification(
+				id: plan.id,
+				title: String(localized: L10n.Notifications.receiverFailedTitle),
+				body: L10n.Notifications.receiverFailedBody(receiver: receiver, transferName: name))
 		}
 		if case .failure(let error) = await notifications.publish(notification) {
 			messages.error(error)

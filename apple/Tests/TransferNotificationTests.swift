@@ -41,4 +41,11 @@ final class TransferNotificationTests: XCTestCase {
 		let requests = [Fixtures.request(id: "a", requestedAt: 1, status: .completed)]
 		XCTAssertTrue(plannedReceiverNotifications(requests, published: ["receiver-completed-a"]).isEmpty)
 	}
+
+	func testReceiverNotificationsFireForFailedReceivers() {
+		let requests = [Fixtures.request(id: "x", requestedAt: 1, status: .failed)]
+		let planned = plannedReceiverNotifications(requests, published: [])
+		XCTAssertEqual(planned.map(\.id), ["receiver-failed-x"])
+		XCTAssertEqual(planned.first?.kind, .receiverFailed)
+	}
 }

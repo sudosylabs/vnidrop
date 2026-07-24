@@ -118,7 +118,7 @@
     <string name="nav_send">Versturen</string>
     <string name="nav_settings">Instellingen</string>
     <string name="network_title">Netwerk</string>
-    <string name="notifications_description">Ontvang meldingen over overdrachtsactiviteit terwijl VniDrop op de achtergrond draait.</string>
+    <string name="notifications_description">Ontvang meldingen over nieuwe ontvangstverzoeken terwijl VniDrop op de achtergrond draait.</string>
     <string name="notifications_enabled_message">Meldingen ingeschakeld.</string>
     <string name="notifications_local_title">Meldingen toestaan</string>
     <string name="notifications_permission_denied">Meldingen zijn uitgeschakeld voor VniDrop. U kunt ze inschakelen in Instellingen.</string>
@@ -246,7 +246,7 @@
     <string name="storage_usage_header">Op dit apparaat</string>
     <string name="storage_free_up_space">Ruimte vrijmaken</string>
     <string name="storage_delete_transfers">Alle overdrachten verwijderen</string>
-    <string name="storage_delete_transfers_description">Hiermee worden alle records van verzonden en ontvangen overdrachten uit uw geschiedenis gewist. Uw ontvangen bestanden worden niet verwijderd. Gedeelde inhoud in de cache die niet meer nodig is, wordt automatisch opgeruimd; dit kan enige tijd duren. Dit kan niet ongedaan worden gemaakt.</string>
+    <string name="storage_delete_transfers_description">Hiermee worden alle verzonden en ontvangen overdrachten uit de geschiedenis gewist en wordt ongebruikte overdrachtscache direct vrijgemaakt. Lopende overdrachten en ontvangen bestanden worden niet verwijderd. Dit kan niet ongedaan worden gemaakt.</string>
     <string name="storage_app_data">Appgegevens</string>
     <string name="storage_deleting">Verwijderen…</string>
     <string name="storage_footer">Overdrachtsgegevens omvatten uw geschiedenis en inhoud in de cache voor actieve shares. Onnodige cache wordt automatisch opgeruimd nadat overdrachtsrecords zijn verwijderd; dit kan enige tijd duren. Ontvangen bestanden worden voor dit overzicht bijgehouden, maar hier nooit verwijderd.</string>

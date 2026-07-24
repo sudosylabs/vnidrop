@@ -118,7 +118,7 @@
     <string name="nav_send">Invia</string>
     <string name="nav_settings">Impostazioni</string>
     <string name="network_title">Rete</string>
-    <string name="notifications_description">Ricevi avvisi sull’attività dei trasferimenti quando VniDrop è in background.</string>
+    <string name="notifications_description">Ricevi avvisi sulle nuove richieste di ricezione quando VniDrop è in background.</string>
     <string name="notifications_enabled_message">Notifiche attivate.</string>
     <string name="notifications_local_title">Consenti le notifiche</string>
     <string name="notifications_permission_denied">Le notifiche sono disattivate per VniDrop. Può attivarle in Impostazioni.</string>
@@ -246,7 +246,7 @@
     <string name="storage_usage_header">Su questo dispositivo</string>
     <string name="storage_free_up_space">Libera spazio</string>
     <string name="storage_delete_transfers">Elimina tutti i trasferimenti</string>
-    <string name="storage_delete_transfers_description">Questo cancella dalla cronologia tutti i record dei trasferimenti inviati e ricevuti. I file ricevuti non vengono eliminati. Il contenuto condiviso nella cache che non serve più viene recuperato automaticamente, operazione che può richiedere un po’ di tempo. Questa azione non può essere annullata.</string>
+    <string name="storage_delete_transfers_description">Elimina dalla cronologia tutti i trasferimenti inviati e ricevuti e libera immediatamente la cache inutilizzata. I trasferimenti in corso e i file ricevuti non vengono eliminati. Questa azione non può essere annullata.</string>
     <string name="storage_app_data">Dati dell’app</string>
     <string name="storage_deleting">Eliminazione…</string>
     <string name="storage_footer">I dati di trasferimento includono la cronologia e il contenuto nella cache per le condivisioni attive. La cache non necessaria viene recuperata automaticamente dopo la rimozione dei record, operazione che può richiedere un po’ di tempo. I file ricevuti vengono monitorati per questo riepilogo, ma non sono mai eliminati qui.</string>

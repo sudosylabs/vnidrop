@@ -118,7 +118,7 @@
     <string name="nav_send">Wyślij</string>
     <string name="nav_settings">Ustawienia</string>
     <string name="network_title">Sieć</string>
-    <string name="notifications_description">Otrzymuj powiadomienia o aktywności transferów, gdy VniDrop działa w tle.</string>
+    <string name="notifications_description">Otrzymuj powiadomienia o nowych prośbach o odbiór, gdy VniDrop działa w tle.</string>
     <string name="notifications_enabled_message">Powiadomienia włączone.</string>
     <string name="notifications_local_title">Zezwól na powiadomienia</string>
     <string name="notifications_permission_denied">Powiadomienia są wyłączone dla VniDrop. Możesz je włączyć w Ustawieniach.</string>
@@ -246,7 +246,7 @@
     <string name="storage_usage_header">Na tym urządzeniu</string>
     <string name="storage_free_up_space">Zwolnij miejsce</string>
     <string name="storage_delete_transfers">Usuń wszystkie transfery</string>
-    <string name="storage_delete_transfers_description">Spowoduje to usunięcie z historii wszystkich rekordów wysłanych i odebranych transferów. Odebrane pliki nie zostaną usunięte. Niepotrzebna już zawartość udostępniona w pamięci podręcznej jest odzyskiwana automatycznie, co może chwilę potrwać. Tej operacji nie można cofnąć.</string>
+    <string name="storage_delete_transfers_description">Usuwa z historii wszystkie wysłane i odebrane transfery oraz natychmiast zwalnia nieużywaną pamięć podręczną. Trwające transfery i odebrane pliki nie są usuwane. Tej operacji nie można cofnąć.</string>
     <string name="storage_app_data">Dane aplikacji</string>
     <string name="storage_deleting">Usuwanie…</string>
     <string name="storage_footer">Dane transferu obejmują historię oraz zawartość w pamięci podręcznej dla aktywnych udostępnień. Niepotrzebna pamięć podręczna jest odzyskiwana automatycznie po usunięciu rekordów, co może chwilę potrwać. Odebrane pliki są śledzone na potrzeby tego podsumowania, ale nigdy nie są tu usuwane.</string>

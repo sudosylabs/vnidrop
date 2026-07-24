@@ -118,7 +118,7 @@
     <string name="nav_send">Send</string>
     <string name="nav_settings">Settings</string>
     <string name="network_title">Network</string>
-    <string name="notifications_description">Get notified about transfer activity while VniDrop is in the background.</string>
+    <string name="notifications_description">Get notified about new receive requests while VniDrop is in the background.</string>
     <string name="notifications_enabled_message">Notifications enabled.</string>
     <string name="notifications_local_title">Allow notifications</string>
     <string name="notifications_permission_denied">Notifications are turned off for VniDrop. You can enable them in Settings.</string>
@@ -246,7 +246,7 @@
     <string name="storage_usage_header">On this device</string>
     <string name="storage_free_up_space">Free up space</string>
     <string name="storage_delete_transfers">Delete all transfers</string>
-    <string name="storage_delete_transfers_description">This clears all sent and received transfer records from your history. Your received files are not deleted. Cached shared content that is no longer needed is reclaimed automatically, which may take a little time. This can’t be undone.</string>
+    <string name="storage_delete_transfers_description">This clears all sent and received transfer records from your history and immediately reclaims unused transfer cache. Ongoing transfers and received files are not deleted. This can’t be undone.</string>
     <string name="storage_app_data">App data</string>
     <string name="storage_deleting">Deleting…</string>
     <string name="storage_footer">Transfer data includes your history and cached content for active shares. Unneeded cache is reclaimed automatically after transfer records are removed, which may take a little time. Received files are tracked for this summary but are never deleted here.</string>

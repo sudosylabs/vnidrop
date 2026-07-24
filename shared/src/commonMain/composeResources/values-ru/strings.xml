@@ -118,7 +118,7 @@
     <string name="nav_send">Отправить</string>
     <string name="nav_settings">Настройки</string>
     <string name="network_title">Сеть</string>
-    <string name="notifications_description">Получайте уведомления об активности передач, пока VniDrop работает в фоне.</string>
+    <string name="notifications_description">Получайте уведомления о новых запросах на получение, пока VniDrop работает в фоне.</string>
     <string name="notifications_enabled_message">Уведомления включены.</string>
     <string name="notifications_local_title">Разрешить уведомления</string>
     <string name="notifications_permission_denied">Уведомления отключены для VniDrop. Вы можете включить их в Настройках.</string>
@@ -246,7 +246,7 @@
     <string name="storage_usage_header">На этом устройстве</string>
     <string name="storage_free_up_space">Освободить место</string>
     <string name="storage_delete_transfers">Удалить все передачи</string>
-    <string name="storage_delete_transfers_description">Это удалит из истории все записи об отправленных и полученных передачах. Полученные файлы не удаляются. Кэшированное общее содержимое, которое больше не требуется, освобождается автоматически; это может занять некоторое время. Это действие нельзя отменить.</string>
+    <string name="storage_delete_transfers_description">Это удалит из истории все отправленные и полученные передачи и немедленно освободит неиспользуемый кэш. Текущие передачи и полученные файлы не удаляются. Это действие нельзя отменить.</string>
     <string name="storage_app_data">Данные приложения</string>
     <string name="storage_deleting">Удаление…</string>
     <string name="storage_footer">Данные передачи включают историю и кэшированное содержимое активных раздач. Ненужный кэш освобождается автоматически после удаления записей; это может занять некоторое время. Полученные файлы учитываются в этой сводке, но никогда не удаляются здесь.</string>

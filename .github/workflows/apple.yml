@@ -65,6 +65,10 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Install SwiftLint
+        # Required by the VniDrop target's SwiftLint build phase (typed-resources rules).
+        run: brew install swiftlint
+
       - name: Install Bun
         # The Apple l10n catalog (Localizable.xcstrings) and L10n.swift are
         # generated from localization/strings.json at build time, not tracked.

@@ -3700,10 +3700,10 @@
     "storage_delete_transfers_caption": {
       "context": "Settings > Storage: caption under the destructive delete-all button.",
       "translations": {
-        "en": "Clears your send and receive history and the app's cached share content. Received files on disk are kept.",
-        "fr": "Efface votre historique d'envois et de réceptions ainsi que le contenu de partage mis en cache par l'app. Les fichiers reçus sur le disque sont conservés.",
+        "en": "Clears your send and receive history and the app’s cached share content. Received files on disk are kept.",
+        "fr": "Efface votre historique d’envois et de réceptions ainsi que le contenu de partage mis en cache par l’app. Les fichiers reçus sur le disque sont conservés.",
         "es": "Borra tu historial de envíos y recepciones y el contenido compartido en caché de la app. Los archivos recibidos en el disco se conservan.",
-        "it": "Cancella la cronologia di invii e ricezioni e i contenuti di condivisione memorizzati dall'app. I file ricevuti sul disco vengono mantenuti.",
+        "it": "Cancella la cronologia di invii e ricezioni e i contenuti di condivisione memorizzati dall’app. I file ricevuti sul disco vengono mantenuti.",
         "de": "Löscht deinen Sende- und Empfangsverlauf sowie die zwischengespeicherten Freigabeinhalte der App. Empfangene Dateien auf dem Datenträger bleiben erhalten.",
         "pt": "Limpa o teu histórico de envios e receções e o conteúdo de partilha em cache da app. Os ficheiros recebidos no disco são mantidos.",
         "pl": "Czyści historię wysyłania i odbierania oraz zapisane w pamięci podręcznej udostępniane treści. Odebrane pliki na dysku zostają zachowane.",

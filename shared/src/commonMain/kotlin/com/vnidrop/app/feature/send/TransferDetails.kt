@@ -104,7 +104,7 @@ internal fun TransferDetails(
 				if (transfer.status in setOf(TransferStatus.Importing, TransferStatus.Sharing)) {
 					IconButton(onClick = onShare) {
 						PlatformIcon(
-							AppIcon.Send,
+							AppIcon.Share,
 							stringResource(Res.string.transfer_share_title),
 							tint = LocalVniDropColors.current.brandLink,
 						)
@@ -147,12 +147,18 @@ internal fun TransferDetails(
 						stringResource(Res.string.send_stop_sharing),
 						onClick = onStopSharing,
 						modifier = Modifier.fillMaxWidth(),
+						leadingIcon = {
+							PlatformIcon(AppIcon.StopCircle, null, modifier = Modifier.size(18.dp))
+						},
 					)
 				}
 				DestructiveButton(
 					stringResource(Res.string.button_delete_transfer),
 					onClick = onDelete,
 					modifier = Modifier.fillMaxWidth(),
+					leadingIcon = {
+						PlatformIcon(AppIcon.Delete, null, modifier = Modifier.size(18.dp))
+					},
 				)
 			}
 		}

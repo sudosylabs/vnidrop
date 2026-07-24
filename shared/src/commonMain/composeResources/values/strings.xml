@@ -249,7 +249,7 @@
     <string name="storage_clear_transfer_cache">Clear transfer cache</string>
     <string name="storage_clear_transfer_cache_description">Removes cached transfer content after briefly restarting VniDrop. Finish ongoing transfers and stop active shares first. Received files and transfer history are not deleted.</string>
     <string name="storage_clearing_transfer_cache">Clearing cache…</string>
-    <string name="storage_delete_transfers_caption">Clears your send and receive history and the app\'s cached share content. Received files on disk are kept.</string>
+    <string name="storage_delete_transfers_caption">Clears your send and receive history and the app’s cached share content. Received files on disk are kept.</string>
     <string name="storage_free_up_space_caption">Removes temporary files and leftover trash from earlier transfers. Your transfers and received files are kept.</string>
     <string name="storage_refresh">Refresh</string>
     <string name="storage_transfer_cache_cleared">Transfer cache cleared</string>

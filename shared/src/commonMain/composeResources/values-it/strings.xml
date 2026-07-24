@@ -249,7 +249,7 @@
     <string name="storage_clear_transfer_cache">Svuota cache trasferimenti</string>
     <string name="storage_clear_transfer_cache_description">Rimuove il contenuto dei trasferimenti memorizzato nella cache che non è usato da una ricezione in corso o da una condivisione attiva. I file ricevuti e la cronologia non vengono eliminati.</string>
     <string name="storage_clearing_transfer_cache">Svuotamento cache…</string>
-    <string name="storage_delete_transfers_caption">Cancella la cronologia di invii e ricezioni e i contenuti di condivisione memorizzati dall\'app. I file ricevuti sul disco vengono mantenuti.</string>
+    <string name="storage_delete_transfers_caption">Cancella la cronologia di invii e ricezioni e i contenuti di condivisione memorizzati dall’app. I file ricevuti sul disco vengono mantenuti.</string>
     <string name="storage_free_up_space_caption">Rimuove i file temporanei e i residui dei trasferimenti precedenti. I tuoi trasferimenti e i file ricevuti vengono mantenuti.</string>
     <string name="storage_refresh">Aggiorna</string>
     <string name="storage_transfer_cache_cleared">Cache trasferimenti svuotata</string>

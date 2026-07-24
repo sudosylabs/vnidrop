@@ -269,10 +269,10 @@ private fun TransferActionsMenu(
 				contentDescription = moreActionsLabel
 			},
 		) {
-			Text(
-				"⋮",
-				style = MaterialTheme.typography.headlineSmall,
-				color = LocalVniDropColors.current.foregroundLighter,
+			PlatformIcon(
+				AppIcon.MoreVertical,
+				contentDescription = null,
+				tint = LocalVniDropColors.current.foregroundLighter,
 			)
 		}
 		DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -283,7 +283,7 @@ private fun TransferActionsMenu(
 						expanded = false
 						onShare()
 					},
-					leadingIcon = { PlatformIcon(AppIcon.Send, contentDescription = null) },
+					leadingIcon = { PlatformIcon(AppIcon.Share, contentDescription = null) },
 				)
 			}
 			if (transfer.status == TransferStatus.Sharing) {
@@ -293,7 +293,7 @@ private fun TransferActionsMenu(
 						expanded = false
 						onStopSharing()
 					},
-					leadingIcon = { PlatformIcon(AppIcon.Close, contentDescription = null) },
+					leadingIcon = { PlatformIcon(AppIcon.StopCircle, contentDescription = null) },
 				)
 			}
 			DropdownMenuItem(

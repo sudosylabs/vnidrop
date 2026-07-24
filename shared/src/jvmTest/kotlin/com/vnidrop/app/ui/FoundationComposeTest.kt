@@ -40,6 +40,7 @@ import com.vnidrop.app.feature.receive.ReceiveState
 import com.vnidrop.app.feature.settings.SettingsScreen
 import com.vnidrop.app.feature.settings.SettingsSection
 import com.vnidrop.app.feature.settings.SettingsState
+import com.vnidrop.app.feature.settings.StorageBreakdown
 import com.vnidrop.app.feature.settings.SettingsOverview
 import com.vnidrop.app.feature.send.SendScreen
 import com.vnidrop.app.feature.send.SendState
@@ -221,6 +222,48 @@ class FoundationComposeTest {
 
 		onNodeWithTag("confirm-delete-all-transfers").performClick()
 		runOnIdle { assertTrue(deleteRequested) }
+	}
+
+	@Test
+	fun storageKeepsCurrentUsageVisibleWhileRefreshing() = runComposeUiTest {
+		setContent {
+			VniDropTheme(isDarkTheme = false) {
+				SettingsScreen(
+					state = SettingsState(
+						selectedSection = SettingsSection.Storage,
+						isCalculatingStorage = true,
+						storage = StorageBreakdown(
+							transferCacheBytes = 1UL,
+							appDataBytes = 2UL,
+							temporaryBytes = 3UL,
+							receivedBytes = 4UL,
+							receivedFileCount = 1,
+							missingReceivedFileCount = 0,
+							inaccessibleReceivedFileCount = 0,
+						),
+					),
+					windowClass = WindowClass.Desktop,
+					onSectionSelected = {},
+					onUsernameChanged = {},
+					onThemeModeChanged = {},
+					onChooseFolder = {},
+					onResetFolder = {},
+					onNotificationsChanged = {},
+					onOpenNotificationSettings = {},
+					onDiagnosticsChanged = {},
+					onBugWhatChanged = {},
+					onBugExpectedChanged = {},
+					onBugStepsChanged = {},
+					onBugContactChanged = {},
+					onBugIncludeLogsChanged = {},
+					onSubmitBugReport = {},
+				)
+			}
+		}
+
+		onNodeWithText("Received files").assertIsDisplayed()
+		onNodeWithText("Transfer data").assertIsDisplayed()
+		onAllNodesWithText("Calculating storage usage…").assertCountEquals(0)
 	}
 
 	@Test

@@ -26,6 +26,27 @@ private final class NotificationPresenter: NSObject, UNUserNotificationCenterDel
 	) async -> UNNotificationPresentationOptions {
 		[.banner, .sound, .list]
 	}
+
+	/// Handle a notification tap inside the running instance and bring the existing
+	/// window forward, rather than letting the default launch behavior surface (which
+	/// on macOS can spin up a second process). The approval/transfer UI is driven by
+	/// core state, so activating the window is enough to reveal a pending approval.
+	func userNotificationCenter(
+		_ center: UNUserNotificationCenter,
+		didReceive response: UNNotificationResponse
+	) async {
+		#if os(macOS)
+		await MainActor.run {
+			NSApp.activate(ignoringOtherApps: true)
+			// Reopen/focus the single main window (activation triggers SwiftUI's
+			// reopen handling when it was closed).
+			for window in NSApp.windows where window.canBecomeMain {
+				window.makeKeyAndOrderFront(nil)
+				break
+			}
+		}
+		#endif
+	}
 }
 
 /// Local notification service backed by `UNUserNotificationCenter`.

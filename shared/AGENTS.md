@@ -32,7 +32,7 @@ lists, animation, accessibility:
 | Architecture | Keep **MVVM-style** ViewModels: immutable `*State`, `StateFlow`, **named methods**. Do not force MVI `onEvent` sealed hierarchies unless asked. |
 | Structure | Feature packages under `com.vnidrop.app.feature.*`; thin route/wiring + screen/composables. |
 | Theme | Only `LocalVniDropColors` / `VniDropThemeTokens` (`ui/theme/VniDropTheme.kt`). Brand primary light ≈ `#A855F7` (HSL 271, 91%, 65%). |
-| Strings | CMP composeResources / `Res.string.*` — not Android `R` in `commonMain`. |
+| Strings | CMP composeResources / `Res.string.*` — not Android `R` in `commonMain`. `values*/strings.xml` are **generated** from `localization/strings.json` (source of truth) via the loc CLI — add/edit keys there, never in the XML. |
 | DI | Follow existing `AppGraph` construction; no unprompted Hilt/Koin migration. |
 | Platform | `androidMain` / `jvmMain` for pickers, SAF, NFC/QR, and desktop integration. |
 | Dependencies | Before adding Jetpack/AndroidX to `commonMain`, verify multiplatform artifacts for all targets. |

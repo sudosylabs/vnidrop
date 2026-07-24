@@ -48,6 +48,9 @@ class FakeCoreGateway : CoreGateway {
 	private var receiveGate: CompletableDeferred<Unit>? = null
 	var deleteResult: Result<Unit> = Result.success(Unit)
 	var clearTransferCacheResult: Result<ULong> = Result.success(0UL)
+	var storageUsageResult: Result<CoreStorageUsageModel> = Result.success(
+		CoreStorageUsageModel(0UL, 0UL, 0UL, 0UL, 0UL),
+	)
 	var clearReceiveHistoryResult: Result<ULong> = Result.success(0UL)
 	val deletedTransfers = mutableListOf<ULong>()
 	val cancelledTransfers = mutableListOf<ULong>()
@@ -153,9 +156,7 @@ class FakeCoreGateway : CoreGateway {
 		awaitReceiveIfNeeded()
 		return receiveResult
 	}
-	override suspend fun storageUsage(): Result<CoreStorageUsageModel> = Result.success(
-		CoreStorageUsageModel(0UL, 0UL, 0UL, 0UL, 0UL),
-	)
+	override suspend fun storageUsage(): Result<CoreStorageUsageModel> = storageUsageResult
 	override suspend fun clearTransferCache(): Result<ULong> {
 		clearTransferCacheCount += 1
 		return clearTransferCacheResult
@@ -248,6 +249,8 @@ class FakeFileSystemService(
 	var supportsCustomFolders = true
 	var effectiveFolder: ReceiveFolder? = null
 	var canRevealFolder = false
+	var reclaimedTemporaryBytes = 0UL
+	var reclaimTemporaryStorageCount = 0
 	var revealFolderResult: Result<Unit> = Result.success(Unit)
 	val revealedFolders = mutableListOf<ReceiveFolder>()
 	val discardedPickedFiles = mutableListOf<PickedShareFile>()
@@ -259,6 +262,10 @@ class FakeFileSystemService(
 	override suspend fun inspectReceivedArtifacts(artifacts: List<ReceivedArtifactModel>) =
 		ReceivedStorageInspection(artifacts.fold(0UL) { total, item -> total + item.logicalSize }, artifacts.size, 0, 0)
 	override suspend fun temporaryUsage(receiveFolder: ReceiveFolder): ULong = 0UL
+	override suspend fun reclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong {
+		reclaimTemporaryStorageCount += 1
+		return reclaimedTemporaryBytes
+	}
 	override fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2? = null
 	override fun canRevealReceiveFolder(folder: ReceiveFolder) = canRevealFolder
 	override suspend fun revealReceiveFolder(folder: ReceiveFolder): Result<Unit> {

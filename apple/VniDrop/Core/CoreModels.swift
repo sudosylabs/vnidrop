@@ -15,10 +15,56 @@ struct CoreEventModel: Equatable, Identifiable, Sendable {
 	let timestamp: Int64
 	let scope: String
 	let transferId: UInt64?
+	/// Raw wire values as emitted by the core. Interpret them through the typed
+	/// `eventDirection` / `eventPhase` / `eventKind` accessors below — logic code
+	/// should never compare these strings directly.
 	let direction: String?
 	let phase: String
 	let kind: String
 	let dataJson: String
+
+	var eventDirection: EventDirection? { direction.flatMap(EventDirection.init(rawValue:)) }
+	var eventPhase: EventPhase? { EventPhase(rawValue: phase) }
+	var eventKind: EventKind? { EventKind(rawValue: kind) }
+}
+
+/// Direction of a core event, matching the wire strings the core emits.
+enum EventDirection: String, Equatable, Sendable {
+	case send
+	case receive
+}
+
+/// Phase of a core progress event (the `phase` wire field).
+enum EventPhase: String, Equatable, Sendable {
+	case importing = "import"
+	case ticket
+	case access
+	case transfer
+	case download
+	case export
+	case lifecycle
+	case network
+	case handshake
+	case error
+}
+
+/// Kind of a core progress event (the `kind` wire field).
+enum EventKind: String, Equatable, Sendable {
+	case started
+	case copyProgress = "copy-progress"
+	case copyDone = "copy-done"
+	case outboardProgress = "outboard-progress"
+	case done
+	case created
+	case progress
+	case completed
+	case aborted
+	case failed
+	case connecting
+	case connected
+	case foundCollection = "found-collection"
+	case cancelled
+	case shareStopped = "share-stopped"
 }
 
 enum ShareAccessPolicy: Equatable, Sendable {

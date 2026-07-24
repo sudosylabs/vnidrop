@@ -1,6 +1,9 @@
 # XcodeGen spec for the native SwiftUI VniDrop app (iOS/iPadOS/macOS).
 # Regenerate the project with:  xcodegen generate  (run from apple/)
-# Requires the Rust core first:  apple/scripts/build-core.sh debug
+# Requires two generated inputs first (both gitignored), before xcodegen:
+#   - Rust core:      apple/scripts/build-core.sh debug
+#   - Localization:   (cd localization && bun run src/cli.ts generate)
+#                     -> VniDrop/Resources/Localizable.xcstrings, VniDrop/Generated/L10n.swift
 name: VniDrop
 options:
   bundleIdPrefix: com.vnidrop
@@ -9,9 +12,20 @@ options:
     macOS: "15.0"
   createIntermediateGroups: true
 
+# Project-wide build settings (applied to every target/config).
+settings:
+  base:
+    # Strip unreachable code from release binaries.
+    DEAD_CODE_STRIPPING: YES
+    # Flag user-facing strings that aren't localized (the app ships 9 languages).
+    CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED: YES
+
 packages:
   VnidropCore:
     path: VnidropCore
+  SFSafeSymbols:
+    url: https://github.com/SFSafeSymbols/SFSafeSymbols
+    from: "5.3.0"
 
 targets:
   VniDrop:
@@ -41,6 +55,9 @@ targets:
         SWIFT_STRICT_CONCURRENCY: complete
         ENABLE_USER_SCRIPT_SANDBOXING: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # App-wide accent (macOS sidebar selection, default control tints). The
+        # AccentColor asset mirrors VniDropColors.brandPurple — keep them in sync.
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
       configs:
         debug:
           CODE_SIGN_ENTITLEMENTS: VniDrop/Resources/VniDrop.entitlements
@@ -48,9 +65,25 @@ targets:
           CODE_SIGN_ENTITLEMENTS: VniDrop/Resources/VniDrop.entitlements
     dependencies:
       - package: VnidropCore
+      - package: SFSafeSymbols
       - sdk: SystemConfiguration.framework
       - sdk: Security.framework
       - sdk: libresolv.tbd
+    preBuildScripts:
+      # Enforce the typed-resources convention (see .swiftlint.yml). Required: fails
+      # the build if SwiftLint is missing so the rules can't be silently bypassed.
+      - name: SwiftLint (typed resources)
+        basedOnDependencyAnalysis: false
+        script: |
+          # Xcode runs build phases with a minimal PATH that omits Homebrew, so add
+          # the common Homebrew bin dirs (Apple Silicon + Intel) before resolving it.
+          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+          if which swiftlint >/dev/null; then
+            swiftlint lint --config "${SRCROOT}/.swiftlint.yml"
+          else
+            echo "error: SwiftLint not installed — run 'brew install swiftlint'"
+            exit 1
+          fi
 
   VniDropTests:
     type: bundle.unit-test

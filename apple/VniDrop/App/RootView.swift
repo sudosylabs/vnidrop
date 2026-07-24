@@ -1,3 +1,4 @@
+import SFSafeSymbols
 import SwiftUI
 
 /// App root, ported from `App.kt`. Owns the object graph and feature models, wires
@@ -62,6 +63,14 @@ struct RootView: View {
 					onRefuse: approvals.refuse
 				)
 			}
+			.overlay {
+				// A small, unobtrusive indicator while the core finishes its async
+				// startup — otherwise the lists look empty and the app feels stalled.
+				if !sendModel.coreState.isInitialized {
+					CoreStartingOverlay()
+				}
+			}
+			.animation(.easeInOut(duration: 0.25), value: sendModel.coreState.isInitialized)
 			.vniDropTheme(isDark: isDark)
 			.preferredColorScheme(appModel.themeMode.preferredColorScheme)
 			.environment(\.vniColors, isDark ? .dark : .light)
@@ -111,7 +120,7 @@ struct RootView: View {
 		#if os(macOS)
 		NavigationSplitView {
 			List(AppDestination.allCases, selection: sidebarBinding) { destination in
-				Label(LocalizedStringKey(destination.labelKey), systemImage: destination.systemImage)
+				Label(String(localized: destination.labelKey), systemSymbol: destination.systemSymbol)
 					.tag(destination)
 			}
 			.navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
@@ -123,7 +132,7 @@ struct RootView: View {
 			ForEach(AppDestination.allCases) { destination in
 				screen(for: destination, windowClass: windowClass)
 					.tabItem {
-						Label(LocalizedStringKey(destination.labelKey), systemImage: destination.systemImage)
+						Label(String(localized: destination.labelKey), systemSymbol: destination.systemSymbol)
 					}
 					.tag(destination)
 			}
@@ -179,6 +188,32 @@ struct RootView: View {
 				receiveModel.onInvitationResult(.invitationFile, .failure(error))
 			}
 		}
+	}
+}
+
+/// A full-window cover with a centered spinner shown while the core is starting.
+private struct CoreStartingOverlay: View {
+	var body: some View {
+		ZStack {
+			backgroundColor.ignoresSafeArea()
+			VStack(spacing: 16) {
+				ProgressView().controlSize(.large)
+				Text(String(localized: L10n.App.starting))
+					.font(.headline)
+					.foregroundStyle(.secondary)
+			}
+		}
+		.transition(.opacity)
+		.accessibilityElement(children: .combine)
+		.accessibilityLabel(Text(String(localized: L10n.App.starting)))
+	}
+
+	private var backgroundColor: Color {
+		#if os(iOS)
+		Color(uiColor: .systemBackground)
+		#else
+		Color(nsColor: .windowBackgroundColor)
+		#endif
 	}
 }
 

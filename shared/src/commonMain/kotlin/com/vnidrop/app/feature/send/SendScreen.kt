@@ -33,6 +33,8 @@ fun SendScreen(
 	onAccessPolicyChanged: (ShareAccessPolicy) -> Unit,
 	onCreateShare: () -> Unit,
 	onTransferSelected: (ULong) -> Unit,
+	onShareTransfer: (ULong) -> Unit = {},
+	onStopSharing: (ULong) -> Unit = {},
 	onCloseTransferDetails: () -> Unit,
 	onCopyTicket: (String) -> Unit,
 	onActivity: () -> Unit = {},
@@ -41,11 +43,13 @@ fun SendScreen(
 	onCloseDetailPanel: () -> Unit = {},
 	onInvitationResult: (InvitationAction, Result<Unit>) -> Unit = { _, _ -> },
 	onRequestDelete: () -> Unit = {},
+	onRequestDeleteTransfer: (ULong) -> Unit = {},
 	onDismissDelete: () -> Unit = {},
 	onConfirmDelete: () -> Unit = {},
 ) {
 	val outgoingTransfers = coreState.transfers.filter { it.direction == TransferDirection.Send }
 	val selectedTransfer = state.selectedTransferId?.let { id -> outgoingTransfers.firstOrNull { it.transferId == id } }
+	val deleteTarget = state.deleteTargetTransferId?.let { id -> outgoingTransfers.firstOrNull { it.transferId == id } }
 	val qrCache = remember { mutableStateMapOf<String, ImageBitmap>() }
 	LaunchedEffect(outgoingTransfers.mapNotNull { it.ticket }) {
 		qrCache.keys.retainAll(outgoingTransfers.mapNotNull { it.ticket }.toSet())
@@ -64,6 +68,7 @@ fun SendScreen(
 				onActivity = onActivity,
 				onReceivers = onReceivers,
 				onShare = onShare,
+				onStopSharing = { onStopSharing(selectedTransfer.transferId) },
 				onDelete = onRequestDelete,
 			)
 		} else {
@@ -75,6 +80,9 @@ fun SendScreen(
 				windowClass = windowClass,
 				onOpenComposer = onOpenComposer,
 				onTransferSelected = onTransferSelected,
+				onShare = onShareTransfer,
+				onStopSharing = onStopSharing,
+				onDelete = onRequestDeleteTransfer,
 			)
 		}
 	}
@@ -123,10 +131,10 @@ fun SendScreen(
 		}
 	}
 
-	if (selectedTransfer != null && state.isDeleteConfirmationOpen) {
+	if (deleteTarget != null && state.isDeleteConfirmationOpen) {
 		AdaptiveDrawer(windowClass = windowClass, onDismissRequest = onDismissDelete) {
 			DeleteTransferPanel(
-				transferName = selectedTransfer.transferName,
+				transferName = deleteTarget.transferName,
 				isDeleting = state.isDeleting,
 				onCancel = onDismissDelete,
 				onConfirm = onConfirmDelete,

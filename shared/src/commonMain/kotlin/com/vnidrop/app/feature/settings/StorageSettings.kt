@@ -7,9 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.vnidrop.app.ui.components.AdaptiveDrawer
 import com.vnidrop.app.ui.components.DestructiveButton
 import com.vnidrop.app.ui.components.SecondaryButton
+import com.vnidrop.app.ui.icons.AppIcon
+import com.vnidrop.app.ui.icons.PlatformIcon
 import com.vnidrop.app.ui.state.formatBytes
 import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.LocalVniDropColors
@@ -36,9 +37,16 @@ import vnidrop.shared.generated.resources.storage_calculating
 import vnidrop.shared.generated.resources.storage_clear_transfer_cache
 import vnidrop.shared.generated.resources.storage_clear_transfer_cache_description
 import vnidrop.shared.generated.resources.storage_clearing_transfer_cache
+import vnidrop.shared.generated.resources.storage_cleaning
+import vnidrop.shared.generated.resources.storage_delete_transfers_caption
 import vnidrop.shared.generated.resources.storage_delete_transfers
 import vnidrop.shared.generated.resources.storage_delete_transfers_description
 import vnidrop.shared.generated.resources.storage_deleting
+import vnidrop.shared.generated.resources.storage_free_up_space
+import vnidrop.shared.generated.resources.storage_free_up_space_caption
+import vnidrop.shared.generated.resources.storage_refresh
+import vnidrop.shared.generated.resources.storage_unavailable
+import vnidrop.shared.generated.resources.storage_usage_header
 import vnidrop.shared.generated.resources.storage_total
 import vnidrop.shared.generated.resources.storage_received_files
 import vnidrop.shared.generated.resources.storage_temporary
@@ -52,6 +60,8 @@ internal fun StorageSettings(
 	windowClass: WindowClass,
 	onDeleteAllTransfers: () -> Unit,
 	onClearTransferCache: () -> Unit,
+	onFreeUpSpace: () -> Unit,
+	onRefreshStorage: () -> Unit,
 	onBack: () -> Unit,
 	showBack: Boolean,
 ) {
@@ -59,8 +69,37 @@ internal fun StorageSettings(
 	var showClearCacheConfirmation by rememberSaveable { mutableStateOf(false) }
 	Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
 		SettingsTopBar(stringResource(Res.string.storage_title), onBack, showBack)
+		Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+			Text(
+				stringResource(Res.string.storage_usage_header),
+				modifier = Modifier.weight(1f),
+				style = MaterialTheme.typography.titleMedium,
+				fontWeight = FontWeight.SemiBold,
+			)
+			if (state.isCalculatingStorage) {
+				CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+			} else {
+				IconButton(
+					onClick = onRefreshStorage,
+					enabled = !state.isCleaningStorage &&
+						!state.isDeletingTransfers &&
+						!state.isClearingTransferCache,
+				) {
+					PlatformIcon(AppIcon.Sync, stringResource(Res.string.storage_refresh))
+				}
+			}
+		}
 		val storage = state.storage
-		if (storage == null || state.isCalculatingStorage) {
+		if (storage == null && state.storageLoadFailed && !state.isCalculatingStorage) {
+			SecondaryButton(
+				stringResource(Res.string.storage_unavailable),
+				onClick = onRefreshStorage,
+				modifier = Modifier.fillMaxWidth(),
+				leadingIcon = {
+					PlatformIcon(AppIcon.Sync, null, modifier = Modifier.size(18.dp))
+				},
+			)
+		} else if (storage == null) {
 			SettingsGroup {
 				StorageRow(
 					title = stringResource(Res.string.storage_calculating),
@@ -86,6 +125,30 @@ internal fun StorageSettings(
 		}
 		SecondaryButton(
 			text = stringResource(
+				if (state.isCleaningStorage) Res.string.storage_cleaning else Res.string.storage_free_up_space,
+			),
+			onClick = onFreeUpSpace,
+			modifier = Modifier.fillMaxWidth(),
+			enabled = !state.isCleaningStorage &&
+				!state.isDeletingTransfers &&
+				!state.isClearingTransferCache &&
+				!state.isCalculatingStorage &&
+				!state.hasActiveNetworkWork,
+			leadingIcon = {
+				if (state.isCleaningStorage) {
+					CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+				} else {
+					PlatformIcon(AppIcon.Sparkles, null, modifier = Modifier.size(18.dp))
+				}
+			},
+		)
+		Text(
+			stringResource(Res.string.storage_free_up_space_caption),
+			style = MaterialTheme.typography.bodySmall,
+			color = LocalVniDropColors.current.foregroundLighter,
+		)
+		SecondaryButton(
+			text = stringResource(
 				if (state.isClearingTransferCache) {
 					Res.string.storage_clearing_transfer_cache
 				} else {
@@ -97,16 +160,27 @@ internal fun StorageSettings(
 				!state.isClearingTransferCache &&
 				!state.isCalculatingStorage &&
 				!state.hasActiveNetworkWork,
+			leadingIcon = {
+				PlatformIcon(AppIcon.Storage, null, modifier = Modifier.size(18.dp))
+			},
 		)
-		Button(
+		DestructiveButton(
+			text = stringResource(
+				if (state.isDeletingTransfers) Res.string.storage_deleting else Res.string.storage_delete_transfers,
+			),
 			onClick = { showDeleteConfirmation = true },
 			enabled = !state.isDeletingTransfers &&
 				!state.isClearingTransferCache &&
 				!state.isCalculatingStorage,
-			colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-		) {
-			Text(stringResource(if (state.isDeletingTransfers) Res.string.storage_deleting else Res.string.storage_delete_transfers))
-		}
+			leadingIcon = {
+				PlatformIcon(AppIcon.Delete, null, modifier = Modifier.size(18.dp))
+			},
+		)
+		Text(
+			stringResource(Res.string.storage_delete_transfers_caption),
+			style = MaterialTheme.typography.bodySmall,
+			color = LocalVniDropColors.current.foregroundLighter,
+		)
 		Text(
 			stringResource(Res.string.storage_footer),
 			style = MaterialTheme.typography.bodySmall,

@@ -30,7 +30,7 @@ struct StatusPill: View {
 // MARK: - ProgressRow
 
 struct ProgressRow: View {
-	let labelKey: String
+	let labelKey: String.LocalizationValue
 	let progress: Double?
 	var detail: String? = nil
 	/// Pre-resolved label; when set it overrides `labelKey`.
@@ -42,7 +42,7 @@ struct ProgressRow: View {
 				label.font(.subheadline).lineLimit(1)
 				Spacer()
 				if let progress {
-					Text("\(Int(progress * 100))%").font(.caption).foregroundStyle(.secondary)
+					Text(verbatim: "\(Int(progress * 100))%").font(.caption).foregroundStyle(.secondary)
 				}
 			}
 			if let detail {
@@ -62,7 +62,7 @@ struct ProgressRow: View {
 		if let labelText {
 			Text(labelText)
 		} else {
-			Text(LocalizedStringKey(labelKey))
+			Text(String(localized: labelKey))
 		}
 	}
 }

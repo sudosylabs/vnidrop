@@ -52,7 +52,9 @@ struct VniDropColors {
 }
 
 extension VniDropColors {
-	/// The single brand accent used app-wide as the SwiftUI tint.
+	/// The single brand accent used app-wide as the SwiftUI tint. Mirrored by the
+	/// `AccentColor` asset (the OS-level global accent for the macOS sidebar etc.);
+	/// keep the two in sync.
 	static let brandPurple = Color.hsl(271, 91, 65)
 
 	static let light = VniDropColors(

@@ -36,7 +36,7 @@ private struct IosDeviceInfoProvider: DeviceInfoProvider {
 			device.isBatteryMonitoringEnabled = true
 			defer { device.isBatteryMonitoringEnabled = wasMonitoring }
 			let level = device.batteryLevel
-			return level >= 0 ? "\(Int(level * 100))%" : nil
+			return level >= 0 ? L10n.Battery.levelValue(level: "\(Int(level * 100))") : nil
 		}()
 		return DeviceInfo(
 			deviceName: device.name,

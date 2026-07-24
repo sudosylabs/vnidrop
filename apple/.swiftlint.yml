@@ -1,0 +1,34 @@
+# Focused lint for the native app: enforce the typed-resources convention only
+# (no default style rules, so this stays signal, not noise).
+only_rules:
+  - custom_rules
+
+included:
+  - VniDrop
+
+excluded:
+  - VniDrop/Generated
+
+custom_rules:
+  raw_localized_string:
+    name: "Raw localized key"
+    regex: 'String\(localized:\s*"'
+    message: "Use a typed L10n.* accessor, not a raw key string."
+    severity: warning
+  raw_localized_string_key:
+    name: "Raw LocalizedStringKey"
+    regex: 'LocalizedStringKey\("'
+    message: "Use a typed L10n.* accessor instead of a raw key."
+    severity: warning
+  raw_sf_symbol:
+    name: "Raw SF Symbol"
+    regex: 'system(Name|Image):\s*"'
+    message: "Use SFSafeSymbols: Image(systemSymbol:) or systemSymbol:."
+    severity: warning
+  raw_swiftui_string_literal:
+    name: "Raw SwiftUI string"
+    # A non-empty string literal as the leading arg of a view initializer is an
+    # implicit LocalizedStringKey. Empty labels (e.g. Picker("", …)) are allowed.
+    regex: '\b(Text|Label|Button|Toggle|Link|NavigationLink|Section|Picker|Stepper|TextField|SecureField|DisclosureGroup|Menu|GroupBox)\("[^"]'
+    message: "Pass a typed L10n.* accessor (or Text(verbatim:)), not a raw string literal."
+    severity: warning

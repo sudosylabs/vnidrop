@@ -1,4 +1,5 @@
 import SwiftUI
+import SFSafeSymbols
 
 /// Receive screen, rebuilt on native SwiftUI. A grouped `List` of received
 /// transfers with swipe-to-delete, and the acquisition flow as a native sheet.
@@ -22,17 +23,17 @@ struct ReceiveScreen: View {
 					history
 				}
 			}
-			.navigationTitle(Text(LocalizedStringKey("receive_title")))
+			.navigationTitle(Text(String(localized: L10n.Receive.title)))
 			.toolbar {
 				ToolbarItem(placement: .primaryAction) {
 					Button(action: model.openAcquisition) {
-						Label(String(localized: "button_receive_files"), systemImage: "plus")
+						Label(String(localized: L10n.Button.receiveFiles), systemSymbol: .plus)
 					}
 				}
 				if !deletable.isEmpty {
 					ToolbarItem(placement: .primaryAction) {
 						Button(role: .destructive, action: model.requestClearHistory) {
-							Label(String(localized: "receive_clear_history"), systemImage: "trash")
+							Label(String(localized: L10n.Receive.clearHistory), systemSymbol: .trash)
 						}
 					}
 				}
@@ -50,11 +51,11 @@ struct ReceiveScreen: View {
 			}
 		}
 		.alert(
-			Text(LocalizedStringKey(clearAllPending ? "receive_clear_history_title" : "receive_delete_history_title")),
+			Text(String(localized: clearAllPending ? L10n.Receive.clearHistoryTitle : L10n.Receive.deleteHistoryTitle)),
 			isPresented: Binding(get: { model.state.historyDeleteTarget != nil }, set: { if !$0 { Task { @MainActor in model.dismissHistoryDelete() } } })
 		) {
-			Button(String(localized: "button_cancel"), role: .cancel, action: model.dismissHistoryDelete)
-			Button(String(localized: clearAllPending ? "receive_clear_history" : "button_delete_transfer"),
+			Button(String(localized: L10n.Button.cancel), role: .cancel, action: model.dismissHistoryDelete)
+			Button(String(localized: clearAllPending ? L10n.Receive.clearHistory : L10n.Button.deleteTransfer),
 				   role: .destructive, action: model.confirmHistoryDelete)
 		} message: {
 			historyDeleteMessage
@@ -74,27 +75,36 @@ struct ReceiveScreen: View {
 							Button(role: .destructive) {
 								model.requestDeleteHistoryItem(transfer.transferId)
 							} label: {
-								Label(String(localized: "button_delete_transfer"), systemImage: "trash")
+								Label(String(localized: L10n.Button.deleteTransfer), systemSymbol: .trash)
+							}
+						}
+					}
+					.contextMenu {
+						if transfer.status.isTerminalReceiveHistory {
+							Button(role: .destructive) {
+								model.requestDeleteHistoryItem(transfer.transferId)
+							} label: {
+								Label(String(localized: L10n.Button.deleteTransfer), systemSymbol: .trash)
 							}
 						}
 					}
 				}
 			} header: {
-				Text(LocalizedStringKey("receive_history_title"))
+				Text(String(localized: L10n.Receive.historyTitle))
 			} footer: {
-				Text(LocalizedStringKey("receive_new_subtitle"))
+				Text(String(localized: L10n.Receive.newSubtitle))
 			}
 		}
 	}
 
 	private var emptyState: some View {
 		ContentUnavailableView {
-			Label(String(localized: "receive_empty_title"), systemImage: "tray.and.arrow.down")
+			Label(String(localized: L10n.Receive.emptyTitle), systemSymbol: .trayAndArrowDown)
 		} description: {
-			Text(LocalizedStringKey("receive_empty_body"))
+			Text(String(localized: L10n.Receive.emptyBody))
 		} actions: {
 			Button(action: model.openAcquisition) {
-				Label(String(localized: "button_receive_files"), systemImage: "plus")
+				Label(String(localized: L10n.Button.receiveFiles), systemSymbol: .plus)
 			}
 			.buttonStyle(.borderedProminent)
 			.controlSize(.large)
@@ -107,10 +117,10 @@ struct ReceiveScreen: View {
 	private var historyDeleteMessage: some View {
 		if let target = model.state.historyDeleteTarget {
 			if target == .all {
-				Text(LocalizedStringKey("receive_clear_history_description"))
+				Text(String(localized: L10n.Receive.clearHistoryDescription))
 			} else {
-				Text(String(format: String(localized: "receive_delete_history_description"),
-							 transferName(for: target) ?? String(localized: "receive_unknown_transfer")))
+				Text(L10n.Receive.deleteHistoryDescription(
+					transferName: transferName(for: target) ?? String(localized: L10n.Receive.unknownTransfer)))
 			}
 		}
 	}
@@ -129,14 +139,14 @@ private struct ReceiveTransferRow: View {
 
 	var body: some View {
 		HStack(spacing: 12) {
-			Image(systemName: "doc")
+			Image(systemSymbol: .doc)
 				.foregroundStyle(.secondary)
 				.frame(width: 40, height: 40)
 				.background(.quaternary, in: RoundedRectangle(cornerRadius: 9))
 			VStack(alignment: .leading, spacing: 3) {
-				Text(transfer.transferName ?? String(localized: "receive_unknown_transfer"))
+				Text(transfer.transferName ?? String(localized: L10n.Receive.unknownTransfer))
 					.font(.body).lineLimit(1)
-				Text("\(formatBytes(transfer.totalSize)) · \(statusLabel(transfer.status))")
+				Text(L10n.Format.separatedPair(first: formatBytes(transfer.totalSize), second: statusLabel(transfer.status)))
 					.font(.caption).foregroundStyle(.secondary)
 				if transfer.status == .receiving, let progress {
 					ProgressRow(labelKey: progress.labelKey, progress: progress.progress, detail: progress.detail)

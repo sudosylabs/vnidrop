@@ -2,7 +2,7 @@ import SwiftUI
 
 enum NfcShareAvailability { case available, unavailable, hidden }
 
-/// Invitation delivery actions shared by the native Apple feature models.
+/// Invitation delivery actions, ported from `TransferShareActions` (iosMain).
 /// Platform implementations perform export, native share, and NFC write.
 @MainActor
 protocol TransferShareActions: AnyObject {
@@ -30,7 +30,7 @@ struct ShareActionsView: View {
 		VStack(spacing: 12) {
 			if actions.nfcAvailability != .hidden {
 				SecondaryButton(
-					title: writingNfc ? String(localized: "transfer_nfc_waiting") : String(localized: "button_write_nfc"),
+					title: writingNfc ? String(localized: L10n.Transfer.nfcWaiting) : String(localized: L10n.Button.writeNfc),
 					action: {
 						writingNfc = true
 						actions.writeInvitationToNfc(ticket: ticket) { result in
@@ -41,16 +41,16 @@ struct ShareActionsView: View {
 					enabled: actions.nfcAvailability == .available && !writingNfc
 				)
 				if actions.nfcAvailability == .unavailable {
-					Text(LocalizedStringKey("transfer_nfc_unavailable"))
+					Text(String(localized: L10n.Transfer.nfcUnavailable))
 						.font(VniType.bodySmall).foregroundStyle(colors.foregroundLighter)
 				}
 			}
-			SecondaryButton(title: String(localized: "button_download_invitation"), action: {
+			SecondaryButton(title: String(localized: L10n.Button.downloadInvitation), action: {
 				actions.exportInvitation(ticket: ticket, transferName: transfer.transferName ?? "") {
 					model.onInvitationResult(.export, $0)
 				}
 			})
-			PrimaryButton(title: String(localized: "button_native_share"), action: {
+			PrimaryButton(title: String(localized: L10n.Button.nativeShare), action: {
 				actions.shareInvitation(ticket: ticket, transferName: transfer.transferName ?? "") {
 					model.onInvitationResult(.share, $0)
 				}

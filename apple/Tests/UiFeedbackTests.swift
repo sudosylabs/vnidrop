@@ -42,22 +42,22 @@ final class UserFacingErrorTests: XCTestCase {
 	}
 
 	func testToUiTextMapsKnownReasons() {
-		XCTAssertEqual(InvitationError.message("The transfer was refused").toUiText(), .resource("error_permission"))
-		XCTAssertEqual(InvitationError.message("invalid ticket").toUiText(), .resource("error_invalid_ticket"))
-		XCTAssertEqual(InvitationError.message("Select at least one file to share").toUiText(), .resource("error_share_empty"))
-		XCTAssertEqual(InvitationError.message("Camera access is required").toUiText(), .resource("error_camera"))
+		XCTAssertEqual(InvitationError.message("The transfer was refused").toUiText(), .resource(L10n.Error.permission))
+		XCTAssertEqual(InvitationError.message("invalid ticket").toUiText(), .resource(L10n.Error.invalidTicket))
+		XCTAssertEqual(InvitationError.message("Select at least one file to share").toUiText(), .resource(L10n.Error.shareEmpty))
+		XCTAssertEqual(InvitationError.message("Camera access is required").toUiText(), .resource(L10n.Error.camera))
 	}
 
 	func testToUiTextFallsBackToGeneric() {
-		XCTAssertEqual(InvitationError.message("something entirely unexpected").toUiText(), .resource("error_generic"))
+		XCTAssertEqual(InvitationError.message("something entirely unexpected").toUiText(), .resource(L10n.Error.generic))
 	}
 
 	func testToUiTextMapsTypedTransferFailures() {
-		XCTAssertEqual(VnidropError.FilesystemPermission(reason: "read-only folder").toUiText(), .resource("error_filesystem"))
-		XCTAssertEqual(VnidropError.DestinationExists(reason: "target exists").toUiText(), .resource("error_destination_exists"))
-		XCTAssertEqual(VnidropError.StorageFull(reason: "disk full").toUiText(), .resource("error_storage_full"))
-		XCTAssertEqual(VnidropError.Network(reason: "offline").toUiText(), .resource("error_network"))
-		XCTAssertEqual(VnidropError.InvalidInput(reason: "bad path").toUiText(), .resource("error_invalid_input"))
+		XCTAssertEqual(VnidropError.FilesystemPermission(reason: "read-only folder").toUiText(), .resource(L10n.Error.filesystem))
+		XCTAssertEqual(VnidropError.DestinationExists(reason: "target exists").toUiText(), .resource(L10n.Error.destinationExists))
+		XCTAssertEqual(VnidropError.StorageFull(reason: "disk full").toUiText(), .resource(L10n.Error.storageFull))
+		XCTAssertEqual(VnidropError.Network(reason: "offline").toUiText(), .resource(L10n.Error.network))
+		XCTAssertEqual(VnidropError.InvalidInput(reason: "bad path").toUiText(), .resource(L10n.Error.invalidInput))
 		XCTAssertFalse(VnidropError.FilesystemPermission(reason: "read-only").canRetryWithoutChangingInput)
 		XCTAssertFalse(VnidropError.DestinationExists(reason: "target exists").canRetryWithoutChangingInput)
 		XCTAssertTrue(VnidropError.Network(reason: "offline").canRetryWithoutChangingInput)

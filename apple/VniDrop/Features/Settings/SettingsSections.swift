@@ -1,4 +1,5 @@
 import SwiftUI
+import SFSafeSymbols
 
 /// Settings section detail views, rebuilt as native `Form` content. Each view is
 /// placed inside a parent `Form`, so it returns `Section`s / rows directly.
@@ -7,16 +8,26 @@ struct PreferencesSettings: View {
 	@ObservedObject var model: SettingsModel
 
 	var body: some View {
-		Section(String(localized: "field_username")) {
-			TextField(String(localized: "field_username"),
+		Section(String(localized: L10n.Field.username)) {
+			TextField(String(localized: L10n.Field.username),
 					  text: Binding(get: { model.state.username }, set: { model.setUsername($0) }))
 		}
 		if model.state.supportsCustomReceiveFolders {
-			Section(String(localized: "preferences_receive_folder_title")) {
-				Text(model.state.receiveFolder?.displayName ?? String(localized: "value_unavailable"))
-					.foregroundStyle(.secondary)
-				Button(String(localized: "button_choose_folder"), action: model.chooseReceiveFolder)
-				Button(String(localized: "button_reset_default"), action: model.resetReceiveFolder)
+			Section(String(localized: L10n.Preferences.receiveFolderTitle)) {
+				LabeledContent {
+					Button(String(localized: L10n.Button.chooseFolder), action: model.chooseReceiveFolder)
+				} label: {
+					Label {
+						Text(model.state.receiveFolder?.displayName ?? String(localized: L10n.Value.unavailable))
+							.lineLimit(1)
+							.truncationMode(.middle)
+					} icon: {
+						Image(systemSymbol: .folder)
+					}
+				}
+				if !model.isUsingDefaultReceiveFolder {
+					Button(String(localized: L10n.Button.resetDefault), role: .cancel, action: model.resetReceiveFolder)
+				}
 			}
 		}
 	}
@@ -27,7 +38,7 @@ struct AppearanceSettings: View {
 
 	var body: some View {
 		Section {
-			Picker(String(localized: "appearance_title"),
+			Picker(String(localized: L10n.Appearance.title),
 				   selection: Binding(get: { model.state.themeMode }, set: { model.setThemeMode($0) })) {
 				ForEach(ThemeMode.allCases, id: \.self) { mode in
 					Text(themeModeLabel(mode)).tag(mode)
@@ -44,16 +55,22 @@ struct NotificationSettings: View {
 
 	var body: some View {
 		Section {
-			Toggle(isOn: Binding(
-				get: { model.state.notificationsEnabled },
-				set: { model.setNotificationsEnabled($0) }
-			)) {
-				Text(LocalizedStringKey("notifications_local_title"))
-			}
-			if model.state.notificationPermission == .denied {
-				Button(String(localized: "button_open_settings"), action: model.openNotificationSettings)
+			Text(String(localized: L10n.Notifications.description)).foregroundStyle(.secondary)
+			switch model.state.notificationPermission {
+			case .notDetermined:
+				Button(String(localized: L10n.Notifications.localTitle), action: model.requestNotifications)
+			case .granted:
+				// Allowed — the OS Settings app is where you disable or fine-tune.
+				Text(String(localized: L10n.Notifications.enabledMessage)).foregroundStyle(.secondary)
+				Button(String(localized: L10n.Button.openSettings), action: model.openNotificationSettings)
+			case .denied:
+				Text(String(localized: L10n.Notifications.permissionDenied)).foregroundStyle(.secondary)
+				Button(String(localized: L10n.Button.openSettings), action: model.openNotificationSettings)
+			case .unsupported:
+				Text(String(localized: L10n.Notifications.unsupported)).foregroundStyle(.secondary)
 			}
 		}
+		.onAppear { model.refreshNotificationPermission() }
 	}
 }
 
@@ -63,7 +80,7 @@ struct NetworkSettings: View {
 	var body: some View {
 		Section {
 			Picker(
-				String(localized: "settings_network_title"),
+				"",
 				selection: Binding(get: { model.state.relayMode }, set: { model.setRelayMode($0) })
 			) {
 				ForEach(RelayPreferenceMode.allCases, id: \.self) { mode in
@@ -71,24 +88,27 @@ struct NetworkSettings: View {
 				}
 			}
 			.pickerStyle(.inline)
+			.labelsHidden()
 			.disabled(model.state.isApplyingRelayConfiguration)
+		} header: {
+			Text(String(localized: L10n.Settings.networkTitle))
 		} footer: {
-			Text(LocalizedStringKey(relayModeDescriptionKey(model.state.relayMode)))
+			Text(String(localized: relayModeDescription(model.state.relayMode)))
 		}
 
 		Section {
 			Label {
-				Text(LocalizedStringKey("relay_privacy_description"))
+				Text(String(localized: L10n.Relay.privacyDescription))
 					.fixedSize(horizontal: false, vertical: true)
 			} icon: {
-				Image(systemName: "lock.shield")
+				Image(systemSymbol: .lockShield)
 			}
 			.foregroundStyle(.secondary)
 		}
 
 		if let endpointId = model.state.endpointId, !endpointId.isEmpty {
 			Section {
-				Text(String(format: String(localized: "approval_endpoint_id"), endpointId))
+				Text(L10n.Approval.endpointId(deviceId: endpointId))
 					.font(.footnote.monospaced())
 					.textSelection(.enabled)
 			}
@@ -98,10 +118,10 @@ struct NetworkSettings: View {
 			Section {
 				if model.state.relayMode == .strictCustom {
 					Label {
-						Text(LocalizedStringKey("relay_strict_warning"))
+						Text(String(localized: L10n.Relay.strictWarning))
 							.fixedSize(horizontal: false, vertical: true)
 					} icon: {
-						Image(systemName: "exclamationmark.shield.fill")
+						Image(systemSymbol: .exclamationmarkShieldFill)
 					}
 					.foregroundStyle(.orange)
 				}
@@ -110,7 +130,7 @@ struct NetworkSettings: View {
 					VStack(alignment: .leading, spacing: 6) {
 						HStack {
 							TextField(
-								"https://relay.example.com",
+								"",
 								text: Binding(
 									get: {
 										model.state.relayURLs.indices.contains(index)
@@ -118,8 +138,12 @@ struct NetworkSettings: View {
 											: ""
 									},
 									set: { model.setRelayURL($0, at: index) }
-								)
+								),
+								// `Text(verbatim:)` avoids macOS markdown-linkifying the
+								// URL-shaped placeholder into a purple link.
+								prompt: Text(verbatim: "https://relay.example.com")
 							)
+							.labelsHidden()
 							#if os(iOS)
 							.keyboardType(.URL)
 							.textInputAutocapitalization(.never)
@@ -130,10 +154,10 @@ struct NetworkSettings: View {
 							Button(role: .destructive) {
 								model.removeRelayURL(at: index)
 							} label: {
-								Image(systemName: "minus.circle.fill")
+								Image(systemSymbol: .minusCircleFill)
 							}
 							.buttonStyle(.borderless)
-							.accessibilityLabel(Text(LocalizedStringKey("relay_remove_url")))
+							.accessibilityLabel(Text(String(localized: L10n.Relay.removeUrl)))
 							.disabled(model.state.isApplyingRelayConfiguration)
 						}
 
@@ -146,16 +170,16 @@ struct NetworkSettings: View {
 				}
 
 				Button(action: model.addRelayURL) {
-					Label(String(localized: "relay_add_url"), systemImage: "plus.circle")
+					Label(String(localized: L10n.Relay.addUrl), systemSymbol: .plusCircle)
 				}
 				.disabled(
 					model.state.relayURLs.count >= RelayConfigurationValidator.maximumRelayCount
 						|| model.state.isApplyingRelayConfiguration
 				)
 			} header: {
-				Text(LocalizedStringKey("relay_custom_urls_label"))
+				Text(String(localized: L10n.Relay.customUrlsLabel))
 			} footer: {
-				Text(LocalizedStringKey("relay_custom_urls_help"))
+				Text(String(localized: L10n.Relay.customUrlsHelp))
 			}
 		}
 
@@ -164,7 +188,7 @@ struct NetworkSettings: View {
 				Label {
 					Text(relayValidationMessage(error))
 				} icon: {
-					Image(systemName: "exclamationmark.triangle.fill")
+					Image(systemSymbol: .exclamationmarkTriangleFill)
 				}
 				.foregroundStyle(.red)
 			}
@@ -173,13 +197,9 @@ struct NetworkSettings: View {
 		if model.state.hasActiveNetworkWork || model.state.relayApplyErrorKey != nil {
 			Section {
 				Label {
-					Text(LocalizedStringKey(
-						model.state.hasActiveNetworkWork
-							? "relay_apply_active_transfers"
-							: model.state.relayApplyErrorKey ?? "relay_apply_failed"
-					))
+					Text(String(localized: model.state.hasActiveNetworkWork ? L10n.Relay.applyActiveTransfers : (model.state.relayApplyErrorKey ?? L10n.Relay.applyFailed)))
 				} icon: {
-					Image(systemName: "exclamationmark.triangle.fill")
+					Image(systemSymbol: .exclamationmarkTriangleFill)
 				}
 				.foregroundStyle(.red)
 			}
@@ -188,9 +208,7 @@ struct NetworkSettings: View {
 		Section {
 			Button(action: model.applyRelayConfiguration) {
 				HStack {
-					Text(LocalizedStringKey(
-						model.state.isApplyingRelayConfiguration ? "relay_applying" : "relay_apply"
-					))
+					Text(String(localized: model.state.isApplyingRelayConfiguration ? L10n.Relay.applying : L10n.Relay.apply))
 					if model.state.isApplyingRelayConfiguration {
 						Spacer()
 						ProgressView()
@@ -203,7 +221,7 @@ struct NetworkSettings: View {
 					|| model.state.hasActiveNetworkWork
 			)
 		} footer: {
-			Text(LocalizedStringKey("relay_apply_restart_description"))
+			Text(String(localized: L10n.Relay.applyRestartDescription))
 		}
 	}
 }
@@ -211,18 +229,15 @@ struct NetworkSettings: View {
 private func relayValidationMessage(_ error: RelayConfigurationValidationError) -> String {
 	switch error {
 	case .missingURL:
-		return String(localized: "relay_validation_missing_url")
+		return String(localized: L10n.Relay.validationMissingUrl)
 	case .tooManyURLs:
-		return String(
-			format: String(localized: "relay_validation_too_many_urls"),
-			RelayConfigurationValidator.maximumRelayCount
-		)
+		return L10n.Relay.validationTooManyUrls(maximum: RelayConfigurationValidator.maximumRelayCount)
 	case .httpsRequired(let index):
-		return String(format: String(localized: "relay_validation_https_required"), index + 1)
+		return L10n.Relay.validationHttpsRequired(line: index + 1)
 	case .invalidURL(let index):
-		return String(format: String(localized: "relay_validation_invalid_url"), index + 1)
+		return L10n.Relay.validationInvalidUrl(line: index + 1)
 	case .duplicateURL(let index):
-		return String(format: String(localized: "relay_validation_duplicate_url"), index + 1)
+		return L10n.Relay.validationDuplicateUrl(line: index + 1)
 	}
 }
 
@@ -230,56 +245,130 @@ struct StorageSettings: View {
 	@ObservedObject var model: SettingsModel
 	@State private var showDeleteConfirmation = false
 
+	private var isBusy: Bool {
+		model.state.isCalculatingStorage || model.state.isCleaningStorage || model.state.isDeletingTransfers
+	}
+
 	var body: some View {
 		Section {
-			if let storage = model.state.storage {
-				LabeledContent(String(localized: "storage_received_files"), value: formatBytes(storage.receivedFiles))
-				LabeledContent(String(localized: "storage_transfer_data"), value: formatBytes(storage.transferCache))
-				LabeledContent(String(localized: "storage_app_data"), value: formatBytes(storage.appData))
-				LabeledContent(String(localized: "storage_temporary"), value: formatBytes(storage.temporary))
-				LabeledContent(String(localized: "storage_total")) {
-					Text(formatBytes(storage.total)).fontWeight(.semibold)
-				}
-			} else {
-				HStack {
-					Text(LocalizedStringKey("storage_calculating")).foregroundStyle(.secondary)
-					Spacer()
-					ProgressView()
+			usageContent
+		} header: {
+			HStack {
+				Text(String(localized: L10n.Storage.usageHeader))
+				Spacer()
+				if model.state.isCalculatingStorage {
+					ProgressView().controlSize(.small)
+				} else {
+					Button(action: model.loadStorageUsage) {
+						Label(String(localized: L10n.Storage.refresh), systemSymbol: .arrowClockwise)
+							.labelStyle(.iconOnly)
+					}
+					.buttonStyle(.borderless)
+					.disabled(isBusy)
+					.help(String(localized: L10n.Storage.refresh))
 				}
 			}
 		} footer: {
-			Text(LocalizedStringKey("storage_footer"))
+			Text(String(localized: L10n.Storage.footer))
 		}
 
+		// Reclaim reversible junk (temp + trash) — non-destructive to history.
 		Section {
-			Button(role: .destructive) {
+			Button(action: model.freeUpSpace) {
+				actionLabel(
+					title: L10n.Storage.freeUpSpace,
+					busyTitle: L10n.Storage.cleaning,
+					isBusy: model.state.isCleaningStorage,
+					symbol: .sparkles,
+					tint: .accentColor
+				)
+			}
+			// `.plain` so pressing the row dims the label instead of flipping it to
+			// the white selection-highlight that the default form button style uses.
+			.buttonStyle(.plain)
+			.disabled(isBusy)
+		} footer: {
+			Text(String(localized: L10n.Storage.freeUpSpaceCaption))
+		}
+
+		// Destructive: clears transfer history + cached share content.
+		Section {
+			Button {
 				showDeleteConfirmation = true
 			} label: {
-				HStack {
-					Text(model.state.isDeletingTransfers
-						 ? String(localized: "storage_deleting")
-						 : String(localized: "storage_delete_transfers"))
-					if model.state.isDeletingTransfers {
-						Spacer()
-						ProgressView()
-					}
-				}
+				actionLabel(
+					title: L10n.Storage.deleteTransfers,
+					busyTitle: L10n.Storage.deleting,
+					isBusy: model.state.isDeletingTransfers,
+					symbol: .trash,
+					tint: .red
+				)
 			}
-			.disabled(model.state.isDeletingTransfers)
+			.buttonStyle(.plain)
+			.disabled(isBusy)
+		} footer: {
+			Text(String(localized: L10n.Storage.deleteTransfersCaption))
 		}
-		.onAppear { model.loadStorageUsage() }
+		.task { model.loadStorageUsage() }
 		.confirmationDialog(
-			Text(LocalizedStringKey("storage_delete_transfers")),
+			Text(String(localized: L10n.Storage.deleteTransfers)),
 			isPresented: $showDeleteConfirmation,
 			titleVisibility: .visible
 		) {
-			Button(String(localized: "storage_delete_transfers"), role: .destructive) {
+			Button(String(localized: L10n.Storage.deleteTransfers), role: .destructive) {
 				model.deleteAllTransfers()
 			}
-			Button(String(localized: "button_cancel"), role: .cancel) {}
+			Button(String(localized: L10n.Button.cancel), role: .cancel) {}
 		} message: {
-			Text(LocalizedStringKey("storage_delete_transfers_description"))
+			Text(String(localized: L10n.Storage.deleteTransfersDescription))
 		}
+	}
+
+	@ViewBuilder
+	private var usageContent: some View {
+		if let storage = model.state.storage {
+			LabeledContent(String(localized: L10n.Storage.receivedFiles), value: formatBytes(storage.receivedFiles))
+			LabeledContent(String(localized: L10n.Storage.transferData), value: formatBytes(storage.transferCache))
+			LabeledContent(String(localized: L10n.Storage.appData), value: formatBytes(storage.appData))
+			LabeledContent(String(localized: L10n.Storage.temporary), value: formatBytes(storage.temporary))
+			LabeledContent(String(localized: L10n.Storage.total)) {
+				Text(formatBytes(storage.total)).fontWeight(.semibold)
+			}
+		} else if model.state.storageLoadFailed {
+			// Genuine failure (core reported an error) — offer a retry.
+			Button(action: model.loadStorageUsage) {
+				Label(String(localized: L10n.Storage.unavailable), systemSymbol: .arrowClockwise)
+					.foregroundStyle(.secondary)
+			}
+			.buttonStyle(.plain)
+		} else {
+			// Loading, or waiting for the core to finish starting.
+			HStack {
+				Text(String(localized: L10n.Storage.calculating)).foregroundStyle(.secondary)
+				Spacer()
+				ProgressView().controlSize(.small)
+			}
+		}
+	}
+
+	/// A tinted, full-width button label with a leading symbol and a trailing
+	/// spinner while busy. `.contentShape` keeps the whole row tappable.
+	private func actionLabel(
+		title: String.LocalizationValue,
+		busyTitle: String.LocalizationValue,
+		isBusy: Bool,
+		symbol: SFSymbol,
+		tint: Color
+	) -> some View {
+		HStack {
+			Label(String(localized: isBusy ? busyTitle : title), systemSymbol: symbol)
+			Spacer()
+			if isBusy {
+				ProgressView().controlSize(.small)
+			}
+		}
+		.foregroundStyle(tint)
+		.contentShape(Rectangle())
 	}
 }
 
@@ -290,40 +379,40 @@ struct AboutSettings: View {
 
 	var body: some View {
 		Section {
-			Text(LocalizedStringKey("about_tagline")).font(.headline)
-			Text(LocalizedStringKey("about_description")).foregroundStyle(.secondary)
+			Text(String(localized: L10n.About.tagline)).font(.headline)
+			Text(String(localized: L10n.About.description)).foregroundStyle(.secondary)
 		}
 
-		Section(String(localized: "about_is_title")) {
-			AboutPoint("about_is_direct", "paperplane")
-			AboutPoint("about_is_no_account", "person.crop.circle.badge.xmark")
-			AboutPoint("about_is_in_control", "checkmark.shield")
-			AboutPoint("about_is_encrypted", "lock")
-			AboutPoint("about_is_open", "chevron.left.forwardslash.chevron.right")
+		Section(String(localized: L10n.About.isTitle)) {
+			AboutPoint(L10n.About.isDirect, .paperplane)
+			AboutPoint(L10n.About.isNoAccount, .personCropCircleBadgeXmark)
+			AboutPoint(L10n.About.isInControl, .checkmarkShield)
+			AboutPoint(L10n.About.isEncrypted, .lock)
+			AboutPoint(L10n.About.isOpen, .chevronLeftForwardslashChevronRight)
 		}
 
-		Section(String(localized: "about_isnt_title")) {
-			AboutPoint("about_isnt_cloud", "icloud.slash")
-			AboutPoint("about_isnt_sync", "arrow.triangle.2.circlepath")
-			AboutPoint("about_isnt_public", "megaphone")
+		Section(String(localized: L10n.About.isntTitle)) {
+			AboutPoint(L10n.About.isntCloud, .icloudSlash)
+			AboutPoint(L10n.About.isntSync, .arrowTriangle2Circlepath)
+			AboutPoint(L10n.About.isntPublic, .megaphone)
 		}
 
-		Section(String(localized: "about_privacy_title")) {
-			AboutPoint("about_privacy_capability", "qrcode")
-			AboutPoint("about_privacy_deny", "hand.raised")
-			AboutPoint("about_privacy_relay", "antenna.radiowaves.left.and.right")
-			AboutPoint("about_privacy_local", "internaldrive")
+		Section(String(localized: L10n.About.privacyTitle)) {
+			AboutPoint(L10n.About.privacyCapability, .qrcode)
+			AboutPoint(L10n.About.privacyDeny, .handRaised)
+			AboutPoint(L10n.About.privacyRelay, .antennaRadiowavesLeftAndRight)
+			AboutPoint(L10n.About.privacyLocal, .internaldrive)
 		}
 
-		Section(String(localized: "about_title")) {
-			LabeledContent(String(localized: "version_title"), value: model.state.appVersion)
+		Section(String(localized: L10n.About.title)) {
+			LabeledContent(String(localized: L10n.Version.title), value: model.state.appVersion)
 			if let device = model.state.deviceInfo {
-				LabeledContent(String(localized: "device_model_title"), value: device.deviceModel ?? "—")
-				LabeledContent(String(localized: "os_version_title"), value: device.operatingSystem)
+				LabeledContent(String(localized: L10n.Device.modelTitle), value: device.deviceModel ?? "—")
+				LabeledContent(String(localized: L10n.Os.versionTitle), value: device.operatingSystem)
 			}
-			LabeledContent(String(localized: "about_license_label"), value: "Apache 2.0")
+			LabeledContent(String(localized: L10n.About.licenseLabel), value: "Apache 2.0")
 			Link(destination: Self.privacyPolicyURL) {
-				Label(String(localized: "about_privacy_policy_label"), systemImage: "hand.raised")
+				Label(String(localized: L10n.About.privacyPolicyLabel), systemSymbol: .handRaised)
 			}
 		}
 
@@ -333,7 +422,7 @@ struct AboutSettings: View {
 					get: { model.state.diagnosticsEnabled },
 					set: { model.setDiagnosticsEnabled($0) }
 				)) {
-					Text(LocalizedStringKey("diagnostics_title"))
+					Text(String(localized: L10n.Diagnostics.title))
 				}
 			}
 		}
@@ -357,13 +446,13 @@ struct BugReportSheet: View {
 				BugReportSettings(model: model, onSubmitted: { dismiss() })
 			}
 			.formStyle(.grouped)
-			.navigationTitle(Text(LocalizedStringKey("about_bug_report")))
+			.navigationTitle(Text(String(localized: L10n.About.bugReport)))
 			#if os(iOS)
 			.navigationBarTitleDisplayMode(.inline)
 			#endif
 			.toolbar {
 				ToolbarItem(placement: .cancellationAction) {
-					Button(String(localized: "button_cancel")) { dismiss() }
+					Button(String(localized: L10n.Button.cancel)) { dismiss() }
 				}
 			}
 		}
@@ -373,21 +462,21 @@ struct BugReportSheet: View {
 
 /// A bullet-style informational row with an SF Symbol and wrapping localized text.
 private struct AboutPoint: View {
-	let key: String
-	let symbol: String
+	let key: String.LocalizationValue
+	let symbol: SFSymbol
 
-	init(_ key: String, _ symbol: String) {
+	init(_ key: String.LocalizationValue, _ symbol: SFSymbol) {
 		self.key = key
 		self.symbol = symbol
 	}
 
 	var body: some View {
 		Label {
-			Text(LocalizedStringKey(key))
+			Text(String(localized: key))
 				.font(.subheadline)
 				.fixedSize(horizontal: false, vertical: true)
 		} icon: {
-			Image(systemName: symbol).foregroundStyle(.tint)
+			Image(systemSymbol: symbol).foregroundStyle(.tint)
 		}
 	}
 }
@@ -397,36 +486,36 @@ struct BugReportSettings: View {
 	var onSubmitted: () -> Void = {}
 
 	var body: some View {
-		Section(String(localized: "bug_report_what_label")) {
+		Section(String(localized: L10n.Bug.reportWhatLabel)) {
 			TextField("", text: Binding(get: { model.state.bugWhatHappened }, set: { model.setBugWhatHappened($0) }),
-					  prompt: Text(LocalizedStringKey("bug_report_what_hint")), axis: .vertical)
+					  prompt: Text(String(localized: L10n.Bug.reportWhatHint)), axis: .vertical)
 				.lineLimit(3, reservesSpace: true)
 				.labelsHidden()
 		}
-		Section(String(localized: "bug_report_expected_label")) {
+		Section(String(localized: L10n.Bug.reportExpectedLabel)) {
 			TextField("", text: Binding(get: { model.state.bugExpected }, set: { model.setBugExpected($0) }),
-					  prompt: Text(LocalizedStringKey("bug_report_expected_hint")), axis: .vertical)
+					  prompt: Text(String(localized: L10n.Bug.reportExpectedHint)), axis: .vertical)
 				.lineLimit(3, reservesSpace: true)
 				.labelsHidden()
 		}
-		Section(String(localized: "bug_report_steps_label")) {
+		Section(String(localized: L10n.Bug.reportStepsLabel)) {
 			TextField("", text: Binding(get: { model.state.bugSteps }, set: { model.setBugSteps($0) }),
-					  prompt: Text(LocalizedStringKey("bug_report_steps_hint")), axis: .vertical)
+					  prompt: Text(String(localized: L10n.Bug.reportStepsHint)), axis: .vertical)
 				.lineLimit(3, reservesSpace: true)
 				.labelsHidden()
 		}
-		Section(String(localized: "bug_report_contact_label")) {
+		Section(String(localized: L10n.Bug.reportContactLabel)) {
 			TextField("", text: Binding(get: { model.state.bugContact }, set: { model.setBugContact($0) }),
-					  prompt: Text(LocalizedStringKey("bug_report_contact_hint")))
+					  prompt: Text(String(localized: L10n.Bug.reportContactHint)))
 				.labelsHidden()
 		}
 		Section {
 			Toggle(isOn: Binding(get: { model.state.bugIncludeLogs }, set: { model.setBugIncludeLogs($0) })) {
-				Text(LocalizedStringKey("bug_report_include_logs"))
+				Text(String(localized: L10n.Bug.reportIncludeLogs))
 			}
 			Button(action: { model.submitBugReport(onSuccess: onSubmitted) }) {
 				Text(model.state.isSubmittingBugReport
-					 ? String(localized: "bug_report_submitting") : String(localized: "bug_report_submit"))
+					 ? String(localized: L10n.Bug.reportSubmitting) : String(localized: L10n.Bug.reportSubmit))
 			}
 			.disabled(model.state.isSubmittingBugReport)
 		}

@@ -27,7 +27,6 @@ final class ApprovalCoordinator: ObservableObject {
 	@Published private(set) var state = ApprovalState()
 
 	private let repository: CoreGateway
-	private let preferences: AppPreferencesRepository
 	private let notifications: LocalNotificationService
 	private let visibility: AppVisibility
 	private let messages: UiMessageController
@@ -37,13 +36,11 @@ final class ApprovalCoordinator: ObservableObject {
 
 	init(
 		repository: CoreGateway,
-		preferences: AppPreferencesRepository,
 		notifications: LocalNotificationService,
 		visibility: AppVisibility,
 		messages: UiMessageController
 	) {
 		self.repository = repository
-		self.preferences = preferences
 		self.notifications = notifications
 		self.visibility = visibility
 		self.messages = messages
@@ -68,17 +65,15 @@ final class ApprovalCoordinator: ObservableObject {
 			.store(in: &cancellables)
 
 		// Recompute notifications when any input changes.
-		Publishers.CombineLatest4(
-			preferences.$preferences,
+		Publishers.CombineLatest3(
 			visibility.$isForeground,
 			$state,
 			notifications.$permission
 		)
-		.sink { [weak self] preferences, foreground, approvalState, permission in
+		.sink { [weak self] foreground, approvalState, permission in
 			guard let self else { return }
 			Task {
 				await self.synchronizeNotifications(
-					enabled: preferences.notificationsEnabled,
 					foreground: foreground,
 					pending: approvalState.pending,
 					permission: permission
@@ -137,30 +132,41 @@ final class ApprovalCoordinator: ObservableObject {
 	}
 
 	private func synchronizeNotifications(
-		enabled: Bool,
 		foreground: Bool,
 		pending: [PendingApproval],
 		permission: NotificationPermission
 	) async {
-		if foreground || !enabled || permission != .granted {
-			notifications.cancelAll()
+		// iOS suppresses notifications while the user is in the app (the modal shows
+		// instead); macOS presents them even when active (the app window is usually
+		// open), relying on the presenter delegate.
+		#if os(iOS)
+		let suppressed = foreground || permission != .granted
+		#else
+		let suppressed = permission != .granted
+		#endif
+		if suppressed {
+			// Cancel only our own approval notifications — other coordinators
+			// (e.g. transfer-lifecycle) manage their own and must not be wiped.
+			for id in publishedNotificationIds { notifications.cancel(id: Self.notificationId(id)) }
 			return
 		}
 		for request in pending where !publishedNotificationIds.contains(request.id) {
+			// Reserve the id *before* awaiting: the CombineLatest can fire several
+			// times near-simultaneously, and without this each pass re-adds the same
+			// notification identifier. macOS coalesces a repeated add of an in-flight
+			// id into a silent update and shows no banner.
+			publishedNotificationIds.insert(request.id)
 			let receiver = request.receiverName
 				?? request.receiverDeviceName
-				?? String(localized: "approval_nearby_device")
-			let title = String(localized: "approval_connection_request")
-			let body = String(
-				format: String(localized: "approval_request_body"),
-				receiver, request.transferName
-			)
+				?? String(localized: L10n.Approval.nearbyDevice)
+			let title = String(localized: L10n.Approval.connectionRequest)
+			let body = L10n.Approval.requestBody(receiver: receiver, transferName: request.transferName)
 			let result = await notifications.publish(
 				LocalNotification(id: Self.notificationId(request.id), title: title, body: body)
 			)
-			switch result {
-			case .success: publishedNotificationIds.insert(request.id)
-			case .failure(let error): messages.error(error)
+			if case .failure(let error) = result {
+				publishedNotificationIds.remove(request.id)
+				messages.error(error)
 			}
 		}
 	}

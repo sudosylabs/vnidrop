@@ -5,8 +5,11 @@
  */
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 import {
   APPLE_INFO_PLIST,
+  APPLE_L10N_SWIFT,
   APPLE_XCSTRINGS,
   kmpValuesDir,
   KMP_RESOURCES,
@@ -14,6 +17,7 @@ import {
 } from "../config";
 import { renderAndroid, type ParsedAndroid } from "../lib/android-xml";
 import { fromCanonical, type Flavor } from "../lib/placeholders";
+import { renderSwiftAccessors } from "../lib/swift-accessors";
 import { renderXcstrings, type XcCatalog, type XcEntry } from "../lib/xcstrings";
 import { targetsOf, type StringEntry, type StringsFile } from "../types";
 
@@ -110,6 +114,10 @@ export async function generate() {
 
   await Bun.write(APPLE_XCSTRINGS, renderXcstrings(buildXcstrings(doc)));
   console.log(`Wrote ${APPLE_XCSTRINGS}`);
+
+  await mkdir(dirname(APPLE_L10N_SWIFT), { recursive: true });
+  await Bun.write(APPLE_L10N_SWIFT, renderSwiftAccessors(doc));
+  console.log(`Wrote ${APPLE_L10N_SWIFT}`);
 
   await syncInfoPlistLocalizations(doc.supportedLanguages);
 

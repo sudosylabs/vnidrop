@@ -207,6 +207,9 @@ final class SendModel: ObservableObject {
 	func confirmDeleteTransfer() {
 		guard let transferId = state.selectedTransferId, !state.isDeleting else { return }
 		state.isDeleting = true
+		// Close synchronously: the alert's dismiss binding runs async and no-ops while
+		// `isDeleting`, which would otherwise leave the flag true and macOS re-present it.
+		state.isDeleteConfirmationOpen = false
 		Task {
 			let result = await repository.delete(transferId: transferId)
 			switch result {
@@ -217,7 +220,32 @@ final class SendModel: ObservableObject {
 				state.receiverHistory = []
 				state.isDeleteConfirmationOpen = false
 				state.isDeleting = false
-				messages.tryShow(UiMessage(text: .resource("transfer_deleted"), tone: .success))
+				messages.tryShow(UiMessage(text: .resource(L10n.Transfer.deleted), tone: .success))
+			case .failure(let error):
+				state.isDeleting = false
+				messages.error(error)
+			}
+		}
+	}
+
+	/// Deletes a transfer by id, independent of the detail selection — used by the
+	/// list context menu so it can act inline without navigating into the detail.
+	func deleteTransfer(id: UInt64) {
+		if state.isDeleting { return }
+		state.isDeleting = true
+		Task {
+			let result = await repository.delete(transferId: id)
+			switch result {
+			case .success:
+				filePreviewRepository.remove(transferId: id)
+				if state.selectedTransferId == id {
+					state.selectedTransferId = nil
+					state.detailPanel = nil
+					state.receiverHistory = []
+				}
+				state.isDeleting = false
+				_ = await repository.refresh()
+				messages.tryShow(UiMessage(text: .resource(L10n.Transfer.deleted), tone: .success))
 			case .failure(let error):
 				state.isDeleting = false
 				messages.error(error)
@@ -249,7 +277,7 @@ final class SendModel: ObservableObject {
 			switch result {
 			case .success:
 				_ = await repository.refresh()
-				messages.tryShow(UiMessage(text: .resource("transfer_event_stopped"), tone: .info))
+				messages.tryShow(UiMessage(text: .resource(L10n.Transfer.eventStopped), tone: .info))
 			case .failure(let error):
 				messages.error(error)
 			}
@@ -261,10 +289,10 @@ final class SendModel: ObservableObject {
 	func onInvitationResult(_ action: InvitationAction, _ result: Result<Void, Error>) {
 		switch result {
 		case .success:
-			let key: String?
+			let key: String.LocalizationValue?
 			switch action {
-			case .export: key = "transfer_invitation_saved"
-			case .nfc: key = "transfer_nfc_written"
+			case .export: key = L10n.Transfer.invitationSaved
+			case .nfc: key = L10n.Transfer.nfcWritten
 			case .share: key = nil  // system share sheet already confirms
 			}
 			if let key { messages.tryShow(UiMessage(text: .resource(key), tone: .success)) }
@@ -297,7 +325,14 @@ final class SendModel: ObservableObject {
 				state.transferName = ""
 				state.accessPolicy = .requireApproval
 				state.isSharing = false
-				messages.show(UiMessage(text: .resource("send_transfer_created"), tone: .success))
+				// Jump straight to the new transfer's share panel (QR + delivery) rather
+				// than dropping the user on the list to drill in manually. Refresh first
+				// so the transfer exists in state before it's selected.
+				_ = await repository.refresh()
+				state.selectedTransferId = share.transferId
+				state.detailPanel = .share
+				refreshReceivers(share.transferId)
+				messages.show(UiMessage(text: .resource(L10n.Send.transferCreated), tone: .success))
 			case .failure(let error):
 				state.isSharing = false
 				messages.error(error)

@@ -6,6 +6,13 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -14,6 +21,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -49,6 +58,9 @@ import com.vnidrop.app.ui.theme.rememberResolvedDarkTheme
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+import org.jetbrains.compose.resources.stringResource
+import vnidrop.shared.generated.resources.Res
+import vnidrop.shared.generated.resources.app_starting
 
 @Composable
 fun App(
@@ -217,6 +229,32 @@ fun App(
 					)
 				}
 				windowChrome?.invoke()
+				val startingLabel = stringResource(Res.string.app_starting)
+				AnimatedVisibility(
+					visible = !sendCoreState.isInitialized,
+					enter = fadeIn(),
+					exit = fadeOut(),
+				) {
+					Box(
+						modifier = Modifier
+							.fillMaxSize()
+							.background(LocalVniDropColors.current.backgroundSurface100)
+							.semantics { contentDescription = startingLabel },
+						contentAlignment = Alignment.Center,
+					) {
+						Column(
+							horizontalAlignment = Alignment.CenterHorizontally,
+							verticalArrangement = Arrangement.spacedBy(16.dp),
+						) {
+							CircularProgressIndicator()
+							Text(
+								startingLabel,
+								style = MaterialTheme.typography.titleMedium,
+								color = LocalVniDropColors.current.foregroundLighter,
+							)
+						}
+					}
+				}
 			}
 		}
 	}

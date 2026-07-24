@@ -8,34 +8,34 @@ extension Error {
 		if let vni = self as? VnidropError {
 			switch vni {
 			case .Ticket:
-				return .resource("error_invalid_ticket")
+				return .resource(L10n.Error.invalidTicket)
 			case .Permission:
-				return .resource("error_permission")
+				return .resource(L10n.Error.permission)
 			case .Filesystem:
-				return .resource("error_filesystem")
+				return .resource(L10n.Error.filesystem)
 			case .FilesystemPermission:
-				return .resource("error_filesystem")
+				return .resource(L10n.Error.filesystem)
 			case .DestinationExists:
-				return .resource("error_destination_exists")
+				return .resource(L10n.Error.destinationExists)
 			case .StorageFull:
-				return .resource("error_storage_full")
+				return .resource(L10n.Error.storageFull)
 			case .Network:
-				return .resource("error_network")
+				return .resource(L10n.Error.network)
 			case .Transfer(let reason):
 				return transferUiText(reason)
 			case .Repository:
-				return .resource("error_repository")
+				return .resource(L10n.Error.repository)
 			case .Cancelled:
-				return .resource("error_generic")
+				return .resource(L10n.Error.generic)
 			case .InvalidInput:
-				return .resource("error_invalid_input")
+				return .resource(L10n.Error.invalidInput)
 			case .Initialization(let reason):
 				return initializationUiText(reason)
 			case .Internal(let reason):
-				return reasonHints(reason) ?? .resource("error_generic")
+				return reasonHints(reason) ?? .resource(L10n.Error.generic)
 			}
 		}
-		return reasonHints(technicalDetail) ?? .resource("error_generic")
+		return reasonHints(technicalDetail) ?? .resource(L10n.Error.generic)
 	}
 
 	/// True when the user intentionally backed out of a flow.
@@ -76,23 +76,56 @@ extension Error {
 	}
 }
 
+/// Maps a receiver delivery/refusal reason code to a user-facing message, never
+/// surfacing the raw core code (e.g. `destination_exists`). Unknown codes fall back
+/// to the substring hints, then a generic message.
+func receiverReasonUiText(_ reason: String) -> UiText {
+	switch reason {
+	case "destination_exists":
+		return .resource(L10n.Error.destinationExists)
+	case "filesystem", "filesystem_permission_denied":
+		return .resource(L10n.Error.filesystem)
+	case "permission_denied", "approval-required", "approval-expired",
+		 "unknown-transfer", "missing-endpoint-id", "invalid-receipt":
+		return .resource(L10n.Error.permission)
+	case "storage_full":
+		return .resource(L10n.Error.storageFull)
+	case "network":
+		return .resource(L10n.Error.network)
+	case "invalid_ticket":
+		return .resource(L10n.Error.invalidTicket)
+	case "transfer":
+		return .resource(L10n.Error.transfer)
+	case "repository", "repository-error":
+		return .resource(L10n.Error.repository)
+	case "invalid_input":
+		return .resource(L10n.Error.invalidInput)
+	case "initialization":
+		return .resource(L10n.Error.initialization)
+	case "cancelled", "internal":
+		return .resource(L10n.Error.generic)
+	default:
+		return reasonHints(reason) ?? .resource(L10n.Error.generic)
+	}
+}
+
 private func transferUiText(_ reason: String) -> UiText {
 	let detail = reason.lowercased()
 	if detail.contains("refused") || detail.contains("denied") || detail.contains("not approved") {
-		return .resource("error_permission")
+		return .resource(L10n.Error.permission)
 	}
-	return .resource("error_transfer")
+	return .resource(L10n.Error.transfer)
 }
 
 private func initializationUiText(_ reason: String) -> UiText {
 	let detail = reason.lowercased()
 	if detail.contains("native") && detail.contains("library") {
-		return .resource("error_missing_native_library")
+		return .resource(L10n.Error.missingNativeLibrary)
 	}
 	if detail.contains("socket") || detail.contains("bind") {
-		return .resource("error_socket_bind")
+		return .resource(L10n.Error.socketBind)
 	}
-	return .resource("error_initialization")
+	return .resource(L10n.Error.initialization)
 }
 
 private func reasonHints(_ detailRaw: String) -> UiText? {
@@ -100,50 +133,50 @@ private func reasonHints(_ detailRaw: String) -> UiText? {
 	if detail.isEmpty { return nil }
 
 	if detail.contains("still starting") || detail.contains("starting up") {
-		return .resource("error_starting_up")
+		return .resource(L10n.Error.startingUp)
 	}
 	if detail.contains("empty") && (detail.contains("invitation") || detail.contains("ticket") || detail.contains("qr")) {
-		return .resource("error_invitation_empty")
+		return .resource(L10n.Error.invitationEmpty)
 	}
 	if detail.contains("select at least one") || detail.contains("no files found") {
-		return .resource("error_share_empty")
+		return .resource(L10n.Error.shareEmpty)
 	}
 	if detail.contains("camera") {
-		return .resource("error_camera")
+		return .resource(L10n.Error.camera)
 	}
 	if detail.contains("nfc") || detail.contains("ndef")
 		|| (detail.contains("read-only") && detail.contains("tag"))
 		|| detail.contains("tag is too small") || detail.contains("no nfc tag") {
-		return .resource("error_nfc")
+		return .resource(L10n.Error.nfc)
 	}
 	if detail.contains("native") && detail.contains("library") {
-		return .resource("error_missing_native_library")
+		return .resource(L10n.Error.missingNativeLibrary)
 	}
 	if detail.contains("socket") || detail.contains("bind") {
-		return .resource("error_socket_bind")
+		return .resource(L10n.Error.socketBind)
 	}
 	if detail.contains("device information") || detail.contains("device info") {
-		return .resource("error_device_info")
+		return .resource(L10n.Error.deviceInfo)
 	}
 	if detail.contains("refused") || detail.contains("denied") || detail.contains("permission")
 		|| detail.contains("not approved") || detail.contains("waiting for approval") {
-		return .resource("error_permission")
+		return .resource(L10n.Error.permission)
 	}
 	if detail.contains("invalid ticket") || detail.contains("ticket error")
 		|| detail.contains("could not be read") || detail.contains("malformed")
 		|| detail.contains("invitation could not be opened") {
-		return .resource("error_invalid_ticket")
+		return .resource(L10n.Error.invalidTicket)
 	}
 	if detail.contains("selected")
 		&& (detail.contains("file") || detail.contains("folder") || detail.contains("document") || detail.contains("open")) {
-		return .resource("error_selection_failed")
+		return .resource(L10n.Error.selectionFailed)
 	}
 	if detail.contains("could not open the selected") || detail.contains("could not open selected") {
-		return .resource("error_selection_failed")
+		return .resource(L10n.Error.selectionFailed)
 	}
 	if detail.contains("document picker") || detail.contains("folder picker") || detail.contains("file descriptor")
 		|| detail.contains("view controller") {
-		return .resource("error_selection_failed")
+		return .resource(L10n.Error.selectionFailed)
 	}
 	return nil
 }

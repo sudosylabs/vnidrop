@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -174,19 +175,48 @@ private fun ReviewFileStep(
 			style = MaterialTheme.typography.bodySmall,
 		)
 	}
-	if (windowClass == WindowClass.Phone) {
-		Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-			ShareButton(state, coreInitialized, onCreateShare, Modifier.fillMaxWidth())
-			QuietButton(stringResource(Res.string.button_change_files), onClick = onSelectFile, modifier = Modifier.fillMaxWidth(), enabled = !state.isSharing)
-			QuietButton(stringResource(Res.string.button_choose_folder), onClick = onSelectFolder, modifier = Modifier.fillMaxWidth(), enabled = !state.isSharing)
+	Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+		ShareButton(state, coreInitialized, onCreateShare, Modifier.fillMaxWidth())
+		Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+			SourceButton(
+				text = stringResource(Res.string.button_change_files),
+				icon = AppIcon.File,
+				onClick = onSelectFile,
+				modifier = Modifier.weight(1f),
+				enabled = !state.isSharing,
+			)
+			SourceButton(
+				text = stringResource(Res.string.button_choose_folder),
+				icon = AppIcon.Folder,
+				onClick = onSelectFolder,
+				modifier = Modifier.weight(1f),
+				enabled = !state.isSharing,
+			)
+			if (windowClass != WindowClass.Phone) {
+				SourceButton(
+					text = stringResource(Res.string.button_clear),
+					icon = AppIcon.Close,
+					onClick = onClearFile,
+					modifier = Modifier.weight(1f),
+					enabled = !state.isSharing,
+				)
+			}
 		}
-	} else {
-		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-			ShareButton(state, coreInitialized, onCreateShare)
-			QuietButton(stringResource(Res.string.button_change_files), onClick = onSelectFile, enabled = !state.isSharing)
-			QuietButton(stringResource(Res.string.button_choose_folder), onClick = onSelectFolder, enabled = !state.isSharing)
-			QuietButton(stringResource(Res.string.button_clear), onClick = onClearFile, enabled = !state.isSharing)
-		}
+	}
+}
+
+@Composable
+private fun SourceButton(
+	text: String,
+	icon: AppIcon,
+	onClick: () -> Unit,
+	modifier: Modifier = Modifier,
+	enabled: Boolean,
+) {
+	OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled) {
+		PlatformIcon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+		Spacer(Modifier.width(8.dp))
+		Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
 	}
 }
 

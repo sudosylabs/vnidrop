@@ -80,7 +80,9 @@ final class CoreRepository: ObservableObject, CoreGateway {
 	// access the handle from the main actor. The underlying core is internally
 	// synchronized, and `nonisolated(unsafe)` documents that crossing for Swift 6.
 	private nonisolated(unsafe) var core: VnidropCore?
-	private let queue = DispatchQueue(label: "com.vnidrop.core", qos: .userInitiated)
+	// Core calls run through `dispatcher` (see runCore/runInterrupt); the factory
+	// and transition flag drive relay-aware (re)initialization.
+	private let dispatcher = CoreDispatcher()
 	private let coreFactory: any CoreBindingFactory
 	private var isNetworkTransitionInProgress = false
 	private lazy var sink = RepositoryEventSink { [weak self] event in
@@ -222,7 +224,9 @@ final class CoreRepository: ObservableObject, CoreGateway {
 	// MARK: - Lifecycle actions
 
 	func cancel(transferId: UInt64) async -> Result<Void, Error> {
-		await runCore {
+		// Off the serial `queue`: a receive in flight is blocking it, and the
+		// cancel signal must reach the core to unblock that receive.
+		await runInterrupt {
 			try self.requireCore().cancelTransfer(transferId: transferId)
 		}.map { self.refreshSnapshot() }
 	}
@@ -356,17 +360,14 @@ final class CoreRepository: ObservableObject, CoreGateway {
 
 	/// Runs a blocking core call off the main actor and hops the result back.
 	private nonisolated func runCore<T: Sendable>(_ block: @escaping @Sendable () throws -> T) async -> Result<T, Error> {
-		await withCheckedContinuation { continuation in
-			queue.async {
-				let result: Result<T, Error>
-				do {
-					result = .success(try block())
-				} catch {
-					result = .failure(error)
-				}
-				continuation.resume(returning: result)
-			}
-		}
+		await dispatcher.run(block)
+	}
+
+	/// Like `runCore`, but off the serial lane so it can interrupt a blocking
+	/// call in flight there (e.g. cancel a `receive`). Only use for core calls
+	/// that are safe to run concurrently with another core call.
+	private nonisolated func runInterrupt<T: Sendable>(_ block: @escaping @Sendable () throws -> T) async -> Result<T, Error> {
+		await dispatcher.runInterrupt(block)
 	}
 
 	private nonisolated static func nextTransferId() -> UInt64 {
@@ -401,14 +402,15 @@ private extension CoreEvent {
 	}
 }
 
-private let refreshPhases: Set<String> = ["lifecycle", "error", "ticket", "import", "download", "export", "handshake"]
-private let refreshKinds: Set<String> = [
-	"started", "done", "created", "failed", "cancelled", "share-stopped", "found-collection", "connected",
+private let refreshPhases: Set<EventPhase> = [.lifecycle, .error, .ticket, .importing, .download, .export, .handshake]
+private let refreshKinds: Set<EventKind> = [
+	.started, .done, .created, .failed, .cancelled, .shareStopped, .foundCollection, .connected,
 ]
 
 private extension CoreEventModel {
 	var shouldRefreshTransfers: Bool {
-		refreshPhases.contains(phase) && refreshKinds.contains(kind)
+		guard let eventPhase, let eventKind else { return false }
+		return refreshPhases.contains(eventPhase) && refreshKinds.contains(eventKind)
 	}
 }
 

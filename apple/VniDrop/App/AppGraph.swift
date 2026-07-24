@@ -12,6 +12,7 @@ final class AppGraph: ObservableObject {
 	let preferencesRepository: AppPreferencesRepository
 	let filePreviewRepository: FilePreviewRepository
 	let approvalCoordinator: ApprovalCoordinator
+	let transferNotificationCoordinator: TransferNotificationCoordinator
 
 	init(dependencies: AppDependencies, coreRepository: CoreRepository? = nil) {
 		self.dependencies = dependencies
@@ -23,13 +24,17 @@ final class AppGraph: ObservableObject {
 				username: dependencies.environment.defaultUsername,
 				receiveFolder: dependencies.fileSystemService.defaultReceiveFolder(),
 				themeMode: .system,
-				notificationsEnabled: false,
 				diagnosticsEnabled: false
 			)
 		)
 		self.approvalCoordinator = ApprovalCoordinator(
 			repository: coreRepository,
-			preferences: preferencesRepository,
+			notifications: dependencies.notificationService,
+			visibility: visibility,
+			messages: messages
+		)
+		self.transferNotificationCoordinator = TransferNotificationCoordinator(
+			repository: coreRepository,
 			notifications: dependencies.notificationService,
 			visibility: visibility,
 			messages: messages

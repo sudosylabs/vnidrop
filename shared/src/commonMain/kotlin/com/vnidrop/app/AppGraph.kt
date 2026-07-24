@@ -8,6 +8,7 @@ import com.vnidrop.app.feature.approvals.ApprovalCoordinator
 import com.vnidrop.app.feature.send.AppFilePreviewRepository
 import com.vnidrop.app.feature.send.createPlatformPreviewStore
 import com.vnidrop.app.logging.AppLogger
+import com.vnidrop.app.notifications.TransferNotificationCoordinator
 import com.vnidrop.app.platform.AppVisibility
 import com.vnidrop.app.preferences.AppPreferencesDefaults
 import com.vnidrop.app.preferences.AppPreferencesRepository
@@ -55,6 +56,14 @@ class AppGraph(
 		),
 	)
 	val approvalCoordinator = ApprovalCoordinator(
+		repository = coreRepository,
+		preferencesRepository = preferencesRepository,
+		notifications = dependencies.localNotificationService,
+		visibility = visibility,
+		messages = messages,
+		scope = applicationScope,
+	)
+	val transferNotificationCoordinator = TransferNotificationCoordinator(
 		repository = coreRepository,
 		preferencesRepository = preferencesRepository,
 		notifications = dependencies.localNotificationService,

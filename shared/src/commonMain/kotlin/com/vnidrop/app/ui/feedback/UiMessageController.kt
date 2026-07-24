@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import org.jetbrains.compose.resources.StringResource
 
 sealed interface UiText {
-	data class Resource(val resource: StringResource) : UiText
+	data class Resource(val resource: StringResource, val formatArgs: List<Any> = emptyList()) : UiText
 	data class Dynamic(val value: String) : UiText
 }
 

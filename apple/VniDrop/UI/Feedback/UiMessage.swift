@@ -4,14 +4,14 @@ import Combine
 /// A localizable UI string: either a catalog key or dynamic text, ported from
 /// `UiText` in `ui/feedback/UiMessageController.kt`.
 enum UiText: Equatable {
-	case resource(String)   // Localizable.xcstrings key
+	case resource(String.LocalizationValue)   // Localizable.xcstrings key (use L10n.*)
 	case dynamic(String)
 
 	/// Resolves to display text. Keys go through the string catalog.
 	func resolved() -> String {
 		switch self {
 		case .dynamic(let value): return value
-		case .resource(let key): return String(localized: String.LocalizationValue(key))
+		case .resource(let value): return String(localized: value)
 		}
 	}
 }

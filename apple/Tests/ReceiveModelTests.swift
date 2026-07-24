@@ -24,6 +24,9 @@ final class ReceiveModelTests: XCTestCase {
 		XCTAssertEqual(model.state.historyDeleteTarget, .transfer(transferId: 5))
 
 		model.confirmHistoryDelete()
+		// Must close immediately (not after the async delete) so the alert can't
+		// re-present on macOS.
+		XCTAssertNil(model.state.historyDeleteTarget)
 		await waitUntil { core.deletedTransfers.contains(5) }
 		XCTAssertEqual(core.deletedTransfers, [5])
 		XCTAssertNil(model.state.historyDeleteTarget)

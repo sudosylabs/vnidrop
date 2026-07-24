@@ -13,76 +13,6 @@
     "ru"
   ],
   "strings": {
-    "%@": {
-      "context": "Apple format passthrough placeholder (single value). Legacy literal key — rename to a semantic key.",
-      "targets": [
-        "apple"
-      ]
-    },
-    "%@ %@ · %@": {
-      "context": "Apple format template composing three values with a middot separator (e.g. metadata rows). Legacy literal key — rename.",
-      "targets": [
-        "apple"
-      ],
-      "args": [
-        {
-          "name": "arg1",
-          "type": "string"
-        },
-        {
-          "name": "arg2",
-          "type": "string"
-        },
-        {
-          "name": "arg3",
-          "type": "string"
-        }
-      ],
-      "translations": {
-        "en": "{arg1} {arg2} · {arg3}",
-        "fr": "{arg1} {arg2} · {arg3}",
-        "es": "{arg1} {arg2} · {arg3}",
-        "it": "{arg1} {arg2} · {arg3}",
-        "de": "{arg1} {arg2} · {arg3}",
-        "pt": "{arg1} {arg2} · {arg3}",
-        "pl": "{arg1} {arg2} · {arg3}",
-        "nl": "{arg1} {arg2} · {arg3}",
-        "ru": "{arg1} {arg2} · {arg3}"
-      }
-    },
-    "%@ · %@": {
-      "context": "Apple format template composing two values with a middot separator. Legacy literal key — rename.",
-      "targets": [
-        "apple"
-      ],
-      "args": [
-        {
-          "name": "arg1",
-          "type": "string"
-        },
-        {
-          "name": "arg2",
-          "type": "string"
-        }
-      ],
-      "translations": {
-        "en": "{arg1} · {arg2}",
-        "fr": "{arg1} · {arg2}",
-        "es": "{arg1} · {arg2}",
-        "it": "{arg1} · {arg2}",
-        "de": "{arg1} · {arg2}",
-        "pt": "{arg1} · {arg2}",
-        "pl": "{arg1} · {arg2}",
-        "nl": "{arg1} · {arg2}",
-        "ru": "{arg1} · {arg2}"
-      }
-    },
-    "%@%%": {
-      "context": "Apple format template appending a percent sign to a value (e.g. battery level). Legacy literal key — rename.",
-      "targets": [
-        "apple"
-      ]
-    },
     "about_bug_report": {
       "context": "About screen: button/link that opens the bug report form.",
       "translations": {
@@ -391,6 +321,20 @@
         "ru": "О приложении"
       }
     },
+    "app_starting": {
+      "context": "Shown briefly at launch while the core is still starting up.",
+      "translations": {
+        "en": "Starting…",
+        "fr": "Démarrage…",
+        "es": "Iniciando…",
+        "it": "Avvio…",
+        "de": "Wird gestartet…",
+        "pt": "A iniciar…",
+        "pl": "Uruchamianie…",
+        "nl": "Bezig met starten…",
+        "ru": "Запуск…"
+      }
+    },
     "appearance_auto_description": {
       "context": "Settings > Appearance: description for the System/auto option.",
       "translations": {
@@ -476,23 +420,23 @@
       }
     },
     "approval_endpoint_id": {
-      "context": "Approval prompt: shows the requesting device's ID. {arg1} = device/endpoint identifier.",
+      "context": "Approval prompt: shows the requesting device's ID. {deviceId} = device/endpoint identifier.",
       "args": [
         {
-          "name": "arg1",
+          "name": "deviceId",
           "type": "string"
         }
       ],
       "translations": {
-        "en": "Device ID: {arg1}",
-        "fr": "Identifiant de l’appareil : {arg1}",
-        "es": "ID del dispositivo: {arg1}",
-        "it": "ID dispositivo: {arg1}",
-        "de": "Geräte-ID: {arg1}",
-        "pt": "ID do dispositivo: {arg1}",
-        "pl": "Identyfikator urządzenia: {arg1}",
-        "nl": "Apparaat-ID: {arg1}",
-        "ru": "Идентификатор устройства: {arg1}"
+        "en": "Device ID: {deviceId}",
+        "fr": "Identifiant de l’appareil : {deviceId}",
+        "es": "ID del dispositivo: {deviceId}",
+        "it": "ID dispositivo: {deviceId}",
+        "de": "Geräte-ID: {deviceId}",
+        "pt": "ID do dispositivo: {deviceId}",
+        "pl": "Identyfikator urządzenia: {deviceId}",
+        "nl": "Apparaat-ID: {deviceId}",
+        "ru": "Идентификатор устройства: {deviceId}"
       }
     },
     "approval_nearby_device": {
@@ -530,27 +474,27 @@
       }
     },
     "approval_request_body": {
-      "context": "Approval prompt body: '{arg1} wants to receive \"{arg2}\".' {arg1} = requester name, {arg2} = transfer name.",
+      "context": "Approval prompt body: '{receiver} wants to receive \"{transferName}\".' {receiver} = requester name, {transferName} = transfer name.",
       "args": [
         {
-          "name": "arg1",
+          "name": "receiver",
           "type": "string"
         },
         {
-          "name": "arg2",
+          "name": "transferName",
           "type": "string"
         }
       ],
       "translations": {
-        "en": "{arg1} wants to receive “{arg2}”.",
-        "fr": "{arg1} souhaite recevoir « {arg2} ».",
-        "es": "{arg1} quiere recibir «{arg2}».",
-        "it": "{arg1} vuole ricevere «{arg2}».",
-        "de": "{arg1} möchte „{arg2}“ empfangen.",
-        "pt": "{arg1} quer receber «{arg2}».",
-        "pl": "{arg1} chce odebrać „{arg2}”.",
-        "nl": "{arg1} wil ‘{arg2}’ ontvangen.",
-        "ru": "{arg1} хочет получить «{arg2}»."
+        "en": "{receiver} wants to receive “{transferName}”.",
+        "fr": "{receiver} souhaite recevoir « {transferName} ».",
+        "es": "{receiver} quiere recibir «{transferName}».",
+        "it": "{receiver} vuole ricevere «{transferName}».",
+        "de": "{receiver} möchte „{transferName}“ empfangen.",
+        "pt": "{receiver} quer receber «{transferName}».",
+        "pl": "{receiver} chce odebrać „{transferName}”.",
+        "nl": "{receiver} wil ‘{transferName}’ ontvangen.",
+        "ru": "{receiver} хочет получить «{transferName}»."
       }
     },
     "battery_level_title": {
@@ -565,6 +509,29 @@
         "pl": "Poziom baterii",
         "nl": "Batterijniveau",
         "ru": "Уровень заряда"
+      }
+    },
+    "battery_level_value": {
+      "context": "Device information: battery charge formatted as a percentage. {level} = integer percent value.",
+      "targets": [
+        "apple"
+      ],
+      "args": [
+        {
+          "name": "level",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "{level}%",
+        "fr": "{level} %",
+        "es": "{level} %",
+        "it": "{level}%",
+        "de": "{level} %",
+        "pt": "{level}%",
+        "pl": "{level}%",
+        "nl": "{level}%",
+        "ru": "{level} %"
       }
     },
     "bug_report_contact_hint": {
@@ -859,6 +826,20 @@
         "pl": "Wstecz",
         "nl": "Terug",
         "ru": "Назад"
+      }
+    },
+    "button_more_actions": {
+      "context": "Accessibility label for a button that opens more actions for an item.",
+      "translations": {
+        "en": "More actions",
+        "fr": "Plus d’actions",
+        "es": "Más acciones",
+        "it": "Altre azioni",
+        "de": "Weitere Aktionen",
+        "pt": "Mais ações",
+        "pl": "Więcej działań",
+        "nl": "Meer acties",
+        "ru": "Другие действия"
       }
     },
     "button_cancel": {
@@ -1645,6 +1626,64 @@
         "ru": "Готово"
       }
     },
+    "format_separated_pair": {
+      "context": "Composes two already-localized values with a middot separator (e.g. size · status). {first} and {second} are the two values.",
+      "targets": [
+        "apple"
+      ],
+      "args": [
+        {
+          "name": "first",
+          "type": "string"
+        },
+        {
+          "name": "second",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "{first} · {second}",
+        "fr": "{first} · {second}",
+        "es": "{first} · {second}",
+        "it": "{first} · {second}",
+        "de": "{first} · {second}",
+        "pt": "{first} · {second}",
+        "pl": "{first} · {second}",
+        "nl": "{first} · {second}",
+        "ru": "{first} · {second}"
+      }
+    },
+    "format_separated_triple": {
+      "context": "Composes three already-localized values, the first two space-joined then a middot before the third (e.g. count files · size). {first}, {second}, {third} are the values.",
+      "targets": [
+        "apple"
+      ],
+      "args": [
+        {
+          "name": "first",
+          "type": "string"
+        },
+        {
+          "name": "second",
+          "type": "string"
+        },
+        {
+          "name": "third",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "{first} {second} · {third}",
+        "fr": "{first} {second} · {third}",
+        "es": "{first} {second} · {third}",
+        "it": "{first} {second} · {third}",
+        "de": "{first} {second} · {third}",
+        "pt": "{first} {second} · {third}",
+        "pl": "{first} {second} · {third}",
+        "nl": "{first} {second} · {third}",
+        "ru": "{first} {second} · {third}"
+      }
+    },
     "metadata_files": {
       "context": "Transfer metadata label: number of files.",
       "translations": {
@@ -1746,15 +1785,15 @@
     "notifications_description": {
       "context": "Settings > Notifications: explanation of what notifications are used for.",
       "translations": {
-        "en": "Get notified about new receive requests while VniDrop is in the background.",
-        "fr": "Soyez averti des nouvelles demandes de réception lorsque VniDrop est en arrière-plan.",
-        "es": "Reciba avisos sobre nuevas solicitudes de recepción cuando VniDrop está en segundo plano.",
-        "it": "Ricevi avvisi sulle nuove richieste di ricezione quando VniDrop è in background.",
-        "de": "Werden Sie über neue Empfangsanfragen benachrichtigt, während VniDrop im Hintergrund läuft.",
-        "pt": "Seja notificado sobre novos pedidos de receção enquanto o VniDrop está em segundo plano.",
-        "pl": "Otrzymuj powiadomienia o nowych prośbach o odbiór, gdy VniDrop działa w tle.",
-        "nl": "Ontvang meldingen over nieuwe ontvangstverzoeken terwijl VniDrop op de achtergrond draait.",
-        "ru": "Получайте уведомления о новых запросах на получение, пока VniDrop работает в фоне."
+        "en": "Get notified about transfer activity while VniDrop is in the background.",
+        "fr": "Soyez averti de l’activité des transferts lorsque VniDrop est en arrière-plan.",
+        "es": "Reciba avisos sobre la actividad de las transferencias cuando VniDrop está en segundo plano.",
+        "it": "Ricevi avvisi sull’attività dei trasferimenti quando VniDrop è in background.",
+        "de": "Werden Sie über Übertragungsaktivitäten benachrichtigt, während VniDrop im Hintergrund läuft.",
+        "pt": "Seja notificado sobre a atividade das transferências enquanto o VniDrop está em segundo plano.",
+        "pl": "Otrzymuj powiadomienia o aktywności transferów, gdy VniDrop działa w tle.",
+        "nl": "Ontvang meldingen over overdrachtsactiviteit terwijl VniDrop op de achtergrond draait.",
+        "ru": "Получайте уведомления об активности передач, пока VniDrop работает в фоне."
       }
     },
     "notifications_enabled_message": {
@@ -1797,6 +1836,184 @@
         "pl": "Powiadomienia są wyłączone dla VniDrop. Możesz je włączyć w Ustawieniach.",
         "nl": "Meldingen zijn uitgeschakeld voor VniDrop. U kunt ze inschakelen in Instellingen.",
         "ru": "Уведомления отключены для VniDrop. Вы можете включить их в Настройках."
+      }
+    },
+    "notifications_receive_completed_body": {
+      "context": "Notification body shown when an incoming transfer finishes downloading. {transferName} = transfer name.",
+      "args": [
+        {
+          "name": "transferName",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "“{transferName}” finished downloading.",
+        "fr": "« {transferName} » a fini de se télécharger.",
+        "es": "«{transferName}» terminó de descargarse.",
+        "it": "«{transferName}» è stato scaricato.",
+        "de": "„{transferName}“ wurde vollständig heruntergeladen.",
+        "pt": "«{transferName}» concluiu a transferência.",
+        "pl": "Zakończono pobieranie „{transferName}”.",
+        "nl": "‘{transferName}’ is volledig gedownload.",
+        "ru": "«{transferName}» завершил загрузку."
+      }
+    },
+    "notifications_receive_completed_title": {
+      "context": "Notification title shown when an incoming transfer finishes downloading.",
+      "translations": {
+        "en": "Download complete",
+        "fr": "Téléchargement terminé",
+        "es": "Descarga completada",
+        "it": "Download completato",
+        "de": "Download abgeschlossen",
+        "pt": "Transferência concluída",
+        "pl": "Pobieranie zakończone",
+        "nl": "Download voltooid",
+        "ru": "Загрузка завершена"
+      }
+    },
+    "notifications_receive_failed_body": {
+      "context": "Notification body shown when an incoming transfer fails. {transferName} = transfer name.",
+      "args": [
+        {
+          "name": "transferName",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "“{transferName}” couldn’t be received.",
+        "fr": "« {transferName} » n’a pas pu être reçu.",
+        "es": "No se pudo recibir «{transferName}».",
+        "it": "Impossibile ricevere «{transferName}».",
+        "de": "„{transferName}“ konnte nicht empfangen werden.",
+        "pt": "Não foi possível receber «{transferName}».",
+        "pl": "Nie udało się odebrać „{transferName}”.",
+        "nl": "‘{transferName}’ kon niet worden ontvangen.",
+        "ru": "Не удалось получить «{transferName}»."
+      }
+    },
+    "notifications_receive_failed_title": {
+      "context": "Notification title shown when an incoming transfer fails.",
+      "translations": {
+        "en": "Download failed",
+        "fr": "Échec du téléchargement",
+        "es": "Error en la descarga",
+        "it": "Download non riuscito",
+        "de": "Download fehlgeschlagen",
+        "pt": "Falha na transferência",
+        "pl": "Pobieranie nie powiodło się",
+        "nl": "Download mislukt",
+        "ru": "Ошибка загрузки"
+      }
+    },
+    "notifications_receiver_completed_body": {
+      "context": "Notification body shown to the sender when a receiver finishes downloading a shared transfer. {receiver} = receiver name, {transferName} = transfer name.",
+      "args": [
+        {
+          "name": "receiver",
+          "type": "string"
+        },
+        {
+          "name": "transferName",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "{receiver} finished receiving “{transferName}”.",
+        "fr": "{receiver} a fini de recevoir « {transferName} ».",
+        "es": "{receiver} terminó de recibir «{transferName}».",
+        "it": "{receiver} ha finito di ricevere «{transferName}».",
+        "de": "{receiver} hat „{transferName}“ vollständig empfangen.",
+        "pt": "{receiver} terminou de receber «{transferName}».",
+        "pl": "{receiver} zakończył odbieranie „{transferName}”.",
+        "nl": "{receiver} heeft ‘{transferName}’ volledig ontvangen.",
+        "ru": "{receiver} завершил получение «{transferName}»."
+      }
+    },
+    "notifications_receiver_completed_title": {
+      "context": "Notification title shown to the sender when a receiver finishes downloading a shared transfer.",
+      "translations": {
+        "en": "Transfer received",
+        "fr": "Transfert reçu",
+        "es": "Transferencia recibida",
+        "it": "Trasferimento ricevuto",
+        "de": "Übertragung empfangen",
+        "pt": "Transferência recebida",
+        "pl": "Transfer odebrany",
+        "nl": "Overdracht ontvangen",
+        "ru": "Передача получена"
+      }
+    },
+    "notifications_receiver_failed_body": {
+      "context": "Notification body shown to the sender when a receiver's download fails. {receiver} = receiver name, {transferName} = transfer name.",
+      "args": [
+        {
+          "name": "receiver",
+          "type": "string"
+        },
+        {
+          "name": "transferName",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "{receiver} couldn't receive “{transferName}”",
+        "fr": "{receiver} n'a pas pu recevoir « {transferName} »",
+        "es": "{receiver} no pudo recibir «{transferName}»",
+        "it": "{receiver} non ha potuto ricevere “{transferName}”",
+        "de": "{receiver} konnte „{transferName}“ nicht empfangen",
+        "pt": "{receiver} não conseguiu receber “{transferName}”",
+        "pl": "{receiver} nie mógł odebrać „{transferName}”",
+        "nl": "{receiver} kon “{transferName}” niet ontvangen",
+        "ru": "{receiver} не удалось получить «{transferName}»"
+      }
+    },
+    "notifications_receiver_failed_title": {
+      "context": "Notification title shown to the sender when a receiver's download fails.",
+      "translations": {
+        "en": "Delivery failed",
+        "fr": "Échec de l'envoi",
+        "es": "Error en la entrega",
+        "it": "Consegna non riuscita",
+        "de": "Übertragung fehlgeschlagen",
+        "pt": "Falha na entrega",
+        "pl": "Dostarczenie nie powiodło się",
+        "nl": "Levering mislukt",
+        "ru": "Ошибка доставки"
+      }
+    },
+    "notifications_send_failed_body": {
+      "context": "Notification body shown to the sender when a shared transfer fails. {transferName} = transfer name.",
+      "args": [
+        {
+          "name": "transferName",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "“{transferName}” couldn’t be shared.",
+        "fr": "« {transferName} » n’a pas pu être partagé.",
+        "es": "No se pudo compartir «{transferName}».",
+        "it": "Impossibile condividere «{transferName}».",
+        "de": "„{transferName}“ konnte nicht geteilt werden.",
+        "pt": "Não foi possível partilhar «{transferName}».",
+        "pl": "Nie udało się udostępnić „{transferName}”.",
+        "nl": "‘{transferName}’ kon niet worden gedeeld.",
+        "ru": "Не удалось поделиться «{transferName}»."
+      }
+    },
+    "notifications_send_failed_title": {
+      "context": "Notification title shown to the sender when a shared transfer fails.",
+      "translations": {
+        "en": "Sharing failed",
+        "fr": "Échec du partage",
+        "es": "Error al compartir",
+        "it": "Condivisione non riuscita",
+        "de": "Freigabe fehlgeschlagen",
+        "pt": "Falha na partilha",
+        "pl": "Udostępnianie nie powiodło się",
+        "nl": "Delen mislukt",
+        "ru": "Не удалось поделиться"
       }
     },
     "notifications_settings_open_failed": {
@@ -2212,23 +2429,23 @@
       }
     },
     "receive_delete_history_description": {
-      "context": "Receive history: confirmation body for removing one item. {arg1} = transfer name.",
+      "context": "Receive history: confirmation body for removing one item. {transferName} = transfer name.",
       "args": [
         {
-          "name": "arg1",
+          "name": "transferName",
           "type": "string"
         }
       ],
       "translations": {
-        "en": "“{arg1}” will be removed from VniDrop’s history. The downloaded file will remain on this device.",
-        "fr": "« {arg1} » sera retiré de l’historique de VniDrop. Le fichier téléchargé restera sur cet appareil.",
-        "es": "«{arg1}» se eliminará del historial de VniDrop. El archivo descargado permanecerá en este dispositivo.",
-        "it": "«{arg1}» verrà rimosso dalla cronologia di VniDrop. Il file scaricato rimarrà su questo dispositivo.",
-        "de": "„{arg1}“ wird aus dem Verlauf von VniDrop entfernt. Die heruntergeladene Datei verbleibt auf diesem Gerät.",
-        "pt": "«{arg1}» será removido do histórico do VniDrop. O ficheiro descarregado permanecerá neste dispositivo.",
-        "pl": "„{arg1}” zostanie usunięty z historii VniDrop. Pobrany plik pozostanie na tym urządzeniu.",
-        "nl": "‘{arg1}’ wordt uit de geschiedenis van VniDrop verwijderd. Het gedownloade bestand blijft op dit apparaat.",
-        "ru": "«{arg1}» будет удалён из истории VniDrop. Загруженный файл останется на этом устройстве."
+        "en": "“{transferName}” will be removed from VniDrop’s history. The downloaded file will remain on this device.",
+        "fr": "« {transferName} » sera retiré de l’historique de VniDrop. Le fichier téléchargé restera sur cet appareil.",
+        "es": "«{transferName}» se eliminará del historial de VniDrop. El archivo descargado permanecerá en este dispositivo.",
+        "it": "«{transferName}» verrà rimosso dalla cronologia di VniDrop. Il file scaricato rimarrà su questo dispositivo.",
+        "de": "„{transferName}“ wird aus dem Verlauf von VniDrop entfernt. Die heruntergeladene Datei verbleibt auf diesem Gerät.",
+        "pt": "«{transferName}» será removido do histórico do VniDrop. O ficheiro descarregado permanecerá neste dispositivo.",
+        "pl": "„{transferName}” zostanie usunięty z historii VniDrop. Pobrany plik pozostanie na tym urządzeniu.",
+        "nl": "‘{transferName}’ wordt uit de geschiedenis van VniDrop verwijderd. Het gedownloade bestand blijft op dit apparaat.",
+        "ru": "«{transferName}» будет удалён из истории VniDrop. Загруженный файл останется на этом устройстве."
       }
     },
     "receive_delete_history_item": {
@@ -3381,6 +3598,206 @@
         "ru": "Вычисление…"
       }
     },
+    "storage_cleaning": {
+      "context": "Settings > Storage: free-up-space button while cleanup runs.",
+      "translations": {
+        "en": "Cleaning up…",
+        "fr": "Nettoyage…",
+        "es": "Limpiando…",
+        "it": "Pulizia…",
+        "de": "Wird bereinigt…",
+        "pt": "A limpar…",
+        "pl": "Czyszczenie…",
+        "nl": "Opschonen…",
+        "ru": "Очистка…"
+      }
+    },
+    "storage_cleanup_busy": {
+      "context": "Settings > Storage: shown when cleanup is blocked by in-flight transfers.",
+      "translations": {
+        "en": "Finish active transfers before freeing up space",
+        "fr": "Terminez les transferts en cours avant de libérer de l'espace",
+        "es": "Finaliza las transferencias activas antes de liberar espacio",
+        "it": "Completa i trasferimenti attivi prima di liberare spazio",
+        "de": "Beende aktive Übertragungen, bevor du Speicher freigibst",
+        "pt": "Conclui as transferências ativas antes de libertar espaço",
+        "pl": "Zakończ aktywne transfery przed zwolnieniem miejsca",
+        "nl": "Voltooi actieve overdrachten voordat je ruimte vrijmaakt",
+        "ru": "Завершите активные передачи перед освобождением места"
+      }
+    },
+    "storage_cleanup_freed": {
+      "context": "Settings > Storage: cleanup success. {size} = amount freed.",
+      "args": [
+        {
+          "name": "size",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "Freed {size}",
+        "fr": "{size} libéré",
+        "es": "Se liberó {size}",
+        "it": "Liberati {size}",
+        "de": "{size} freigegeben",
+        "pt": "Libertado {size}",
+        "pl": "Zwolniono {size}",
+        "nl": "{size} vrijgemaakt",
+        "ru": "Освобождено {size}"
+      }
+    },
+    "storage_clear_transfer_cache": {
+      "context": "Settings > Storage: button that clears cached transfer content (KMP).",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Clear transfer cache",
+        "fr": "Vider le cache des transferts",
+        "es": "Borrar caché de transferencias",
+        "it": "Svuota cache trasferimenti",
+        "de": "Übertragungscache leeren",
+        "pt": "Limpar cache de transferências",
+        "pl": "Wyczyść pamięć podręczną transferów",
+        "nl": "Overdrachtscache wissen",
+        "ru": "Очистить кэш передач"
+      }
+    },
+    "storage_clear_transfer_cache_description": {
+      "context": "Settings > Storage: description under the clear-transfer-cache button (KMP).",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Removes cached transfer content after briefly restarting VniDrop. Finish ongoing transfers and stop active shares first. Received files and transfer history are not deleted.",
+        "fr": "Supprime le contenu de transfert en cache qui n’est pas utilisé par une réception en cours ou un partage actif. Les fichiers reçus et l’historique ne sont pas supprimés.",
+        "es": "Elimina el contenido de transferencia en caché que no esté siendo utilizado por una recepción en curso o un recurso compartido activo. Los archivos recibidos y el historial no se eliminan.",
+        "it": "Rimuove il contenuto dei trasferimenti memorizzato nella cache che non è usato da una ricezione in corso o da una condivisione attiva. I file ricevuti e la cronologia non vengono eliminati.",
+        "de": "Entfernt zwischengespeicherte Übertragungsinhalte, die nicht von einem laufenden Empfang oder einer aktiven Freigabe verwendet werden. Empfangene Dateien und der Übertragungsverlauf werden nicht gelöscht.",
+        "pt": "Remove conteúdo de transferência em cache que não esteja a ser utilizado por uma receção em curso ou partilha ativa. Os ficheiros recebidos e o histórico não são eliminados.",
+        "pl": "Usuwa zawartość transferów z pamięci podręcznej, która nie jest używana przez trwające odbieranie ani aktywne udostępnianie. Odebrane pliki i historia nie są usuwane.",
+        "nl": "Verwijdert overdrachtsinhoud uit de cache die niet wordt gebruikt door een lopende ontvangst of actieve share. Ontvangen bestanden en de overdrachtsgeschiedenis worden niet verwijderd.",
+        "ru": "Удаляет кэшированное содержимое передач, которое не используется текущим приёмом или активной раздачей. Полученные файлы и история передач не удаляются."
+      }
+    },
+    "storage_clearing_transfer_cache": {
+      "context": "Settings > Storage: clear-transfer-cache button while clearing is in progress (KMP).",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Clearing cache…",
+        "fr": "Vidage du cache…",
+        "es": "Borrando caché…",
+        "it": "Svuotamento cache…",
+        "de": "Cache wird geleert…",
+        "pt": "A limpar cache…",
+        "pl": "Czyszczenie pamięci podręcznej…",
+        "nl": "Cache wissen…",
+        "ru": "Очистка кэша…"
+      }
+    },
+    "storage_delete_transfers_caption": {
+      "context": "Settings > Storage: caption under the destructive delete-all button.",
+      "translations": {
+        "en": "Clears your send and receive history and the app’s cached share content. Received files on disk are kept.",
+        "fr": "Efface votre historique d’envois et de réceptions ainsi que le contenu de partage mis en cache par l’app. Les fichiers reçus sur le disque sont conservés.",
+        "es": "Borra tu historial de envíos y recepciones y el contenido compartido en caché de la app. Los archivos recibidos en el disco se conservan.",
+        "it": "Cancella la cronologia di invii e ricezioni e i contenuti di condivisione memorizzati dall’app. I file ricevuti sul disco vengono mantenuti.",
+        "de": "Löscht deinen Sende- und Empfangsverlauf sowie die zwischengespeicherten Freigabeinhalte der App. Empfangene Dateien auf dem Datenträger bleiben erhalten.",
+        "pt": "Limpa o teu histórico de envios e receções e o conteúdo de partilha em cache da app. Os ficheiros recebidos no disco são mantidos.",
+        "pl": "Czyści historię wysyłania i odbierania oraz zapisane w pamięci podręcznej udostępniane treści. Odebrane pliki na dysku zostają zachowane.",
+        "nl": "Wist je verzend- en ontvangstgeschiedenis en de gecachte deelinhoud van de app. Ontvangen bestanden op schijf blijven behouden.",
+        "ru": "Очищает историю отправки и получения и кэшированное содержимое общих ресурсов. Полученные файлы на диске сохраняются."
+      }
+    },
+    "storage_free_up_space_caption": {
+      "context": "Settings > Storage: caption under the free-up-space button.",
+      "translations": {
+        "en": "Removes temporary files and leftover trash from earlier transfers. Your transfers and received files are kept.",
+        "fr": "Supprime les fichiers temporaires et les résidus des transferts précédents. Vos transferts et fichiers reçus sont conservés.",
+        "es": "Elimina los archivos temporales y los restos de transferencias anteriores. Tus transferencias y archivos recibidos se conservan.",
+        "it": "Rimuove i file temporanei e i residui dei trasferimenti precedenti. I tuoi trasferimenti e i file ricevuti vengono mantenuti.",
+        "de": "Entfernt temporäre Dateien und Reste früherer Übertragungen. Deine Übertragungen und empfangenen Dateien bleiben erhalten.",
+        "pt": "Remove ficheiros temporários e resíduos de transferências anteriores. As tuas transferências e ficheiros recebidos são mantidos.",
+        "pl": "Usuwa pliki tymczasowe i pozostałości po wcześniejszych transferach. Twoje transfery i odebrane pliki zostają zachowane.",
+        "nl": "Verwijdert tijdelijke bestanden en resten van eerdere overdrachten. Je overdrachten en ontvangen bestanden blijven behouden.",
+        "ru": "Удаляет временные файлы и остатки прошлых передач. Ваши передачи и полученные файлы сохраняются."
+      }
+    },
+    "storage_refresh": {
+      "context": "Settings > Storage: label for the button that recalculates usage.",
+      "translations": {
+        "en": "Refresh",
+        "fr": "Actualiser",
+        "es": "Actualizar",
+        "it": "Aggiorna",
+        "de": "Aktualisieren",
+        "pt": "Atualizar",
+        "pl": "Odśwież",
+        "nl": "Vernieuwen",
+        "ru": "Обновить"
+      }
+    },
+    "storage_transfer_cache_cleared": {
+      "context": "Settings > Storage: confirmation that the transfer cache was cleared (KMP).",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Transfer cache cleared",
+        "fr": "Cache des transferts vidé",
+        "es": "Caché de transferencias borrada",
+        "it": "Cache trasferimenti svuotata",
+        "de": "Übertragungscache geleert",
+        "pt": "Cache de transferências limpa",
+        "pl": "Wyczyszczono pamięć podręczną transferów",
+        "nl": "Overdrachtscache gewist",
+        "ru": "Кэш передач очищен"
+      }
+    },
+    "storage_unavailable": {
+      "context": "Settings > Storage: shown when usage couldn't be calculated yet.",
+      "translations": {
+        "en": "Storage usage isn't available yet",
+        "fr": "L'utilisation du stockage n'est pas encore disponible",
+        "es": "El uso de almacenamiento aún no está disponible",
+        "it": "L'utilizzo dello spazio non è ancora disponibile",
+        "de": "Die Speichernutzung ist noch nicht verfügbar",
+        "pt": "A utilização do armazenamento ainda não está disponível",
+        "pl": "Wykorzystanie pamięci nie jest jeszcze dostępne",
+        "nl": "Opslaggebruik is nog niet beschikbaar",
+        "ru": "Данные об использовании хранилища пока недоступны"
+      }
+    },
+    "storage_usage_header": {
+      "context": "Settings > Storage: header above the usage breakdown.",
+      "translations": {
+        "en": "On this device",
+        "fr": "Sur cet appareil",
+        "es": "En este dispositivo",
+        "it": "Su questo dispositivo",
+        "de": "Auf diesem Gerät",
+        "pt": "Neste dispositivo",
+        "pl": "Na tym urządzeniu",
+        "nl": "Op dit apparaat",
+        "ru": "На этом устройстве"
+      }
+    },
+    "storage_free_up_space": {
+      "context": "Settings > Storage: button that clears temporary files and stray trash.",
+      "translations": {
+        "en": "Free up space",
+        "fr": "Libérer de l'espace",
+        "es": "Liberar espacio",
+        "it": "Libera spazio",
+        "de": "Speicher freigeben",
+        "pt": "Libertar espaço",
+        "pl": "Zwolnij miejsce",
+        "nl": "Ruimte vrijmaken",
+        "ru": "Освободить место"
+      }
+    },
     "storage_delete_transfers": {
       "context": "Settings > Storage: button to delete all transfer records.",
       "translations": {
@@ -3398,15 +3815,15 @@
     "storage_delete_transfers_description": {
       "context": "Settings > Storage: confirmation body for deleting all transfer records.",
       "translations": {
-        "en": "This clears all sent and received transfer records from your history. Your received files are not deleted. Cached shared content that is no longer needed is reclaimed automatically, which may take a little time. This can’t be undone.",
-        "fr": "Cela efface de votre historique tous les enregistrements de transferts envoyés et reçus. Vos fichiers reçus ne sont pas supprimés. Le contenu partagé mis en cache qui n’est plus nécessaire est récupéré automatiquement, ce qui peut prendre un peu de temps. Cette action est irréversible.",
-        "es": "Esto borra de su historial todos los registros de transferencias enviadas y recibidas. Sus archivos recibidos no se eliminan. El contenido compartido en caché que ya no se necesita se recupera automáticamente, lo que puede tardar un poco. Esto no se puede deshacer.",
-        "it": "Questo cancella dalla cronologia tutti i record dei trasferimenti inviati e ricevuti. I file ricevuti non vengono eliminati. Il contenuto condiviso nella cache che non serve più viene recuperato automaticamente, operazione che può richiedere un po’ di tempo. Questa azione non può essere annullata.",
-        "de": "Dadurch werden alle Datensätze gesendeter und empfangener Übertragungen aus Ihrem Verlauf gelöscht. Ihre empfangenen Dateien werden nicht gelöscht. Nicht mehr benötigte zwischengespeicherte freigegebene Inhalte werden automatisch bereinigt; dies kann etwas dauern. Dies kann nicht rückgängig gemacht werden.",
-        "pt": "Isto elimina do histórico todos os registos de transferências enviadas e recebidas. Os ficheiros recebidos não são eliminados. O conteúdo partilhado em cache que já não é necessário é recuperado automaticamente, o que pode demorar algum tempo. Esta ação não pode ser anulada.",
-        "pl": "Spowoduje to usunięcie z historii wszystkich rekordów wysłanych i odebranych transferów. Odebrane pliki nie zostaną usunięte. Niepotrzebna już zawartość udostępniona w pamięci podręcznej jest odzyskiwana automatycznie, co może chwilę potrwać. Tej operacji nie można cofnąć.",
-        "nl": "Hiermee worden alle records van verzonden en ontvangen overdrachten uit uw geschiedenis gewist. Uw ontvangen bestanden worden niet verwijderd. Gedeelde inhoud in de cache die niet meer nodig is, wordt automatisch opgeruimd; dit kan enige tijd duren. Dit kan niet ongedaan worden gemaakt.",
-        "ru": "Это удалит из истории все записи об отправленных и полученных передачах. Полученные файлы не удаляются. Кэшированное общее содержимое, которое больше не требуется, освобождается автоматически; это может занять некоторое время. Это действие нельзя отменить."
+        "en": "This clears all sent and received transfer records from your history and immediately reclaims unused transfer cache. Ongoing transfers and received files are not deleted. This can’t be undone.",
+        "fr": "Cela efface tous les transferts envoyés et reçus de l’historique et libère immédiatement le cache inutilisé. Les transferts en cours et les fichiers reçus ne sont pas supprimés. Cette action est irréversible.",
+        "es": "Esto borra del historial todos los registros de transferencias enviadas y recibidas y libera inmediatamente la caché de transferencia no utilizada. Las transferencias en curso y los archivos recibidos no se eliminan. Esto no se puede deshacer.",
+        "it": "Elimina dalla cronologia tutti i trasferimenti inviati e ricevuti e libera immediatamente la cache inutilizzata. I trasferimenti in corso e i file ricevuti non vengono eliminati. Questa azione non può essere annullata.",
+        "de": "Dadurch werden alle Datensätze gesendeter und empfangener Übertragungen aus Ihrem Verlauf gelöscht und nicht benötigter Übertragungscache sofort freigegeben. Laufende Übertragungen und empfangene Dateien werden nicht gelöscht. Dies kann nicht rückgängig gemacht werden.",
+        "pt": "Isto elimina do histórico todas as transferências enviadas e recebidas e liberta imediatamente a cache não utilizada. As transferências em curso e os ficheiros recebidos não são eliminados. Esta ação não pode ser anulada.",
+        "pl": "Usuwa z historii wszystkie wysłane i odebrane transfery oraz natychmiast zwalnia nieużywaną pamięć podręczną. Trwające transfery i odebrane pliki nie są usuwane. Tej operacji nie można cofnąć.",
+        "nl": "Hiermee worden alle verzonden en ontvangen overdrachten uit de geschiedenis gewist en wordt ongebruikte overdrachtscache direct vrijgemaakt. Lopende overdrachten en ontvangen bestanden worden niet verwijderd. Dit kan niet ongedaan worden gemaakt.",
+        "ru": "Это удалит из истории все отправленные и полученные передачи и немедленно освободит неиспользуемый кэш. Текущие передачи и полученные файлы не удаляются. Это действие нельзя отменить."
       }
     },
     "storage_app_data": {
@@ -3564,23 +3981,23 @@
       }
     },
     "transfer_delete_description": {
-      "context": "Transfer details: confirmation body for deleting a transfer. {arg1} = transfer name.",
+      "context": "Transfer details: confirmation body for deleting a transfer. {transferName} = transfer name.",
       "args": [
         {
-          "name": "arg1",
+          "name": "transferName",
           "type": "string"
         }
       ],
       "translations": {
-        "en": "“{arg1}” will stop being shared and its transfer history will be removed from this device.",
-        "fr": "« {arg1} » cessera d’être partagé et son historique de transfert sera retiré de cet appareil.",
-        "es": "«{arg1}» dejará de compartirse y su historial de transferencia se eliminará de este dispositivo.",
-        "it": "«{arg1}» non verrà più condiviso e la sua cronologia di trasferimento verrà rimossa da questo dispositivo.",
-        "de": "„{arg1}“ wird nicht mehr geteilt und sein Übertragungsverlauf wird von diesem Gerät entfernt.",
-        "pt": "«{arg1}» deixará de ser partilhado e o seu histórico de transferência será removido deste dispositivo.",
-        "pl": "„{arg1}” przestanie być udostępniany, a jego historia transferu zostanie usunięta z tego urządzenia.",
-        "nl": "‘{arg1}’ wordt niet meer gedeeld en de overdrachtsgeschiedenis wordt van dit apparaat verwijderd.",
-        "ru": "Общий доступ к «{arg1}» будет остановлен, а история передачи будет удалена с этого устройства."
+        "en": "“{transferName}” will stop being shared and its transfer history will be removed from this device.",
+        "fr": "« {transferName} » cessera d’être partagé et son historique de transfert sera retiré de cet appareil.",
+        "es": "«{transferName}» dejará de compartirse y su historial de transferencia se eliminará de este dispositivo.",
+        "it": "«{transferName}» non verrà più condiviso e la sua cronologia di trasferimento verrà rimossa da questo dispositivo.",
+        "de": "„{transferName}“ wird nicht mehr geteilt und sein Übertragungsverlauf wird von diesem Gerät entfernt.",
+        "pt": "«{transferName}» deixará de ser partilhado e o seu histórico de transferência será removido deste dispositivo.",
+        "pl": "„{transferName}” przestanie być udostępniany, a jego historia transferu zostanie usunięta z tego urządzenia.",
+        "nl": "‘{transferName}’ wordt niet meer gedeeld en de overdrachtsgeschiedenis wordt van dit apparaat verwijderd.",
+        "ru": "Общий доступ к «{transferName}» будет остановлен, а история передачи будет удалена с этого устройства."
       }
     },
     "transfer_delete_title": {
@@ -3996,6 +4413,20 @@
         "pl": "Prośba wygasła",
         "nl": "Verzoek verlopen",
         "ru": "Запрос истёк"
+      }
+    },
+    "transfer_receiver_failed": {
+      "context": "Receiver status: the delivery to this receiver failed.",
+      "translations": {
+        "en": "Delivery failed",
+        "fr": "Échec de l'envoi",
+        "es": "Error en la entrega",
+        "it": "Consegna non riuscita",
+        "de": "Übertragung fehlgeschlagen",
+        "pt": "Falha na entrega",
+        "pl": "Dostarczenie nie powiodło się",
+        "nl": "Levering mislukt",
+        "ru": "Ошибка доставки"
       }
     },
     "transfer_receiver_refused": {

@@ -19,17 +19,25 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,12 +66,16 @@ import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.decodeToImageBitmap
 import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.button_create_new_transfer
+import vnidrop.shared.generated.resources.button_delete_transfer
+import vnidrop.shared.generated.resources.button_more_actions
 import vnidrop.shared.generated.resources.send_empty_body
 import vnidrop.shared.generated.resources.send_empty_title
 import vnidrop.shared.generated.resources.send_new_transfer_description
 import vnidrop.shared.generated.resources.send_new_transfer_title
 import vnidrop.shared.generated.resources.send_title
+import vnidrop.shared.generated.resources.send_stop_sharing
 import vnidrop.shared.generated.resources.send_transfers_title
+import vnidrop.shared.generated.resources.transfer_share_title
 
 @Composable
 internal fun SendFloatingAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -86,6 +98,9 @@ internal fun TransferCatalog(
 	windowClass: WindowClass,
 	onOpenComposer: () -> Unit,
 	onTransferSelected: (ULong) -> Unit,
+	onShare: (ULong) -> Unit = {},
+	onStopSharing: (ULong) -> Unit = {},
+	onDelete: (ULong) -> Unit = {},
 ) {
 	val usesFloatingAction = usesMobilePresentation(LocalUiPlatform.current, windowClass)
 	LazyColumn(
@@ -129,6 +144,9 @@ internal fun TransferCatalog(
 					thumbnailBytes = transferThumbnails[transfer.transferId],
 					progress = progress,
 					onClick = { onTransferSelected(transfer.transferId) },
+					onShare = { onShare(transfer.transferId) },
+					onStopSharing = { onStopSharing(transfer.transferId) },
+					onDelete = { onDelete(transfer.transferId) },
 				)
 			}
 		}
@@ -192,6 +210,9 @@ private fun TransferListItem(
 	thumbnailBytes: ByteArray?,
 	progress: TransferProgress?,
 	onClick: () -> Unit,
+	onShare: () -> Unit,
+	onStopSharing: () -> Unit,
+	onDelete: () -> Unit,
 ) {
 	val colors = LocalVniDropColors.current
 	Surface(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = colors.backgroundSurface200) {
@@ -227,8 +248,68 @@ private fun TransferListItem(
 					ProgressRow(label = progress.label, progress = progress.progress, detail = progress.detail)
 				}
 			}
-			Spacer(Modifier.width(8.dp))
-			PlatformIcon(AppIcon.ChevronRight, contentDescription = null, tint = colors.foregroundLighter, modifier = Modifier.size(18.dp))
+			TransferActionsMenu(transfer, onShare, onStopSharing, onDelete)
+		}
+	}
+}
+
+@Composable
+private fun TransferActionsMenu(
+	transfer: Transfer,
+	onShare: () -> Unit,
+	onStopSharing: () -> Unit,
+	onDelete: () -> Unit,
+) {
+	var expanded by remember { mutableStateOf(false) }
+	val moreActionsLabel = stringResource(Res.string.button_more_actions)
+	Box {
+		IconButton(
+			onClick = { expanded = true },
+			modifier = Modifier.semantics {
+				contentDescription = moreActionsLabel
+			},
+		) {
+			PlatformIcon(
+				AppIcon.MoreVertical,
+				contentDescription = null,
+				tint = LocalVniDropColors.current.foregroundLighter,
+			)
+		}
+		DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+			if (transfer.ticket != null) {
+				DropdownMenuItem(
+					text = { Text(stringResource(Res.string.transfer_share_title)) },
+					onClick = {
+						expanded = false
+						onShare()
+					},
+					leadingIcon = { PlatformIcon(AppIcon.Share, contentDescription = null) },
+				)
+			}
+			if (transfer.status == TransferStatus.Sharing) {
+				DropdownMenuItem(
+					text = { Text(stringResource(Res.string.send_stop_sharing)) },
+					onClick = {
+						expanded = false
+						onStopSharing()
+					},
+					leadingIcon = { PlatformIcon(AppIcon.StopCircle, contentDescription = null) },
+				)
+			}
+			DropdownMenuItem(
+				text = { Text(stringResource(Res.string.button_delete_transfer)) },
+				onClick = {
+					expanded = false
+					onDelete()
+				},
+				leadingIcon = {
+					PlatformIcon(
+						AppIcon.Delete,
+						contentDescription = null,
+						tint = LocalVniDropColors.current.destructiveDefault,
+					)
+				},
+			)
 		}
 	}
 }

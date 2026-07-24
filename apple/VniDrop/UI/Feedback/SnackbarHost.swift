@@ -1,4 +1,5 @@
 import SwiftUI
+import SFSafeSymbols
 
 /// Bottom toast host driven by `UiMessageController`, ported from
 /// `ui/feedback/VniDropSnackbarHost.kt`. Tone drives the accent color; errors get
@@ -52,7 +53,7 @@ struct SnackbarHost: View {
 				.buttonStyle(.borderless)
 			}
 			Button(action: dismiss) {
-				Image(systemName: "xmark")
+				Image(systemSymbol: .xmark)
 					.font(.footnote.weight(.semibold))
 					.foregroundStyle(.secondary)
 					.frame(width: 36, height: 36)

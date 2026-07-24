@@ -32,6 +32,9 @@ final class SendModelTests: XCTestCase {
 		XCTAssertTrue(model.state.isDeleteConfirmationOpen)
 
 		model.confirmDeleteTransfer()
+		// Must close immediately (not after the async delete) so the alert can't
+		// re-present on macOS.
+		XCTAssertFalse(model.state.isDeleteConfirmationOpen)
 		await waitUntil { core.deletedTransfers.contains(3) }
 		XCTAssertEqual(core.deletedTransfers, [3])
 		XCTAssertNil(model.state.selectedTransferId)

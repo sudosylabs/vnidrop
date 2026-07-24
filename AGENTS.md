@@ -48,6 +48,15 @@ Domain docs (reference, do not paste into PRs):
 8. **Every bug fix includes a regression test** at the lowest layer that catches it.
 9. After code changes, run the **relevant** checks in [Build and test](#build-and-test)
    and fix failures before finishing.
+10. **`localization/strings.json` is the single source of truth for all localized
+    strings.** The KMP Compose resources (`shared/src/commonMain/composeResources/
+    values*/strings.xml`) and the Apple catalog + accessors
+    (`apple/VniDrop/Resources/Localizable.xcstrings`, `apple/VniDrop/Generated/
+    L10n.swift`) are **generated** by the loc CLI (`cd localization && bun run
+    src/cli.ts generate`) — never hand-edit them. To add/change a string: edit
+    `strings.json` (set `targets` to `kmp`, `apple`, or omit for both), then
+    regenerate. A key referenced in code but only present in a generated file will
+    be silently dropped the next time generation runs.
 
 ---
 
@@ -291,6 +300,8 @@ branch from updated `master`.
 - Flaky multi-minute sleeps in tests
 - Unsigned commits when signing is required
 - Force-push or secret commits without explicit user direction
+- Hand-editing generated localization files (`values*/strings.xml`,
+  `Localizable.xcstrings`, `L10n.swift`) instead of `localization/strings.json`
 
 ---
 

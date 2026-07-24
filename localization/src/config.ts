@@ -18,6 +18,12 @@ export const APPLE_INFO_PLIST = join(
   "apple/VniDrop/Resources/Info.plist",
 );
 
+/** Generated Swift accessors (`L10n`) for compile-time-checked catalog keys. */
+export const APPLE_L10N_SWIFT = join(
+  REPO_ROOT,
+  "apple/VniDrop/Generated/L10n.swift",
+);
+
 /** KMP / Compose Multiplatform resources root; one values[-lang]/strings.xml per language. */
 export const KMP_RESOURCES = join(
   REPO_ROOT,

@@ -120,7 +120,6 @@ struct AppPreferences: Equatable {
 	var username: String
 	var receiveFolder: ReceiveFolder
 	var themeMode: ThemeMode
-	var notificationsEnabled: Bool
 	var diagnosticsEnabled: Bool
 	var diagnosticsInstallId: String
 	var relayConfiguration: RelayConfiguration
@@ -130,7 +129,6 @@ struct AppPreferencesDefaults {
 	let username: String
 	let receiveFolder: ReceiveFolder
 	let themeMode: ThemeMode
-	var notificationsEnabled: Bool = false
 	var diagnosticsEnabled: Bool = false
 }
 
@@ -147,7 +145,6 @@ final class AppPreferencesRepository: ObservableObject {
 		static let receiveFolderValue = "receive_folder_value"
 		static let receiveFolderDisplayName = "receive_folder_display_name"
 		static let themeMode = "theme_mode"
-		static let notificationsEnabled = "notifications_enabled"
 		static let diagnosticsEnabled = "diagnostics_enabled"
 		static let diagnosticsInstallId = "diagnostics_install_id"
 		static let relayConfiguration = "relay_configuration"
@@ -163,14 +160,12 @@ final class AppPreferencesRepository: ObservableObject {
 		let username = (defaults.string(forKey: Key.username)).flatMap { $0.isEmpty ? nil : $0 } ?? fallback.username
 		let folder = resolveReceiveFolder(defaults, fallback: fallback.receiveFolder)
 		let themeMode = defaults.string(forKey: Key.themeMode).flatMap(ThemeMode.init(rawValue:)) ?? fallback.themeMode
-		let notifications = defaults.object(forKey: Key.notificationsEnabled) as? Bool ?? fallback.notificationsEnabled
 		let diagnostics = defaults.object(forKey: Key.diagnosticsEnabled) as? Bool ?? fallback.diagnosticsEnabled
 		let installId = defaults.string(forKey: Key.diagnosticsInstallId) ?? ""
 		return AppPreferences(
 			username: username,
 			receiveFolder: folder,
 			themeMode: themeMode,
-			notificationsEnabled: notifications,
 			diagnosticsEnabled: diagnostics,
 			diagnosticsInstallId: installId,
 			relayConfiguration: resolveRelayConfiguration(defaults)
@@ -221,11 +216,6 @@ final class AppPreferencesRepository: ObservableObject {
 
 	func setThemeMode(_ mode: ThemeMode) {
 		defaults.set(mode.rawValue, forKey: Key.themeMode)
-		reload()
-	}
-
-	func setNotificationsEnabled(_ enabled: Bool) {
-		defaults.set(enabled, forKey: Key.notificationsEnabled)
 		reload()
 	}
 

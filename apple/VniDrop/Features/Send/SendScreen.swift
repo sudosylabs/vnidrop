@@ -1,10 +1,16 @@
 import SwiftUI
+import SFSafeSymbols
 
 /// Send screen, rebuilt on native SwiftUI. A grouped `List` of outgoing transfers,
 /// with the composer and detail panels as native sheets and delete as an alert.
 struct SendScreen: View {
 	@ObservedObject var model: SendModel
 	let windowClass: WindowClass
+
+	/// Transfer whose share panel is presented inline from the list context menu.
+	@State private var shareTarget: Transfer?
+	/// Transfer pending an inline (list-level) delete confirmation.
+	@State private var deleteTarget: Transfer?
 
 	private var outgoing: [Transfer] {
 		model.coreState.transfers.filter { $0.direction == .send }
@@ -27,17 +33,29 @@ struct SendScreen: View {
 					catalog
 				}
 			}
-			.navigationTitle(Text(LocalizedStringKey("send_title")))
+			.navigationTitle(Text(String(localized: L10n.Send.title)))
 			.toolbar {
 				ToolbarItem(placement: .primaryAction) {
 					Button(action: model.openComposer) {
-						Label(String(localized: "button_create_new_transfer"), systemImage: "plus")
+						Label(String(localized: L10n.Button.createNewTransfer), systemSymbol: .plus)
 					}
 				}
 			}
 			.navigationDestination(isPresented: detailsBinding) {
 				if let transfer = selectedTransfer {
 					detailView(for: transfer)
+				}
+			}
+			// Attached inside the NavigationStack (a different sheet host than the
+			// composer drawer on the outer body, so the two don't clash). Opens the
+			// share panel over the list without navigating into the transfer detail.
+			.adaptiveDrawer(
+				isPresented: Binding(get: { shareTarget != nil }, set: { if !$0 { shareTarget = nil } }),
+				windowClass: windowClass,
+				onDismiss: { shareTarget = nil }
+			) {
+				if let shareTarget {
+					TransferSharePanel(model: model, transfer: shareTarget)
 				}
 			}
 		}
@@ -48,7 +66,23 @@ struct SendScreen: View {
 		) {
 			TransferComposer(model: model, windowClass: windowClass)
 		}
+		.alert(
+			Text(String(localized: L10n.Transfer.deleteTitle)),
+			isPresented: Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } })
+		) {
+			Button(String(localized: L10n.Button.cancel), role: .cancel) { deleteTarget = nil }
+			Button(String(localized: L10n.Button.deleteTransfer), role: .destructive) {
+				if let target = deleteTarget { model.deleteTransfer(id: target.transferId) }
+				deleteTarget = nil
+			}
+		} message: {
+			if let target = deleteTarget {
+				Text(L10n.Transfer.deleteDescription(
+					transferName: target.transferName ?? String(localized: L10n.Send.newTransferTitle)))
+			}
+		}
 	}
+
 
 	/// The pushed transfer details view, with its detail-panel sheet and delete
 	/// alert attached here so they present from the detail's own context (presenting
@@ -65,14 +99,14 @@ struct SendScreen: View {
 				}
 			}
 			.alert(
-				Text(LocalizedStringKey("transfer_delete_title")),
+				Text(String(localized: L10n.Transfer.deleteTitle)),
 				isPresented: Binding(get: { model.state.isDeleteConfirmationOpen }, set: { if !$0 { Task { @MainActor in model.dismissDeleteTransfer() } } })
 			) {
-				Button(String(localized: "button_cancel"), role: .cancel, action: model.dismissDeleteTransfer)
-				Button(String(localized: "button_delete_transfer"), role: .destructive, action: model.confirmDeleteTransfer)
+				Button(String(localized: L10n.Button.cancel), role: .cancel, action: model.dismissDeleteTransfer)
+				Button(String(localized: L10n.Button.deleteTransfer), role: .destructive, action: model.confirmDeleteTransfer)
 			} message: {
-				Text(String(format: String(localized: "transfer_delete_description"),
-							 transfer.transferName ?? String(localized: "send_new_transfer_title")))
+				Text(L10n.Transfer.deleteDescription(
+					transferName: transfer.transferName ?? String(localized: L10n.Send.newTransferTitle)))
 			}
 	}
 
@@ -90,23 +124,45 @@ struct SendScreen: View {
 						)
 					}
 					.buttonStyle(.plain)
+					.contextMenu {
+						if transfer.ticket != nil {
+							Button {
+								shareTarget = transfer
+							} label: {
+								Label(String(localized: L10n.Transfer.shareTitle), systemSymbol: .squareAndArrowUp)
+							}
+						}
+						if transfer.status == .sharing {
+							Button(role: .destructive) {
+								model.stopSharing(transferId: transfer.transferId)
+							} label: {
+								Label(String(localized: L10n.Send.stopSharing), systemSymbol: .stopCircle)
+							}
+						}
+						Divider()
+						Button(role: .destructive) {
+							deleteTarget = transfer
+						} label: {
+							Label(String(localized: L10n.Button.deleteTransfer), systemSymbol: .trash)
+						}
+					}
 				}
 			} header: {
-				Text(LocalizedStringKey("send_transfers_title"))
+				Text(String(localized: L10n.Send.transfersTitle))
 			} footer: {
-				Text(LocalizedStringKey("send_subtitle"))
+				Text(String(localized: L10n.Send.subtitle))
 			}
 		}
 	}
 
 	private var emptyState: some View {
 		ContentUnavailableView {
-			Label(String(localized: "send_empty_title"), systemImage: "paperplane")
+			Label(String(localized: L10n.Send.emptyTitle), systemSymbol: .paperplane)
 		} description: {
-			Text(LocalizedStringKey("send_empty_body"))
+			Text(String(localized: L10n.Send.emptyBody))
 		} actions: {
 			Button(action: model.openComposer) {
-				Label(String(localized: "button_create_new_transfer"), systemImage: "plus")
+				Label(String(localized: L10n.Button.createNewTransfer), systemSymbol: .plus)
 			}
 			.buttonStyle(.borderedProminent)
 			.controlSize(.large)
@@ -127,21 +183,18 @@ struct SendScreen: View {
 	private func sharingProgress(for transfer: Transfer) -> TransferProgress? {
 		let active = (model.receiversByTransfer[transfer.transferId] ?? []).filter { $0.status == .accepted }
 		if active.isEmpty { return nil }
-		let fractions: [Double] = active.compactMap { receiver -> Double? in
-			let progress = progressForReceiver(events: model.coreState.events, transferId: transfer.transferId,
-									remoteEndpointId: receiver.remoteEndpointId, totalSizeHint: transfer.totalSize)
-			guard progress?.kind == "started" || progress?.kind == "progress" else { return nil }
-			return progress?.progress
+		let fractions = active.compactMap {
+			progressForReceiver(events: model.coreState.events, transferId: transfer.transferId,
+								 remoteEndpointId: $0.remoteEndpointId, totalSizeHint: transfer.totalSize)?.progress
 		}
-		guard !fractions.isEmpty else { return nil }
-		let combined = fractions.reduce(0, +) / Double(fractions.count)
+		let combined = fractions.isEmpty ? nil : fractions.reduce(0, +) / Double(fractions.count)
 		if active.count == 1 {
-			return TransferProgress(transferId: transfer.transferId, phase: "transfer", kind: "progress",
-									labelKey: "progress_sending", progress: combined)
+			return TransferProgress(transferId: transfer.transferId, phase: .transfer, kind: .progress,
+									labelKey: L10n.Progress.sending, progress: combined)
 		}
-		return TransferProgress(transferId: transfer.transferId, phase: "transfer", kind: "progress",
-								labelKey: "progress_sending", progress: combined,
-								label: String(format: String(localized: "progress_sending_to_count"), active.count))
+		return TransferProgress(transferId: transfer.transferId, phase: .transfer, kind: .progress,
+								labelKey: L10n.Progress.sending, progress: combined,
+								label: L10n.Progress.sendingToCount(count: active.count))
 	}
 }
 
@@ -157,19 +210,19 @@ private struct TransferListItem: View {
 				.background(.quaternary, in: RoundedRectangle(cornerRadius: 9))
 			VStack(alignment: .leading, spacing: 3) {
 				HStack {
-					Text(transfer.transferName ?? String(localized: "send_new_transfer_title"))
+					Text(transfer.transferName ?? String(localized: L10n.Send.newTransferTitle))
 						.font(.body).lineLimit(1)
 					Spacer()
 					StatusPill(label: statusLabel(transfer.status), tone: transfer.status.pillTone)
 				}
-				Text("\(formatBytes(transfer.totalSize)) · \(accessPolicyLabel(transfer.accessPolicy))")
+				Text(L10n.Format.separatedPair(first: formatBytes(transfer.totalSize), second: accessPolicyLabel(transfer.accessPolicy)))
 					.font(.caption).foregroundStyle(.secondary).lineLimit(1)
 				if let progress, transfer.status == .importing || transfer.status == .sharing {
 					ProgressRow(labelKey: progress.labelKey, progress: progress.progress, detail: progress.detail, labelText: progress.label)
 						.padding(.top, 2)
 				}
 			}
-			Image(systemName: "chevron.forward")
+			Image(systemSymbol: .chevronForward)
 				.font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
 		}
 		.contentShape(Rectangle())
@@ -184,7 +237,7 @@ struct FileArtwork: View {
 			image.resizable().aspectRatio(contentMode: .fill)
 				.clipShape(RoundedRectangle(cornerRadius: 8))
 		} else {
-			Image(systemName: "doc")
+			Image(systemSymbol: .doc)
 				.font(.system(size: 18))
 				.foregroundStyle(.secondary)
 		}
@@ -192,13 +245,13 @@ struct FileArtwork: View {
 }
 
 func statusLabel(_ status: TransferStatus) -> String {
-	String(localized: String.LocalizationValue(statusLabelKey(status)))
+	String(localized: statusLabelKey(status))
 }
 
 func accessPolicyLabel(_ policy: ShareAccessPolicy) -> String {
 	switch policy {
-	case .requireApproval: return String(localized: "send_access_approval")
-	case .anyoneWithTransfer: return String(localized: "send_access_anyone")
+	case .requireApproval: return String(localized: L10n.Send.accessApproval)
+	case .anyoneWithTransfer: return String(localized: L10n.Send.accessAnyone)
 	}
 }
 

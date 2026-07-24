@@ -11,7 +11,6 @@ final class ApprovalCoordinatorTests: XCTestCase {
 	private func makeCoordinator(_ core: FakeCoreGateway) -> ApprovalCoordinator {
 		ApprovalCoordinator(
 			repository: core,
-			preferences: Fixtures.preferences(),
 			notifications: LocalNotificationService(),
 			visibility: AppVisibility(),
 			messages: UiMessageController()

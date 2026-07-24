@@ -40,7 +40,7 @@ final class ProgressDerivationTests: XCTestCase {
 			event(phase: "import", kind: "started", json: "{}"),
 		]
 		let progress = progressForTransfer(events: events, transferId: 1)
-		XCTAssertEqual(progress?.labelKey, "progress_preparing")
+		XCTAssertEqual(progress?.labelKey, L10n.Progress.preparing)
 		XCTAssertEqual(progress?.progress, 0.3)
 	}
 
@@ -57,15 +57,15 @@ final class ProgressDerivationTests: XCTestCase {
 			remoteEndpointId: "peer-a",
 			totalSizeHint: 100
 		)
-		XCTAssertEqual(progress?.kind, "completed")
-		XCTAssertEqual(progress?.labelKey, "progress_completed")
+		XCTAssertEqual(progress?.kind, .completed)
+		XCTAssertEqual(progress?.labelKey, L10n.Progress.completed)
 		XCTAssertEqual(progress?.progress, 1)
 	}
 
 	func testStatusLabelKeys() {
-		XCTAssertEqual(statusLabelKey(.sharing), "status_available")
-		XCTAssertEqual(statusLabelKey(.receiving), "status_receiving")
-		XCTAssertEqual(statusLabelKey(.done), "status_completed")
+		XCTAssertEqual(statusLabelKey(.sharing), L10n.Status.available)
+		XCTAssertEqual(statusLabelKey(.receiving), L10n.Status.receiving)
+		XCTAssertEqual(statusLabelKey(.done), L10n.Status.completed)
 	}
 
 	private func event(phase: String, kind: String, json: String) -> CoreEventModel {

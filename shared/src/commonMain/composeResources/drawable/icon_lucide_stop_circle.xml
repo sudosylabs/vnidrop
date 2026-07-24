@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <!-- lucide icon imported by shared/tools/import_platform_icons.py. -->
+    <path android:pathData="M 22 12 A 10 10 0 1 0 2 12 A 10 10 0 1 0 22 12" android:fillColor="#00000000" android:strokeColor="#FF000000" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M 10 9 H 14 A 1 1 0 0 1 15 10 V 14 A 1 1 0 0 1 14 15 H 10 A 1 1 0 0 1 9 14 V 10 A 1 1 0 0 1 10 9 Z" android:fillColor="#00000000" android:strokeColor="#FF000000" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

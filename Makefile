@@ -113,7 +113,7 @@ apple-core: ## Build the Rust XCFramework and generated Swift bindings.
 	@test "$(HOST_OS)" = macos || { printf 'Apple builds require macOS.\n' >&2; exit 1; }
 	cd $(ROOT) && apple/scripts/build-core.sh $(APPLE_PROFILE)
 
-apple-project: apple-core ## Generate the native Apple Xcode project.
+apple-project: apple-core localization ## Generate the native Apple Xcode project.
 	cd $(ROOT)/apple && $(XCODEGEN) generate
 
 open-apple-project: apple-project ## Generate and open the native Apple Xcode project.

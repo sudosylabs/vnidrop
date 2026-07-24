@@ -41,7 +41,7 @@ private struct SheetChrome<Content: View>: View {
 			ScrollView { content().padding(.top, 4) }
 				.toolbar {
 					ToolbarItem(placement: .cancellationAction) {
-						Button(String(localized: "button_close"), action: onClose)
+						Button(String(localized: L10n.Button.close), action: onClose)
 					}
 				}
 				#if os(iOS)

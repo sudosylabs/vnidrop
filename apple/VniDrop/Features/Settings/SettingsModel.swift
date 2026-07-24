@@ -12,16 +12,16 @@ enum SettingsSection: Hashable {
 	case about
 	case bugReport
 
-	var titleKey: String {
+	var titleKey: String.LocalizationValue {
 		switch self {
-		case .overview: return "settings_title"
-		case .preferences: return "preferences_title"
-		case .appearance: return "appearance_title"
-		case .notifications: return "notifications_title"
-		case .network: return "settings_network_title"
-		case .storage: return "storage_title"
-		case .about: return "about_title"
-		case .bugReport: return "about_bug_report"
+		case .overview: return L10n.Settings.title
+		case .preferences: return L10n.Preferences.title
+		case .appearance: return L10n.Appearance.title
+		case .notifications: return L10n.Notifications.title
+		case .network: return L10n.Settings.networkTitle
+		case .storage: return L10n.Storage.title
+		case .about: return L10n.About.title
+		case .bugReport: return L10n.About.bugReport
 		}
 	}
 }
@@ -43,7 +43,6 @@ struct SettingsState: Equatable {
 	var isValidatingFolder = false
 	var supportsCustomReceiveFolders = true
 	var themeMode: ThemeMode = .system
-	var notificationsEnabled = false
 	var notificationPermission: NotificationPermission = .notDetermined
 	var diagnosticsEnabled = false
 	var relayMode: RelayPreferenceMode = .automatic
@@ -53,7 +52,7 @@ struct SettingsState: Equatable {
 	var isApplyingRelayConfiguration = false
 	var hasActiveNetworkWork = false
 	var endpointId: String?
-	var relayApplyErrorKey: String?
+	var relayApplyErrorKey: String.LocalizationValue?
 	var deviceInfo: DeviceInfo?
 	var appVersion = ""
 	var isLoadingDeviceInfo = false
@@ -66,14 +65,16 @@ struct SettingsState: Equatable {
 	var bugLogPreviewBytes = 0
 	var storage: StorageBreakdown?
 	var isCalculatingStorage = false
+	var storageLoadFailed = false
 	var isDeletingTransfers = false
+	var isCleaningStorage = false
 
 	static func == (lhs: SettingsState, rhs: SettingsState) -> Bool {
 		lhs.selectedSection == rhs.selectedSection && lhs.username == rhs.username
 			&& lhs.receiveFolder == rhs.receiveFolder && lhs.folderAccessStatus == rhs.folderAccessStatus
 			&& lhs.isValidatingFolder == rhs.isValidatingFolder
 			&& lhs.supportsCustomReceiveFolders == rhs.supportsCustomReceiveFolders
-			&& lhs.themeMode == rhs.themeMode && lhs.notificationsEnabled == rhs.notificationsEnabled
+			&& lhs.themeMode == rhs.themeMode
 			&& lhs.notificationPermission == rhs.notificationPermission
 			&& lhs.diagnosticsEnabled == rhs.diagnosticsEnabled && lhs.appVersion == rhs.appVersion
 			&& lhs.relayMode == rhs.relayMode && lhs.relayURLs == rhs.relayURLs
@@ -89,7 +90,9 @@ struct SettingsState: Equatable {
 			&& lhs.bugIncludeLogs == rhs.bugIncludeLogs && lhs.isSubmittingBugReport == rhs.isSubmittingBugReport
 			&& lhs.bugLogPreviewBytes == rhs.bugLogPreviewBytes
 			&& lhs.storage == rhs.storage && lhs.isCalculatingStorage == rhs.isCalculatingStorage
+			&& lhs.storageLoadFailed == rhs.storageLoadFailed
 			&& lhs.isDeletingTransfers == rhs.isDeletingTransfers
+			&& lhs.isCleaningStorage == rhs.isCleaningStorage
 			&& lhs.deviceInfo?.operatingSystem == rhs.deviceInfo?.operatingSystem
 	}
 }
@@ -110,7 +113,6 @@ final class SettingsModel: ObservableObject {
 	private let bugReports: BugReportService
 	private let diagnosticsIncluded: Bool
 
-	private var enableNotificationsAfterSettings = false
 	private var usernamePersistTask: Task<Void, Never>?
 	private var hasLocalUsernameDraft = false
 	private var hasRelayConfigurationDraft = false
@@ -149,7 +151,6 @@ final class SettingsModel: ObservableObject {
 				self.state.username = self.hasLocalUsernameDraft ? self.state.username : prefs.username
 				self.state.receiveFolder = folder
 				self.state.themeMode = prefs.themeMode
-				self.state.notificationsEnabled = prefs.notificationsEnabled
 				self.state.diagnosticsEnabled = prefs.diagnosticsEnabled
 				if !self.hasRelayConfigurationDraft {
 					self.state.relayMode = prefs.relayConfiguration.mode
@@ -168,7 +169,7 @@ final class SettingsModel: ObservableObject {
 					|| coreState.transfers.contains(where: { $0.status.isActiveTransfer })
 				self.state.hasActiveNetworkWork = hasActiveWork
 				self.state.endpointId = coreState.status?.endpointId
-				if !hasActiveWork && self.state.relayApplyErrorKey == "relay_apply_active_transfers" {
+				if !hasActiveWork && self.state.relayApplyErrorKey == L10n.Relay.applyActiveTransfers {
 					self.state.relayApplyErrorKey = nil
 				}
 			}
@@ -208,26 +209,23 @@ final class SettingsModel: ObservableObject {
 	func onReceiveFolderPickFailed(_ reason: String) { messages.error(InvitationError.message(reason)) }
 	func resetReceiveFolder() { preferences.resetReceiveFolder() }
 
-	func setNotificationsEnabled(_ enabled: Bool) {
+	/// Whether the current receive folder is the platform default (so the reset
+	/// action can be hidden when it would be a no-op). Compared by location, not
+	/// display name, which can differ once resolved.
+	var isUsingDefaultReceiveFolder: Bool {
+		guard let folder = state.receiveFolder else { return true }
+		let fallback = fileSystemService.defaultReceiveFolder()
+		return folder.kind == fallback.kind && folder.value == fallback.value
+	}
+
+	/// Ask the OS for notification permission. This is the only time the app can
+	/// grant it; disabling or fine-tuning afterwards happens in the Settings app.
+	func requestNotifications() {
 		Task {
-			if !enabled {
-				preferences.setNotificationsEnabled(false)
-				notifications.cancelAll()
-				return
-			}
 			let permission = await notifications.requestPermission()
 			state.notificationPermission = permission
-			if permission == .granted {
-				await enableNotifications()
-			} else {
-				preferences.setNotificationsEnabled(false)
-				let key = permission == .unsupported ? "notifications_unsupported" : "notifications_permission_denied"
-				messages.show(UiMessage(
-					text: .resource(key),
-					tone: .warning,
-					actionLabel: permission == .denied ? .resource("button_open_settings") : nil,
-					onAction: permission == .denied ? { self.openNotificationSettings() } : nil
-				))
+			if permission == .unsupported {
+				messages.show(UiMessage(text: .resource(L10n.Notifications.unsupported), tone: .warning))
 			}
 		}
 	}
@@ -237,7 +235,7 @@ final class SettingsModel: ObservableObject {
 		Task {
 			preferences.setDiagnosticsEnabled(enabled)
 			messages.show(UiMessage(
-				text: .resource(enabled ? "diagnostics_enabled_message" : "diagnostics_disabled_message"),
+				text: .resource(enabled ? L10n.Diagnostics.enabledMessage : L10n.Diagnostics.disabledMessage),
 				tone: .success
 			))
 		}
@@ -298,8 +296,8 @@ final class SettingsModel: ObservableObject {
 			|| coreState.transfers.contains(where: { $0.status.isActiveTransfer })
 		guard !hasActiveWork else {
 			state.hasActiveNetworkWork = true
-			state.relayApplyErrorKey = "relay_apply_active_transfers"
-			messages.show(UiMessage(text: .resource("relay_apply_active_transfers"), tone: .warning))
+			state.relayApplyErrorKey = L10n.Relay.applyActiveTransfers
+			messages.show(UiMessage(text: .resource(L10n.Relay.applyActiveTransfers), tone: .warning))
 			return
 		}
 
@@ -318,16 +316,16 @@ final class SettingsModel: ObservableObject {
 				preferences.setRelayConfiguration(configuration)
 				state.isApplyingRelayConfiguration = false
 				state.relayConfigurationIsDirty = false
-				messages.show(UiMessage(text: .resource("relay_settings_applied"), tone: .success))
+				messages.show(UiMessage(text: .resource(L10n.Relay.settingsApplied), tone: .success))
 			case .failure(let error):
 				if let lifecycleError = error as? CoreNetworkLifecycleError {
 					state.isApplyingRelayConfiguration = false
 					switch lifecycleError {
 					case .activeNetworkWork:
 						state.hasActiveNetworkWork = true
-						state.relayApplyErrorKey = "relay_apply_active_transfers"
+						state.relayApplyErrorKey = L10n.Relay.applyActiveTransfers
 					case .transitionInProgress:
-						state.relayApplyErrorKey = "relay_apply_failed"
+						state.relayApplyErrorKey = L10n.Relay.applyFailed
 					}
 					return
 				}
@@ -337,11 +335,11 @@ final class SettingsModel: ObservableObject {
 				)
 				state.isApplyingRelayConfiguration = false
 				if case .success = rollbackResult {
-					state.relayApplyErrorKey = "relay_apply_failed"
-					messages.show(UiMessage(text: .resource("relay_apply_failed"), tone: .error))
+					state.relayApplyErrorKey = L10n.Relay.applyFailed
+					messages.show(UiMessage(text: .resource(L10n.Relay.applyFailed), tone: .error))
 				} else {
-					state.relayApplyErrorKey = "relay_restore_failed"
-					messages.show(UiMessage(text: .resource("relay_restore_failed"), tone: .error))
+					state.relayApplyErrorKey = L10n.Relay.restoreFailed
+					messages.show(UiMessage(text: .resource(L10n.Relay.restoreFailed), tone: .error))
 				}
 			}
 		}
@@ -369,11 +367,11 @@ final class SettingsModel: ObservableObject {
 			let what = snapshot.bugWhatHappened.trimmingCharacters(in: .whitespacesAndNewlines)
 			let expected = snapshot.bugExpected.trimmingCharacters(in: .whitespacesAndNewlines)
 			if what.isEmpty {
-				messages.show(UiMessage(text: .resource("bug_report_missing_what"), tone: .warning))
+				messages.show(UiMessage(text: .resource(L10n.Bug.reportMissingWhat), tone: .warning))
 				return
 			}
 			if expected.isEmpty {
-				messages.show(UiMessage(text: .resource("bug_report_missing_expected"), tone: .warning))
+				messages.show(UiMessage(text: .resource(L10n.Bug.reportMissingExpected), tone: .warning))
 				return
 			}
 			state.isSubmittingBugReport = true
@@ -392,58 +390,55 @@ final class SettingsModel: ObservableObject {
 				state.bugSteps = ""
 				state.bugContact = ""
 				state.bugIncludeLogs = true
-				messages.show(UiMessage(text: .resource("bug_report_submitted"), tone: .success))
+				messages.show(UiMessage(text: .resource(L10n.Bug.reportSubmitted), tone: .success))
 				onSuccess()
 			case .failure:
 				state.isSubmittingBugReport = false
-				messages.show(UiMessage(text: .resource("bug_report_submit_failed"), tone: .error))
+				messages.show(UiMessage(text: .resource(L10n.Bug.reportSubmitFailed), tone: .error))
 			}
 		}
 	}
 
 	func openNotificationSettings() {
 		Task {
-			enableNotificationsAfterSettings = true
-			let result = await notifications.openSettings()
-			if case .failure = result {
-				enableNotificationsAfterSettings = false
-				messages.show(UiMessage(text: .resource("notifications_settings_open_failed"), tone: .error))
+			if case .failure = await notifications.openSettings() {
+				messages.show(UiMessage(text: .resource(L10n.Notifications.settingsOpenFailed), tone: .error))
 			}
 		}
 	}
 
+	/// Re-read the OS permission (called on appear and when returning to the
+	/// foreground, e.g. after a trip to Settings) so the toggle stays in sync.
 	func refreshNotificationPermission() {
 		Task {
-			let permission = await notifications.refreshPermission()
-			state.notificationPermission = permission
-			if enableNotificationsAfterSettings {
-				enableNotificationsAfterSettings = false
-				if permission == .granted { await enableNotifications() }
-			} else if permission != .granted && state.notificationsEnabled {
-				preferences.setNotificationsEnabled(false)
-				notifications.cancelAll()
-			}
+			state.notificationPermission = await notifications.refreshPermission()
 		}
-	}
-
-	private func enableNotifications() async {
-		preferences.setNotificationsEnabled(true)
-		messages.show(UiMessage(text: .resource("notifications_enabled_message"), tone: .success))
 	}
 
 	// MARK: - Storage
 
-	/// Recomputes the on-disk usage breakdown off the main actor.
+	/// Recomputes the on-disk usage breakdown off the main actor. Safe to call
+	/// before the core is ready: it keeps the spinner up and waits for the core to
+	/// finish initializing (it starts asynchronously at launch) rather than bailing.
 	func loadStorageUsage() {
 		if state.isCalculatingStorage { return }
 		state.isCalculatingStorage = true
+		state.storageLoadFailed = false
 		let tempDir = NSTemporaryDirectory()
 		Task {
+			// The core initializes asynchronously at launch; poll briefly so opening
+			// Storage early doesn't leave the summary stuck.
+			var attempts = 0
+			while !repository.state.isInitialized && attempts < 100 {
+				try? await Task.sleep(nanoseconds: 100_000_000)
+				attempts += 1
+			}
 			let coreResult = await repository.storageUsage()
 			let artifactsResult = await repository.receivedArtifacts()
 			guard case .success(let core) = coreResult,
 				case .success(let artifacts) = artifactsResult else {
 				state.isCalculatingStorage = false
+				state.storageLoadFailed = true
 				return
 			}
 			let diskSizes = await Task.detached {
@@ -478,11 +473,88 @@ final class SettingsModel: ObservableObject {
 			state.isDeletingTransfers = false
 			if failures == 0 {
 				loadStorageUsage()
-				messages.show(UiMessage(text: .resource("storage_transfers_deleted"), tone: .success))
+				messages.show(UiMessage(text: .resource(L10n.Storage.transfersDeleted), tone: .success))
 			} else {
 				messages.error(InvitationError.message("Could not delete \(failures) transfer records"))
 			}
 		}
+	}
+
+	/// Reclaims disk space the core's transfer deletion doesn't touch: the app's
+	/// temporary directory (leftover picker/staging copies) and any stray `.Trash`
+	/// folders that accumulate inside app-owned directories. Never touches received
+	/// files, the core database, or user-chosen receive folders.
+	func freeUpSpace() {
+		if state.isCleaningStorage { return }
+		// Purging staging while a transfer is mid-flight could break it.
+		let hasActive = repository.state.transfers.contains {
+			$0.status == .sharing || $0.status == .importing || $0.status == .receiving
+		}
+		if hasActive {
+			messages.tryShow(UiMessage(text: .resource(L10n.Storage.cleanupBusy), tone: .warning))
+			return
+		}
+		state.isCleaningStorage = true
+		let tempDir = NSTemporaryDirectory()
+		let dataDir = environment.defaultCoreDataDir
+		// Only clean the receive folder's trash when it is app-owned (iOS fixed
+		// Documents), never a user-chosen macOS folder like ~/Downloads.
+		let receiveTrashRoot = fileSystemService.supportsCustomReceiveFolders ? nil : state.receiveFolder?.value
+		Task {
+			let freed = await Task.detached {
+				SettingsModel.reclaimJunk(tempDir: tempDir, dataDir: dataDir, receiveTrashRoot: receiveTrashRoot)
+			}.value
+			state.isCleaningStorage = false
+			loadStorageUsage()
+			messages.show(UiMessage(
+				text: .dynamic(L10n.Storage.cleanupFreed(size: formatBytes(freed))),
+				tone: .success
+			))
+		}
+	}
+
+	/// Deletes temp-directory contents and `.Trash` folders under the given roots,
+	/// returning the number of bytes reclaimed. Runs off the main actor.
+	nonisolated static func reclaimJunk(tempDir: String, dataDir: String, receiveTrashRoot: String?) -> UInt64 {
+		let fm = FileManager.default
+		var freed: UInt64 = 0
+		// Empty the temporary directory.
+		if let entries = try? fm.contentsOfDirectory(atPath: tempDir) {
+			for name in entries {
+				let path = (tempDir as NSString).appendingPathComponent(name)
+				freed += itemSize(path)
+				try? fm.removeItem(atPath: path)
+			}
+		}
+		// Remove stray `.Trash` folders inside app-owned directories.
+		for root in [dataDir, receiveTrashRoot].compactMap({ $0 }) {
+			for trash in trashDirectories(under: root) {
+				freed += directorySize(trash)
+				try? fm.removeItem(atPath: trash)
+			}
+		}
+		return freed
+	}
+
+	/// Paths of every directory named `.Trash` under `root` (not descending into them).
+	private nonisolated static func trashDirectories(under root: String) -> [String] {
+		let url = URL(fileURLWithPath: root, isDirectory: true)
+		guard let enumerator = FileManager.default.enumerator(
+			at: url, includingPropertiesForKeys: [.isDirectoryKey]
+		) else { return [] }
+		var result: [String] = []
+		for case let fileURL as URL in enumerator where fileURL.lastPathComponent == ".Trash" {
+			result.append(fileURL.path)
+			enumerator.skipDescendants()
+		}
+		return result
+	}
+
+	/// Allocated size of a file or directory (0 if missing).
+	private nonisolated static func itemSize(_ path: String) -> UInt64 {
+		var isDirectory: ObjCBool = false
+		guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else { return 0 }
+		return isDirectory.boolValue ? directorySize(path) : fileSize(path)
 	}
 
 	nonisolated static func fileSize(_ path: String) -> UInt64 {

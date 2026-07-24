@@ -20,6 +20,10 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>VniDrop</string>
+	<!-- macOS: a single instance only; re-launching activates the running app
+	     instead of spawning another copy. -->
+	<key>LSMultipleInstancesProhibited</key>
+	<true/>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -63,6 +67,10 @@
 	<string>VniDrop uses the camera to scan transfer QR codes.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>VniDrop needs local network access to send to other local devices if needed.</string>
+	<!-- iPadOS: a single scene only — no second window via Stage Manager / split
+	     view. Mirrors the single-window macOS behavior. -->
+	<key>UIApplicationSupportsMultipleScenes</key>
+	<false/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

@@ -237,6 +237,7 @@
     <string name="storage_cleanup_freed">%1$s freigegeben</string>
     <string name="storage_clear_transfer_cache">Übertragungscache leeren</string>
     <string name="storage_clear_transfer_cache_description">Entfernt zwischengespeicherte Übertragungsinhalte, die nicht von einem laufenden Empfang oder einer aktiven Freigabe verwendet werden. Empfangene Dateien und der Übertragungsverlauf werden nicht gelöscht.</string>
+    <string name="storage_clearing_transfer_cache">Cache wird geleert…</string>
     <string name="storage_delete_transfers_caption">Löscht deinen Sende- und Empfangsverlauf sowie die zwischengespeicherten Freigabeinhalte der App. Empfangene Dateien auf dem Datenträger bleiben erhalten.</string>
     <string name="storage_free_up_space_caption">Entfernt temporäre Dateien und Reste früherer Übertragungen. Deine Übertragungen und empfangenen Dateien bleiben erhalten.</string>
     <string name="storage_refresh">Aktualisieren</string>

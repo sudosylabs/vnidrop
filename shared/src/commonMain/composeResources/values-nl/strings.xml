@@ -237,6 +237,7 @@
     <string name="storage_cleanup_freed">%1$s vrijgemaakt</string>
     <string name="storage_clear_transfer_cache">Overdrachtscache wissen</string>
     <string name="storage_clear_transfer_cache_description">Verwijdert overdrachtsinhoud uit de cache die niet wordt gebruikt door een lopende ontvangst of actieve share. Ontvangen bestanden en de overdrachtsgeschiedenis worden niet verwijderd.</string>
+    <string name="storage_clearing_transfer_cache">Cache wissen…</string>
     <string name="storage_delete_transfers_caption">Wist je verzend- en ontvangstgeschiedenis en de gecachte deelinhoud van de app. Ontvangen bestanden op schijf blijven behouden.</string>
     <string name="storage_free_up_space_caption">Verwijdert tijdelijke bestanden en resten van eerdere overdrachten. Je overdrachten en ontvangen bestanden blijven behouden.</string>
     <string name="storage_refresh">Vernieuwen</string>

@@ -237,6 +237,7 @@
     <string name="storage_cleanup_freed">Zwolniono %1$s</string>
     <string name="storage_clear_transfer_cache">Wyczyść pamięć podręczną transferów</string>
     <string name="storage_clear_transfer_cache_description">Usuwa zawartość transferów z pamięci podręcznej, która nie jest używana przez trwające odbieranie ani aktywne udostępnianie. Odebrane pliki i historia nie są usuwane.</string>
+    <string name="storage_clearing_transfer_cache">Czyszczenie pamięci podręcznej…</string>
     <string name="storage_delete_transfers_caption">Czyści historię wysyłania i odbierania oraz zapisane w pamięci podręcznej udostępniane treści. Odebrane pliki na dysku zostają zachowane.</string>
     <string name="storage_free_up_space_caption">Usuwa pliki tymczasowe i pozostałości po wcześniejszych transferach. Twoje transfery i odebrane pliki zostają zachowane.</string>
     <string name="storage_refresh">Odśwież</string>

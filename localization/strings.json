@@ -3696,6 +3696,23 @@
         "ru": "Удаляет кэшированное содержимое передач, которое не используется текущим приёмом или активной раздачей. Полученные файлы и история передач не удаляются."
       }
     },
+    "storage_clearing_transfer_cache": {
+      "context": "Settings > Storage: clear-transfer-cache button while clearing is in progress (KMP).",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Clearing cache…",
+        "fr": "Vidage du cache…",
+        "es": "Borrando caché…",
+        "it": "Svuotamento cache…",
+        "de": "Cache wird geleert…",
+        "pt": "A limpar cache…",
+        "pl": "Czyszczenie pamięci podręcznej…",
+        "nl": "Cache wissen…",
+        "ru": "Очистка кэша…"
+      }
+    },
     "storage_delete_transfers_caption": {
       "context": "Settings > Storage: caption under the destructive delete-all button.",
       "translations": {

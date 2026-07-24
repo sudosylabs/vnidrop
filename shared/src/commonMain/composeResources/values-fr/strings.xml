@@ -237,6 +237,7 @@
     <string name="storage_cleanup_freed">%1$s libéré</string>
     <string name="storage_clear_transfer_cache">Vider le cache des transferts</string>
     <string name="storage_clear_transfer_cache_description">Supprime le contenu de transfert en cache qui n’est pas utilisé par une réception en cours ou un partage actif. Les fichiers reçus et l’historique ne sont pas supprimés.</string>
+    <string name="storage_clearing_transfer_cache">Vidage du cache…</string>
     <string name="storage_delete_transfers_caption">Efface votre historique d\'envois et de réceptions ainsi que le contenu de partage mis en cache par l\'app. Les fichiers reçus sur le disque sont conservés.</string>
     <string name="storage_free_up_space_caption">Supprime les fichiers temporaires et les résidus des transferts précédents. Vos transferts et fichiers reçus sont conservés.</string>
     <string name="storage_refresh">Actualiser</string>

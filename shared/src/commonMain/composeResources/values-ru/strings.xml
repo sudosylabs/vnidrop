@@ -237,6 +237,7 @@
     <string name="storage_cleanup_freed">Освобождено %1$s</string>
     <string name="storage_clear_transfer_cache">Очистить кэш передач</string>
     <string name="storage_clear_transfer_cache_description">Удаляет кэшированное содержимое передач, которое не используется текущим приёмом или активной раздачей. Полученные файлы и история передач не удаляются.</string>
+    <string name="storage_clearing_transfer_cache">Очистка кэша…</string>
     <string name="storage_delete_transfers_caption">Очищает историю отправки и получения и кэшированное содержимое общих ресурсов. Полученные файлы на диске сохраняются.</string>
     <string name="storage_free_up_space_caption">Удаляет временные файлы и остатки прошлых передач. Ваши передачи и полученные файлы сохраняются.</string>
     <string name="storage_refresh">Обновить</string>

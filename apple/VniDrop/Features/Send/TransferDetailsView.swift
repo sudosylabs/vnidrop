@@ -251,7 +251,8 @@ private struct ReceiverRow: View {
 						.foregroundStyle(receiver.status.statusColor(colors))
 				}
 				if let reason = receiver.reason, !reason.isEmpty {
-					Text(reason).font(VniType.bodySmall).foregroundStyle(colors.foregroundLighter)
+					Text(receiverReasonUiText(reason).resolved())
+						.font(VniType.bodySmall).foregroundStyle(colors.foregroundLighter)
 				}
 			}
 			.frame(maxWidth: .infinity, alignment: .leading)

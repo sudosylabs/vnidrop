@@ -76,6 +76,39 @@ extension Error {
 	}
 }
 
+/// Maps a receiver delivery/refusal reason code to a user-facing message, never
+/// surfacing the raw core code (e.g. `destination_exists`). Unknown codes fall back
+/// to the substring hints, then a generic message.
+func receiverReasonUiText(_ reason: String) -> UiText {
+	switch reason {
+	case "destination_exists":
+		return .resource(L10n.Error.destinationExists)
+	case "filesystem", "filesystem_permission_denied":
+		return .resource(L10n.Error.filesystem)
+	case "permission_denied", "approval-required", "approval-expired",
+		 "unknown-transfer", "missing-endpoint-id", "invalid-receipt":
+		return .resource(L10n.Error.permission)
+	case "storage_full":
+		return .resource(L10n.Error.storageFull)
+	case "network":
+		return .resource(L10n.Error.network)
+	case "invalid_ticket":
+		return .resource(L10n.Error.invalidTicket)
+	case "transfer":
+		return .resource(L10n.Error.transfer)
+	case "repository", "repository-error":
+		return .resource(L10n.Error.repository)
+	case "invalid_input":
+		return .resource(L10n.Error.invalidInput)
+	case "initialization":
+		return .resource(L10n.Error.initialization)
+	case "cancelled", "internal":
+		return .resource(L10n.Error.generic)
+	default:
+		return reasonHints(reason) ?? .resource(L10n.Error.generic)
+	}
+}
+
 private func transferUiText(_ reason: String) -> UiText {
 	let detail = reason.lowercased()
 	if detail.contains("refused") || detail.contains("denied") || detail.contains("not approved") {

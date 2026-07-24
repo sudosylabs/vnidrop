@@ -235,9 +235,12 @@
     <string name="storage_cleaning">Limpiando…</string>
     <string name="storage_cleanup_busy">Finaliza las transferencias activas antes de liberar espacio</string>
     <string name="storage_cleanup_freed">Se liberó %1$s</string>
+    <string name="storage_clear_transfer_cache">Borrar caché de transferencias</string>
+    <string name="storage_clear_transfer_cache_description">Elimina el contenido de transferencia en caché que no esté siendo utilizado por una recepción en curso o un recurso compartido activo. Los archivos recibidos y el historial no se eliminan.</string>
     <string name="storage_delete_transfers_caption">Borra tu historial de envíos y recepciones y el contenido compartido en caché de la app. Los archivos recibidos en el disco se conservan.</string>
     <string name="storage_free_up_space_caption">Elimina los archivos temporales y los restos de transferencias anteriores. Tus transferencias y archivos recibidos se conservan.</string>
     <string name="storage_refresh">Actualizar</string>
+    <string name="storage_transfer_cache_cleared">Caché de transferencias borrada</string>
     <string name="storage_unavailable">El uso de almacenamiento aún no está disponible</string>
     <string name="storage_usage_header">En este dispositivo</string>
     <string name="storage_free_up_space">Liberar espacio</string>

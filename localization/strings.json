@@ -3662,6 +3662,40 @@
         "ru": "Освобождено {size}"
       }
     },
+    "storage_clear_transfer_cache": {
+      "context": "Settings > Storage: button that clears cached transfer content (KMP).",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Clear transfer cache",
+        "fr": "Vider le cache des transferts",
+        "es": "Borrar caché de transferencias",
+        "it": "Svuota cache trasferimenti",
+        "de": "Übertragungscache leeren",
+        "pt": "Limpar cache de transferências",
+        "pl": "Wyczyść pamięć podręczną transferów",
+        "nl": "Overdrachtscache wissen",
+        "ru": "Очистить кэш передач"
+      }
+    },
+    "storage_clear_transfer_cache_description": {
+      "context": "Settings > Storage: description under the clear-transfer-cache button (KMP).",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Removes cached transfer content after briefly restarting VniDrop. Finish ongoing transfers and stop active shares first. Received files and transfer history are not deleted.",
+        "fr": "Supprime le contenu de transfert en cache qui n’est pas utilisé par une réception en cours ou un partage actif. Les fichiers reçus et l’historique ne sont pas supprimés.",
+        "es": "Elimina el contenido de transferencia en caché que no esté siendo utilizado por una recepción en curso o un recurso compartido activo. Los archivos recibidos y el historial no se eliminan.",
+        "it": "Rimuove il contenuto dei trasferimenti memorizzato nella cache che non è usato da una ricezione in corso o da una condivisione attiva. I file ricevuti e la cronologia non vengono eliminati.",
+        "de": "Entfernt zwischengespeicherte Übertragungsinhalte, die nicht von einem laufenden Empfang oder einer aktiven Freigabe verwendet werden. Empfangene Dateien und der Übertragungsverlauf werden nicht gelöscht.",
+        "pt": "Remove conteúdo de transferência em cache que não esteja a ser utilizado por uma receção em curso ou partilha ativa. Os ficheiros recebidos e o histórico não são eliminados.",
+        "pl": "Usuwa zawartość transferów z pamięci podręcznej, która nie jest używana przez trwające odbieranie ani aktywne udostępnianie. Odebrane pliki i historia nie są usuwane.",
+        "nl": "Verwijdert overdrachtsinhoud uit de cache die niet wordt gebruikt door een lopende ontvangst of actieve share. Ontvangen bestanden en de overdrachtsgeschiedenis worden niet verwijderd.",
+        "ru": "Удаляет кэшированное содержимое передач, которое не используется текущим приёмом или активной раздачей. Полученные файлы и история передач не удаляются."
+      }
+    },
     "storage_delete_transfers_caption": {
       "context": "Settings > Storage: caption under the destructive delete-all button.",
       "translations": {
@@ -3702,6 +3736,23 @@
         "pl": "Odśwież",
         "nl": "Vernieuwen",
         "ru": "Обновить"
+      }
+    },
+    "storage_transfer_cache_cleared": {
+      "context": "Settings > Storage: confirmation that the transfer cache was cleared (KMP).",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Transfer cache cleared",
+        "fr": "Cache des transferts vidé",
+        "es": "Caché de transferencias borrada",
+        "it": "Cache trasferimenti svuotata",
+        "de": "Übertragungscache geleert",
+        "pt": "Cache de transferências limpa",
+        "pl": "Wyczyszczono pamięć podręczną transferów",
+        "nl": "Overdrachtscache gewist",
+        "ru": "Кэш передач очищен"
       }
     },
     "storage_unavailable": {

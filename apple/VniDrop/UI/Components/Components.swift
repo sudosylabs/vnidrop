@@ -42,7 +42,7 @@ struct ProgressRow: View {
 				label.font(.subheadline).lineLimit(1)
 				Spacer()
 				if let progress {
-					Text("\(Int(progress * 100))%").font(.caption).foregroundStyle(.secondary)
+					Text(verbatim: "\(Int(progress * 100))%").font(.caption).foregroundStyle(.secondary)
 				}
 			}
 			if let detail {

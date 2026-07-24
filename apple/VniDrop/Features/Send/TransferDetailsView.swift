@@ -112,7 +112,7 @@ private struct DetailDestination: View {
 				}
 				Spacer()
 				if count > 0 {
-					Text("\(count)")
+					Text(verbatim: "\(count)")
 						.font(.footnote)
 						.foregroundStyle(.secondary)
 				}

@@ -25,3 +25,10 @@ custom_rules:
     regex: 'system(Name|Image):\s*"'
     message: "Use SFSafeSymbols: Image(systemSymbol:) or systemSymbol:."
     severity: warning
+  raw_swiftui_string_literal:
+    name: "Raw SwiftUI string"
+    # A non-empty string literal as the leading arg of a view initializer is an
+    # implicit LocalizedStringKey. Empty labels (e.g. Picker("", …)) are allowed.
+    regex: '\b(Text|Label|Button|Toggle|Link|NavigationLink|Section|Picker|Stepper|TextField|SecureField|DisclosureGroup|Menu|GroupBox)\("[^"]'
+    message: "Pass a typed L10n.* accessor (or Text(verbatim:)), not a raw string literal."
+    severity: warning

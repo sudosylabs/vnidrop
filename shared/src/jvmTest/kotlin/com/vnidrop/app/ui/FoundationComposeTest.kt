@@ -64,6 +64,7 @@ import com.vnidrop.app.ui.theme.VniDropTheme
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
@@ -111,6 +112,114 @@ class FoundationComposeTest {
 		}
 		onNodeWithText("Notifications").performClick()
 		onNodeWithText("Get notified about new receive requests while VniDrop is in the background.").assertIsDisplayed()
+	}
+
+	@Test
+	fun phoneSettingsOpensCustomRelayConfiguration() = runComposeUiTest {
+		val state = mutableStateOf(SettingsState(endpointId = "endpoint-for-allowlist"))
+		var applied = false
+		setContent {
+			VniDropTheme(isDarkTheme = false) {
+				SettingsScreen(
+					state = state.value,
+					windowClass = WindowClass.Phone,
+					onSectionSelected = { state.value = state.value.copy(selectedSection = it) },
+					onUsernameChanged = {},
+					onThemeModeChanged = {},
+					onChooseFolder = {},
+					onResetFolder = {},
+					onNotificationsChanged = {},
+					onOpenNotificationSettings = {},
+					onDiagnosticsChanged = {},
+					onBugWhatChanged = {},
+					onBugExpectedChanged = {},
+					onBugStepsChanged = {},
+					onBugContactChanged = {},
+					onBugIncludeLogsChanged = {},
+					onSubmitBugReport = {},
+					onRelayModeChanged = {
+						state.value = state.value.copy(
+							relayMode = it,
+							relayUrls = state.value.relayUrls.ifEmpty { listOf("") },
+						)
+					},
+					onRelayUrlChanged = { index, value ->
+						state.value = state.value.copy(
+							relayUrls = state.value.relayUrls.toMutableList().apply { this[index] = value },
+						)
+					},
+					onAddRelayUrl = {
+						state.value = state.value.copy(relayUrls = state.value.relayUrls + "")
+					},
+					onRemoveRelayUrl = { index ->
+						state.value = state.value.copy(
+							relayUrls = state.value.relayUrls.toMutableList().apply { removeAt(index) }.ifEmpty { listOf("") },
+						)
+					},
+					onApplyRelaySettings = { applied = true },
+				)
+			}
+		}
+
+		onNodeWithText("Network").performClick()
+		onNodeWithText("Device ID: endpoint-for-allowlist").assertIsDisplayed()
+		onNodeWithText("Strict custom").performClick()
+		onNodeWithText(
+			"Strict custom mode will not start unless at least one configured relay is reachable. " +
+				"VniDrop never uses public relays or public discovery in this mode.",
+		).assertIsDisplayed()
+		onNodeWithText("Add relay server").assertIsDisplayed()
+		onNodeWithText("Apply network settings").performClick()
+		runOnIdle { assertTrue(applied) }
+	}
+
+	@Test
+	fun storageDeleteAllTransfersRequiresConfirmation() = runComposeUiTest {
+		var deleteRequested = false
+		var cacheClearRequested = false
+		setContent {
+			VniDropTheme(isDarkTheme = false) {
+				SettingsScreen(
+					state = SettingsState(selectedSection = SettingsSection.Storage),
+					windowClass = WindowClass.Desktop,
+					onSectionSelected = {},
+					onUsernameChanged = {},
+					onThemeModeChanged = {},
+					onChooseFolder = {},
+					onResetFolder = {},
+					onNotificationsChanged = {},
+					onOpenNotificationSettings = {},
+					onDiagnosticsChanged = {},
+					onBugWhatChanged = {},
+					onBugExpectedChanged = {},
+					onBugStepsChanged = {},
+					onBugContactChanged = {},
+					onBugIncludeLogsChanged = {},
+					onSubmitBugReport = {},
+					onDeleteAllTransfers = { deleteRequested = true },
+					onClearTransferCache = { cacheClearRequested = true },
+				)
+			}
+		}
+
+		onNodeWithText("Clear transfer cache").performClick()
+		onNodeWithText(
+			"Removes cached transfer content after briefly restarting VniDrop. " +
+				"Finish ongoing transfers and stop active shares first. Received files and transfer history are not deleted.",
+		).assertIsDisplayed()
+		runOnIdle { assertFalse(cacheClearRequested) }
+		onNodeWithTag("confirm-clear-transfer-cache").performClick()
+		runOnIdle { assertTrue(cacheClearRequested) }
+
+		onNodeWithText("Delete all transfers").performClick()
+		onNodeWithText(
+			"This clears all sent and received transfer records from your history and immediately reclaims unused transfer cache. " +
+				"Ongoing transfers and received files are not deleted. This can’t be undone.",
+		).assertIsDisplayed()
+		runOnIdle { assertFalse(deleteRequested) }
+
+		onNodeWithTag("confirm-delete-all-transfers").performClick()
+		runOnIdle { assertTrue(deleteRequested) }
 	}
 
 	@Test
@@ -534,6 +643,56 @@ class FoundationComposeTest {
 		onNodeWithText("Scan with VniDrop to receive this transfer").assertIsDisplayed()
 		onNodeWithText("Save .vnd file").assertIsDisplayed()
 		onNodeWithContentDescription("Close").assertIsDisplayed()
+	}
+
+	@Test
+	fun stoppedAndFailedTransfersDoNotExposeStaleInvitations() = runComposeUiTest {
+		val transfer = mutableStateOf(outgoingTransfer().copy(status = TransferStatus.Stopped))
+		setContent {
+			VniDropTheme(isDarkTheme = false) {
+				SendScreen(
+					coreState = CoreState(isInitialized = true, transfers = listOf(transfer.value)),
+					state = SendState(
+						selectedTransferId = transfer.value.transferId,
+						detailPanel = com.vnidrop.app.feature.send.TransferDetailPanel.Share,
+					),
+					windowClass = WindowClass.Desktop,
+					onOpenComposer = {}, onDismissComposer = {}, onSelectFile = {}, onClearFile = {},
+					onTransferNameChanged = {}, onSenderNameChanged = {}, onAccessPolicyChanged = {},
+					onCreateShare = {}, onTransferSelected = {}, onCloseTransferDetails = {}, onCopyTicket = {},
+				)
+			}
+		}
+
+		onAllNodesWithText("Share").assertCountEquals(0)
+		onAllNodesWithText("Save .vnd file").assertCountEquals(0)
+
+		runOnIdle { transfer.value = transfer.value.copy(status = TransferStatus.Failed) }
+		onAllNodesWithText("Share").assertCountEquals(0)
+		onAllNodesWithText("Save .vnd file").assertCountEquals(0)
+	}
+
+	@Test
+	fun oversizedInvitationShowsQrUnavailableInsteadOfLoadingForever() = runComposeUiTest {
+		val transfer = outgoingTransfer().copy(ticket = "a".repeat(2_954))
+		setContent {
+			VniDropTheme(isDarkTheme = false) {
+				SendScreen(
+					coreState = CoreState(isInitialized = true, transfers = listOf(transfer)),
+					state = SendState(
+						selectedTransferId = transfer.transferId,
+						detailPanel = com.vnidrop.app.feature.send.TransferDetailPanel.Share,
+					),
+					windowClass = WindowClass.Desktop,
+					onOpenComposer = {}, onDismissComposer = {}, onSelectFile = {}, onClearFile = {},
+					onTransferNameChanged = {}, onSenderNameChanged = {}, onAccessPolicyChanged = {},
+					onCreateShare = {}, onTransferSelected = {}, onCloseTransferDetails = {}, onCopyTicket = {},
+				)
+			}
+		}
+
+		onNodeWithText("QR unavailable for this invitation. Use Share or Download instead.").assertIsDisplayed()
+		onNodeWithText("Save .vnd file").assertIsDisplayed()
 	}
 
 	@Test

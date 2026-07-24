@@ -40,7 +40,7 @@ interface FileSystemService {
 		if (supportsCustomReceiveFolders) configuredFolder else defaultReceiveFolder()
 	suspend fun validateReceiveFolder(folder: ReceiveFolder): FolderAccessStatus
 	suspend fun inspectReceivedArtifacts(artifacts: List<ReceivedArtifactModel>): ReceivedStorageInspection
-	suspend fun temporaryUsage(): ULong
+	suspend fun temporaryUsage(receiveFolder: ReceiveFolder): ULong
 	fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2?
 	fun canRevealReceiveFolder(folder: ReceiveFolder): Boolean = false
 	suspend fun revealReceiveFolder(folder: ReceiveFolder): Result<Unit> =

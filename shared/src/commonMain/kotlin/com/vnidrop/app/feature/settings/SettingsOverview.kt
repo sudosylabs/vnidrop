@@ -7,6 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.vnidrop.app.core.RelayMode
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.theme.ThemeMode
 import org.jetbrains.compose.resources.stringResource
@@ -18,7 +19,12 @@ import vnidrop.shared.generated.resources.appearance_system_mode
 import vnidrop.shared.generated.resources.appearance_title
 import vnidrop.shared.generated.resources.notifications_title
 import vnidrop.shared.generated.resources.preferences_title
+import vnidrop.shared.generated.resources.relay_mode_automatic
+import vnidrop.shared.generated.resources.relay_mode_custom
+import vnidrop.shared.generated.resources.relay_mode_custom_direct_fallback
+import vnidrop.shared.generated.resources.relay_mode_local_only
 import vnidrop.shared.generated.resources.settings_title
+import vnidrop.shared.generated.resources.settings_network_title
 import vnidrop.shared.generated.resources.storage_title
 
 @Composable
@@ -64,7 +70,17 @@ internal fun SettingsOverview(
 				selected = state.selectedSection == SettingsSection.Storage,
 				onClick = { onSectionSelected(SettingsSection.Storage) },
 			)
-			SettingsDivider()
+		}
+		SettingsGroup {
+			SettingsRow(
+				icon = AppIcon.Globe,
+				title = stringResource(Res.string.settings_network_title),
+				value = relayModeLabel(state.savedRelaySettings.mode),
+				selected = state.selectedSection == SettingsSection.Network,
+				onClick = { onSectionSelected(SettingsSection.Network) },
+			)
+		}
+		SettingsGroup {
 			SettingsRow(
 				icon = AppIcon.Info,
 				title = stringResource(Res.string.about_title),
@@ -74,6 +90,14 @@ internal fun SettingsOverview(
 			)
 		}
 	}
+}
+
+@Composable
+private fun relayModeLabel(mode: RelayMode): String = when (mode) {
+	RelayMode.Automatic -> stringResource(Res.string.relay_mode_automatic)
+	RelayMode.StrictCustom -> stringResource(Res.string.relay_mode_custom)
+	RelayMode.CustomWithDirectFallback -> stringResource(Res.string.relay_mode_custom_direct_fallback)
+	RelayMode.LocalOnly -> stringResource(Res.string.relay_mode_local_only)
 }
 
 @Composable

@@ -103,7 +103,7 @@ private class AndroidFileSystemService(
 		return ReceivedStorageInspection(bytes, existing, missing, inaccessible)
 	}
 
-	override suspend fun temporaryUsage(): ULong = directorySize(context.cacheDir)
+	override suspend fun temporaryUsage(receiveFolder: ReceiveFolder): ULong = directorySize(context.cacheDir)
 
 	override fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2? =
 		when (folder.kind) {

@@ -25,6 +25,8 @@ final class FakeCoreGateway: CoreGateway {
 	var cancelResult: Result<Void, Error> = .success(())
 	var deleteResult: Result<Void, Error> = .success(())
 	var clearReceiveHistoryResult: Result<UInt64, Error> = .success(0)
+	var initializeResult: Result<Void, Error> = .success(())
+	var initializeResults: [Result<Void, Error>] = []
 
 	// Recorded calls
 	private(set) var responses: [(id: String, accepted: Bool, reason: String?)] = []
@@ -35,11 +37,18 @@ final class FakeCoreGateway: CoreGateway {
 	private(set) var lastReceiveTicket: String?
 	private(set) var lastReceiveReceiverName: String?
 	private(set) var lastShareAccessPolicy: ShareAccessPolicy?
+	private(set) var initializedNetworkConfigurations: [RelayConfiguration] = []
 
 	func setState(_ state: CoreState) { stateSubject.send(state) }
 	func emit(_ signal: CoreSignal) { signalsSubject.send(signal) }
 
-	func initialize(appDataDir: String) async -> Result<Void, Error> {
+	func initialize(
+		appDataDir: String,
+		networkConfiguration: RelayConfiguration
+	) async -> Result<Void, Error> {
+		initializedNetworkConfigurations.append(networkConfiguration)
+		let result = initializeResults.isEmpty ? initializeResult : initializeResults.removeFirst()
+		guard case .success = result else { return result }
 		var s = stateSubject.value
 		s.isInitialized = true
 		stateSubject.send(s)

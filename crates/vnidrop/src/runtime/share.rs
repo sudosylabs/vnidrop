@@ -149,9 +149,13 @@ impl CoreInner {
             import.file_count,
             import.total_size,
         );
-        let ticket = VnidropTicket::new(blob_ticket, ticket_metadata)
-            .encode()
-            .context("failed to encode VniDrop transfer ticket")?;
+        let ticket = VnidropTicket::new_with_relay_urls(
+            blob_ticket,
+            ticket_metadata,
+            &self.custom_relay_urls,
+        )
+        .encode()
+        .context("failed to encode VniDrop transfer ticket")?;
         let content_hash = import.root_hash.to_string();
         let local_id = self
             .repository

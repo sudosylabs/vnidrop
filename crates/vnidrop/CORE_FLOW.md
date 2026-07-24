@@ -91,6 +91,11 @@ or temporary tag. Receive downloads keep a temporary tag through export and beco
 reclaimable after publication. Restart reconciliation repairs active-share tags,
 removes orphan share tags, and never restores a stopped share.
 
+The explicit transfer-cache action is available only when no transfer or share is
+active. It shuts the core down cleanly, removes the app-owned blob store, and then
+restarts the core with the same identity and network configuration. Deleting all
+transfer records invokes the same cleanup after live shares have been stopped.
+
 ## Resource Limits
 
 `CoreLimits` controls source count, collection files and bytes, path and ticket

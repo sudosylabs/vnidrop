@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import uniffi.vnidrop.ReceiveOutputSinkV2
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.LinkOption
 
 @Composable
 actual fun rememberFileSystemService(): FileSystemService =
@@ -42,7 +44,9 @@ private class JvmFileSystemService : FileSystemService {
 		return ReceivedStorageInspection(bytes, existing, missing, 0)
 	}
 
-	override suspend fun temporaryUsage(): ULong = 0UL
+	override suspend fun temporaryUsage(receiveFolder: ReceiveFolder): ULong {
+		return desktopTemporaryUsage(receiveFolder)
+	}
 
 	override fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2? = null
 
@@ -64,4 +68,23 @@ private class JvmFileSystemService : FileSystemService {
 		}
 		return repository.shareSources(sources, transferName, senderName, accessPolicy)
 	}
+}
+
+internal fun desktopTemporaryUsage(receiveFolder: ReceiveFolder): ULong {
+	if (receiveFolder.kind != ReceiveFolderKind.FileSystemPath) return 0UL
+	val root = File(receiveFolder.value).toPath()
+	if (!Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)) return 0UL
+	return runCatching {
+		Files.walk(root).use { paths ->
+			paths.iterator().asSequence()
+				.filter { path ->
+					val name = path.fileName?.toString().orEmpty()
+					Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) &&
+						name.startsWith(".") &&
+						name.contains(".vnidrop-") &&
+						name.endsWith(".part")
+				}
+				.fold(0UL) { total, path -> total + Files.size(path).toULong() }
+		}
+	}.getOrDefault(0UL)
 }

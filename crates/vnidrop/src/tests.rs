@@ -8,6 +8,8 @@ mod filesystem_tests;
 mod handshake_tests;
 #[path = "tests/limits.rs"]
 mod limits_tests;
+#[path = "tests/network_config.rs"]
+mod network_config_tests;
 #[path = "tests/repository.rs"]
 mod repository_tests;
 #[path = "tests/runtime.rs"]

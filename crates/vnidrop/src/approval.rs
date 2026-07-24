@@ -8,7 +8,10 @@ use uuid::Uuid;
 use crate::{
     access_policy::{AccessPolicy, APPROVAL_SESSION_TTL_MS},
     event_hub::EventHub,
-    handshake::{DeliveryReceipt, DeliveryReceiptResponse, HandshakeResponse, RequestTransfer},
+    handshake::{
+        DeliveryFailureReceipt, DeliveryReceipt, DeliveryReceiptResponse, HandshakeResponse,
+        RequestTransfer,
+    },
     repository::{ReceiverRequestInsert, Repository},
     transfer_state::ReceiverRequestStatus,
     util::now_ms,
@@ -63,6 +66,46 @@ impl ApprovalService {
             }
             Err(error) => {
                 tracing::warn!(%error, "rejected receiver delivery receipt");
+                DeliveryReceiptResponse::Rejected {
+                    reason: "invalid-receipt".to_string(),
+                }
+            }
+        }
+    }
+
+    pub(crate) async fn fail_delivery(
+        &self,
+        remote_endpoint_id: String,
+        receipt: DeliveryFailureReceipt,
+    ) -> DeliveryReceiptResponse {
+        let token_hash = receipt_token_hash(&receipt.token);
+        match self
+            .repository
+            .fail_receiver_delivery(
+                &receipt.request_id,
+                receipt.transfer_id,
+                &remote_endpoint_id,
+                &token_hash,
+                &receipt.reason,
+            )
+            .await
+        {
+            Ok(()) => {
+                self.event_hub.emit_transfer(
+                    receipt.transfer_id,
+                    "send",
+                    "delivery",
+                    "receiver-failed",
+                    json!({
+                        "request_id": receipt.request_id,
+                        "remote_endpoint_id": remote_endpoint_id,
+                        "reason": receipt.reason,
+                    }),
+                );
+                DeliveryReceiptResponse::Recorded
+            }
+            Err(error) => {
+                tracing::warn!(%error, "rejected receiver delivery failure");
                 DeliveryReceiptResponse::Rejected {
                     reason: "invalid-receipt".to_string(),
                 }

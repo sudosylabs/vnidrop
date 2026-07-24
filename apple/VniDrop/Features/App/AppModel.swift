@@ -26,7 +26,10 @@ final class AppModel: ObservableObject {
 		AppLogger.info("lifecycle", "app started", ["platform": environment.name])
 
 		Task {
-			let result = await repository.initialize(appDataDir: environment.defaultCoreDataDir)
+			let result = await repository.initialize(
+				appDataDir: environment.defaultCoreDataDir,
+				networkConfiguration: preferences.preferences.relayConfiguration
+			)
 			if case .failure(let error) = result { messages.error(error) }
 		}
 

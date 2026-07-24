@@ -12,6 +12,7 @@ import com.vnidrop.app.core.CoreState
 import com.vnidrop.app.core.ReceiverDeliveryStatus
 import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.TransferDirection
+import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.ui.components.AdaptiveDrawer
 import com.vnidrop.app.ui.state.WindowClass
 
@@ -96,7 +97,12 @@ fun SendScreen(
 		}
 	}
 
-	if (selectedTransfer != null && state.detailPanel != null) {
+	val canShowDetailPanel = selectedTransfer != null && when (state.detailPanel) {
+		TransferDetailPanel.Share -> selectedTransfer.status in setOf(TransferStatus.Importing, TransferStatus.Sharing)
+		TransferDetailPanel.Activity, TransferDetailPanel.Receivers -> true
+		null -> false
+	}
+	if (selectedTransfer != null && state.detailPanel != null && canShowDetailPanel) {
 		AdaptiveDrawer(windowClass = windowClass, onDismissRequest = onCloseDetailPanel) {
 			when (state.detailPanel) {
 				TransferDetailPanel.Activity -> TransferActivityPanel(coreState.events, selectedTransfer.transferId)

@@ -19,6 +19,101 @@ enum FolderAccessStatus {
 	case unavailable
 }
 
+enum RelayPreferenceMode: String, Codable, CaseIterable, Sendable {
+	case automatic
+	case strictCustom = "custom"
+	case customWithDirectFallback = "custom-with-direct-fallback"
+	case localOnly = "local-only"
+
+	var usesCustomRelayURLs: Bool {
+		self == .strictCustom || self == .customWithDirectFallback
+	}
+}
+
+struct RelayConfiguration: Equatable, Codable, Sendable {
+	var mode: RelayPreferenceMode
+	var relayURLs: [String]
+
+	static let automatic = RelayConfiguration(mode: .automatic, relayURLs: [])
+}
+
+enum RelayConfigurationValidationError: Error, Equatable, Sendable {
+	case missingURL
+	case tooManyURLs
+	case httpsRequired(index: Int)
+	case invalidURL(index: Int)
+	case duplicateURL(index: Int)
+
+	var urlIndex: Int? {
+		switch self {
+		case .httpsRequired(let index), .invalidURL(let index), .duplicateURL(let index): return index
+		case .missingURL, .tooManyURLs: return nil
+		}
+	}
+}
+
+enum RelayConfigurationValidator {
+	static let maximumRelayCount = 8
+	static let maximumRelayURLBytes = 2_048
+
+	static func validate(
+		mode: RelayPreferenceMode,
+		relayURLs: [String],
+		retainedRelayURLs: [String] = []
+	) throws -> RelayConfiguration {
+		guard mode.usesCustomRelayURLs else {
+			return RelayConfiguration(mode: mode, relayURLs: retainedRelayURLs)
+		}
+
+		let relayEntries = relayURLs.enumerated().compactMap { index, value -> (Int, String)? in
+			let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+			return trimmed.isEmpty ? nil : (index, trimmed)
+		}
+		guard !relayEntries.isEmpty else {
+			throw RelayConfigurationValidationError.missingURL
+		}
+		guard relayEntries.count <= maximumRelayCount else {
+			throw RelayConfigurationValidationError.tooManyURLs
+		}
+
+		var seen = Set<String>()
+		var normalizedURLs: [String] = []
+		for (index, relayURL) in relayEntries {
+			guard relayURL.lengthOfBytes(using: .utf8) <= maximumRelayURLBytes,
+				relayURL.rangeOfCharacter(from: .whitespacesAndNewlines.union(.controlCharacters)) == nil,
+				var components = URLComponents(string: relayURL) else {
+				throw RelayConfigurationValidationError.invalidURL(index: index)
+			}
+			guard components.scheme?.lowercased() == "https" else {
+				throw RelayConfigurationValidationError.httpsRequired(index: index)
+			}
+			guard
+				let host = components.host,
+				!host.isEmpty,
+				components.port.map({ (1...65_535).contains($0) }) ?? true,
+				components.user == nil,
+				components.password == nil,
+				components.query == nil,
+				components.fragment == nil,
+				components.path.isEmpty || components.path == "/"
+			else {
+				throw RelayConfigurationValidationError.invalidURL(index: index)
+			}
+
+			components.scheme = "https"
+			components.host = host.lowercased()
+			if components.port == 443 { components.port = nil }
+			if components.path == "/" { components.path = "" }
+			guard let canonicalURL = components.string, seen.insert(canonicalURL).inserted else {
+				throw RelayConfigurationValidationError.duplicateURL(index: index)
+			}
+			normalizedURLs.append(canonicalURL)
+		}
+
+		return RelayConfiguration(mode: mode, relayURLs: normalizedURLs)
+	}
+}
+
 /// Persisted app preferences, ported from `preferences/AppPreferencesRepository.kt`.
 /// Backed by `UserDefaults` instead of DataStore; keys and semantics match.
 struct AppPreferences: Equatable {
@@ -27,6 +122,7 @@ struct AppPreferences: Equatable {
 	var themeMode: ThemeMode
 	var diagnosticsEnabled: Bool
 	var diagnosticsInstallId: String
+	var relayConfiguration: RelayConfiguration
 }
 
 struct AppPreferencesDefaults {
@@ -51,6 +147,7 @@ final class AppPreferencesRepository: ObservableObject {
 		static let themeMode = "theme_mode"
 		static let diagnosticsEnabled = "diagnostics_enabled"
 		static let diagnosticsInstallId = "diagnostics_install_id"
+		static let relayConfiguration = "relay_configuration"
 	}
 
 	init(defaults: UserDefaults = .standard, fallback: AppPreferencesDefaults) {
@@ -70,8 +167,22 @@ final class AppPreferencesRepository: ObservableObject {
 			receiveFolder: folder,
 			themeMode: themeMode,
 			diagnosticsEnabled: diagnostics,
-			diagnosticsInstallId: installId
+			diagnosticsInstallId: installId,
+			relayConfiguration: resolveRelayConfiguration(defaults)
 		)
+	}
+
+	private static func resolveRelayConfiguration(_ defaults: UserDefaults) -> RelayConfiguration {
+		guard defaults.object(forKey: Key.relayConfiguration) != nil else { return .automatic }
+		guard
+			let data = defaults.data(forKey: Key.relayConfiguration),
+			let configuration = try? JSONDecoder().decode(RelayConfiguration.self, from: data)
+		else {
+			// A stored profile must never silently fall back to public relays. Strict
+			// custom with no URLs makes startup fail closed until Settings repairs it.
+			return RelayConfiguration(mode: .strictCustom, relayURLs: [])
+		}
+		return configuration
 	}
 
 	private static func resolveReceiveFolder(_ defaults: UserDefaults, fallback: ReceiveFolder) -> ReceiveFolder {
@@ -110,6 +221,12 @@ final class AppPreferencesRepository: ObservableObject {
 
 	func setDiagnosticsEnabled(_ enabled: Bool) {
 		defaults.set(enabled, forKey: Key.diagnosticsEnabled)
+		reload()
+	}
+
+	func setRelayConfiguration(_ configuration: RelayConfiguration) {
+		guard let encoded = try? JSONEncoder().encode(configuration) else { return }
+		defaults.set(encoded, forKey: Key.relayConfiguration)
 		reload()
 	}
 

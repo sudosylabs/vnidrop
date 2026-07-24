@@ -24,6 +24,11 @@ fun SettingsRoute(viewModel: SettingsViewModel, windowClass: WindowClass) {
 		onSectionSelected = viewModel::selectSection,
 		onUsernameChanged = viewModel::setUsername,
 		onThemeModeChanged = viewModel::setThemeMode,
+		onRelayModeChanged = viewModel::setRelayMode,
+		onRelayUrlChanged = viewModel::setRelayUrl,
+		onAddRelayUrl = viewModel::addRelayUrl,
+		onRemoveRelayUrl = viewModel::removeRelayUrl,
+		onApplyRelaySettings = viewModel::applyRelaySettings,
 		onChooseFolder = viewModel::chooseReceiveFolder,
 		onResetFolder = viewModel::resetReceiveFolder,
 		onNotificationsChanged = viewModel::setNotificationsEnabled,
@@ -36,5 +41,6 @@ fun SettingsRoute(viewModel: SettingsViewModel, windowClass: WindowClass) {
 		onBugIncludeLogsChanged = viewModel::setBugIncludeLogs,
 		onSubmitBugReport = viewModel::submitBugReport,
 		onDeleteAllTransfers = viewModel::deleteAllTransfers,
+		onClearTransferCache = viewModel::clearTransferCache,
 	)
 }

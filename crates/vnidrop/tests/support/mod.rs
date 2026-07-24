@@ -8,15 +8,16 @@ use std::{
     path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Condvar, Mutex,
+        mpsc, Arc, Condvar, Mutex,
     },
+    thread::JoinHandle,
     time::{Duration, Instant},
 };
 
 use vnidrop::{
-    CoreEvent, CoreEventSink, CoreLimits, PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2,
-    ReceivedLocatorKind, ReceiverRequest, ShareMetadataInput, ShareResult, ShareSource, SourceKind,
-    TransferAccessMode, VnidropCore, VnidropError,
+    CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig, PublishedOutput, ReceiveOutputSink,
+    ReceiveOutputSinkV2, ReceivedLocatorKind, ReceiverRequest, ShareMetadataInput, ShareResult,
+    ShareSource, SourceKind, TransferAccessMode, VnidropCore, VnidropError,
 };
 
 #[derive(Default)]
@@ -57,6 +58,21 @@ impl CoreGuard {
         )
     }
 
+    pub fn start_with_network_config(
+        path: &Path,
+        sink: Arc<dyn CoreEventSink>,
+        network_config: CoreNetworkConfig,
+    ) -> Self {
+        Self(
+            VnidropCore::initialize_with_network_config(
+                path.to_string_lossy().to_string(),
+                sink,
+                network_config,
+            )
+            .expect("test core should initialize with network config"),
+        )
+    }
+
     pub fn arc(&self) -> Arc<VnidropCore> {
         self.0.clone()
     }
@@ -91,6 +107,80 @@ impl TestNode {
             _data_dir: data_dir,
             core,
             sink,
+        }
+    }
+
+    pub fn with_network_config(network_config: CoreNetworkConfig) -> Self {
+        let data_dir = tempfile::tempdir().unwrap();
+        let sink = Arc::new(RecordingSink::default());
+        let core =
+            CoreGuard::start_with_network_config(data_dir.path(), sink.clone(), network_config);
+        Self {
+            _data_dir: data_dir,
+            core,
+            sink,
+        }
+    }
+}
+
+pub struct TestRelay {
+    pub url: String,
+    shutdown: Option<tokio::sync::oneshot::Sender<()>>,
+    thread: Option<JoinHandle<()>>,
+}
+
+impl TestRelay {
+    pub fn start() -> Self {
+        let (ready_tx, ready_rx) = mpsc::sync_channel(1);
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let thread = std::thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .thread_name("vnidrop-test-relay")
+                .build()
+                .unwrap();
+            runtime.block_on(async move {
+                let relay =
+                    iroh_relay::server::RelayConfig::new((std::net::Ipv4Addr::LOCALHOST, 0));
+                let mut config = iroh_relay::server::ServerConfig::default();
+                config.relay = Some(relay);
+                let server = match iroh_relay::server::Server::spawn(config).await {
+                    Ok(server) => server,
+                    Err(error) => {
+                        ready_tx.send(Err(error.to_string())).ok();
+                        return;
+                    }
+                };
+                let url = format!(
+                    "http://{}",
+                    server.http_addr().expect("HTTP relay should be bound")
+                );
+                if ready_tx.send(Ok(url)).is_err() {
+                    return;
+                }
+                shutdown_rx.await.ok();
+                drop(server);
+            });
+        });
+        let url = ready_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("test relay should start")
+            .expect("test relay should bind");
+        Self {
+            url,
+            shutdown: Some(shutdown_tx),
+            thread: Some(thread),
+        }
+    }
+}
+
+impl Drop for TestRelay {
+    fn drop(&mut self) {
+        if let Some(shutdown) = self.shutdown.take() {
+            shutdown.send(()).ok();
+        }
+        if let Some(thread) = self.thread.take() {
+            thread.join().unwrap();
         }
     }
 }

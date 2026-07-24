@@ -74,6 +74,175 @@ struct NotificationSettings: View {
 	}
 }
 
+struct NetworkSettings: View {
+	@ObservedObject var model: SettingsModel
+
+	var body: some View {
+		Section {
+			Picker(
+				String(localized: "settings_network_title"),
+				selection: Binding(get: { model.state.relayMode }, set: { model.setRelayMode($0) })
+			) {
+				ForEach(RelayPreferenceMode.allCases, id: \.self) { mode in
+					Text(relayModeLabel(mode)).tag(mode)
+				}
+			}
+			.pickerStyle(.inline)
+			.disabled(model.state.isApplyingRelayConfiguration)
+		} footer: {
+			Text(LocalizedStringKey(relayModeDescriptionKey(model.state.relayMode)))
+		}
+
+		Section {
+			Label {
+				Text(LocalizedStringKey("relay_privacy_description"))
+					.fixedSize(horizontal: false, vertical: true)
+			} icon: {
+				Image(systemName: "lock.shield")
+			}
+			.foregroundStyle(.secondary)
+		}
+
+		if let endpointId = model.state.endpointId, !endpointId.isEmpty {
+			Section {
+				Text(String(format: String(localized: "approval_endpoint_id"), endpointId))
+					.font(.footnote.monospaced())
+					.textSelection(.enabled)
+			}
+		}
+
+		if model.state.relayMode.usesCustomRelayURLs {
+			Section {
+				if model.state.relayMode == .strictCustom {
+					Label {
+						Text(LocalizedStringKey("relay_strict_warning"))
+							.fixedSize(horizontal: false, vertical: true)
+					} icon: {
+						Image(systemName: "exclamationmark.shield.fill")
+					}
+					.foregroundStyle(.orange)
+				}
+
+				ForEach(Array(model.state.relayURLs.indices), id: \.self) { index in
+					VStack(alignment: .leading, spacing: 6) {
+						HStack {
+							TextField(
+								"https://relay.example.com",
+								text: Binding(
+									get: {
+										model.state.relayURLs.indices.contains(index)
+											? model.state.relayURLs[index]
+											: ""
+									},
+									set: { model.setRelayURL($0, at: index) }
+								)
+							)
+							#if os(iOS)
+							.keyboardType(.URL)
+							.textInputAutocapitalization(.never)
+							#endif
+							.autocorrectionDisabled()
+							.disabled(model.state.isApplyingRelayConfiguration)
+
+							Button(role: .destructive) {
+								model.removeRelayURL(at: index)
+							} label: {
+								Image(systemName: "minus.circle.fill")
+							}
+							.buttonStyle(.borderless)
+							.accessibilityLabel(Text(LocalizedStringKey("relay_remove_url")))
+							.disabled(model.state.isApplyingRelayConfiguration)
+						}
+
+						if let error = model.state.relayValidationError, error.urlIndex == index {
+							Text(relayValidationMessage(error))
+								.font(.caption)
+								.foregroundStyle(.red)
+						}
+					}
+				}
+
+				Button(action: model.addRelayURL) {
+					Label(String(localized: "relay_add_url"), systemImage: "plus.circle")
+				}
+				.disabled(
+					model.state.relayURLs.count >= RelayConfigurationValidator.maximumRelayCount
+						|| model.state.isApplyingRelayConfiguration
+				)
+			} header: {
+				Text(LocalizedStringKey("relay_custom_urls_label"))
+			} footer: {
+				Text(LocalizedStringKey("relay_custom_urls_help"))
+			}
+		}
+
+		if let error = model.state.relayValidationError, error.urlIndex == nil {
+			Section {
+				Label {
+					Text(relayValidationMessage(error))
+				} icon: {
+					Image(systemName: "exclamationmark.triangle.fill")
+				}
+				.foregroundStyle(.red)
+			}
+		}
+
+		if model.state.hasActiveNetworkWork || model.state.relayApplyErrorKey != nil {
+			Section {
+				Label {
+					Text(LocalizedStringKey(
+						model.state.hasActiveNetworkWork
+							? "relay_apply_active_transfers"
+							: model.state.relayApplyErrorKey ?? "relay_apply_failed"
+					))
+				} icon: {
+					Image(systemName: "exclamationmark.triangle.fill")
+				}
+				.foregroundStyle(.red)
+			}
+		}
+
+		Section {
+			Button(action: model.applyRelayConfiguration) {
+				HStack {
+					Text(LocalizedStringKey(
+						model.state.isApplyingRelayConfiguration ? "relay_applying" : "relay_apply"
+					))
+					if model.state.isApplyingRelayConfiguration {
+						Spacer()
+						ProgressView()
+					}
+				}
+			}
+			.disabled(
+				!model.state.relayConfigurationIsDirty
+					|| model.state.isApplyingRelayConfiguration
+					|| model.state.hasActiveNetworkWork
+			)
+		} footer: {
+			Text(LocalizedStringKey("relay_apply_restart_description"))
+		}
+	}
+}
+
+private func relayValidationMessage(_ error: RelayConfigurationValidationError) -> String {
+	switch error {
+	case .missingURL:
+		return String(localized: "relay_validation_missing_url")
+	case .tooManyURLs:
+		return String(
+			format: String(localized: "relay_validation_too_many_urls"),
+			RelayConfigurationValidator.maximumRelayCount
+		)
+	case .httpsRequired(let index):
+		return String(format: String(localized: "relay_validation_https_required"), index + 1)
+	case .invalidURL(let index):
+		return String(format: String(localized: "relay_validation_invalid_url"), index + 1)
+	case .duplicateURL(let index):
+		return String(format: String(localized: "relay_validation_duplicate_url"), index + 1)
+	}
+}
+
 struct StorageSettings: View {
 	@ObservedObject var model: SettingsModel
 	@State private var showDeleteConfirmation = false

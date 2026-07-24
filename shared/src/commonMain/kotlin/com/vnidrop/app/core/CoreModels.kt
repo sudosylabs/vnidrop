@@ -27,6 +27,21 @@ enum class ShareAccessPolicy {
 	AnyoneWithTransfer,
 }
 
+enum class RelayMode {
+	Automatic,
+	StrictCustom,
+	CustomWithDirectFallback,
+	LocalOnly,
+}
+
+data class RelaySettings(
+	val mode: RelayMode = RelayMode.Automatic,
+	val relayUrls: List<String> = emptyList(),
+)
+
+val RelayMode.usesCustomRelayUrls: Boolean
+	get() = this == RelayMode.StrictCustom || this == RelayMode.CustomWithDirectFallback
+
 enum class TransferDirection {
 	Send,
 	Receive,
@@ -102,6 +117,7 @@ enum class ReceiverDeliveryStatus {
 	Refused,
 	Expired,
 	Completed,
+	Failed,
 	Unknown,
 }
 
@@ -142,7 +158,10 @@ interface CoreGateway {
 	val state: StateFlow<CoreState>
 	val signals: SharedFlow<CoreSignal>
 
-	suspend fun initialize(appDataDir: String): Result<Unit>
+	suspend fun initialize(
+		appDataDir: String,
+		relaySettings: RelaySettings = RelaySettings(),
+	): Result<Unit>
 	fun shutdown()
 	suspend fun sharePath(path: String, transferName: String, senderName: String, accessPolicy: ShareAccessPolicy): Result<Share>
 	suspend fun shareFileDescriptor(
@@ -164,6 +183,7 @@ interface CoreGateway {
 	suspend fun receiveWithOutputSink(ticket: String, outputSink: ReceiveOutputSink, receiverName: String): Result<Unit>
 	suspend fun receiveWithOutputSinkV2(ticket: String, outputSink: ReceiveOutputSinkV2, receiverName: String): Result<Unit>
 	suspend fun storageUsage(): Result<CoreStorageUsageModel>
+	suspend fun clearTransferCache(): Result<ULong>
 	suspend fun receivedArtifacts(): Result<List<ReceivedArtifactModel>>
 	suspend fun cancel(transferId: ULong): Result<Unit>
 	suspend fun delete(transferId: ULong): Result<Unit>

@@ -10,6 +10,31 @@ use tokio::sync::mpsc;
 use super::CoreInner;
 use crate::access_policy::AccessDecision;
 
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum RequestStreamOutcome {
+    TerminalUpdateReceived,
+    Aborted,
+}
+
+pub(crate) async fn consume_request_updates(
+    mut rx: irpc::channel::mpsc::Receiver<RequestUpdate>,
+    mut handle_update: impl FnMut(RequestUpdate),
+) -> RequestStreamOutcome {
+    let mut terminal_update_received = false;
+    while let Ok(Some(update)) = rx.recv().await {
+        terminal_update_received |= matches!(
+            update,
+            RequestUpdate::Completed(_) | RequestUpdate::Aborted(_)
+        );
+        handle_update(update);
+    }
+    if terminal_update_received {
+        RequestStreamOutcome::TerminalUpdateReceived
+    } else {
+        RequestStreamOutcome::Aborted
+    }
+}
+
 impl CoreInner {
     pub(super) async fn spawn_provider_event_task(
         self: &Arc<Self>,
@@ -302,7 +327,7 @@ impl CoreInner {
         transfer_id: u64,
         connection_id: u64,
         request_id: u64,
-        mut rx: irpc::channel::mpsc::Receiver<RequestUpdate>,
+        rx: irpc::channel::mpsc::Receiver<RequestUpdate>,
     ) {
         // Request update tasks are tied to individual provider streams.  Router
         // shutdown closes those streams; only the long-lived provider receiver
@@ -318,35 +343,35 @@ impl CoreInner {
             .cloned();
         let core = self.clone();
         tokio::spawn(async move {
-            while let Ok(Some(update)) = rx.recv().await {
-                match update {
-                    RequestUpdate::Started(started) => core.emit_transfer(
-                        transfer_id,
-                        "send",
-                        "transfer",
-                        "started",
-                        json!({
-                            "connection_id": connection_id,
-                            "request_id": request_id,
-                            "endpoint_id": endpoint_id,
-                            "hash": started.hash.to_string(),
-                            "size": started.size,
-                            "index": started.index,
-                        }),
-                    ),
-                    RequestUpdate::Progress(progress) => core.emit_transfer(
-                        transfer_id,
-                        "send",
-                        "transfer",
-                        "progress",
-                        json!({
-                            "connection_id": connection_id,
-                            "request_id": request_id,
-                            "endpoint_id": endpoint_id,
-                            "end_offset": progress.end_offset,
-                        }),
-                    ),
-                    RequestUpdate::Completed(_) => core.emit_transfer(
+            let outcome = consume_request_updates(rx, |update| match update {
+                RequestUpdate::Started(started) => core.emit_transfer(
+                    transfer_id,
+                    "send",
+                    "transfer",
+                    "started",
+                    json!({
+                        "connection_id": connection_id,
+                        "request_id": request_id,
+                        "endpoint_id": endpoint_id,
+                        "hash": started.hash.to_string(),
+                        "size": started.size,
+                        "index": started.index,
+                    }),
+                ),
+                RequestUpdate::Progress(progress) => core.emit_transfer(
+                    transfer_id,
+                    "send",
+                    "transfer",
+                    "progress",
+                    json!({
+                        "connection_id": connection_id,
+                        "request_id": request_id,
+                        "endpoint_id": endpoint_id,
+                        "end_offset": progress.end_offset,
+                    }),
+                ),
+                RequestUpdate::Completed(_) => {
+                    core.emit_transfer(
                         transfer_id,
                         "send",
                         "transfer",
@@ -356,8 +381,10 @@ impl CoreInner {
                             "request_id": request_id,
                             "endpoint_id": endpoint_id,
                         }),
-                    ),
-                    RequestUpdate::Aborted(_) => core.emit_transfer(
+                    );
+                }
+                RequestUpdate::Aborted(_) => {
+                    core.emit_transfer(
                         transfer_id,
                         "send",
                         "transfer",
@@ -367,8 +394,22 @@ impl CoreInner {
                             "request_id": request_id,
                             "endpoint_id": endpoint_id,
                         }),
-                    ),
+                    );
                 }
+            })
+            .await;
+            if outcome == RequestStreamOutcome::Aborted {
+                core.emit_transfer(
+                    transfer_id,
+                    "send",
+                    "transfer",
+                    "aborted",
+                    json!({
+                        "connection_id": connection_id,
+                        "request_id": request_id,
+                        "endpoint_id": endpoint_id,
+                    }),
+                );
             }
         });
     }

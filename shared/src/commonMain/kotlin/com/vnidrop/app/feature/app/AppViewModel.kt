@@ -15,6 +15,7 @@ import com.vnidrop.app.ui.theme.ThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -46,7 +47,8 @@ class AppViewModel(
 		AppLogger.info("lifecycle", "app started", mapOf("platform" to environment.name))
 		diagnostics?.record("app_open", mapOf("platform" to environment.name, "version" to environment.appVersion))
 		viewModelScope.launch {
-			repository.initialize(environment.defaultCoreDataDir).onFailure(messages::error)
+			val relaySettings = preferencesRepository.preferences.first().relaySettings
+			repository.initialize(environment.defaultCoreDataDir, relaySettings).onFailure(messages::error)
 		}
 		viewModelScope.launch {
 			preferencesRepository.preferences.collect { preferences ->

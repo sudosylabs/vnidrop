@@ -20,6 +20,18 @@ final class AppModelTests: XCTestCase {
 		_ = makeModel(core, preferences: Fixtures.preferences())
 		await waitUntil { core.state.isInitialized }
 		XCTAssertTrue(core.state.isInitialized)
+		XCTAssertEqual(core.initializedNetworkConfigurations, [.automatic])
+	}
+
+	func testInitializesCoreWithSavedCustomRelayConfiguration() async {
+		let core = FakeCoreGateway()
+		let preferences = Fixtures.preferences()
+		let configuration = RelayConfiguration(mode: .strictCustom, relayURLs: ["https://relay.example"])
+		preferences.setRelayConfiguration(configuration)
+		_ = makeModel(core, preferences: preferences)
+
+		await waitUntil { core.state.isInitialized }
+		XCTAssertEqual(core.initializedNetworkConfigurations, [configuration])
 	}
 
 	func testSelectDestination() {

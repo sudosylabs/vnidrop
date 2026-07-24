@@ -87,6 +87,7 @@ pub(crate) enum ReceiverRequestStatus {
     Refused,
     Expired,
     Completed,
+    Failed,
 }
 
 impl ReceiverRequestStatus {
@@ -97,6 +98,7 @@ impl ReceiverRequestStatus {
             Self::Refused => "refused",
             Self::Expired => "expired",
             Self::Completed => "completed",
+            Self::Failed => "failed",
         }
     }
 }
@@ -111,6 +113,7 @@ impl TryFrom<&str> for ReceiverRequestStatus {
             "refused" => Ok(Self::Refused),
             "expired" => Ok(Self::Expired),
             "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
             _ => bail!("unknown receiver request status: {value}"),
         }
     }

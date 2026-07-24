@@ -2672,6 +2672,394 @@
         "ru": "Передача VniDrop"
       }
     },
+    "relay_add_url": {
+      "context": "Apple Network settings button that appends another custom relay URL field.",
+      "translations": {
+        "en": "Add relay server",
+        "fr": "Ajouter un serveur relais",
+        "es": "Añadir servidor de retransmisión",
+        "it": "Aggiungi server relay",
+        "de": "Relay-Server hinzufügen",
+        "pt": "Adicionar servidor de retransmissão",
+        "pl": "Dodaj serwer przekaźnikowy",
+        "nl": "Relayserver toevoegen",
+        "ru": "Добавить сервер-ретранслятор"
+      }
+    },
+    "relay_apply": {
+      "context": "Network settings button that activates the selected relay configuration.",
+      "translations": {
+        "en": "Apply network settings",
+        "fr": "Appliquer les réglages réseau",
+        "es": "Aplicar ajustes de red",
+        "it": "Applica impostazioni di rete",
+        "de": "Netzwerkeinstellungen anwenden",
+        "pt": "Aplicar definições de rede",
+        "pl": "Zastosuj ustawienia sieci",
+        "nl": "Netwerkinstellingen toepassen",
+        "ru": "Применить настройки сети"
+      }
+    },
+    "relay_applying": {
+      "context": "Network settings button label while a relay configuration is being activated.",
+      "translations": {
+        "en": "Applying…",
+        "fr": "Application…",
+        "es": "Aplicando…",
+        "it": "Applicazione…",
+        "de": "Wird angewendet…",
+        "pt": "A aplicar…",
+        "pl": "Stosowanie…",
+        "nl": "Toepassen…",
+        "ru": "Применение…"
+      }
+    },
+    "relay_apply_active_transfers": {
+      "context": "Network settings warning when relay configuration cannot change during active work.",
+      "translations": {
+        "en": "Stop all active transfers and shares before applying network settings.",
+        "fr": "Arrêtez tous les transferts et partages actifs avant d’appliquer les réglages réseau.",
+        "es": "Detenga todas las transferencias y elementos compartidos activos antes de aplicar los ajustes de red.",
+        "it": "Interrompa tutti i trasferimenti e le condivisioni attivi prima di applicare le impostazioni di rete.",
+        "de": "Beenden Sie alle aktiven Übertragungen und Freigaben, bevor Sie die Netzwerkeinstellungen anwenden.",
+        "pt": "Pare todas as transferências e partilhas ativas antes de aplicar as definições de rede.",
+        "pl": "Zatrzymaj wszystkie aktywne transfery i udostępnienia przed zastosowaniem ustawień sieci.",
+        "nl": "Stop alle actieve overdrachten en gedeelde items voordat u de netwerkinstellingen toepast.",
+        "ru": "Остановите все активные передачи и раздачи перед применением настроек сети."
+      }
+    },
+    "relay_apply_failed": {
+      "context": "Network settings error after a relay configuration fails and the previous one is restored.",
+      "translations": {
+        "en": "Could not apply these settings. The previous network settings were restored.",
+        "fr": "Impossible d’appliquer ces réglages. Les réglages réseau précédents ont été restaurés.",
+        "es": "No se han podido aplicar estos ajustes. Se han restaurado los ajustes de red anteriores.",
+        "it": "Impossibile applicare queste impostazioni. Sono state ripristinate le impostazioni di rete precedenti.",
+        "de": "Diese Einstellungen konnten nicht angewendet werden. Die vorherigen Netzwerkeinstellungen wurden wiederhergestellt.",
+        "pt": "Não foi possível aplicar estas definições. As definições de rede anteriores foram restauradas.",
+        "pl": "Nie udało się zastosować tych ustawień. Przywrócono poprzednie ustawienia sieci.",
+        "nl": "Deze instellingen konden niet worden toegepast. De vorige netwerkinstellingen zijn hersteld.",
+        "ru": "Не удалось применить эти настройки. Предыдущие настройки сети восстановлены."
+      }
+    },
+    "relay_apply_restart_description": {
+      "context": "Network settings explanation of restart and invitation effects when applying relay changes.",
+      "translations": {
+        "en": "Applying restarts VniDrop’s network connection. Stop active transfers and shares first. Existing invitations may need to be shared again.",
+        "fr": "L’application de ces réglages redémarre la connexion réseau de VniDrop. Arrêtez d’abord les transferts et partages actifs. Il peut être nécessaire de partager à nouveau les invitations existantes.",
+        "es": "Al aplicar los ajustes, se reinicia la conexión de red de VniDrop. Detenga primero las transferencias y los elementos compartidos activos. Es posible que tenga que volver a compartir las invitaciones existentes.",
+        "it": "L’applicazione riavvia la connessione di rete di VniDrop. Interrompa prima i trasferimenti e le condivisioni attivi. Potrebbe essere necessario condividere di nuovo gli inviti esistenti.",
+        "de": "Beim Anwenden wird die Netzwerkverbindung von VniDrop neu gestartet. Beenden Sie zuerst aktive Übertragungen und Freigaben. Vorhandene Einladungen müssen eventuell erneut geteilt werden.",
+        "pt": "A aplicação reinicia a ligação de rede do VniDrop. Pare primeiro as transferências e partilhas ativas. Poderá ser necessário voltar a partilhar os convites existentes.",
+        "pl": "Zastosowanie ustawień ponownie uruchamia połączenie sieciowe VniDrop. Najpierw zatrzymaj aktywne transfery i udostępnienia. Istniejące zaproszenia mogą wymagać ponownego udostępnienia.",
+        "nl": "Bij het toepassen wordt de netwerkverbinding van VniDrop opnieuw gestart. Stop eerst actieve overdrachten en gedeelde items. Bestaande uitnodigingen moeten mogelijk opnieuw worden gedeeld.",
+        "ru": "При применении сетевое соединение VniDrop перезапускается. Сначала остановите активные передачи и раздачи. Возможно, существующие приглашения потребуется отправить повторно."
+      }
+    },
+    "relay_custom_urls_help": {
+      "context": "Network settings help for entering custom relay server URLs.",
+      "translations": {
+        "en": "Enter one HTTPS relay URL per line. URL credentials are not supported. The TLS certificate must be issued by a publicly trusted certificate authority.",
+        "fr": "Saisissez une URL de relais HTTPS par ligne. Les identifiants dans les URL ne sont pas pris en charge. Le certificat TLS doit être émis par une autorité de certification reconnue publiquement.",
+        "es": "Introduzca una URL HTTPS de relé por línea. No se admiten credenciales en las URL. El certificado TLS debe ser emitido por una autoridad de certificación de confianza pública.",
+        "it": "Inserisca un URL relay HTTPS per riga. Le credenziali negli URL non sono supportate. Il certificato TLS deve essere emesso da un’autorità di certificazione pubblicamente attendibile.",
+        "de": "Geben Sie pro Zeile eine HTTPS-Relay-URL ein. Anmeldedaten in URLs werden nicht unterstützt. Das TLS-Zertifikat muss von einer öffentlich vertrauenswürdigen Zertifizierungsstelle ausgestellt sein.",
+        "pt": "Introduza um URL HTTPS de retransmissor por linha. Não são suportadas credenciais nos URLs. O certificado TLS tem de ser emitido por uma autoridade de certificação publicamente reconhecida.",
+        "pl": "Wprowadź po jednym adresie URL HTTPS przekaźnika w każdym wierszu. Dane logowania w adresach URL nie są obsługiwane. Certyfikat TLS musi być wystawiony przez publicznie zaufany urząd certyfikacji.",
+        "nl": "Voer per regel één HTTPS-relay-URL in. Aanmeldgegevens in URL's worden niet ondersteund. Het TLS-certificaat moet zijn uitgegeven door een openbaar vertrouwde certificeringsinstantie.",
+        "ru": "Введите по одному HTTPS-адресу ретранслятора в строке. Учётные данные в URL-адресах не поддерживаются. Сертификат TLS должен быть выдан общедоступным доверенным центром сертификации."
+      }
+    },
+    "relay_custom_urls_label": {
+      "context": "Network settings label for the custom relay URL input.",
+      "translations": {
+        "en": "Relay URLs",
+        "fr": "URL des relais",
+        "es": "URL de relés",
+        "it": "URL relay",
+        "de": "Relay-URLs",
+        "pt": "URLs dos retransmissores",
+        "pl": "Adresy URL przekaźników",
+        "nl": "Relay-URL's",
+        "ru": "URL-адреса ретрансляторов"
+      }
+    },
+    "relay_mode_automatic": {
+      "context": "Network settings label for VniDrop's automatic public relay mode.",
+      "translations": {
+        "en": "Automatic (recommended)",
+        "fr": "Automatique (recommandé)",
+        "es": "Automático (recomendado)",
+        "it": "Automatica (consigliata)",
+        "de": "Automatisch (empfohlen)",
+        "pt": "Automático (recomendado)",
+        "pl": "Automatyczny (zalecany)",
+        "nl": "Automatisch (aanbevolen)",
+        "ru": "Автоматически (рекомендуется)"
+      }
+    },
+    "relay_mode_automatic_description": {
+      "context": "Network settings description of automatic public relay behavior.",
+      "translations": {
+        "en": "Use VniDrop’s default public relay infrastructure when a direct connection is unavailable.",
+        "fr": "Utiliser l’infrastructure de relais publique par défaut de VniDrop lorsqu’une connexion directe est indisponible.",
+        "es": "Usa la infraestructura pública de relés predeterminada de VniDrop cuando no haya una conexión directa disponible.",
+        "it": "Usa l’infrastruttura relay pubblica predefinita di VniDrop quando non è disponibile una connessione diretta.",
+        "de": "Verwendet die öffentliche Standard-Relay-Infrastruktur von VniDrop, wenn keine direkte Verbindung möglich ist.",
+        "pt": "Utiliza a infraestrutura pública de retransmissores predefinida do VniDrop quando não está disponível uma ligação direta.",
+        "pl": "Używa domyślnej publicznej infrastruktury przekaźników VniDrop, gdy połączenie bezpośrednie jest niedostępne.",
+        "nl": "Gebruikt de standaard openbare relay-infrastructuur van VniDrop wanneer geen directe verbinding beschikbaar is.",
+        "ru": "Использовать стандартную публичную инфраструктуру ретрансляторов VniDrop, если прямое соединение недоступно."
+      }
+    },
+    "relay_mode_custom": {
+      "context": "Network settings label for strict custom relay mode.",
+      "translations": {
+        "en": "Strict custom",
+        "fr": "Personnalisé strict",
+        "es": "Personalizado estricto",
+        "it": "Personalizzata rigorosa",
+        "de": "Strikt benutzerdefiniert",
+        "pt": "Personalizado estrito",
+        "pl": "Ścisły niestandardowy",
+        "nl": "Strikt aangepast",
+        "ru": "Строго пользовательский"
+      }
+    },
+    "relay_mode_custom_description": {
+      "context": "Network settings description of strict custom relay behavior.",
+      "translations": {
+        "en": "Use only the configured custom relays or direct connections. Report an error if no custom relay can be established.",
+        "fr": "Utilise uniquement les relais personnalisés configurés ou les connexions directes. Signale une erreur si aucun relais personnalisé ne peut être établi.",
+        "es": "Usa solo los relés personalizados configurados o conexiones directas. Informa de un error si no se puede establecer ningún relé personalizado.",
+        "it": "Usa solo i relay personalizzati configurati o connessioni dirette. Segnala un errore se non è possibile stabilire alcun relay personalizzato.",
+        "de": "Verwendet nur die konfigurierten eigenen Relays oder Direktverbindungen. Meldet einen Fehler, wenn kein eigenes Relay erreichbar ist.",
+        "pt": "Utiliza apenas os retransmissores personalizados configurados ou ligações diretas. Apresenta um erro se não for possível estabelecer nenhum retransmissor personalizado.",
+        "pl": "Używa tylko skonfigurowanych własnych przekaźników lub połączeń bezpośrednich. Zgłasza błąd, jeśli nie można połączyć się z żadnym własnym przekaźnikiem.",
+        "nl": "Gebruikt alleen de ingestelde aangepaste relays of rechtstreekse verbindingen. Meldt een fout als geen aangepaste relay bereikbaar is.",
+        "ru": "Использует только настроенные пользовательские ретрансляторы или прямые соединения. Сообщает об ошибке, если ни один пользовательский ретранслятор недоступен."
+      }
+    },
+    "relay_mode_custom_direct_fallback": {
+      "context": "Network settings label for custom relays that allow direct-only startup fallback.",
+      "translations": {
+        "en": "Custom with direct fallback",
+        "fr": "Personnalisé avec repli direct",
+        "es": "Personalizado con conexión directa de reserva",
+        "it": "Personalizzata con ripiego diretto",
+        "de": "Benutzerdefiniert mit direktem Rückfall",
+        "pt": "Personalizado com alternativa direta",
+        "pl": "Niestandardowy z trybem bezpośrednim",
+        "nl": "Aangepast met directe terugval",
+        "ru": "Пользовательский с прямым резервом"
+      }
+    },
+    "relay_mode_custom_direct_fallback_description": {
+      "context": "Network settings description of custom relays with direct-only startup fallback.",
+      "translations": {
+        "en": "Prefer the configured custom relays. If unavailable, continue with direct connections only. Never use public relays.",
+        "fr": "Préfère les relais personnalisés configurés. S’ils sont indisponibles, continue uniquement avec des connexions directes. N’utilise jamais les relais publics.",
+        "es": "Prefiere los relés personalizados configurados. Si no están disponibles, continúa solo con conexiones directas. Nunca usa relés públicos.",
+        "it": "Preferisce i relay personalizzati configurati. Se non sono disponibili, continua solo con connessioni dirette. Non usa mai relay pubblici.",
+        "de": "Bevorzugt die konfigurierten eigenen Relays. Sind sie nicht verfügbar, werden nur Direktverbindungen verwendet. Öffentliche Relays werden nie genutzt.",
+        "pt": "Prefere os retransmissores personalizados configurados. Se não estiverem disponíveis, continua apenas com ligações diretas. Nunca utiliza retransmissores públicos.",
+        "pl": "Preferuje skonfigurowane własne przekaźniki. Jeśli są niedostępne, kontynuuje tylko przez połączenia bezpośrednie. Nigdy nie używa publicznych przekaźników.",
+        "nl": "Geeft de voorkeur aan de ingestelde aangepaste relays. Als die niet beschikbaar zijn, worden alleen rechtstreekse verbindingen gebruikt. Openbare relays worden nooit gebruikt.",
+        "ru": "Предпочитает настроенные пользовательские ретрансляторы. Если они недоступны, продолжает работу только через прямые соединения. Публичные ретрансляторы не используются."
+      }
+    },
+    "relay_mode_local_only": {
+      "context": "Network settings label for direct connections without any relay.",
+      "translations": {
+        "en": "Local only",
+        "fr": "Réseau local uniquement",
+        "es": "Solo red local",
+        "it": "Solo rete locale",
+        "de": "Nur lokales Netzwerk",
+        "pt": "Apenas rede local",
+        "pl": "Tylko sieć lokalna",
+        "nl": "Alleen lokaal netwerk",
+        "ru": "Только локальная сеть"
+      }
+    },
+    "relay_mode_local_only_description": {
+      "context": "Network settings description of direct-only local-network mode.",
+      "translations": {
+        "en": "Disable all relays and allow only direct connections, primarily for devices on the same network.",
+        "fr": "Désactive tous les relais et autorise uniquement les connexions directes, principalement pour les appareils sur le même réseau.",
+        "es": "Desactiva todos los relés y permite solo conexiones directas, principalmente para dispositivos de la misma red.",
+        "it": "Disattiva tutti i relay e consente solo connessioni dirette, soprattutto per dispositivi sulla stessa rete.",
+        "de": "Deaktiviert alle Relays und erlaubt nur Direktverbindungen, hauptsächlich für Geräte im selben Netzwerk.",
+        "pt": "Desativa todos os retransmissores e permite apenas ligações diretas, principalmente para dispositivos na mesma rede.",
+        "pl": "Wyłącza wszystkie przekaźniki i zezwala tylko na połączenia bezpośrednie, głównie dla urządzeń w tej samej sieci.",
+        "nl": "Schakelt alle relays uit en staat alleen rechtstreekse verbindingen toe, vooral voor apparaten in hetzelfde netwerk.",
+        "ru": "Отключает все ретрансляторы и разрешает только прямые соединения, прежде всего для устройств в одной сети."
+      }
+    },
+    "relay_privacy_description": {
+      "context": "Network settings privacy note about what relay operators can observe.",
+      "translations": {
+        "en": "Relays forward encrypted traffic and cannot read your files, but their operator can observe connection metadata.",
+        "fr": "Les relais transmettent du trafic chiffré et ne peuvent pas lire vos fichiers, mais leur opérateur peut observer les métadonnées de connexion.",
+        "es": "Los relés reenvían tráfico cifrado y no pueden leer sus archivos, pero su operador puede observar los metadatos de conexión.",
+        "it": "I relay inoltrano traffico cifrato e non possono leggere i suoi file, ma il loro operatore può osservare i metadati di connessione.",
+        "de": "Relays leiten verschlüsselten Datenverkehr weiter und können Ihre Dateien nicht lesen, ihr Betreiber kann jedoch Verbindungsmetadaten sehen.",
+        "pt": "Os retransmissores encaminham tráfego cifrado e não conseguem ler os seus ficheiros, mas o operador pode observar metadados da ligação.",
+        "pl": "Przekaźniki przesyłają zaszyfrowany ruch i nie mogą odczytać plików, ale ich operator może obserwować metadane połączenia.",
+        "nl": "Relays sturen versleuteld verkeer door en kunnen uw bestanden niet lezen, maar de beheerder kan verbindingsmetadata bekijken.",
+        "ru": "Ретрансляторы передают зашифрованный трафик и не могут читать ваши файлы, но их оператор может видеть метаданные соединения."
+      }
+    },
+    "relay_remove_url": {
+      "context": "Apple Network settings accessibility label for removing one custom relay URL field.",
+      "translations": {
+        "en": "Remove relay server",
+        "fr": "Supprimer le serveur relais",
+        "es": "Eliminar servidor de retransmisión",
+        "it": "Rimuovi server relay",
+        "de": "Relay-Server entfernen",
+        "pt": "Remover servidor de retransmissão",
+        "pl": "Usuń serwer przekaźnikowy",
+        "nl": "Relayserver verwijderen",
+        "ru": "Удалить сервер-ретранслятор"
+      }
+    },
+    "relay_restore_failed": {
+      "context": "Network settings severe error when neither new nor previous relay settings can initialize.",
+      "translations": {
+        "en": "Could not restore the previous network settings. Restart VniDrop and review your relay configuration.",
+        "fr": "Impossible de restaurer les réglages réseau précédents. Redémarrez VniDrop et vérifiez votre configuration de relais.",
+        "es": "No se han podido restaurar los ajustes de red anteriores. Reinicie VniDrop y revise la configuración de relés.",
+        "it": "Impossibile ripristinare le impostazioni di rete precedenti. Riavvii VniDrop e verifichi la configurazione dei relay.",
+        "de": "Die vorherigen Netzwerkeinstellungen konnten nicht wiederhergestellt werden. Starten Sie VniDrop neu und prüfen Sie Ihre Relay-Konfiguration.",
+        "pt": "Não foi possível restaurar as definições de rede anteriores. Reinicie o VniDrop e reveja a configuração dos retransmissores.",
+        "pl": "Nie udało się przywrócić poprzednich ustawień sieci. Uruchom ponownie VniDrop i sprawdź konfigurację przekaźników.",
+        "nl": "De vorige netwerkinstellingen konden niet worden hersteld. Start VniDrop opnieuw en controleer uw relayconfiguratie.",
+        "ru": "Не удалось восстановить предыдущие настройки сети. Перезапустите VniDrop и проверьте конфигурацию ретрансляторов."
+      }
+    },
+    "relay_settings_applied": {
+      "context": "Network settings confirmation after a relay configuration is activated.",
+      "translations": {
+        "en": "Network settings applied.",
+        "fr": "Réglages réseau appliqués.",
+        "es": "Ajustes de red aplicados.",
+        "it": "Impostazioni di rete applicate.",
+        "de": "Netzwerkeinstellungen angewendet.",
+        "pt": "Definições de rede aplicadas.",
+        "pl": "Zastosowano ustawienia sieci.",
+        "nl": "Netwerkinstellingen toegepast.",
+        "ru": "Настройки сети применены."
+      }
+    },
+    "relay_strict_warning": {
+      "context": "Network settings warning that custom relay mode has no public fallback or discovery.",
+      "translations": {
+        "en": "Strict custom mode will not start unless at least one configured relay is reachable. VniDrop never uses public relays or public discovery in this mode.",
+        "fr": "Le mode personnalisé strict ne démarre que si au moins un relais configuré est accessible. VniDrop n’utilise jamais de relais ni de découverte publics dans ce mode.",
+        "es": "El modo personalizado estricto no se inicia a menos que se pueda acceder al menos a un relé configurado. VniDrop nunca usa relés ni descubrimiento públicos en este modo.",
+        "it": "La modalità personalizzata rigorosa si avvia solo se almeno un relay configurato è raggiungibile. In questa modalità VniDrop non usa mai relay o rilevamento pubblici.",
+        "de": "Der strikt benutzerdefinierte Modus startet nur, wenn mindestens ein konfiguriertes Relay erreichbar ist. VniDrop verwendet in diesem Modus nie öffentliche Relays oder öffentliche Erkennung.",
+        "pt": "O modo personalizado estrito só inicia se pelo menos um retransmissor configurado estiver acessível. Neste modo, o VniDrop nunca utiliza retransmissores nem descoberta públicos.",
+        "pl": "Ścisły tryb niestandardowy uruchamia się tylko wtedy, gdy co najmniej jeden skonfigurowany przekaźnik jest dostępny. VniDrop nigdy nie używa w tym trybie publicznych przekaźników ani publicznego wykrywania.",
+        "nl": "De strikt aangepaste modus start alleen als minstens één ingestelde relay bereikbaar is. VniDrop gebruikt in deze modus nooit openbare relays of openbare detectie.",
+        "ru": "Строго пользовательский режим запускается, только если доступен хотя бы один настроенный ретранслятор. В этом режиме VniDrop никогда не использует публичные ретрансляторы или публичное обнаружение."
+      }
+    },
+    "relay_validation_duplicate_url": {
+      "context": "Network settings validation error for a repeated custom relay URL.",
+      "args": [
+        {
+          "name": "line",
+          "type": "int"
+        }
+      ],
+      "translations": {
+        "en": "Relay URL on line {line} duplicates an earlier entry.",
+        "fr": "L’URL de relais à la ligne {line} est identique à une entrée précédente.",
+        "es": "La URL de relé de la línea {line} duplica una entrada anterior.",
+        "it": "L’URL relay alla riga {line} duplica una voce precedente.",
+        "de": "Die Relay-URL in Zeile {line} ist bereits zuvor eingetragen.",
+        "pt": "O URL do retransmissor na linha {line} duplica uma entrada anterior.",
+        "pl": "Adres URL przekaźnika w wierszu {line} powtarza wcześniejszy wpis.",
+        "nl": "De relay-URL op regel {line} is gelijk aan een eerdere invoer.",
+        "ru": "URL-адрес ретранслятора в строке {line} повторяет предыдущую запись."
+      }
+    },
+    "relay_validation_https_required": {
+      "context": "Network settings validation error when a custom relay URL is not HTTPS.",
+      "args": [
+        {
+          "name": "line",
+          "type": "int"
+        }
+      ],
+      "translations": {
+        "en": "Relay URL on line {line} must start with https://.",
+        "fr": "L’URL de relais à la ligne {line} doit commencer par https://.",
+        "es": "La URL de relé de la línea {line} debe empezar por https://.",
+        "it": "L’URL relay alla riga {line} deve iniziare con https://.",
+        "de": "Die Relay-URL in Zeile {line} muss mit https:// beginnen.",
+        "pt": "O URL do retransmissor na linha {line} tem de começar por https://.",
+        "pl": "Adres URL przekaźnika w wierszu {line} musi zaczynać się od https://.",
+        "nl": "De relay-URL op regel {line} moet beginnen met https://.",
+        "ru": "URL-адрес ретранслятора в строке {line} должен начинаться с https://."
+      }
+    },
+    "relay_validation_invalid_url": {
+      "context": "Network settings validation error for a malformed custom relay URL.",
+      "args": [
+        {
+          "name": "line",
+          "type": "int"
+        }
+      ],
+      "translations": {
+        "en": "Relay URL on line {line} is not valid.",
+        "fr": "L’URL de relais à la ligne {line} n’est pas valide.",
+        "es": "La URL de relé de la línea {line} no es válida.",
+        "it": "L’URL relay alla riga {line} non è valido.",
+        "de": "Die Relay-URL in Zeile {line} ist ungültig.",
+        "pt": "O URL do retransmissor na linha {line} não é válido.",
+        "pl": "Adres URL przekaźnika w wierszu {line} jest nieprawidłowy.",
+        "nl": "De relay-URL op regel {line} is ongeldig.",
+        "ru": "URL-адрес ретранслятора в строке {line} недействителен."
+      }
+    },
+    "relay_validation_missing_url": {
+      "context": "Network settings validation error when custom mode has no relay URL.",
+      "translations": {
+        "en": "Add at least one relay URL.",
+        "fr": "Ajoutez au moins une URL de relais.",
+        "es": "Añada al menos una URL de relé.",
+        "it": "Aggiunga almeno un URL relay.",
+        "de": "Fügen Sie mindestens eine Relay-URL hinzu.",
+        "pt": "Adicione pelo menos um URL de retransmissor.",
+        "pl": "Dodaj co najmniej jeden adres URL przekaźnika.",
+        "nl": "Voeg ten minste één relay-URL toe.",
+        "ru": "Добавьте хотя бы один URL-адрес ретранслятора."
+      }
+    },
+    "relay_validation_too_many_urls": {
+      "context": "Network settings validation error when too many custom relay URLs are entered.",
+      "args": [
+        {
+          "name": "maximum",
+          "type": "int"
+        }
+      ],
+      "translations": {
+        "en": "You can configure up to {maximum} relay servers.",
+        "fr": "Vous pouvez configurer jusqu’à {maximum} serveurs relais.",
+        "es": "Puede configurar hasta {maximum} servidores de retransmisión.",
+        "it": "Può configurare fino a {maximum} server relay.",
+        "de": "Sie können bis zu {maximum} Relay-Server konfigurieren.",
+        "pt": "Pode configurar até {maximum} servidores de retransmissão.",
+        "pl": "Możesz skonfigurować maksymalnie {maximum} serwerów przekaźnikowych.",
+        "nl": "U kunt maximaal {maximum} relayservers instellen.",
+        "ru": "Можно настроить до {maximum} серверов-ретрансляторов."
+      }
+    },
     "send_access_anyone": {
       "context": "Send access option: anyone with the invitation can receive.",
       "translations": {
@@ -2998,6 +3386,34 @@
         "pl": "Twoje transfery",
         "nl": "Uw overdrachten",
         "ru": "Ваши передачи"
+      }
+    },
+    "settings_advanced_title": {
+      "context": "Settings overview section header for expert configuration.",
+      "translations": {
+        "en": "Advanced",
+        "fr": "Avancé",
+        "es": "Avanzado",
+        "it": "Avanzate",
+        "de": "Erweitert",
+        "pt": "Avançado",
+        "pl": "Zaawansowane",
+        "nl": "Geavanceerd",
+        "ru": "Дополнительно"
+      }
+    },
+    "settings_network_title": {
+      "context": "Settings overview row and Network settings screen title.",
+      "translations": {
+        "en": "Network",
+        "fr": "Réseau",
+        "es": "Red",
+        "it": "Rete",
+        "de": "Netzwerk",
+        "pt": "Rede",
+        "pl": "Sieć",
+        "nl": "Netwerk",
+        "ru": "Сеть"
       }
     },
     "settings_subtitle": {
@@ -3903,6 +4319,20 @@
         "ru": "Запрос истёк"
       }
     },
+    "transfer_receiver_failed": {
+      "context": "Receiver status: the delivery to this receiver failed.",
+      "translations": {
+        "en": "Delivery failed",
+        "fr": "Échec de l'envoi",
+        "es": "Error en la entrega",
+        "it": "Consegna non riuscita",
+        "de": "Übertragung fehlgeschlagen",
+        "pt": "Falha na entrega",
+        "pl": "Dostarczenie nie powiodło się",
+        "nl": "Levering mislukt",
+        "ru": "Ошибка доставки"
+      }
+    },
     "transfer_receiver_refused": {
       "context": "Receiver status: the request was refused.",
       "translations": {
@@ -4011,6 +4441,20 @@
         "pl": "Odbiorcy",
         "nl": "Ontvangers",
         "ru": "Получатели"
+      }
+    },
+    "transfer_qr_unavailable": {
+      "context": "Transfer share: shown when an invitation is too large to encode as a QR code.",
+      "translations": {
+        "en": "QR unavailable for this invitation. Use Share or Download instead.",
+        "fr": "Le code QR n’est pas disponible pour cette invitation. Utilisez plutôt Partager ou Télécharger.",
+        "es": "El QR no está disponible para esta invitación. Use Compartir o Descargar.",
+        "it": "Il codice QR non è disponibile per questo invito. Utilizzi invece Condividi o Scarica.",
+        "de": "Für diese Einladung ist kein QR-Code verfügbar. Verwenden Sie stattdessen Teilen oder Herunterladen.",
+        "pt": "O código QR não está disponível para este convite. Utilize Partilhar ou Transferir.",
+        "pl": "Kod QR jest niedostępny dla tego zaproszenia. Zamiast tego użyj opcji Udostępnij lub Pobierz.",
+        "nl": "QR is niet beschikbaar voor deze uitnodiging. Gebruik in plaats daarvan Delen of Downloaden.",
+        "ru": "QR-код недоступен для этого приглашения. Используйте «Поделиться» или «Скачать»."
       }
     },
     "transfer_scan_qr": {

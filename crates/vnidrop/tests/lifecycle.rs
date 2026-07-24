@@ -5,10 +5,10 @@ use std::time::Duration;
 
 use futures_lite::StreamExt as _;
 use iroh_blobs::store::fs::FsStore;
-use support::{share_path, CoreGuard, RecordingSink, TestNode};
+use support::{share_path, CoreGuard, RecordingSink, TestNode, TestRelay};
 use vnidrop::{
-    CoreEvent, CoreEventSink, CoreLimits, ShareMetadataInput, ShareSource, SourceKind,
-    TransferAccessMode,
+    CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig, CoreRelayMode, ShareMetadataInput,
+    ShareSource, SourceKind, TransferAccessMode,
 };
 
 #[test]
@@ -135,6 +135,56 @@ fn persisted_share_is_recovered_and_can_be_stopped_after_restart() {
         .unwrap();
     assert_eq!(transfer.status, "stopped");
     assert_eq!(restarted.status().active_shares, 0);
+}
+
+#[test]
+fn persisted_share_is_revoked_when_restarted_with_a_different_relay_profile() {
+    let relay_a = TestRelay::start();
+    let relay_b = TestRelay::start();
+    assert_ne!(relay_a.url, relay_b.url);
+
+    let source_dir = tempfile::tempdir().unwrap();
+    let core_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("stale-relay.txt");
+    std::fs::write(&source_path, b"must not survive a relay profile change").unwrap();
+    let sender = CoreGuard::start_with_network_config(
+        core_dir.path(),
+        Arc::new(RecordingSink::default()),
+        CoreNetworkConfig {
+            mode: CoreRelayMode::StrictCustom,
+            relay_urls: vec![relay_a.url.clone()],
+        },
+    );
+    let share = share_path(&sender, &source_path, 120, "stale-relay.txt", false);
+    drop(sender);
+    drop(relay_a);
+
+    let restarted = CoreGuard::start_with_network_config(
+        core_dir.path(),
+        Arc::new(RecordingSink::default()),
+        CoreNetworkConfig {
+            mode: CoreRelayMode::StrictCustom,
+            relay_urls: vec![relay_b.url.clone()],
+        },
+    );
+
+    assert_eq!(restarted.status().active_shares, 0);
+    let transfer = restarted
+        .list_transfers()
+        .unwrap()
+        .into_iter()
+        .find(|transfer| transfer.transfer_id == share.transfer_id)
+        .unwrap();
+    assert_eq!(transfer.status, "stopped");
+    assert!(restarted
+        .list_events(Some(share.transfer_id))
+        .unwrap()
+        .iter()
+        .any(|event| {
+            event.phase == "recovery" && event.kind == "share-stopped-network-profile-changed"
+        }));
+    drop(restarted);
+    assert_eq!(share_tag_count(core_dir.path()), 0);
 }
 
 #[test]

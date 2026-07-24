@@ -3,12 +3,14 @@ package com.vnidrop.app.preferences
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.preferencesOf
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.vnidrop.app.core.ReceiveFolder
 import com.vnidrop.app.core.ReceiveFolderKind
+import com.vnidrop.app.core.RelayMode
+import com.vnidrop.app.core.RelaySettings
 import com.vnidrop.app.ui.theme.ThemeMode
 import com.vnidrop.app.util.randomUuidString
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +28,7 @@ data class AppPreferences(
 	val diagnosticsEnabled: Boolean = false,
 	/** Stable anonymous install id; never an account or advertising id. */
 	val diagnosticsInstallId: String = "",
+	val relaySettings: RelaySettings = RelaySettings(),
 )
 
 class AppPreferencesDefaults(
@@ -44,6 +47,7 @@ interface PreferencesRepository {
 	suspend fun setThemeMode(mode: ThemeMode)
 	suspend fun setNotificationsEnabled(enabled: Boolean)
 	suspend fun setDiagnosticsEnabled(enabled: Boolean)
+	suspend fun setRelaySettings(settings: RelaySettings)
 	/** Ensures a durable install id exists and returns it. */
 	suspend fun ensureDiagnosticsInstallId(): String
 }
@@ -53,8 +57,27 @@ class AppPreferencesRepository(
 	private val defaults: AppPreferencesDefaults,
 ) : PreferencesRepository {
 	override val preferences: Flow<AppPreferences> = dataStore.data
-		.catch { emit(emptyPreferences()) }
+		.catch {
+			emit(preferencesOf(PreferenceKeys.RelayMode to RelayMode.StrictCustom.name))
+		}
 		.map { prefs ->
+			val storedRelayMode = prefs[PreferenceKeys.RelayMode]
+			val parsedRelayMode = storedRelayMode?.let(::relayModeOrNull)
+			val relayMode = when (storedRelayMode) {
+				null -> RelayMode.Automatic
+				else -> parsedRelayMode ?: RelayMode.StrictCustom
+			}
+			val relayUrls = if (storedRelayMode != null && parsedRelayMode == null) {
+				emptyList()
+			} else {
+				prefs[PreferenceKeys.RelayUrls]
+					.orEmpty()
+					.lineSequence()
+					.map(String::trim)
+					.filter(String::isNotEmpty)
+					.distinct()
+					.toList()
+			}
 			AppPreferences(
 				username = prefs[PreferenceKeys.Username]?.takeIf { it.isNotBlank() } ?: defaults.username,
 				receiveFolder = resolveReceiveFolder(prefs, defaults.receiveFolder),
@@ -62,6 +85,10 @@ class AppPreferencesRepository(
 				notificationsEnabled = prefs[PreferenceKeys.NotificationsEnabled] ?: defaults.notificationsEnabled,
 				diagnosticsEnabled = prefs[PreferenceKeys.DiagnosticsEnabled] ?: defaults.diagnosticsEnabled,
 				diagnosticsInstallId = prefs[PreferenceKeys.DiagnosticsInstallId].orEmpty(),
+				relaySettings = RelaySettings(
+					mode = relayMode,
+					relayUrls = relayUrls,
+				),
 			)
 		}
 
@@ -101,6 +128,13 @@ class AppPreferencesRepository(
 		}
 	}
 
+	override suspend fun setRelaySettings(settings: RelaySettings) {
+		dataStore.edit { prefs ->
+			prefs[PreferenceKeys.RelayMode] = settings.mode.name
+			prefs[PreferenceKeys.RelayUrls] = settings.relayUrls.joinToString("\n")
+		}
+	}
+
 	override suspend fun ensureDiagnosticsInstallId(): String {
 		val existing = preferences.first().diagnosticsInstallId
 		if (existing.isNotBlank()) return existing
@@ -128,6 +162,8 @@ private object PreferenceKeys {
 	val NotificationsEnabled = booleanPreferencesKey("notifications_enabled")
 	val DiagnosticsEnabled = booleanPreferencesKey("diagnostics_enabled")
 	val DiagnosticsInstallId = stringPreferencesKey("diagnostics_install_id")
+	val RelayMode = stringPreferencesKey("relay_mode")
+	val RelayUrls = stringPreferencesKey("relay_urls")
 }
 
 private fun resolveReceiveFolder(prefs: Preferences, defaults: ReceiveFolder): ReceiveFolder {
@@ -161,5 +197,9 @@ private fun receiveFolderKindOrNull(raw: String): ReceiveFolderKind? =
 
 private fun themeModeOrNull(raw: String): ThemeMode? =
 	runCatching { ThemeMode.valueOf(raw) }.getOrNull()
+
+private fun relayModeOrNull(raw: String): RelayMode? =
+	if (raw == "Custom") RelayMode.StrictCustom
+	else runCatching { RelayMode.valueOf(raw) }.getOrNull()
 
 private const val AppPreferencesFileName = "app_preferences.preferences_pb"

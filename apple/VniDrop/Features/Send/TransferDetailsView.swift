@@ -236,6 +236,7 @@ private struct ReceiverRow: View {
 		let name = receiver.receiverName ?? receiver.receiverDeviceName ?? String(localized: L10n.Transfer.nearbyDevice)
 		let showLive = sendProgress != nil && receiver.status != .completed
 			&& receiver.status != .refused && receiver.status != .expired
+			&& receiver.status != .failed
 		HStack(alignment: .top, spacing: 12) {
 			VStack(alignment: .leading, spacing: 6) {
 				Text(name).font(VniType.bodyLarge).lineLimit(1)
@@ -277,29 +278,64 @@ struct TransferSharePanel: View {
 
 	var body: some View {
 		PanelContainer(title: String(localized: L10n.Transfer.shareTitle)) {
-			if let ticket = transfer.ticket {
-				qrCard(ticket: ticket)
-				Text(String(localized: L10n.Transfer.scanQr))
-					.font(VniType.bodySmall).foregroundStyle(colors.foregroundLighter)
-					.frame(maxWidth: .infinity)
+			switch transfer.invitationPresentation {
+			case .ready(let ticket):
+				let qrImage = QRCode.generate(from: ticket)
+				qrCard(image: qrImage)
+				if qrImage != nil {
+					Text(String(localized: L10n.Transfer.scanQr))
+						.font(VniType.bodySmall).foregroundStyle(colors.foregroundLighter)
+						.frame(maxWidth: .infinity)
+				}
 				ShareActionsView(model: model, transfer: transfer, ticket: ticket)
-			} else {
+			case .preparing:
 				Text(String(localized: L10n.Transfer.eventPreparing)).foregroundStyle(colors.foregroundLighter)
+			case .unavailable:
+				Text(String(localized: transfer.status == .failed ? L10n.Transfer.eventFailed : L10n.Transfer.eventStopped))
+					.foregroundStyle(colors.foregroundLighter)
 			}
 		}
 	}
 
-	private func qrCard(ticket: String) -> some View {
+	private func qrCard(image: Image?) -> some View {
 		ZStack {
-			if let qr = QRCode.generate(from: ticket) {
-				qr.interpolation(.none).resizable().scaledToFit().padding(14)
+			if let image {
+				image.interpolation(.none).resizable().scaledToFit().padding(14)
 			} else {
-				ProgressView()
+				VStack(spacing: 10) {
+					Image(systemName: "qrcode")
+						.font(.system(size: 36, weight: .medium))
+					Text(LocalizedStringKey("transfer_qr_unavailable"))
+						.font(VniType.bodySmall)
+						.multilineTextAlignment(.center)
+				}
+				.foregroundStyle(.black.opacity(0.72))
+				.padding(22)
 			}
 		}
 		.frame(width: 268, height: 268)
 		.background(Color.white, in: RoundedRectangle(cornerRadius: 18))
 		.frame(maxWidth: .infinity)
+	}
+}
+
+enum TransferInvitationPresentation: Equatable {
+	case preparing
+	case ready(String)
+	case unavailable
+}
+
+extension Transfer {
+	var invitationPresentation: TransferInvitationPresentation {
+		switch status {
+		case .importing:
+			return .preparing
+		case .sharing:
+			guard let ticket, !ticket.isEmpty else { return .preparing }
+			return .ready(ticket)
+		case .receiving, .done, .failed, .cancelled, .stopped:
+			return .unavailable
+		}
 	}
 }
 
@@ -359,6 +395,7 @@ extension ReceiverDeliveryStatus {
 		case .refused: return L10n.Transfer.receiverRefused
 		case .expired: return L10n.Transfer.receiverExpired
 		case .completed: return L10n.Transfer.receiverCompleted
+		case .failed: return L10n.Transfer.receiverFailed
 		case .unknown: return L10n.Transfer.receiverUnknown
 		}
 	}
@@ -366,7 +403,7 @@ extension ReceiverDeliveryStatus {
 	func statusColor(_ colors: VniDropColors) -> Color {
 		switch self {
 		case .completed: return colors.brandDefault
-		case .refused, .expired: return colors.destructiveDefault
+		case .refused, .expired, .failed: return colors.destructiveDefault
 		default: return colors.foregroundLighter
 		}
 	}

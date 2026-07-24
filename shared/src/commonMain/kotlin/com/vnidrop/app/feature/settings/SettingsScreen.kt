@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.vnidrop.app.ui.state.WindowClass
+import com.vnidrop.app.core.RelayMode
 import com.vnidrop.app.ui.theme.ThemeMode
 
 @Composable
@@ -30,6 +31,12 @@ fun SettingsScreen(
 	onBugIncludeLogsChanged: (Boolean) -> Unit,
 	onSubmitBugReport: () -> Unit,
 	onDeleteAllTransfers: () -> Unit = {},
+	onClearTransferCache: () -> Unit = {},
+	onRelayModeChanged: (RelayMode) -> Unit = {},
+	onRelayUrlChanged: (Int, String) -> Unit = { _, _ -> },
+	onAddRelayUrl: () -> Unit = {},
+	onRemoveRelayUrl: (Int) -> Unit = {},
+	onApplyRelaySettings: () -> Unit = {},
 ) {
 	if (windowClass == WindowClass.Desktop) {
 		Row(
@@ -42,6 +49,7 @@ fun SettingsScreen(
 			Column(Modifier.weight(1f)) {
 				SettingsSectionContent(
 					state = state,
+					windowClass = windowClass,
 					section = state.selectedSection.takeUnless { it == SettingsSection.Overview } ?: SettingsSection.Preferences,
 					onBack = {},
 					showBack = false,
@@ -60,6 +68,12 @@ fun SettingsScreen(
 					onBugIncludeLogsChanged = onBugIncludeLogsChanged,
 					onSubmitBugReport = onSubmitBugReport,
 					onDeleteAllTransfers = onDeleteAllTransfers,
+					onClearTransferCache = onClearTransferCache,
+					onRelayModeChanged = onRelayModeChanged,
+					onRelayUrlChanged = onRelayUrlChanged,
+					onAddRelayUrl = onAddRelayUrl,
+					onRemoveRelayUrl = onRemoveRelayUrl,
+					onApplyRelaySettings = onApplyRelaySettings,
 				)
 			}
 		}
@@ -68,6 +82,7 @@ fun SettingsScreen(
 			SettingsSection.Overview -> SettingsOverview(state, onSectionSelected, largeTitle = true)
 			else -> SettingsSectionContent(
 				state = state,
+				windowClass = windowClass,
 				section = state.selectedSection,
 				onBack = {
 					onSectionSelected(
@@ -94,6 +109,12 @@ fun SettingsScreen(
 				onBugIncludeLogsChanged = onBugIncludeLogsChanged,
 				onSubmitBugReport = onSubmitBugReport,
 				onDeleteAllTransfers = onDeleteAllTransfers,
+				onClearTransferCache = onClearTransferCache,
+				onRelayModeChanged = onRelayModeChanged,
+				onRelayUrlChanged = onRelayUrlChanged,
+				onAddRelayUrl = onAddRelayUrl,
+				onRemoveRelayUrl = onRemoveRelayUrl,
+				onApplyRelaySettings = onApplyRelaySettings,
 			)
 		}
 	}
@@ -102,6 +123,7 @@ fun SettingsScreen(
 @Composable
 private fun SettingsSectionContent(
 	state: SettingsState,
+	windowClass: WindowClass,
 	section: SettingsSection,
 	onBack: () -> Unit,
 	showBack: Boolean,
@@ -120,13 +142,36 @@ private fun SettingsSectionContent(
 	onBugIncludeLogsChanged: (Boolean) -> Unit,
 	onSubmitBugReport: () -> Unit,
 	onDeleteAllTransfers: () -> Unit,
+	onClearTransferCache: () -> Unit,
+	onRelayModeChanged: (RelayMode) -> Unit,
+	onRelayUrlChanged: (Int, String) -> Unit,
+	onAddRelayUrl: () -> Unit,
+	onRemoveRelayUrl: (Int) -> Unit,
+	onApplyRelaySettings: () -> Unit,
 ) {
 	when (section) {
 		SettingsSection.Overview -> Unit
 		SettingsSection.Preferences -> PreferencesSettings(state, onUsernameChanged, onChooseFolder, onResetFolder, onBack, showBack)
 		SettingsSection.Appearance -> AppearanceSettings(state.themeMode, onThemeModeChanged, onBack, showBack)
+		SettingsSection.Network -> NetworkSettings(
+			state = state,
+			onModeChanged = onRelayModeChanged,
+			onUrlChanged = onRelayUrlChanged,
+			onAddUrl = onAddRelayUrl,
+			onRemoveUrl = onRemoveRelayUrl,
+			onApply = onApplyRelaySettings,
+			onBack = onBack,
+			showBack = showBack,
+		)
 		SettingsSection.Notifications -> NotificationSettings(state, onNotificationsChanged, onOpenNotificationSettings, onBack, showBack)
-		SettingsSection.Storage -> StorageSettings(state, onDeleteAllTransfers, onBack, showBack)
+		SettingsSection.Storage -> StorageSettings(
+			state,
+			windowClass,
+			onDeleteAllTransfers,
+			onClearTransferCache,
+			onBack,
+			showBack,
+		)
 		SettingsSection.About -> AboutSettings(
 			state = state,
 			onDiagnosticsChanged = onDiagnosticsChanged,

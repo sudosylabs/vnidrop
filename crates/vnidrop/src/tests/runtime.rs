@@ -1,9 +1,16 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-use iroh_blobs::Hash;
+use iroh_blobs::{
+    provider::{
+        events::{RequestUpdate, TransferCompleted},
+        TransferStats,
+    },
+    Hash,
+};
 
 use crate::{
     repository::{PendingDeliveryReceiptInsert, Repository, TransferUpsert},
+    runtime::{consume_request_updates, RequestStreamOutcome},
     transfer_state::{TransferDirection, TransferStatus},
     CoreEvent, CoreEventSink, VnidropCore, VnidropError,
 };
@@ -12,6 +19,37 @@ struct TestSink;
 
 impl CoreEventSink for TestSink {
     fn on_event(&self, _event: CoreEvent) {}
+}
+
+#[test]
+fn provider_request_stream_distinguishes_success_from_silent_abort() {
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    runtime.block_on(async {
+        let (completed_tx, completed_rx) = irpc::channel::mpsc::channel(1);
+        completed_tx
+            .send(RequestUpdate::Completed(TransferCompleted {
+                stats: Box::new(TransferStats {
+                    payload_bytes_sent: 5,
+                    other_bytes_sent: 0,
+                    other_bytes_read: 0,
+                    duration: Duration::ZERO,
+                }),
+            }))
+            .await
+            .unwrap();
+        drop(completed_tx);
+        assert_eq!(
+            consume_request_updates(completed_rx, |_| {}).await,
+            RequestStreamOutcome::TerminalUpdateReceived
+        );
+
+        let (aborted_tx, aborted_rx) = irpc::channel::mpsc::channel::<RequestUpdate>(1);
+        drop(aborted_tx);
+        assert_eq!(
+            consume_request_updates(aborted_rx, |_| {}).await,
+            RequestStreamOutcome::Aborted
+        );
+    });
 }
 
 #[test]
@@ -126,6 +164,7 @@ fn startup_processes_persisted_delivery_receipts() {
                 request_id: "request-94",
                 sender_transfer_id: 49,
                 token: "receipt-token",
+                failure_reason: None,
             })
             .await
             .unwrap();

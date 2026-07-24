@@ -24,7 +24,7 @@ protocol CoreGateway: AnyObject {
 	/// Coalesced change hints emitted by the event sink.
 	var signals: AnyPublisher<CoreSignal, Never> { get }
 
-	func initialize(appDataDir: String) async -> Result<Void, Error>
+	func initialize(appDataDir: String, networkConfiguration: RelayConfiguration) async -> Result<Void, Error>
 	func shutdown()
 	func shareSources(
 		_ sources: [ShareSource],

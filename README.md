@@ -50,6 +50,42 @@ mobile networks. If a direct path cannot be established, it can forward the
 same end-to-end encrypted connection through a relay. The relay forwards
 encrypted packets; it is not a VniDrop file store.
 
+### Custom relay servers
+
+VniDrop uses Iroh's public relay and discovery infrastructure by default. In
+**Settings → Network**, users can select one of four policies:
+
+- **Automatic (recommended):** use Iroh's public relays, with direct P2P/LAN
+  connections whenever possible.
+- **Strict custom:** use only up to eight configured custom HTTPS relays or
+  direct connections. Startup reports an error if none of the custom relays can
+  be established.
+- **Custom with direct fallback:** prefer the configured custom relays, but
+  continue with direct connections if they are unavailable.
+- **Local only:** disable every relay and allow direct connections only,
+  primarily for devices on the same network.
+
+Strict custom, custom with direct fallback, and local only never use public
+relays or public discovery, including relay addresses advertised by incoming
+invitations.
+
+Applying a relay change restarts VniDrop's network engine, so active transfers
+and shares must be stopped first. The app tests the new configuration and
+restores the previous one if it cannot connect. Invitations created for an old
+relay configuration may need to be shared again; stopped shares never expose
+their stale invitations. If a long relay profile makes an invitation too large
+for a QR code, use the native share action or export the invitation file.
+
+Relay credentials embedded in URLs are deliberately rejected and bearer-token
+authentication is not currently supported. A self-hosted relay must either
+accept the connecting endpoints or authorize their endpoint IDs independently;
+the current device ID is shown in **Settings → Network** for this purpose.
+Configure the same relay profile on participating devices. A custom relay needs
+a TLS certificate issued by a publicly trusted WebPKI certificate authority;
+private or enterprise CAs installed only in the operating system are not used
+in this version. For resilient deployments, configure at least two relays in
+different failure domains.
+
 ## Why Iroh and `iroh-blobs`?
 
 VniDrop combines a networking layer with its own sharing rules:
@@ -90,6 +126,7 @@ people, especially when using **Anyone with this transfer**.
 - Safe receive destinations that do not silently overwrite existing files
 - Native SwiftUI apps on iOS, iPadOS, and macOS; Compose apps on Android,
   Windows, and Linux
+- Strict custom HTTPS relay profiles with safe apply and rollback
 - Opt-in diagnostics with transfer contents, invitations, and file paths
   excluded
 

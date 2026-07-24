@@ -46,6 +46,7 @@ import com.vnidrop.app.core.ReceiverDeliveryStatus
 import com.vnidrop.app.core.ReceiverRequestModel
 import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.Transfer
+import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.ui.components.AppCard
 import com.vnidrop.app.ui.components.DestructiveButton
 import com.vnidrop.app.ui.components.PrimaryButton
@@ -60,11 +61,18 @@ import com.vnidrop.app.ui.state.progressForReceiver
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import org.jetbrains.compose.resources.decodeToImageBitmap
 import org.jetbrains.compose.resources.stringResource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import vnidrop.shared.generated.resources.*
 
 enum class InvitationAction { Export, Share, Nfc }
+
+private sealed interface TransferQrRenderState {
+	data object Loading : TransferQrRenderState
+	data object Unavailable : TransferQrRenderState
+	data class Ready(val bitmap: androidx.compose.ui.graphics.ImageBitmap) : TransferQrRenderState
+}
 
 @Composable
 internal fun TransferDetails(
@@ -122,12 +130,29 @@ internal fun TransferDetails(
 						count = pendingReceivers + completedReceivers,
 						onClick = onReceivers,
 					)
-					HorizontalDivider(color = LocalVniDropColors.current.borderDefault)
-					DetailDestination(
-						title = stringResource(Res.string.transfer_share_title),
-						description = stringResource(Res.string.transfer_share_description),
-						onClick = onShare,
-					)
+					when (transfer.status) {
+						TransferStatus.Sharing -> {
+							HorizontalDivider(color = LocalVniDropColors.current.borderDefault)
+							DetailDestination(
+								title = stringResource(Res.string.transfer_share_title),
+								description = stringResource(Res.string.transfer_share_description),
+								onClick = onShare,
+							)
+						}
+						TransferStatus.Importing -> {
+							HorizontalDivider(color = LocalVniDropColors.current.borderDefault)
+							DetailDestination(
+								title = stringResource(Res.string.transfer_share_title),
+								description = stringResource(Res.string.transfer_event_preparing),
+							)
+						}
+						TransferStatus.Receiving,
+						TransferStatus.Done,
+						TransferStatus.Failed,
+						TransferStatus.Cancelled,
+						TransferStatus.Stopped,
+						-> Unit
+					}
 				}
 			}
 		}
@@ -144,9 +169,12 @@ private fun receiversDescription(pending: Int, completed: Int): String = when {
 }
 
 @Composable
-private fun DetailDestination(title: String, description: String, count: Int? = null, onClick: () -> Unit) {
+private fun DetailDestination(title: String, description: String, count: Int? = null, onClick: (() -> Unit)? = null) {
 	Row(
-		Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp),
+		Modifier
+			.fillMaxWidth()
+			.then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick))
+			.padding(16.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -157,7 +185,9 @@ private fun DetailDestination(title: String, description: String, count: Int? = 
 			Text(count.toString(), modifier = Modifier.background(LocalVniDropColors.current.backgroundSelection, RoundedCornerShape(20.dp)).padding(horizontal = 9.dp, vertical = 3.dp))
 			Spacer(Modifier.width(8.dp))
 		}
-		PlatformIcon(AppIcon.ChevronRight, null, tint = LocalVniDropColors.current.foregroundLighter, modifier = Modifier.size(18.dp))
+		if (onClick != null) {
+			PlatformIcon(AppIcon.ChevronRight, null, tint = LocalVniDropColors.current.foregroundLighter, modifier = Modifier.size(18.dp))
+		}
 	}
 }
 
@@ -240,41 +270,71 @@ internal fun TransferSharePanel(
 	DisposableEffect(actions) { onDispose(actions::cancelNfcWrite) }
 	val ticket = transfer.ticket
 	PanelContainer(stringResource(Res.string.transfer_share_title)) {
+		if (transfer.status == TransferStatus.Importing) {
+			Text(stringResource(Res.string.transfer_event_preparing), color = LocalVniDropColors.current.foregroundLighter)
+			return@PanelContainer
+		}
+		if (transfer.status != TransferStatus.Sharing) return@PanelContainer
 		if (ticket == null) {
 			Text(stringResource(Res.string.transfer_event_preparing), color = LocalVniDropColors.current.foregroundLighter)
 			return@PanelContainer
 		}
-		val renderedBitmap by produceState(qrBitmap, ticket, qrBitmap) {
-			if (value == null) {
-				value = withContext(Dispatchers.Default) {
-					runCatching { buildTransferQrCode(ticket).renderToBytes().decodeToImageBitmap() }.getOrNull()
+		val qrRenderState by produceState<TransferQrRenderState>(
+			initialValue = qrBitmap?.let(TransferQrRenderState::Ready) ?: TransferQrRenderState.Loading,
+			key1 = ticket,
+			key2 = qrBitmap,
+		) {
+			if (qrBitmap != null) {
+				value = TransferQrRenderState.Ready(qrBitmap)
+				return@produceState
+			}
+			value = try {
+				val bitmap = withContext(Dispatchers.Default) {
+					buildTransferQrCode(ticket).renderToBytes().decodeToImageBitmap()
 				}
-				value?.let { onQrRendered(ticket, it) }
+				onQrRendered(ticket, bitmap)
+				TransferQrRenderState.Ready(bitmap)
+			} catch (error: CancellationException) {
+				throw error
+			} catch (_: Throwable) {
+				TransferQrRenderState.Unavailable
 			}
 		}
-		val renderedQr = renderedBitmap
-		Surface(
-			modifier = Modifier.align(Alignment.CenterHorizontally).size(268.dp),
-			shape = RoundedCornerShape(18.dp),
-			color = Color.White,
-		) {
-			if (renderedQr != null) {
+		when (val qrState = qrRenderState) {
+			is TransferQrRenderState.Ready -> Surface(
+				modifier = Modifier.align(Alignment.CenterHorizontally).size(268.dp),
+				shape = RoundedCornerShape(18.dp),
+				color = Color.White,
+			) {
 				Image(
-					bitmap = renderedQr,
+					bitmap = qrState.bitmap,
 					contentDescription = null,
 					modifier = Modifier.padding(14.dp).fillMaxSize(),
 					filterQuality = FilterQuality.None,
 				)
-			} else {
+			}
+			TransferQrRenderState.Loading -> Surface(
+				modifier = Modifier.align(Alignment.CenterHorizontally).size(268.dp),
+				shape = RoundedCornerShape(18.dp),
+				color = Color.White,
+			) {
 				Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
 			}
+			TransferQrRenderState.Unavailable -> Text(
+				stringResource(Res.string.transfer_qr_unavailable),
+				modifier = Modifier.align(Alignment.CenterHorizontally),
+				color = LocalVniDropColors.current.foregroundLighter,
+				style = MaterialTheme.typography.bodySmall,
+			)
 		}
-		Text(
-			stringResource(Res.string.transfer_scan_qr),
-			modifier = Modifier.align(Alignment.CenterHorizontally),
-			color = LocalVniDropColors.current.foregroundLighter,
-			style = MaterialTheme.typography.bodySmall,
-		)
+		if (qrRenderState is TransferQrRenderState.Ready) {
+			Text(
+				stringResource(Res.string.transfer_scan_qr),
+				modifier = Modifier.align(Alignment.CenterHorizontally),
+				color = LocalVniDropColors.current.foregroundLighter,
+				style = MaterialTheme.typography.bodySmall,
+			)
+		}
 		if (actions.nfcAvailability != NfcShareAvailability.Hidden) {
 			var writingNfc by remember(ticket) { mutableStateOf(false) }
 			SecondaryButton(
@@ -349,13 +409,15 @@ private fun receiverStatusText(status: ReceiverDeliveryStatus) = stringResource(
 	ReceiverDeliveryStatus.Refused -> Res.string.transfer_receiver_refused
 	ReceiverDeliveryStatus.Expired -> Res.string.transfer_receiver_expired
 	ReceiverDeliveryStatus.Completed -> Res.string.transfer_receiver_completed
+	ReceiverDeliveryStatus.Failed -> Res.string.transfer_receiver_failed
 	ReceiverDeliveryStatus.Unknown -> Res.string.transfer_receiver_unknown
 })
 
 @Composable
 private fun receiverStatusColor(status: ReceiverDeliveryStatus) = when (status) {
 	ReceiverDeliveryStatus.Completed -> LocalVniDropColors.current.brandDefault
-	ReceiverDeliveryStatus.Refused, ReceiverDeliveryStatus.Expired -> LocalVniDropColors.current.destructiveDefault
+	ReceiverDeliveryStatus.Refused, ReceiverDeliveryStatus.Expired, ReceiverDeliveryStatus.Failed ->
+		LocalVniDropColors.current.destructiveDefault
 	else -> LocalVniDropColors.current.foregroundLighter
 }
 

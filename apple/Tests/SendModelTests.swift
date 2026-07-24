@@ -58,4 +58,25 @@ final class SendModelTests: XCTestCase {
 		let response = core.responses.first { $0.id == "req-1" }
 		XCTAssertEqual(response?.accepted, false)
 	}
+
+	func testOnlyActiveShareExposesStoredInvitationTicket() {
+		XCTAssertEqual(
+			Fixtures.transfer(id: 1, direction: .send, status: .sharing).invitationPresentation,
+			.ready("ticket")
+		)
+		XCTAssertEqual(
+			Fixtures.transfer(id: 2, direction: .send, status: .importing).invitationPresentation,
+			.preparing
+		)
+		for status in [TransferStatus.stopped, .failed, .cancelled, .done] {
+			XCTAssertEqual(
+				Fixtures.transfer(id: 3, direction: .send, status: status).invitationPresentation,
+				.unavailable
+			)
+		}
+	}
+
+	func testOversizedInvitationReportsQRCodeUnavailable() {
+		XCTAssertNil(QRCode.generate(from: String(repeating: "x", count: 10_000)))
+	}
 }

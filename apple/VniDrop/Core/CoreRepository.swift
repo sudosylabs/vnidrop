@@ -2,6 +2,65 @@ import Foundation
 import Combine
 @preconcurrency import VnidropCore
 
+enum CoreNetworkLifecycleError: Error, Equatable, LocalizedError, Sendable {
+	case transitionInProgress
+	case activeNetworkWork
+
+	var errorDescription: String? {
+		switch self {
+		case .transitionInProgress: return "A network restart is already in progress."
+		case .activeNetworkWork: return "Stop active transfers and shares before restarting the network."
+		}
+	}
+}
+
+enum CoreNetworkLifecycle {
+	nonisolated static func requireIdle(activeTransfers: UInt64, activeShares: UInt64) throws {
+		guard activeTransfers == 0, activeShares == 0 else {
+			throw CoreNetworkLifecycleError.activeNetworkWork
+		}
+	}
+}
+
+protocol CoreBindingFactory: Sendable {
+	func initialize(
+		appDataDir: String,
+		eventSink: CoreEventSink,
+		networkConfiguration: RelayConfiguration
+	) throws -> VnidropCore
+}
+
+struct NativeCoreBindingFactory: CoreBindingFactory {
+	func initialize(
+		appDataDir: String,
+		eventSink: CoreEventSink,
+		networkConfiguration: RelayConfiguration
+	) throws -> VnidropCore {
+		let nativeConfiguration: CoreNetworkConfig
+		switch networkConfiguration.mode {
+		case .automatic:
+			nativeConfiguration = defaultCoreNetworkConfig()
+		case .strictCustom:
+			nativeConfiguration = CoreNetworkConfig(
+				mode: .strictCustom,
+				relayUrls: networkConfiguration.relayURLs
+			)
+		case .customWithDirectFallback:
+			nativeConfiguration = CoreNetworkConfig(
+				mode: .customWithDirectFallback,
+				relayUrls: networkConfiguration.relayURLs
+			)
+		case .localOnly:
+			nativeConfiguration = CoreNetworkConfig(mode: .localOnly, relayUrls: [])
+		}
+		return try VnidropCore.initializeWithNetworkConfig(
+			appDataDir: appDataDir,
+			eventSink: eventSink,
+			networkConfig: nativeConfiguration
+		)
+	}
+}
+
 /// Swift port of `core/CoreRepository.kt`. Owns the `VnidropCore` handle, maps the
 /// generated UniFFI records into app domain models, publishes an observable
 /// `CoreState`, and emits coalesced `CoreSignal`s from the event sink.
@@ -17,28 +76,65 @@ final class CoreRepository: ObservableObject, CoreGateway {
 	/// Coalesced change hints; subscribe to react to approval/history/transfer changes.
 	var signals: AnyPublisher<CoreSignal, Never> { signalsSubject.eraseToAnyPublisher() }
 
-	// Set on the main actor (initialize/shutdown) but read from `queue` inside
-	// `runCore`; the underlying core is internally synchronized, so this crossing
-	// is safe. `nonisolated(unsafe)` documents that contract for Swift 6.
+	// Initialization swaps happen on `queue`; shutdown and snapshot reads may also
+	// access the handle from the main actor. The underlying core is internally
+	// synchronized, and `nonisolated(unsafe)` documents that crossing for Swift 6.
 	private nonisolated(unsafe) var core: VnidropCore?
+	// Core calls run through `dispatcher` (see runCore/runInterrupt); the factory
+	// and transition flag drive relay-aware (re)initialization.
 	private let dispatcher = CoreDispatcher()
+	private let coreFactory: any CoreBindingFactory
+	private var isNetworkTransitionInProgress = false
 	private lazy var sink = RepositoryEventSink { [weak self] event in
 		Task { @MainActor in self?.handle(event: event) }
 	}
 
 	private nonisolated static let maxEvents = 200
 
+	init(coreFactory: any CoreBindingFactory = NativeCoreBindingFactory()) {
+		self.coreFactory = coreFactory
+	}
+
 	// MARK: - Lifecycle
 
-	func initialize(appDataDir: String) async -> Result<Void, Error> {
-		await runCore { [sink] in
-			self.core?.shutdown()
-			let created = try VnidropCore.initialize(appDataDir: appDataDir, eventSink: sink)
-			return created
-		}.map { created in
+	func initialize(
+		appDataDir: String,
+		networkConfiguration: RelayConfiguration
+	) async -> Result<Void, Error> {
+		guard !isNetworkTransitionInProgress else {
+			return .failure(CoreNetworkLifecycleError.transitionInProgress)
+		}
+		isNetworkTransitionInProgress = true
+		defer { isNetworkTransitionInProgress = false }
+
+		let result = await runCore { [sink] in
+			if let existing = self.core {
+				let status = existing.status()
+				try CoreNetworkLifecycle.requireIdle(
+					activeTransfers: status.activeTransfers,
+					activeShares: status.activeShares
+				)
+				existing.shutdown()
+				self.core = nil
+			}
+			let created = try self.coreFactory.initialize(
+				appDataDir: appDataDir,
+				eventSink: sink,
+				networkConfiguration: networkConfiguration
+			)
 			self.core = created
+			return created
+		}
+		switch result {
+		case .success:
 			self.refreshSnapshot()
 			self.state.isInitialized = true
+			return .success(())
+		case .failure(let error):
+			if error as? CoreNetworkLifecycleError != .activeNetworkWork {
+				self.state = CoreState()
+			}
+			return .failure(error)
 		}
 	}
 
@@ -56,6 +152,9 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		senderName: String,
 		accessPolicy: ShareAccessPolicy
 	) async -> Result<Share, Error> {
+		guard !isNetworkTransitionInProgress else {
+			return .failure(CoreNetworkLifecycleError.transitionInProgress)
+		}
 		guard !sources.isEmpty else {
 			return .failure(InvitationError.message("Select at least one file to share"))
 		}
@@ -89,7 +188,10 @@ final class CoreRepository: ObservableObject, CoreGateway {
 	}
 
 	func receive(ticket: String, outputDir: String, receiverName: String) async -> Result<Void, Error> {
-		await runCore {
+		guard !isNetworkTransitionInProgress else {
+			return .failure(CoreNetworkLifecycleError.transitionInProgress)
+		}
+		return await runCore {
 			try self.requireCore().receive(
 				ticket: ticket,
 				outputDir: outputDir,
@@ -105,7 +207,10 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		outputDirectoryUrl: String,
 		receiverName: String
 	) async -> Result<Void, Error> {
-		await runCore {
+		guard !isNetworkTransitionInProgress else {
+			return .failure(CoreNetworkLifecycleError.transitionInProgress)
+		}
+		return await runCore {
 			try withSecurityScopedAccess(pathOrUrl: outputDirectoryUrl) {
 				try self.requireCore().receive(
 					ticket: ticket,
@@ -409,6 +514,7 @@ private extension ReceiverRequest {
 		case "refused": return .refused
 		case "expired": return .expired
 		case "completed": return .completed
+		case "failed": return .failed
 		default: return .unknown
 		}
 	}

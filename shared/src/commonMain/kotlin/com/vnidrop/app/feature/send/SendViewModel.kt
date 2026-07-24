@@ -209,7 +209,12 @@ class SendViewModel(
 		)
 	}
 	fun openActivity() = _state.update { it.copy(detailPanel = TransferDetailPanel.Activity) }
-	fun openShare() = _state.update { it.copy(detailPanel = TransferDetailPanel.Share) }
+	fun openShare() {
+		val selectedId = _state.value.selectedTransferId ?: return
+		val selected = coreState.value.transfers.firstOrNull { it.transferId == selectedId } ?: return
+		if (selected.status !in setOf(TransferStatus.Importing, TransferStatus.Sharing)) return
+		_state.update { it.copy(detailPanel = TransferDetailPanel.Share) }
+	}
 	fun openReceivers() {
 		val transferId = _state.value.selectedTransferId ?: return
 		_state.update { it.copy(detailPanel = TransferDetailPanel.Receivers) }

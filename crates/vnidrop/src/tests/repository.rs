@@ -66,7 +66,7 @@ async fn received_artifacts_survive_history_deletion() {
 async fn persists_transfers_and_events_across_reopen() {
     let temp = tempfile::tempdir().unwrap();
     let repository = Repository::open(temp.path()).await.unwrap();
-    assert_eq!(repository.schema_version().await.unwrap(), 6);
+    assert_eq!(repository.schema_version().await.unwrap(), 7);
     repository
         .insert_transfer(transfer(
             7,
@@ -80,6 +80,7 @@ async fn persists_transfers_and_events_across_reopen() {
     assert_eq!(shares.len(), 1);
     assert_eq!(shares[0].transfer_id, 7);
     assert_eq!(shares[0].content_hash, "hash");
+    assert_eq!(shares[0].ticket.as_deref(), Some("ticket"));
     assert_eq!(shares[0].access_mode, "approval_required");
 
     repository
@@ -134,6 +135,7 @@ async fn receive_completion_persists_delivery_receipt_until_recorded() {
             request_id: "request-93",
             sender_transfer_id: 39,
             token: "receipt-token",
+            failure_reason: None,
         })
         .await
         .unwrap();
@@ -218,6 +220,68 @@ async fn receiver_request_can_only_be_resolved_once() {
     assert_eq!(requests[0].receiver_name.as_deref(), Some("receiver"));
     assert!(requests[0].responded_at.is_some());
     assert!(requests[0].completed_at.is_some());
+}
+
+#[tokio::test]
+async fn authenticated_delivery_failure_marks_accepted_receiver_failed() {
+    let temp = tempfile::tempdir().unwrap();
+    let repository = Repository::open(temp.path()).await.unwrap();
+    repository
+        .insert_receiver_request(ReceiverRequestInsert {
+            id: "request-failed",
+            transfer_id: 78,
+            remote_endpoint_id: "node-a",
+            transfer_name: "demo",
+            receiver_name: Some("receiver"),
+            receiver_device_name: None,
+            app_version: "0.1.0",
+        })
+        .await
+        .unwrap();
+    repository
+        .update_receiver_request_status("request-failed", ReceiverRequestStatus::Accepted, None)
+        .await
+        .unwrap();
+    repository
+        .set_receiver_receipt_token("request-failed", "token-hash")
+        .await
+        .unwrap();
+
+    repository
+        .fail_receiver_delivery(
+            "request-failed",
+            78,
+            "node-a",
+            "token-hash",
+            "destination_exists",
+        )
+        .await
+        .unwrap();
+    repository
+        .fail_receiver_delivery(
+            "request-failed",
+            78,
+            "node-a",
+            "token-hash",
+            "destination_exists",
+        )
+        .await
+        .unwrap();
+    assert!(repository
+        .fail_receiver_delivery(
+            "request-failed",
+            78,
+            "node-b",
+            "token-hash",
+            "destination_exists",
+        )
+        .await
+        .is_err());
+
+    let requests = repository.list_receiver_requests(78).await.unwrap();
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].status, "failed");
+    assert_eq!(requests[0].reason.as_deref(), Some("destination_exists"));
 }
 
 #[tokio::test]
@@ -581,7 +645,7 @@ async fn migrates_schema_v2_identity_without_losing_transfer() {
     pool.close().await;
 
     let repository = Repository::open(temp.path()).await.unwrap();
-    assert_eq!(repository.schema_version().await.unwrap(), 6);
+    assert_eq!(repository.schema_version().await.unwrap(), 7);
     let stored = repository.list_transfers().await.unwrap().remove(0);
     assert_eq!(stored.transfer_id, 7);
     assert_eq!(stored.local_id, "legacy-7-send");

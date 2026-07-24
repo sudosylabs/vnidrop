@@ -72,6 +72,14 @@ impl ProtocolHandler for HandshakeService {
                         .await;
                     let _ = tx.send(response).await;
                 }
+                HandshakeMessage::ReportDeliveryFailure(message) => {
+                    let WithChannels { inner, tx, .. } = message;
+                    let response = self
+                        .approval
+                        .fail_delivery(remote_endpoint_id.clone(), inner)
+                        .await;
+                    let _ = tx.send(response).await;
+                }
             }
         }
 
@@ -109,6 +117,13 @@ impl HandshakeClient {
     ) -> Result<DeliveryReceiptResponse, irpc::Error> {
         self.inner.rpc(receipt).await
     }
+
+    pub(crate) async fn report_delivery_failure(
+        &self,
+        receipt: DeliveryFailureReceipt,
+    ) -> Result<DeliveryReceiptResponse, irpc::Error> {
+        self.inner.rpc(receipt).await
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -140,6 +155,14 @@ pub(crate) struct DeliveryReceipt {
     pub(crate) token: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct DeliveryFailureReceipt {
+    pub(crate) request_id: String,
+    pub(crate) transfer_id: u64,
+    pub(crate) token: String,
+    pub(crate) reason: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) enum DeliveryReceiptResponse {
     Recorded,
@@ -153,4 +176,6 @@ enum HandshakeProtocol {
     RequestTransfer(RequestTransfer),
     #[rpc(tx=oneshot::Sender<DeliveryReceiptResponse>)]
     ReportDelivery(DeliveryReceipt),
+    #[rpc(tx=oneshot::Sender<DeliveryReceiptResponse>)]
+    ReportDeliveryFailure(DeliveryFailureReceipt),
 }

@@ -1,11 +1,16 @@
+use std::net::{Ipv4Addr, SocketAddr};
+
 use data_encoding::BASE64URL_NOPAD;
-use iroh::SecretKey;
+use iroh::{RelayUrl, SecretKey};
 use iroh_blobs::{ticket::BlobTicket, BlobFormat, Hash};
 use serde_json::json;
 
 use crate::{
-    api::{CoreLimits, TransferMetadata},
-    ticket::{parse_transfer_ticket, parse_transfer_ticket_with_limits, VnidropTicket},
+    api::{CoreLimits, CoreRelayMode, TransferMetadata},
+    ticket::{
+        encode_persisted_sender_address, parse_persisted_sender_address, parse_transfer_ticket,
+        parse_transfer_ticket_with_limits, ticket_matches_relay_profile, VnidropTicket,
+    },
 };
 
 fn blob_ticket(hash_byte: u8) -> BlobTicket {
@@ -25,7 +30,7 @@ fn metadata_ticket_round_trips() {
         3,
         2048,
     );
-    let encoded = VnidropTicket::new(blob_ticket.clone(), metadata.clone())
+    let encoded = VnidropTicket::new_with_relay_urls(blob_ticket.clone(), metadata.clone(), &[])
         .encode()
         .unwrap();
     let parsed = parse_transfer_ticket(&encoded).unwrap();
@@ -38,7 +43,7 @@ fn metadata_ticket_round_trips() {
 fn metadata_ticket_tolerates_wrapped_whitespace() {
     let blob_ticket = blob_ticket(9);
     let metadata = TransferMetadata::new(7, "Wrapped", None, blob_ticket.hash(), 1, 10);
-    let encoded = VnidropTicket::new(blob_ticket.clone(), metadata)
+    let encoded = VnidropTicket::new_with_relay_urls(blob_ticket.clone(), metadata, &[])
         .encode()
         .unwrap();
     let wrapped = encoded
@@ -50,6 +55,147 @@ fn metadata_ticket_tolerates_wrapped_whitespace() {
 
     let parsed = parse_transfer_ticket(&wrapped).unwrap();
     assert_eq!(parsed.blob_ticket.hash(), blob_ticket.hash());
+}
+
+#[test]
+fn metadata_ticket_restores_backup_relays_without_losing_direct_addresses() {
+    let secret = SecretKey::generate();
+    let primary: RelayUrl = "https://a.relay.example.com".parse().unwrap();
+    let backup: RelayUrl = "https://b.relay.example.com".parse().unwrap();
+    let direct = SocketAddr::from((Ipv4Addr::LOCALHOST, 49152));
+    let addr = iroh::EndpointAddr::new(secret.public())
+        .with_relay_url(primary.clone())
+        .with_ip_addr(direct);
+    let blob_ticket = BlobTicket::new(addr, Hash::new([11; 32]), BlobFormat::HashSeq);
+    let metadata = TransferMetadata::new(11, "Backed up", None, blob_ticket.hash(), 1, 10);
+
+    let encoded = VnidropTicket::new_with_relay_urls(
+        blob_ticket,
+        metadata,
+        &[primary.clone(), backup.clone()],
+    )
+    .encode()
+    .unwrap();
+    let parsed = parse_transfer_ticket(&encoded).unwrap();
+
+    assert_eq!(
+        parsed
+            .blob_ticket
+            .addr()
+            .relay_urls()
+            .cloned()
+            .collect::<Vec<_>>(),
+        vec![primary, backup]
+    );
+    assert_eq!(
+        parsed
+            .blob_ticket
+            .addr()
+            .ip_addrs()
+            .copied()
+            .collect::<Vec<_>>(),
+        vec![direct]
+    );
+}
+
+#[test]
+fn saved_ticket_relay_profile_matching_is_mode_aware_and_order_insensitive() {
+    let relay_a: RelayUrl = "https://a.relay.example.com".parse().unwrap();
+    let relay_b: RelayUrl = "https://b.relay.example.com".parse().unwrap();
+    let relay_c: RelayUrl = "https://c.relay.example.com".parse().unwrap();
+    let blob_ticket = blob_ticket(13);
+    let metadata = TransferMetadata::new(13, "Relay profile", None, blob_ticket.hash(), 1, 10);
+    let custom_ticket = VnidropTicket::new_with_relay_urls(
+        blob_ticket.clone(),
+        metadata.clone(),
+        &[relay_a.clone(), relay_b.clone()],
+    )
+    .encode()
+    .unwrap();
+    let automatic_ticket = VnidropTicket::new_with_relay_urls(blob_ticket, metadata, &[])
+        .encode()
+        .unwrap();
+    let limits = CoreLimits::default();
+
+    assert!(ticket_matches_relay_profile(
+        &custom_ticket,
+        &limits,
+        CoreRelayMode::StrictCustom,
+        &[relay_b.clone(), relay_a.clone()],
+    )
+    .unwrap());
+    assert!(ticket_matches_relay_profile(
+        &custom_ticket,
+        &limits,
+        CoreRelayMode::CustomWithDirectFallback,
+        &[relay_b.clone(), relay_a.clone()],
+    )
+    .unwrap());
+    assert!(!ticket_matches_relay_profile(
+        &custom_ticket,
+        &limits,
+        CoreRelayMode::StrictCustom,
+        &[relay_a.clone(), relay_c],
+    )
+    .unwrap());
+    assert!(
+        !ticket_matches_relay_profile(&custom_ticket, &limits, CoreRelayMode::Automatic, &[],)
+            .unwrap()
+    );
+    assert!(ticket_matches_relay_profile(
+        &automatic_ticket,
+        &limits,
+        CoreRelayMode::Automatic,
+        &[],
+    )
+    .unwrap());
+    assert!(!ticket_matches_relay_profile(
+        &automatic_ticket,
+        &limits,
+        CoreRelayMode::StrictCustom,
+        &[relay_a],
+    )
+    .unwrap());
+    assert!(ticket_matches_relay_profile(
+        &automatic_ticket,
+        &limits,
+        CoreRelayMode::LocalOnly,
+        &[],
+    )
+    .unwrap());
+    assert!(
+        !ticket_matches_relay_profile(&custom_ticket, &limits, CoreRelayMode::LocalOnly, &[],)
+            .unwrap()
+    );
+}
+
+#[test]
+fn persisted_sender_address_preserves_relays_and_accepts_legacy_blob_ticket() {
+    let secret = SecretKey::generate();
+    let primary: RelayUrl = "https://a.relay.example.com".parse().unwrap();
+    let backup: RelayUrl = "https://b.relay.example.com".parse().unwrap();
+    let direct = SocketAddr::from((Ipv4Addr::LOCALHOST, 49153));
+    let addr = iroh::EndpointAddr::new(secret.public())
+        .with_relay_url(primary.clone())
+        .with_relay_url(backup)
+        .with_ip_addr(direct);
+
+    let encoded = encode_persisted_sender_address(&addr).unwrap();
+    assert_eq!(parse_persisted_sender_address(&encoded).unwrap(), addr);
+
+    let legacy_addr = iroh::EndpointAddr::new(secret.public())
+        .with_relay_url(primary)
+        .with_ip_addr(direct);
+    let legacy = BlobTicket::new(
+        legacy_addr.clone(),
+        Hash::new([12; 32]),
+        BlobFormat::HashSeq,
+    )
+    .to_string();
+    assert_eq!(
+        parse_persisted_sender_address(&legacy).unwrap(),
+        legacy_addr
+    );
 }
 
 #[test]

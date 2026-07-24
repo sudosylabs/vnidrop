@@ -1,8 +1,174 @@
 use anyhow::Context;
+use iroh::RelayUrl;
 use iroh_blobs::Hash;
 use serde::{Deserialize, Serialize};
+use std::{collections::BTreeSet, net::IpAddr, path::PathBuf, str::FromStr};
 
+use crate::error::VnidropError;
 use crate::util::{non_empty, now_ms};
+
+pub(crate) const MAX_CUSTOM_RELAYS: usize = 8;
+pub(crate) const MAX_RELAY_URL_BYTES: usize = 2_048;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum CoreRelayMode {
+    Automatic,
+    StrictCustom,
+    CustomWithDirectFallback,
+    LocalOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct CoreNetworkConfig {
+    pub mode: CoreRelayMode,
+    pub relay_urls: Vec<String>,
+}
+
+impl Default for CoreNetworkConfig {
+    fn default() -> Self {
+        Self {
+            mode: CoreRelayMode::Automatic,
+            relay_urls: Vec::new(),
+        }
+    }
+}
+
+impl CoreNetworkConfig {
+    pub(crate) fn validated_relay_urls(&self) -> anyhow::Result<Vec<RelayUrl>> {
+        match self.mode {
+            CoreRelayMode::Automatic | CoreRelayMode::LocalOnly => {
+                if !self.relay_urls.is_empty() {
+                    anyhow::bail!(
+                        "{} relay mode must not include custom relay URLs",
+                        match self.mode {
+                            CoreRelayMode::Automatic => "automatic",
+                            CoreRelayMode::LocalOnly => "local-only",
+                            CoreRelayMode::StrictCustom
+                            | CoreRelayMode::CustomWithDirectFallback => unreachable!(),
+                        }
+                    );
+                }
+                Ok(Vec::new())
+            }
+            CoreRelayMode::StrictCustom | CoreRelayMode::CustomWithDirectFallback => {
+                if self.relay_urls.is_empty() {
+                    anyhow::bail!("custom relay mode requires at least one relay URL");
+                }
+                if self.relay_urls.len() > MAX_CUSTOM_RELAYS {
+                    anyhow::bail!(
+                        "custom relay mode supports at most {MAX_CUSTOM_RELAYS} relay URLs"
+                    );
+                }
+
+                let mut seen = BTreeSet::new();
+                let mut validated = Vec::with_capacity(self.relay_urls.len());
+                for (index, value) in self.relay_urls.iter().enumerate() {
+                    if value.is_empty()
+                        || value
+                            .chars()
+                            .any(|character| character.is_whitespace() || character.is_control())
+                    {
+                        anyhow::bail!(
+                            "relay URL must be non-empty and contain no whitespace or control characters"
+                        );
+                    }
+                    if value.len() > MAX_RELAY_URL_BYTES {
+                        anyhow::bail!(
+                            "relay URL is {} bytes, limit is {MAX_RELAY_URL_BYTES}",
+                            value.len()
+                        );
+                    }
+                    let url = RelayUrl::from_str(value)
+                        .with_context(|| format!("invalid relay URL at position {}", index + 1))?;
+                    let secure = url.scheme() == "https";
+                    let loopback_http = url.scheme() == "http"
+                        && url.host_str().is_some_and(|host| {
+                            host.eq_ignore_ascii_case("localhost")
+                                || host
+                                    .trim_start_matches('[')
+                                    .trim_end_matches(']')
+                                    .parse::<IpAddr>()
+                                    .is_ok_and(|address| address.is_loopback())
+                        });
+                    if !secure && !loopback_http {
+                        anyhow::bail!(
+                            "relay URL must use HTTPS; HTTP is allowed only for loopback development relays"
+                        );
+                    }
+                    if url.host_str().is_none() {
+                        anyhow::bail!("relay URL must include a host");
+                    }
+                    if url.port() == Some(0) {
+                        anyhow::bail!("relay URL port must be between 1 and 65535");
+                    }
+                    if value.contains('@') || !url.username().is_empty() || url.password().is_some()
+                    {
+                        anyhow::bail!("relay URL must not contain credentials");
+                    }
+                    if url.query().is_some() || url.fragment().is_some() {
+                        anyhow::bail!("relay URL must not contain a query or fragment");
+                    }
+                    if url.path() != "/" {
+                        anyhow::bail!("relay URL must not contain a path");
+                    }
+                    if !seen.insert(url.clone()) {
+                        anyhow::bail!("custom relay URLs must not contain duplicates");
+                    }
+                    validated.push(url);
+                }
+                Ok(validated)
+            }
+        }
+    }
+}
+
+#[uniffi::export]
+pub fn default_core_network_config() -> CoreNetworkConfig {
+    CoreNetworkConfig::default()
+}
+
+/// Removes the blob store after its owning core has shut down.
+///
+/// Callers must verify that no transfer or share is active before shutdown.
+#[uniffi::export]
+pub fn clear_inactive_transfer_cache(app_data_dir: String) -> Result<u64, VnidropError> {
+    let result = (|| -> anyhow::Result<u64> {
+        let app_data_dir = PathBuf::from(app_data_dir);
+        anyhow::ensure!(
+            app_data_dir.is_absolute(),
+            "app data directory must be absolute"
+        );
+        anyhow::ensure!(
+            app_data_dir.file_name().is_some(),
+            "app data directory must not be a filesystem root"
+        );
+        let blobs = app_data_dir.join("blobs");
+        let metadata = match std::fs::symlink_metadata(&blobs) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+            Err(error) => return Err(error.into()),
+        };
+        anyhow::ensure!(
+            metadata.is_dir() && !metadata.file_type().is_symlink(),
+            "blob store path is not a directory"
+        );
+        let bytes = walkdir::WalkDir::new(&blobs)
+            .follow_links(false)
+            .into_iter()
+            .try_fold(0u64, |total, entry| {
+                let entry = entry?;
+                let metadata = entry.metadata()?;
+                Ok::<_, walkdir::Error>(if metadata.is_file() {
+                    total.saturating_add(metadata.len())
+                } else {
+                    total
+                })
+            })?;
+        std::fs::remove_dir_all(blobs)?;
+        Ok(bytes)
+    })();
+    result.map_err(VnidropError::filesystem)
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 pub struct CoreLimits {

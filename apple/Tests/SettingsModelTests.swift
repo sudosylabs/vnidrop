@@ -42,4 +42,107 @@ final class SettingsModelTests: XCTestCase {
 		await waitUntil { core.deletedTransfers.count == 2 }
 		XCTAssertEqual(Set(core.deletedTransfers), [2, 3])
 	}
+
+	func testNetworkSettingsExposeCurrentEndpointId() {
+		let core = FakeCoreGateway()
+		let model = makeModel(core, preferences: Fixtures.preferences())
+
+		core.setState(CoreState(
+			isInitialized: true,
+			status: CoreStatus(endpointId: "endpoint-for-allowlist", activeTransfers: 0, activeShares: 0)
+		))
+
+		XCTAssertEqual(model.state.endpointId, "endpoint-for-allowlist")
+	}
+
+	func testApplyCustomRelayRestartsCoreThenPersistsConfiguration() async {
+		let core = FakeCoreGateway()
+		let preferences = Fixtures.preferences()
+		let model = makeModel(core, preferences: preferences)
+		model.setRelayMode(.strictCustom)
+		model.setRelayURL("  https://relay.example/  ", at: 0)
+
+		model.applyRelayConfiguration()
+
+		await waitUntil { preferences.preferences.relayConfiguration.mode == .strictCustom }
+		let expected = RelayConfiguration(mode: .strictCustom, relayURLs: ["https://relay.example"])
+		XCTAssertEqual(preferences.preferences.relayConfiguration, expected)
+		XCTAssertEqual(core.initializedNetworkConfigurations, [expected])
+		XCTAssertFalse(model.state.relayConfigurationIsDirty)
+	}
+
+	func testApplyingAutomaticRetainsLastCustomRelayURLs() async {
+		let core = FakeCoreGateway()
+		let preferences = Fixtures.preferences()
+		let relayURLs = ["https://relay.example", "https://backup.example"]
+		preferences.setRelayConfiguration(RelayConfiguration(mode: .strictCustom, relayURLs: relayURLs))
+		let model = makeModel(core, preferences: preferences)
+
+		model.setRelayMode(.automatic)
+		model.applyRelayConfiguration()
+
+		await waitUntil { preferences.preferences.relayConfiguration.mode == .automatic }
+		XCTAssertEqual(preferences.preferences.relayConfiguration.relayURLs, relayURLs)
+		XCTAssertEqual(core.initializedNetworkConfigurations, [
+			RelayConfiguration(mode: .automatic, relayURLs: relayURLs),
+		])
+		model.setRelayMode(.strictCustom)
+		XCTAssertEqual(model.state.relayURLs, relayURLs)
+	}
+
+	func testApplyRelayIsBlockedWhileShareIsActive() async {
+		let core = FakeCoreGateway()
+		let preferences = Fixtures.preferences()
+		let model = makeModel(core, preferences: preferences)
+		core.setState(CoreState(
+			isInitialized: true,
+			status: CoreStatus(endpointId: "endpoint", activeTransfers: 0, activeShares: 1)
+		))
+		model.setRelayMode(.strictCustom)
+		model.setRelayURL("https://relay.example", at: 0)
+
+		model.applyRelayConfiguration()
+		await Task.yield()
+
+		XCTAssertTrue(core.initializedNetworkConfigurations.isEmpty)
+		XCTAssertEqual(preferences.preferences.relayConfiguration, .automatic)
+		XCTAssertEqual(model.state.relayApplyErrorKey, "relay_apply_active_transfers")
+	}
+
+	func testRepositoryActiveWorkRejectionDoesNotAttemptRollback() async {
+		let core = FakeCoreGateway()
+		core.initializeResult = .failure(CoreNetworkLifecycleError.activeNetworkWork)
+		let preferences = Fixtures.preferences()
+		let model = makeModel(core, preferences: preferences)
+		let attempted = RelayConfiguration(mode: .strictCustom, relayURLs: ["https://relay.example"])
+		model.setRelayMode(.strictCustom)
+		model.setRelayURL(attempted.relayURLs[0], at: 0)
+
+		model.applyRelayConfiguration()
+		await waitUntil {
+			core.initializedNetworkConfigurations.count == 1 && !model.state.isApplyingRelayConfiguration
+		}
+
+		XCTAssertEqual(core.initializedNetworkConfigurations, [attempted])
+		XCTAssertEqual(preferences.preferences.relayConfiguration, .automatic)
+		XCTAssertTrue(model.state.hasActiveNetworkWork)
+		XCTAssertEqual(model.state.relayApplyErrorKey, "relay_apply_active_transfers")
+	}
+
+	func testFailedRelayApplyRollsBackWithoutPersisting() async {
+		let core = FakeCoreGateway()
+		core.initializeResults = [.failure(TestError.unimplemented), .success(())]
+		let preferences = Fixtures.preferences()
+		let model = makeModel(core, preferences: preferences)
+		let attempted = RelayConfiguration(mode: .strictCustom, relayURLs: ["https://relay.example"])
+		model.setRelayMode(.strictCustom)
+		model.setRelayURL(attempted.relayURLs[0], at: 0)
+
+		model.applyRelayConfiguration()
+		await waitUntil { core.initializedNetworkConfigurations.count == 2 }
+
+		XCTAssertEqual(core.initializedNetworkConfigurations, [attempted, .automatic])
+		XCTAssertEqual(preferences.preferences.relayConfiguration, .automatic)
+		XCTAssertEqual(model.state.relayApplyErrorKey, "relay_apply_failed")
+	}
 }

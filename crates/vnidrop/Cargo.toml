@@ -16,7 +16,7 @@ blake3 = "1.8.3"
 data-encoding = "2.11.0"
 futures = "0.3"
 futures-lite = "2.6.1"
-iroh = "1.0.0"
+iroh = "1.0.3"
 iroh-blobs = "0.103.0"
 irpc = "0.17.0"
 irpc-iroh = "0.17.0"
@@ -36,4 +36,5 @@ uuid = { version = "1.23.3", features = ["v4", "serde"] }
 walkdir = "2.5.0"
 
 [dev-dependencies]
+iroh-relay = { version = "1.0.3", features = ["server"] }
 tempfile = "3.27.0"

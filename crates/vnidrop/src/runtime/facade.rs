@@ -6,9 +6,10 @@ use serde_json::json;
 use super::CoreInner;
 use crate::{
     api::{
-        CoreEvent, CoreEventSink, CoreLimits, CoreStorageUsage, ReceiveOutputSink,
-        ReceiveOutputSinkV2, ReceivedArtifact, ReceiverRequest, RuntimeStatus, ShareMetadataInput,
-        ShareResult, ShareSource, StoredTransfer, TicketInspection, TransferAccessMode,
+        CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig, CoreStorageUsage,
+        ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact, ReceiverRequest, RuntimeStatus,
+        ShareMetadataInput, ShareResult, ShareSource, StoredTransfer, TicketInspection,
+        TransferAccessMode,
     },
     error::VnidropError,
     filesystem::platform_path,
@@ -42,7 +43,26 @@ impl VnidropCore {
         app_data_dir: String,
         event_sink: Arc<dyn CoreEventSink>,
     ) -> Result<Arc<Self>, VnidropError> {
-        Self::initialize_with_limits(app_data_dir, event_sink, CoreLimits::default())
+        Self::initialize_with_limits_and_network_config(
+            app_data_dir,
+            event_sink,
+            CoreLimits::default(),
+            CoreNetworkConfig::default(),
+        )
+    }
+
+    #[uniffi::constructor]
+    pub fn initialize_with_network_config(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        network_config: CoreNetworkConfig,
+    ) -> Result<Arc<Self>, VnidropError> {
+        Self::initialize_with_limits_and_network_config(
+            app_data_dir,
+            event_sink,
+            CoreLimits::default(),
+            network_config,
+        )
     }
 
     #[uniffi::constructor]
@@ -51,14 +71,38 @@ impl VnidropCore {
         event_sink: Arc<dyn CoreEventSink>,
         limits: CoreLimits,
     ) -> Result<Arc<Self>, VnidropError> {
+        Self::initialize_with_limits_and_network_config(
+            app_data_dir,
+            event_sink,
+            limits,
+            CoreNetworkConfig::default(),
+        )
+    }
+
+    #[uniffi::constructor]
+    pub fn initialize_with_limits_and_network_config(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        limits: CoreLimits,
+        network_config: CoreNetworkConfig,
+    ) -> Result<Arc<Self>, VnidropError> {
         limits.validate().map_err(VnidropError::initialization)?;
+        let relay_urls = network_config
+            .validated_relay_urls()
+            .map_err(VnidropError::initialization)?;
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .thread_name("vnidrop")
             .build()?;
         let app_data_dir = PathBuf::from(app_data_dir);
         let inner = runtime
-            .block_on(CoreInner::start(app_data_dir, event_sink, limits))
+            .block_on(CoreInner::start(
+                app_data_dir,
+                event_sink,
+                limits,
+                network_config.mode,
+                relay_urls,
+            ))
             .map_err(VnidropError::initialization)?;
         Ok(Arc::new(Self { runtime, inner }))
     }

@@ -48,6 +48,9 @@ private class JvmFileSystemService : FileSystemService {
 		return desktopTemporaryUsage(receiveFolder)
 	}
 
+	override suspend fun reclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong =
+		desktopReclaimTemporaryStorage(appDataDir, receiveFolder)
+
 	override fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2? = null
 
 	override suspend fun sharePickedFiles(
@@ -87,4 +90,36 @@ internal fun desktopTemporaryUsage(receiveFolder: ReceiveFolder): ULong {
 				.fold(0UL) { total, path -> total + Files.size(path).toULong() }
 		}
 	}.getOrDefault(0UL)
+}
+
+internal fun desktopReclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong {
+	var reclaimed = 0UL
+	if (receiveFolder.kind == ReceiveFolderKind.FileSystemPath) {
+		val receiveRoot = File(receiveFolder.value)
+		receiveRoot.walkTopDown()
+			.filter { file ->
+				file.isFile &&
+					file.name.startsWith(".") &&
+					file.name.contains(".vnidrop-") &&
+					file.name.endsWith(".part")
+			}
+			.toList()
+			.forEach { file ->
+				val size = file.length().coerceAtLeast(0L).toULong()
+				if (file.delete()) reclaimed += size
+			}
+	}
+	val appDataRoot = File(appDataDir)
+	if (appDataRoot.isDirectory) {
+		appDataRoot.walkTopDown()
+			.filter { it.isDirectory && it.name == ".Trash" }
+			.toList()
+			.forEach { trash ->
+				val size = trash.walkTopDown()
+					.filter(File::isFile)
+					.fold(0UL) { total, file -> total + file.length().coerceAtLeast(0L).toULong() }
+				if (trash.deleteRecursively()) reclaimed += size
+			}
+	}
+	return reclaimed
 }

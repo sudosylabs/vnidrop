@@ -55,6 +55,7 @@
     <string name="bug_report_what_label">What happened?</string>
     <string name="button_approve">Approve</string>
     <string name="button_back">Back</string>
+    <string name="button_more_actions">More actions</string>
     <string name="button_cancel">Cancel</string>
     <string name="button_cancel_receive">Cancel</string>
     <string name="button_change_files">Change files</string>
@@ -122,6 +123,16 @@
     <string name="notifications_enabled_message">Notifications enabled.</string>
     <string name="notifications_local_title">Allow notifications</string>
     <string name="notifications_permission_denied">Notifications are turned off for VniDrop. You can enable them in Settings.</string>
+    <string name="notifications_receive_completed_body">“%1$s” finished downloading.</string>
+    <string name="notifications_receive_completed_title">Download complete</string>
+    <string name="notifications_receive_failed_body">“%1$s” couldn’t be received.</string>
+    <string name="notifications_receive_failed_title">Download failed</string>
+    <string name="notifications_receiver_completed_body">%1$s finished receiving “%2$s”.</string>
+    <string name="notifications_receiver_completed_title">Transfer received</string>
+    <string name="notifications_receiver_failed_body">%1$s couldn\'t receive “%2$s”</string>
+    <string name="notifications_receiver_failed_title">Delivery failed</string>
+    <string name="notifications_send_failed_body">“%1$s” couldn’t be shared.</string>
+    <string name="notifications_send_failed_title">Sharing failed</string>
     <string name="notifications_settings_open_failed">Could not open notification settings.</string>
     <string name="notifications_title">Notifications</string>
     <string name="notifications_unsupported">Notifications are not available on this device.</string>

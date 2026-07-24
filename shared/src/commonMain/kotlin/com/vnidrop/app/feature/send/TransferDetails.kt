@@ -84,6 +84,7 @@ internal fun TransferDetails(
 	onActivity: () -> Unit,
 	onReceivers: () -> Unit,
 	onShare: () -> Unit,
+	onStopSharing: () -> Unit,
 	onDelete: () -> Unit,
 ) {
 	LazyColumn(
@@ -100,8 +101,14 @@ internal fun TransferDetails(
 					style = MaterialTheme.typography.headlineSmall,
 					fontWeight = FontWeight.Bold,
 				)
-				IconButton(onClick = onDelete) {
-					PlatformIcon(AppIcon.Delete, stringResource(Res.string.button_delete_transfer), tint = LocalVniDropColors.current.destructiveDefault)
+				if (transfer.status in setOf(TransferStatus.Importing, TransferStatus.Sharing)) {
+					IconButton(onClick = onShare) {
+						PlatformIcon(
+							AppIcon.Send,
+							stringResource(Res.string.transfer_share_title),
+							tint = LocalVniDropColors.current.brandLink,
+						)
+					}
 				}
 			}
 		}
@@ -130,30 +137,23 @@ internal fun TransferDetails(
 						count = pendingReceivers + completedReceivers,
 						onClick = onReceivers,
 					)
-					when (transfer.status) {
-						TransferStatus.Sharing -> {
-							HorizontalDivider(color = LocalVniDropColors.current.borderDefault)
-							DetailDestination(
-								title = stringResource(Res.string.transfer_share_title),
-								description = stringResource(Res.string.transfer_share_description),
-								onClick = onShare,
-							)
-						}
-						TransferStatus.Importing -> {
-							HorizontalDivider(color = LocalVniDropColors.current.borderDefault)
-							DetailDestination(
-								title = stringResource(Res.string.transfer_share_title),
-								description = stringResource(Res.string.transfer_event_preparing),
-							)
-						}
-						TransferStatus.Receiving,
-						TransferStatus.Done,
-						TransferStatus.Failed,
-						TransferStatus.Cancelled,
-						TransferStatus.Stopped,
-						-> Unit
-					}
 				}
+			}
+		}
+		item {
+			Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+				if (transfer.status == TransferStatus.Sharing) {
+					DestructiveButton(
+						stringResource(Res.string.send_stop_sharing),
+						onClick = onStopSharing,
+						modifier = Modifier.fillMaxWidth(),
+					)
+				}
+				DestructiveButton(
+					stringResource(Res.string.button_delete_transfer),
+					onClick = onDelete,
+					modifier = Modifier.fillMaxWidth(),
+				)
 			}
 		}
 	}

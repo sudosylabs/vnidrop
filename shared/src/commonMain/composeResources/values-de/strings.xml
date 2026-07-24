@@ -55,6 +55,7 @@
     <string name="bug_report_what_label">Was ist passiert?</string>
     <string name="button_approve">Genehmigen</string>
     <string name="button_back">Zurück</string>
+    <string name="button_more_actions">Weitere Aktionen</string>
     <string name="button_cancel">Abbrechen</string>
     <string name="button_cancel_receive">Abbrechen</string>
     <string name="button_change_files">Dateien ändern</string>
@@ -122,6 +123,16 @@
     <string name="notifications_enabled_message">Mitteilungen aktiviert.</string>
     <string name="notifications_local_title">Mitteilungen erlauben</string>
     <string name="notifications_permission_denied">Mitteilungen sind für VniDrop deaktiviert. Sie können sie in den Einstellungen aktivieren.</string>
+    <string name="notifications_receive_completed_body">„%1$s“ wurde vollständig heruntergeladen.</string>
+    <string name="notifications_receive_completed_title">Download abgeschlossen</string>
+    <string name="notifications_receive_failed_body">„%1$s“ konnte nicht empfangen werden.</string>
+    <string name="notifications_receive_failed_title">Download fehlgeschlagen</string>
+    <string name="notifications_receiver_completed_body">%1$s hat „%2$s“ vollständig empfangen.</string>
+    <string name="notifications_receiver_completed_title">Übertragung empfangen</string>
+    <string name="notifications_receiver_failed_body">%1$s konnte „%2$s“ nicht empfangen</string>
+    <string name="notifications_receiver_failed_title">Übertragung fehlgeschlagen</string>
+    <string name="notifications_send_failed_body">„%1$s“ konnte nicht geteilt werden.</string>
+    <string name="notifications_send_failed_title">Freigabe fehlgeschlagen</string>
     <string name="notifications_settings_open_failed">Die Mitteilungseinstellungen konnten nicht geöffnet werden.</string>
     <string name="notifications_title">Mitteilungen</string>
     <string name="notifications_unsupported">Mitteilungen sind auf diesem Gerät nicht verfügbar.</string>

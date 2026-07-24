@@ -828,6 +828,20 @@
         "ru": "Назад"
       }
     },
+    "button_more_actions": {
+      "context": "Accessibility label for a button that opens more actions for an item.",
+      "translations": {
+        "en": "More actions",
+        "fr": "Plus d’actions",
+        "es": "Más acciones",
+        "it": "Altre azioni",
+        "de": "Weitere Aktionen",
+        "pt": "Mais ações",
+        "pl": "Więcej działań",
+        "nl": "Meer acties",
+        "ru": "Другие действия"
+      }
+    },
     "button_cancel": {
       "context": "Button: cancel the current action or dialog.",
       "translations": {
@@ -1826,9 +1840,6 @@
     },
     "notifications_receive_completed_body": {
       "context": "Notification body shown when an incoming transfer finishes downloading. {transferName} = transfer name.",
-      "targets": [
-        "apple"
-      ],
       "args": [
         {
           "name": "transferName",
@@ -1849,9 +1860,6 @@
     },
     "notifications_receive_completed_title": {
       "context": "Notification title shown when an incoming transfer finishes downloading.",
-      "targets": [
-        "apple"
-      ],
       "translations": {
         "en": "Download complete",
         "fr": "Téléchargement terminé",
@@ -1866,9 +1874,6 @@
     },
     "notifications_receive_failed_body": {
       "context": "Notification body shown when an incoming transfer fails. {transferName} = transfer name.",
-      "targets": [
-        "apple"
-      ],
       "args": [
         {
           "name": "transferName",
@@ -1889,9 +1894,6 @@
     },
     "notifications_receive_failed_title": {
       "context": "Notification title shown when an incoming transfer fails.",
-      "targets": [
-        "apple"
-      ],
       "translations": {
         "en": "Download failed",
         "fr": "Échec du téléchargement",
@@ -1906,9 +1908,6 @@
     },
     "notifications_receiver_completed_body": {
       "context": "Notification body shown to the sender when a receiver finishes downloading a shared transfer. {receiver} = receiver name, {transferName} = transfer name.",
-      "targets": [
-        "apple"
-      ],
       "args": [
         {
           "name": "receiver",
@@ -1933,9 +1932,6 @@
     },
     "notifications_receiver_completed_title": {
       "context": "Notification title shown to the sender when a receiver finishes downloading a shared transfer.",
-      "targets": [
-        "apple"
-      ],
       "translations": {
         "en": "Transfer received",
         "fr": "Transfert reçu",
@@ -1950,9 +1946,6 @@
     },
     "notifications_receiver_failed_body": {
       "context": "Notification body shown to the sender when a receiver's download fails. {receiver} = receiver name, {transferName} = transfer name.",
-      "targets": [
-        "apple"
-      ],
       "args": [
         {
           "name": "receiver",
@@ -1977,9 +1970,6 @@
     },
     "notifications_receiver_failed_title": {
       "context": "Notification title shown to the sender when a receiver's download fails.",
-      "targets": [
-        "apple"
-      ],
       "translations": {
         "en": "Delivery failed",
         "fr": "Échec de l'envoi",
@@ -1994,9 +1984,6 @@
     },
     "notifications_send_failed_body": {
       "context": "Notification body shown to the sender when a shared transfer fails. {transferName} = transfer name.",
-      "targets": [
-        "apple"
-      ],
       "args": [
         {
           "name": "transferName",
@@ -2017,9 +2004,6 @@
     },
     "notifications_send_failed_title": {
       "context": "Notification title shown to the sender when a shared transfer fails.",
-      "targets": [
-        "apple"
-      ],
       "translations": {
         "en": "Sharing failed",
         "fr": "Échec du partage",

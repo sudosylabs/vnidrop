@@ -44,6 +44,7 @@ data class SendState(
 	val receiversByTransfer: Map<ULong, List<ReceiverRequestModel>> = emptyMap(),
 	val isLoadingReceivers: Boolean = false,
 	val isDeleteConfirmationOpen: Boolean = false,
+	val deleteTargetTransferId: ULong? = null,
 	val isDeleting: Boolean = false,
 ) {
 	val selectedFile: PickedShareFile? get() = selectedFiles.singleOrNull()
@@ -221,12 +222,19 @@ class SendViewModel(
 		refreshReceivers(transferId)
 	}
 	fun closeDetailPanel() = _state.update { it.copy(detailPanel = null) }
-	fun requestDeleteTransfer() = _state.update { it.copy(isDeleteConfirmationOpen = true) }
+	fun requestDeleteTransfer(transferId: ULong? = null) = _state.update {
+		it.copy(
+			isDeleteConfirmationOpen = true,
+			deleteTargetTransferId = transferId ?: it.selectedTransferId,
+		)
+	}
 	fun dismissDeleteTransfer() {
-		if (!_state.value.isDeleting) _state.update { it.copy(isDeleteConfirmationOpen = false) }
+		if (!_state.value.isDeleting) {
+			_state.update { it.copy(isDeleteConfirmationOpen = false, deleteTargetTransferId = null) }
+		}
 	}
 	fun confirmDeleteTransfer() {
-		val transferId = _state.value.selectedTransferId ?: return
+		val transferId = _state.value.deleteTargetTransferId ?: return
 		if (_state.value.isDeleting) return
 		viewModelScope.launch {
 			_state.update { it.copy(isDeleting = true) }
@@ -239,6 +247,7 @@ class SendViewModel(
 							detailPanel = null,
 							receiverHistory = emptyList(),
 							isDeleteConfirmationOpen = false,
+							deleteTargetTransferId = null,
 							isDeleting = false,
 						)
 					}
@@ -285,6 +294,7 @@ class SendViewModel(
 				onSuccess = { share ->
 					current.selectedFiles.firstNotNullOfOrNull { it.thumbnailBytes }
 						?.let { filePreviewRepository.save(share.transferId, it) }
+					repository.refresh()
 					_state.update {
 						it.copy(
 							isComposerOpen = false,
@@ -292,14 +302,26 @@ class SendViewModel(
 							transferName = "",
 							accessPolicy = ShareAccessPolicy.RequireApproval,
 							isSharing = false,
+							selectedTransferId = share.transferId,
+							detailPanel = TransferDetailPanel.Share,
 						)
 					}
+					refreshReceivers(share.transferId)
 					messages.show(UiMessage(UiText.Resource(Res.string.send_transfer_created), UiMessageTone.Success))
 				},
 				onFailure = { error ->
 					_state.update { it.copy(isSharing = false) }
 					messages.error(error)
 				},
+			)
+		}
+	}
+
+	fun stopSharing(transferId: ULong) {
+		viewModelScope.launch {
+			repository.cancel(transferId).fold(
+				onSuccess = { repository.refresh() },
+				onFailure = messages::error,
 			)
 		}
 	}

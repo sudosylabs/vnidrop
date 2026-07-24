@@ -41,6 +41,8 @@ interface FileSystemService {
 	suspend fun validateReceiveFolder(folder: ReceiveFolder): FolderAccessStatus
 	suspend fun inspectReceivedArtifacts(artifacts: List<ReceivedArtifactModel>): ReceivedStorageInspection
 	suspend fun temporaryUsage(receiveFolder: ReceiveFolder): ULong
+	/** Reclaims only app-owned temporary files and returns the number of bytes removed. */
+	suspend fun reclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong
 	fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2?
 	fun canRevealReceiveFolder(folder: ReceiveFolder): Boolean = false
 	suspend fun revealReceiveFolder(folder: ReceiveFolder): Result<Unit> =

@@ -25,6 +25,7 @@ import com.vnidrop.app.ui.feedback.UiMessage
 import com.vnidrop.app.ui.feedback.UiMessageController
 import com.vnidrop.app.ui.feedback.UiMessageTone
 import com.vnidrop.app.ui.feedback.UiText
+import com.vnidrop.app.ui.state.formatBytes
 import com.vnidrop.app.ui.theme.ThemeMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -51,6 +52,8 @@ import vnidrop.shared.generated.resources.notifications_unsupported
 import vnidrop.shared.generated.resources.relay_settings_applied
 import vnidrop.shared.generated.resources.storage_transfer_cache_cleared
 import vnidrop.shared.generated.resources.storage_transfers_deleted
+import vnidrop.shared.generated.resources.storage_cleanup_busy
+import vnidrop.shared.generated.resources.storage_cleanup_freed
 
 enum class SettingsSection {
 	Overview,
@@ -112,8 +115,10 @@ data class SettingsState(
 	val bugLogPreviewBytes: Int = 0,
 	val storage: StorageBreakdown? = null,
 	val isCalculatingStorage: Boolean = false,
+	val storageLoadFailed: Boolean = false,
 	val isDeletingTransfers: Boolean = false,
 	val isClearingTransferCache: Boolean = false,
+	val isCleaningStorage: Boolean = false,
 ) {
 	val hasRelaySettingsChanges: Boolean
 		get() = relayMode != savedRelaySettings.mode ||
@@ -188,6 +193,14 @@ class SettingsViewModel(
 						endpointId = coreState.status?.endpointId,
 					)
 				}
+				if (
+					coreState.isInitialized &&
+					_state.value.selectedSection == SettingsSection.Storage &&
+					_state.value.storage == null &&
+					_state.value.storageLoadFailed
+				) {
+					loadStorageUsage()
+				}
 			}
 		}
 		refreshNotificationPermission()
@@ -209,7 +222,7 @@ class SettingsViewModel(
 	fun loadStorageUsage() {
 		if (_state.value.isCalculatingStorage) return
 		viewModelScope.launch {
-			_state.update { it.copy(isCalculatingStorage = true) }
+			_state.update { it.copy(isCalculatingStorage = true, storageLoadFailed = false) }
 			try {
 				val receiveFolder = _state.value.receiveFolder ?: fileSystemService.defaultReceiveFolder()
 				val coreUsage = repository.storageUsage().getOrThrow()
@@ -227,12 +240,42 @@ class SettingsViewModel(
 							inaccessibleReceivedFileCount = received.inaccessibleCount,
 						),
 						isCalculatingStorage = false,
+						storageLoadFailed = false,
 					)
 				}
 			} catch (error: CancellationException) {
 				throw error
 			} catch (error: Throwable) {
-				_state.update { it.copy(isCalculatingStorage = false) }
+				_state.update { it.copy(isCalculatingStorage = false, storageLoadFailed = true) }
+				messages.error(error)
+			}
+		}
+	}
+
+	fun freeUpSpace() {
+		val current = _state.value
+		if (current.isCleaningStorage) return
+		if (current.hasActiveNetworkWork) {
+			messages.tryShow(UiMessage(UiText.Resource(Res.string.storage_cleanup_busy), UiMessageTone.Warning))
+			return
+		}
+		viewModelScope.launch {
+			_state.update { it.copy(isCleaningStorage = true) }
+			try {
+				val receiveFolder = _state.value.receiveFolder ?: fileSystemService.defaultReceiveFolder()
+				val reclaimed = fileSystemService.reclaimTemporaryStorage(environment.defaultCoreDataDir, receiveFolder)
+				_state.update { it.copy(isCleaningStorage = false) }
+				loadStorageUsage()
+				messages.tryShow(
+					UiMessage(
+						UiText.Resource(Res.string.storage_cleanup_freed, formatArgs = listOf(formatBytes(reclaimed))),
+						UiMessageTone.Success,
+					),
+				)
+			} catch (error: CancellationException) {
+				throw error
+			} catch (error: Throwable) {
+				_state.update { it.copy(isCleaningStorage = false) }
 				messages.error(error)
 			}
 		}

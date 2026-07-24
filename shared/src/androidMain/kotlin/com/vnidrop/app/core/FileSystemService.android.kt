@@ -105,6 +105,30 @@ private class AndroidFileSystemService(
 
 	override suspend fun temporaryUsage(receiveFolder: ReceiveFolder): ULong = directorySize(context.cacheDir)
 
+	override suspend fun reclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong {
+		var reclaimed = 0UL
+		context.cacheDir.listFiles().orEmpty().forEach { entry ->
+			val size = if (entry.isDirectory) directorySize(entry) else entry.length().coerceAtLeast(0L).toULong()
+			if (entry.deleteRecursively()) reclaimed += size
+		}
+		val appDataRoot = File(appDataDir)
+		val appDataIsOwned = runCatching {
+			val appDataPath = appDataRoot.canonicalPath
+			val filesPath = context.filesDir.canonicalPath
+			appDataPath == filesPath || appDataPath.startsWith(filesPath + File.separator)
+		}.getOrDefault(false)
+		if (appDataIsOwned) {
+			appDataRoot.walkTopDown()
+				.filter { it.isDirectory && it.name == ".Trash" }
+				.toList()
+				.forEach { trash ->
+					val size = directorySize(trash)
+					if (trash.deleteRecursively()) reclaimed += size
+				}
+		}
+		return reclaimed
+	}
+
 	override fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2? =
 		when (folder.kind) {
 			ReceiveFolderKind.AndroidPublicDownloads -> AndroidMediaStoreDownloadsSink(context)

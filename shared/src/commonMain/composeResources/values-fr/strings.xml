@@ -55,6 +55,7 @@
     <string name="bug_report_what_label">Que s’est-il passé ?</string>
     <string name="button_approve">Approuver</string>
     <string name="button_back">Retour</string>
+    <string name="button_more_actions">Plus d’actions</string>
     <string name="button_cancel">Annuler</string>
     <string name="button_cancel_receive">Annuler</string>
     <string name="button_change_files">Modifier les fichiers</string>
@@ -122,6 +123,16 @@
     <string name="notifications_enabled_message">Notifications activées.</string>
     <string name="notifications_local_title">Autoriser les notifications</string>
     <string name="notifications_permission_denied">Les notifications sont désactivées pour VniDrop. Vous pouvez les activer dans les Réglages.</string>
+    <string name="notifications_receive_completed_body">« %1$s » a fini de se télécharger.</string>
+    <string name="notifications_receive_completed_title">Téléchargement terminé</string>
+    <string name="notifications_receive_failed_body">« %1$s » n’a pas pu être reçu.</string>
+    <string name="notifications_receive_failed_title">Échec du téléchargement</string>
+    <string name="notifications_receiver_completed_body">%1$s a fini de recevoir « %2$s ».</string>
+    <string name="notifications_receiver_completed_title">Transfert reçu</string>
+    <string name="notifications_receiver_failed_body">%1$s n\'a pas pu recevoir « %2$s »</string>
+    <string name="notifications_receiver_failed_title">Échec de l\'envoi</string>
+    <string name="notifications_send_failed_body">« %1$s » n’a pas pu être partagé.</string>
+    <string name="notifications_send_failed_title">Échec du partage</string>
     <string name="notifications_settings_open_failed">Impossible d’ouvrir les réglages de notifications.</string>
     <string name="notifications_title">Notifications</string>
     <string name="notifications_unsupported">Les notifications ne sont pas disponibles sur cet appareil.</string>

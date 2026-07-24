@@ -5,6 +5,7 @@ import com.vnidrop.app.PlatformEnvironment
 import com.vnidrop.app.core.CoreState
 import com.vnidrop.app.core.CoreStatus
 import com.vnidrop.app.core.CoreSignal
+import com.vnidrop.app.core.CoreStorageUsageModel
 import com.vnidrop.app.core.PickedShareFile
 import com.vnidrop.app.core.ReceiveFolder
 import com.vnidrop.app.core.ReceiveFolderKind
@@ -26,6 +27,7 @@ import com.vnidrop.app.feature.app.AppViewModel
 import com.vnidrop.app.feature.receive.ReceiveHistoryDeleteTarget
 import com.vnidrop.app.feature.receive.ReceiveViewModel
 import com.vnidrop.app.feature.send.SendViewModel
+import com.vnidrop.app.feature.send.TransferDetailPanel
 import com.vnidrop.app.feature.settings.SettingsSection
 import com.vnidrop.app.feature.settings.RelaySettingsApplyError
 import com.vnidrop.app.feature.settings.RelaySettingsInputError
@@ -166,6 +168,43 @@ class ViewModelsTest {
 		advanceUntilIdle()
 
 		assertEquals(0, core.clearTransferCacheCount)
+	}
+
+	@Test
+	fun settingsFreesOnlyPlatformOwnedTemporaryStorage() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val fileSystem = FakeFileSystemService(folder).apply {
+			reclaimedTemporaryBytes = 12_000UL
+		}
+		val viewModel = settingsViewModel(fileSystem = fileSystem)
+		advanceUntilIdle()
+
+		viewModel.freeUpSpace()
+		advanceUntilIdle()
+
+		assertEquals(1, fileSystem.reclaimTemporaryStorageCount)
+		assertFalse(viewModel.state.value.isCleaningStorage)
+	}
+
+	@Test
+	fun settingsRetriesStorageAfterCoreFinishesStarting() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val core = FakeCoreGateway().apply {
+			storageUsageResult = Result.failure(IllegalStateException("not initialized"))
+		}
+		val viewModel = settingsViewModel(repository = core)
+		advanceUntilIdle()
+
+		viewModel.selectSection(SettingsSection.Storage)
+		advanceUntilIdle()
+		assertTrue(viewModel.state.value.storageLoadFailed)
+
+		core.storageUsageResult = Result.success(CoreStorageUsageModel(25UL, 10UL, 5UL, 0UL, 0UL))
+		core.mutableState.value = core.mutableState.value.copy(isInitialized = true)
+		advanceUntilIdle()
+
+		assertFalse(viewModel.state.value.storageLoadFailed)
+		assertEquals(25UL, viewModel.state.value.storage?.transferCacheBytes)
 	}
 
 	@Test
@@ -533,8 +572,31 @@ class ViewModelsTest {
 		assertEquals(null, viewModel.state.value.selectedFile)
 		assertEquals(ShareAccessPolicy.AnyoneWithTransfer, core.lastShareAccessPolicy)
 		assertEquals(7UL, core.state.value.transfers.first().transferId)
+		assertEquals(7UL, viewModel.state.value.selectedTransferId)
+		assertEquals(TransferDetailPanel.Share, viewModel.state.value.detailPanel)
 		assertContentEquals(thumbnail, previews.previews.value.getValue(7UL))
 		assertEquals(listOf(selected), fileSystem.discardedPickedFiles)
+	}
+
+	@Test
+	fun sendViewModelStopsSharingFromCatalogAction() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val core = FakeCoreGateway().apply {
+			mutableState.value = CoreState(isInitialized = true, transfers = listOf(sentTransfer(7UL)))
+		}
+		val viewModel = SendViewModel(
+			core,
+			FakeFileSystemService(folder),
+			preferences(),
+			FakeFilePreviewRepository(),
+			UiMessageController(),
+		)
+		advanceUntilIdle()
+
+		viewModel.stopSharing(7UL)
+		advanceUntilIdle()
+
+		assertEquals(listOf(7UL), core.cancelledTransfers)
 	}
 
 	@Test

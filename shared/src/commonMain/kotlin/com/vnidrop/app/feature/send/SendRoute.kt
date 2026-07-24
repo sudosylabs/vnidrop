@@ -46,6 +46,11 @@ fun SendRoute(
 		onAccessPolicyChanged = viewModel::setAccessPolicy,
 		onCreateShare = viewModel::createShare,
 		onTransferSelected = viewModel::openTransfer,
+		onShareTransfer = { transferId ->
+			viewModel.openTransfer(transferId)
+			viewModel.openShare()
+		},
+		onStopSharing = viewModel::stopSharing,
 		onCloseTransferDetails = viewModel::closeTransferDetails,
 		onCopyTicket = viewModel::copyTicket,
 		onActivity = viewModel::openActivity,
@@ -53,7 +58,8 @@ fun SendRoute(
 		onShare = viewModel::openShare,
 		onCloseDetailPanel = viewModel::closeDetailPanel,
 		onInvitationResult = viewModel::onInvitationResult,
-		onRequestDelete = viewModel::requestDeleteTransfer,
+		onRequestDelete = { viewModel.requestDeleteTransfer() },
+		onRequestDeleteTransfer = { viewModel.requestDeleteTransfer(it) },
 		onDismissDelete = viewModel::dismissDeleteTransfer,
 		onConfirmDelete = viewModel::confirmDeleteTransfer,
 	)

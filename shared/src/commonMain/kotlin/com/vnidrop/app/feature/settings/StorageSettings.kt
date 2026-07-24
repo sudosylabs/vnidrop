@@ -36,9 +36,16 @@ import vnidrop.shared.generated.resources.storage_calculating
 import vnidrop.shared.generated.resources.storage_clear_transfer_cache
 import vnidrop.shared.generated.resources.storage_clear_transfer_cache_description
 import vnidrop.shared.generated.resources.storage_clearing_transfer_cache
+import vnidrop.shared.generated.resources.storage_cleaning
+import vnidrop.shared.generated.resources.storage_delete_transfers_caption
 import vnidrop.shared.generated.resources.storage_delete_transfers
 import vnidrop.shared.generated.resources.storage_delete_transfers_description
 import vnidrop.shared.generated.resources.storage_deleting
+import vnidrop.shared.generated.resources.storage_free_up_space
+import vnidrop.shared.generated.resources.storage_free_up_space_caption
+import vnidrop.shared.generated.resources.storage_refresh
+import vnidrop.shared.generated.resources.storage_unavailable
+import vnidrop.shared.generated.resources.storage_usage_header
 import vnidrop.shared.generated.resources.storage_total
 import vnidrop.shared.generated.resources.storage_received_files
 import vnidrop.shared.generated.resources.storage_temporary
@@ -52,6 +59,8 @@ internal fun StorageSettings(
 	windowClass: WindowClass,
 	onDeleteAllTransfers: () -> Unit,
 	onClearTransferCache: () -> Unit,
+	onFreeUpSpace: () -> Unit,
+	onRefreshStorage: () -> Unit,
 	onBack: () -> Unit,
 	showBack: Boolean,
 ) {
@@ -59,8 +68,30 @@ internal fun StorageSettings(
 	var showClearCacheConfirmation by rememberSaveable { mutableStateOf(false) }
 	Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
 		SettingsTopBar(stringResource(Res.string.storage_title), onBack, showBack)
+		Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+			Text(
+				stringResource(Res.string.storage_usage_header),
+				modifier = Modifier.weight(1f),
+				style = MaterialTheme.typography.titleMedium,
+				fontWeight = FontWeight.SemiBold,
+			)
+			SecondaryButton(
+				stringResource(Res.string.storage_refresh),
+				onClick = onRefreshStorage,
+				enabled = !state.isCalculatingStorage &&
+					!state.isCleaningStorage &&
+					!state.isDeletingTransfers &&
+					!state.isClearingTransferCache,
+			)
+		}
 		val storage = state.storage
-		if (storage == null || state.isCalculatingStorage) {
+		if (storage == null && state.storageLoadFailed && !state.isCalculatingStorage) {
+			SecondaryButton(
+				stringResource(Res.string.storage_unavailable),
+				onClick = onRefreshStorage,
+				modifier = Modifier.fillMaxWidth(),
+			)
+		} else if (storage == null || state.isCalculatingStorage) {
 			SettingsGroup {
 				StorageRow(
 					title = stringResource(Res.string.storage_calculating),
@@ -86,6 +117,23 @@ internal fun StorageSettings(
 		}
 		SecondaryButton(
 			text = stringResource(
+				if (state.isCleaningStorage) Res.string.storage_cleaning else Res.string.storage_free_up_space,
+			),
+			onClick = onFreeUpSpace,
+			modifier = Modifier.fillMaxWidth(),
+			enabled = !state.isCleaningStorage &&
+				!state.isDeletingTransfers &&
+				!state.isClearingTransferCache &&
+				!state.isCalculatingStorage &&
+				!state.hasActiveNetworkWork,
+		)
+		Text(
+			stringResource(Res.string.storage_free_up_space_caption),
+			style = MaterialTheme.typography.bodySmall,
+			color = LocalVniDropColors.current.foregroundLighter,
+		)
+		SecondaryButton(
+			text = stringResource(
 				if (state.isClearingTransferCache) {
 					Res.string.storage_clearing_transfer_cache
 				} else {
@@ -107,6 +155,11 @@ internal fun StorageSettings(
 		) {
 			Text(stringResource(if (state.isDeletingTransfers) Res.string.storage_deleting else Res.string.storage_delete_transfers))
 		}
+		Text(
+			stringResource(Res.string.storage_delete_transfers_caption),
+			style = MaterialTheme.typography.bodySmall,
+			color = LocalVniDropColors.current.foregroundLighter,
+		)
 		Text(
 			stringResource(Res.string.storage_footer),
 			style = MaterialTheme.typography.bodySmall,

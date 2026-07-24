@@ -294,7 +294,7 @@ private fun InvitationReviewPanel(
 				Text(
 					when (error) {
 						is UiText.Dynamic -> error.value
-						is UiText.Resource -> stringResource(error.resource)
+						is UiText.Resource -> stringResource(error.resource, *error.formatArgs.toTypedArray())
 					},
 					color = LocalVniDropColors.current.destructiveDefault,
 					style = MaterialTheme.typography.bodySmall,

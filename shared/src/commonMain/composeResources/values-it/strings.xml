@@ -55,6 +55,7 @@
     <string name="bug_report_what_label">Cosa è accaduto?</string>
     <string name="button_approve">Approva</string>
     <string name="button_back">Indietro</string>
+    <string name="button_more_actions">Altre azioni</string>
     <string name="button_cancel">Annulla</string>
     <string name="button_cancel_receive">Annulla</string>
     <string name="button_change_files">Cambia file</string>
@@ -122,6 +123,16 @@
     <string name="notifications_enabled_message">Notifiche attivate.</string>
     <string name="notifications_local_title">Consenti le notifiche</string>
     <string name="notifications_permission_denied">Le notifiche sono disattivate per VniDrop. Può attivarle in Impostazioni.</string>
+    <string name="notifications_receive_completed_body">«%1$s» è stato scaricato.</string>
+    <string name="notifications_receive_completed_title">Download completato</string>
+    <string name="notifications_receive_failed_body">Impossibile ricevere «%1$s».</string>
+    <string name="notifications_receive_failed_title">Download non riuscito</string>
+    <string name="notifications_receiver_completed_body">%1$s ha finito di ricevere «%2$s».</string>
+    <string name="notifications_receiver_completed_title">Trasferimento ricevuto</string>
+    <string name="notifications_receiver_failed_body">%1$s non ha potuto ricevere “%2$s”</string>
+    <string name="notifications_receiver_failed_title">Consegna non riuscita</string>
+    <string name="notifications_send_failed_body">Impossibile condividere «%1$s».</string>
+    <string name="notifications_send_failed_title">Condivisione non riuscita</string>
     <string name="notifications_settings_open_failed">Impossibile aprire le impostazioni delle notifiche.</string>
     <string name="notifications_title">Notifiche</string>
     <string name="notifications_unsupported">Le notifiche non sono disponibili su questo dispositivo.</string>

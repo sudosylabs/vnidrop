@@ -55,6 +55,7 @@
     <string name="bug_report_what_label">Wat is er gebeurd?</string>
     <string name="button_approve">Goedkeuren</string>
     <string name="button_back">Terug</string>
+    <string name="button_more_actions">Meer acties</string>
     <string name="button_cancel">Annuleren</string>
     <string name="button_cancel_receive">Annuleren</string>
     <string name="button_change_files">Bestanden wijzigen</string>
@@ -122,6 +123,16 @@
     <string name="notifications_enabled_message">Meldingen ingeschakeld.</string>
     <string name="notifications_local_title">Meldingen toestaan</string>
     <string name="notifications_permission_denied">Meldingen zijn uitgeschakeld voor VniDrop. U kunt ze inschakelen in Instellingen.</string>
+    <string name="notifications_receive_completed_body">‘%1$s’ is volledig gedownload.</string>
+    <string name="notifications_receive_completed_title">Download voltooid</string>
+    <string name="notifications_receive_failed_body">‘%1$s’ kon niet worden ontvangen.</string>
+    <string name="notifications_receive_failed_title">Download mislukt</string>
+    <string name="notifications_receiver_completed_body">%1$s heeft ‘%2$s’ volledig ontvangen.</string>
+    <string name="notifications_receiver_completed_title">Overdracht ontvangen</string>
+    <string name="notifications_receiver_failed_body">%1$s kon “%2$s” niet ontvangen</string>
+    <string name="notifications_receiver_failed_title">Levering mislukt</string>
+    <string name="notifications_send_failed_body">‘%1$s’ kon niet worden gedeeld.</string>
+    <string name="notifications_send_failed_title">Delen mislukt</string>
     <string name="notifications_settings_open_failed">De meldingsinstellingen konden niet worden geopend.</string>
     <string name="notifications_title">Meldingen</string>
     <string name="notifications_unsupported">Meldingen zijn niet beschikbaar op dit apparaat.</string>

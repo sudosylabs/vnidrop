@@ -138,5 +138,5 @@ private fun DismissButton(onClick: () -> Unit) {
 
 private suspend fun UiText.resolve(): String = when (this) {
 	is UiText.Dynamic -> value
-	is UiText.Resource -> getString(resource)
+	is UiText.Resource -> getString(resource, *formatArgs.toTypedArray())
 }

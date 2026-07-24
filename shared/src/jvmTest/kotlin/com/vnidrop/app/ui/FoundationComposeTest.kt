@@ -111,7 +111,7 @@ class FoundationComposeTest {
 			}
 		}
 		onNodeWithText("Notifications").performClick()
-		onNodeWithText("Get notified about new receive requests while VniDrop is in the background.").assertIsDisplayed()
+		onNodeWithText("Get notified about transfer activity while VniDrop is in the background.").assertIsDisplayed()
 	}
 
 	@Test
@@ -212,10 +212,11 @@ class FoundationComposeTest {
 		runOnIdle { assertTrue(cacheClearRequested) }
 
 		onNodeWithText("Delete all transfers").performClick()
-		onNodeWithText(
-			"This clears all sent and received transfer records from your history and immediately reclaims unused transfer cache. " +
-				"Ongoing transfers and received files are not deleted. This can’t be undone.",
-		).assertIsDisplayed()
+			onNodeWithText(
+				"This clears all sent and received transfer records from your history. Your received files are not deleted. " +
+					"Cached shared content that is no longer needed is reclaimed automatically, which may take a little time. " +
+					"This can’t be undone.",
+			).assertIsDisplayed()
 		runOnIdle { assertFalse(deleteRequested) }
 
 		onNodeWithTag("confirm-delete-all-transfers").performClick()
@@ -636,10 +637,13 @@ class FoundationComposeTest {
 			}
 		}
 
-		onNodeWithText("Share").assertIsDisplayed()
+		onNodeWithContentDescription("Share").assertIsDisplayed()
 		onAllNodesWithText("Scan with VniDrop to receive this transfer").assertCountEquals(0)
-		onNode(hasText("Share") and hasClickAction()).performClick()
+		onNodeWithContentDescription("Share").performClick()
 		runOnIdle { assertEquals(com.vnidrop.app.feature.send.TransferDetailPanel.Share, state.value.detailPanel) }
+		waitUntil(timeoutMillis = 5_000) {
+			onAllNodesWithText("Scan with VniDrop to receive this transfer").fetchSemanticsNodes().isNotEmpty()
+		}
 		onNodeWithText("Scan with VniDrop to receive this transfer").assertIsDisplayed()
 		onNodeWithText("Save .vnd file").assertIsDisplayed()
 		onNodeWithContentDescription("Close").assertIsDisplayed()

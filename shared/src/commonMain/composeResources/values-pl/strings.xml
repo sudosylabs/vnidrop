@@ -55,6 +55,7 @@
     <string name="bug_report_what_label">Co się stało?</string>
     <string name="button_approve">Zatwierdź</string>
     <string name="button_back">Wstecz</string>
+    <string name="button_more_actions">Więcej działań</string>
     <string name="button_cancel">Anuluj</string>
     <string name="button_cancel_receive">Anuluj</string>
     <string name="button_change_files">Zmień pliki</string>
@@ -122,6 +123,16 @@
     <string name="notifications_enabled_message">Powiadomienia włączone.</string>
     <string name="notifications_local_title">Zezwól na powiadomienia</string>
     <string name="notifications_permission_denied">Powiadomienia są wyłączone dla VniDrop. Możesz je włączyć w Ustawieniach.</string>
+    <string name="notifications_receive_completed_body">Zakończono pobieranie „%1$s”.</string>
+    <string name="notifications_receive_completed_title">Pobieranie zakończone</string>
+    <string name="notifications_receive_failed_body">Nie udało się odebrać „%1$s”.</string>
+    <string name="notifications_receive_failed_title">Pobieranie nie powiodło się</string>
+    <string name="notifications_receiver_completed_body">%1$s zakończył odbieranie „%2$s”.</string>
+    <string name="notifications_receiver_completed_title">Transfer odebrany</string>
+    <string name="notifications_receiver_failed_body">%1$s nie mógł odebrać „%2$s”</string>
+    <string name="notifications_receiver_failed_title">Dostarczenie nie powiodło się</string>
+    <string name="notifications_send_failed_body">Nie udało się udostępnić „%1$s”.</string>
+    <string name="notifications_send_failed_title">Udostępnianie nie powiodło się</string>
     <string name="notifications_settings_open_failed">Nie udało się otworzyć ustawień powiadomień.</string>
     <string name="notifications_title">Powiadomienia</string>
     <string name="notifications_unsupported">Powiadomienia nie są dostępne na tym urządzeniu.</string>

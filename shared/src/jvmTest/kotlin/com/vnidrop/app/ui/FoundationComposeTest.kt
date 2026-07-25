@@ -63,10 +63,61 @@ import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.shell.AppShell
 import com.vnidrop.app.ui.theme.VniDropTheme
 import com.vnidrop.app.ui.theme.LocalVniDropColors
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.getString
+import vnidrop.shared.generated.resources.Res
+import vnidrop.shared.generated.resources.about_is_direct
+import vnidrop.shared.generated.resources.about_is_title
+import vnidrop.shared.generated.resources.about_isnt_title
+import vnidrop.shared.generated.resources.about_privacy_title
+import vnidrop.shared.generated.resources.about_tagline
+import vnidrop.shared.generated.resources.approval_endpoint_id
+import vnidrop.shared.generated.resources.button_approve
+import vnidrop.shared.generated.resources.button_choose_files
+import vnidrop.shared.generated.resources.button_close
+import vnidrop.shared.generated.resources.button_create_new_transfer
+import vnidrop.shared.generated.resources.button_download_invitation
+import vnidrop.shared.generated.resources.button_open_settings
+import vnidrop.shared.generated.resources.button_receive_files
+import vnidrop.shared.generated.resources.nav_receive
+import vnidrop.shared.generated.resources.nav_send
+import vnidrop.shared.generated.resources.notifications_description
+import vnidrop.shared.generated.resources.notifications_local_title
+import vnidrop.shared.generated.resources.notifications_title
+import vnidrop.shared.generated.resources.receive_choose_method_title
+import vnidrop.shared.generated.resources.receive_clear_history
+import vnidrop.shared.generated.resources.receive_clear_history_description
+import vnidrop.shared.generated.resources.receive_clear_history_title
+import vnidrop.shared.generated.resources.receive_delete_history_item
+import vnidrop.shared.generated.resources.receive_empty_title
+import vnidrop.shared.generated.resources.receive_method_file
+import vnidrop.shared.generated.resources.receive_new_subtitle
+import vnidrop.shared.generated.resources.relay_add_url
+import vnidrop.shared.generated.resources.relay_apply
+import vnidrop.shared.generated.resources.relay_mode_custom
+import vnidrop.shared.generated.resources.relay_strict_warning
+import vnidrop.shared.generated.resources.send_access_anyone
+import vnidrop.shared.generated.resources.send_choose_file_title
+import vnidrop.shared.generated.resources.send_subtitle
+import vnidrop.shared.generated.resources.settings_network_title
+import vnidrop.shared.generated.resources.settings_subtitle
+import vnidrop.shared.generated.resources.snackbar_dismiss
+import vnidrop.shared.generated.resources.status_available
+import vnidrop.shared.generated.resources.storage_calculating
+import vnidrop.shared.generated.resources.storage_clear_transfer_cache
+import vnidrop.shared.generated.resources.storage_clear_transfer_cache_description
+import vnidrop.shared.generated.resources.storage_delete_transfers
+import vnidrop.shared.generated.resources.storage_delete_transfers_description
+import vnidrop.shared.generated.resources.storage_received_files
+import vnidrop.shared.generated.resources.storage_transfer_data
+import vnidrop.shared.generated.resources.transfer_qr_unavailable
+import vnidrop.shared.generated.resources.transfer_scan_qr
+import vnidrop.shared.generated.resources.transfer_share_title
 
 @OptIn(ExperimentalTestApi::class)
 class FoundationComposeTest {
@@ -82,7 +133,7 @@ class FoundationComposeTest {
 				)
 			}
 		}
-		onNodeWithText("Approve").performClick()
+		onNodeWithText(Res.string.button_approve.value).performClick()
 		runOnIdle { assertEquals("request", accepted) }
 	}
 
@@ -111,8 +162,8 @@ class FoundationComposeTest {
 				)
 			}
 		}
-		onNodeWithText("Notifications").performClick()
-		onNodeWithText("Get notified about transfer activity while VniDrop is in the background.").assertIsDisplayed()
+		onNodeWithText(Res.string.notifications_title.value).performClick()
+		onNodeWithText(Res.string.notifications_description.value).assertIsDisplayed()
 	}
 
 	@Test
@@ -162,15 +213,12 @@ class FoundationComposeTest {
 			}
 		}
 
-		onNodeWithText("Network").performClick()
-		onNodeWithText("Device ID: endpoint-for-allowlist").assertIsDisplayed()
-		onNodeWithText("Strict custom").performClick()
-		onNodeWithText(
-			"Strict custom mode will not start unless at least one configured relay is reachable. " +
-				"VniDrop never uses public relays or public discovery in this mode.",
-		).assertIsDisplayed()
-		onNodeWithText("Add relay server").assertIsDisplayed()
-		onNodeWithText("Apply network settings").performClick()
+		onNodeWithText(Res.string.settings_network_title.value).performClick()
+		onNodeWithText(Res.string.approval_endpoint_id.value("endpoint-for-allowlist")).assertIsDisplayed()
+		onNodeWithText(Res.string.relay_mode_custom.value).performClick()
+		onNodeWithText(Res.string.relay_strict_warning.value).assertIsDisplayed()
+		onNodeWithText(Res.string.relay_add_url.value).assertIsDisplayed()
+		onNodeWithText(Res.string.relay_apply.value).performClick()
 		runOnIdle { assertTrue(applied) }
 	}
 
@@ -203,20 +251,14 @@ class FoundationComposeTest {
 			}
 		}
 
-		onNodeWithText("Clear transfer cache").performClick()
-		onNodeWithText(
-			"Removes cached transfer content after briefly restarting VniDrop. " +
-				"Finish ongoing transfers and stop active shares first. Received files and transfer history are not deleted.",
-		).assertIsDisplayed()
+		onNodeWithText(Res.string.storage_clear_transfer_cache.value).performClick()
+		onNodeWithText(Res.string.storage_clear_transfer_cache_description.value).assertIsDisplayed()
 		runOnIdle { assertFalse(cacheClearRequested) }
 		onNodeWithTag("confirm-clear-transfer-cache").performClick()
 		runOnIdle { assertTrue(cacheClearRequested) }
 
-		onNodeWithText("Delete all transfers").performClick()
-		onNodeWithText(
-			"This clears all sent and received transfer records from your history and immediately reclaims unused transfer cache. " +
-				"Ongoing transfers and received files are not deleted. This can’t be undone.",
-		).assertIsDisplayed()
+		onNodeWithText(Res.string.storage_delete_transfers.value).performClick()
+		onNodeWithText(Res.string.storage_delete_transfers_description.value).assertIsDisplayed()
 		runOnIdle { assertFalse(deleteRequested) }
 
 		onNodeWithTag("confirm-delete-all-transfers").performClick()
@@ -260,9 +302,9 @@ class FoundationComposeTest {
 			}
 		}
 
-		onNodeWithText("Received files").assertIsDisplayed()
-		onNodeWithText("Transfer data").assertIsDisplayed()
-		onAllNodesWithText("Calculating storage usage…").assertCountEquals(0)
+		onNodeWithText(Res.string.storage_received_files.value).assertIsDisplayed()
+		onNodeWithText(Res.string.storage_transfer_data.value).assertIsDisplayed()
+		onAllNodesWithText(Res.string.storage_calculating.value).assertCountEquals(0)
 	}
 
 	@Test
@@ -292,14 +334,12 @@ class FoundationComposeTest {
 			}
 		}
 
-		onNodeWithText("Send files directly. Stay in control of who receives them.").assertIsDisplayed()
-		onNodeWithText("What VniDrop is").assertIsDisplayed()
-		onNodeWithText("What VniDrop isn’t").assertIsDisplayed()
-		onAllNodesWithText("Privacy & security").assertCountEquals(1)
+		onNodeWithText(Res.string.about_tagline.value).assertIsDisplayed()
+		onNodeWithText(Res.string.about_is_title.value).assertIsDisplayed()
+		onNodeWithText(Res.string.about_isnt_title.value).assertIsDisplayed()
+		onAllNodesWithText(Res.string.about_privacy_title.value).assertCountEquals(1)
 		onAllNodesWithText("Apache 2.0").assertCountEquals(1)
-		val explanationBounds = onNodeWithText(
-			"A direct device-to-device transfer — your files go straight to the receiver.",
-		).getUnclippedBoundsInRoot()
+		val explanationBounds = onNodeWithText(Res.string.about_is_direct.value).getUnclippedBoundsInRoot()
 		assertTrue(explanationBounds.bottom - explanationBounds.top > 32.dp)
 	}
 
@@ -328,7 +368,7 @@ class FoundationComposeTest {
 				)
 			}
 		}
-		onNodeWithText("Allow notifications").performClick()
+		onNodeWithText(Res.string.notifications_local_title.value).performClick()
 		runOnIdle { assertEquals(true, enabled) }
 	}
 
@@ -360,7 +400,7 @@ class FoundationComposeTest {
 				)
 			}
 		}
-		onNodeWithText("Open Settings").performClick()
+		onNodeWithText(Res.string.button_open_settings.value).performClick()
 		runOnIdle { assertTrue(opened) }
 	}
 
@@ -372,7 +412,7 @@ class FoundationComposeTest {
 			VniDropTheme(isDarkTheme = false) { VniDropSnackbarHost(controller) }
 		}
 		onNodeWithText("Saved successfully").assertIsDisplayed()
-		onNodeWithContentDescription("Dismiss").assertIsDisplayed()
+		onNodeWithContentDescription(Res.string.snackbar_dismiss.value).assertIsDisplayed()
 	}
 
 	@Test
@@ -392,7 +432,7 @@ class FoundationComposeTest {
 
 		val messageBottom = onNodeWithText("Notifications are turned off for VniDrop. You can enable them in Settings.")
 			.getUnclippedBoundsInRoot().bottom
-		val closeBottom = onNodeWithContentDescription("Dismiss").getUnclippedBoundsInRoot().bottom
+		val closeBottom = onNodeWithContentDescription(Res.string.snackbar_dismiss.value).getUnclippedBoundsInRoot().bottom
 		val actionTop = onNodeWithText("Open Settings").getUnclippedBoundsInRoot().top
 		assertTrue(messageBottom <= actionTop)
 		assertTrue(closeBottom <= actionTop)
@@ -421,7 +461,7 @@ class FoundationComposeTest {
 
 		val overlayBottom = onNodeWithTag("snackbar-overlay").getUnclippedBoundsInRoot().bottom
 		val floatingActionTop = onNodeWithTag("floating-action").getUnclippedBoundsInRoot().top
-		val navigationLabelTop = onNodeWithText("Send").getUnclippedBoundsInRoot().top
+		val navigationLabelTop = onNodeWithText(Res.string.nav_send.value).getUnclippedBoundsInRoot().top
 		assertTrue(overlayBottom <= floatingActionTop)
 		assertTrue(overlayBottom <= navigationLabelTop)
 	}
@@ -445,7 +485,7 @@ class FoundationComposeTest {
 		}
 
 		onNodeWithText("VniDrop").assertIsDisplayed()
-		onNodeWithText("Receive").performClick()
+		onNodeWithText(Res.string.nav_receive.value).performClick()
 		runOnIdle { assertEquals(AppDestination.Receive, selected) }
 	}
 
@@ -563,9 +603,9 @@ class FoundationComposeTest {
 
 		onNodeWithTag("send-empty-icon").assertIsDisplayed()
 		onNodeWithTag("receive-empty-icon").assertIsDisplayed()
-		onAllNodesWithText("Transfers you’re sharing from this device.").assertCountEquals(0)
-		onAllNodesWithText("Transfers you’ve received on this device.").assertCountEquals(0)
-		onAllNodesWithText("Your name, where transfers are saved, appearance, and notifications.").assertCountEquals(0)
+		onAllNodesWithText(Res.string.send_subtitle.value).assertCountEquals(0)
+		onAllNodesWithText(Res.string.receive_new_subtitle.value).assertCountEquals(0)
+		onAllNodesWithText(Res.string.settings_subtitle.value).assertCountEquals(0)
 	}
 
 	@Test
@@ -592,9 +632,9 @@ class FoundationComposeTest {
 			}
 		}
 
-		onNodeWithText("New transfer").performClick()
-		onNodeWithText("Choose what to share").assertIsDisplayed()
-		onNodeWithText("Choose files").assertIsDisplayed()
+		onNodeWithText(Res.string.button_create_new_transfer.value).performClick()
+		onNodeWithText(Res.string.send_choose_file_title.value).assertIsDisplayed()
+		onNodeWithText(Res.string.button_choose_files.value).assertIsDisplayed()
 	}
 
 	@Test
@@ -627,7 +667,7 @@ class FoundationComposeTest {
 		}
 
 		onNodeWithText("1.5 KB").assertIsDisplayed()
-		onNodeWithText("Anyone with this transfer").performClick()
+		onNodeWithText(Res.string.send_access_anyone.value).performClick()
 		runOnIdle { assertEquals(ShareAccessPolicy.AnyoneWithTransfer, selectedPolicy) }
 	}
 
@@ -656,7 +696,7 @@ class FoundationComposeTest {
 		}
 
 		val titleBounds = onNodeWithText("Photos").getUnclippedBoundsInRoot()
-		val statusBounds = onNodeWithText("Available").getUnclippedBoundsInRoot()
+		val statusBounds = onNodeWithText(Res.string.status_available.value).getUnclippedBoundsInRoot()
 		assertTrue(statusBounds.left - titleBounds.right <= 12.dp)
 		onNodeWithText("Photos").performClick()
 		runOnIdle { assertEquals(9UL, selectedId) }
@@ -679,16 +719,16 @@ class FoundationComposeTest {
 			}
 		}
 
-		onNodeWithContentDescription("Share").assertIsDisplayed()
-		onAllNodesWithText("Scan with VniDrop to receive this transfer").assertCountEquals(0)
-		onNodeWithContentDescription("Share").performClick()
+		onNodeWithContentDescription(Res.string.transfer_share_title.value).assertIsDisplayed()
+		onAllNodesWithText(Res.string.transfer_scan_qr.value).assertCountEquals(0)
+		onNodeWithContentDescription(Res.string.transfer_share_title.value).performClick()
 		runOnIdle { assertEquals(com.vnidrop.app.feature.send.TransferDetailPanel.Share, state.value.detailPanel) }
 		waitUntil(timeoutMillis = 5_000) {
-			onAllNodesWithText("Scan with VniDrop to receive this transfer").fetchSemanticsNodes().isNotEmpty()
+			onAllNodesWithText(Res.string.transfer_scan_qr.value).fetchSemanticsNodes().isNotEmpty()
 		}
-		onNodeWithText("Scan with VniDrop to receive this transfer").assertIsDisplayed()
-		onNodeWithText("Save .vnd file").assertIsDisplayed()
-		onNodeWithContentDescription("Close").assertIsDisplayed()
+		onNodeWithText(Res.string.transfer_scan_qr.value).assertIsDisplayed()
+		onNodeWithText(Res.string.button_download_invitation.value).assertIsDisplayed()
+		onNodeWithContentDescription(Res.string.button_close.value).assertIsDisplayed()
 	}
 
 	@Test
@@ -710,12 +750,12 @@ class FoundationComposeTest {
 			}
 		}
 
-		onAllNodesWithText("Share").assertCountEquals(0)
-		onAllNodesWithText("Save .vnd file").assertCountEquals(0)
+		onAllNodesWithText(Res.string.transfer_share_title.value).assertCountEquals(0)
+		onAllNodesWithText(Res.string.button_download_invitation.value).assertCountEquals(0)
 
 		runOnIdle { transfer.value = transfer.value.copy(status = TransferStatus.Failed) }
-		onAllNodesWithText("Share").assertCountEquals(0)
-		onAllNodesWithText("Save .vnd file").assertCountEquals(0)
+		onAllNodesWithText(Res.string.transfer_share_title.value).assertCountEquals(0)
+		onAllNodesWithText(Res.string.button_download_invitation.value).assertCountEquals(0)
 	}
 
 	@Test
@@ -737,8 +777,8 @@ class FoundationComposeTest {
 			}
 		}
 
-		onNodeWithText("QR unavailable for this invitation. Use Share or Download instead.").assertIsDisplayed()
-		onNodeWithText("Save .vnd file").assertIsDisplayed()
+		onNodeWithText(Res.string.transfer_qr_unavailable.value).assertIsDisplayed()
+		onNodeWithText(Res.string.button_download_invitation.value).assertIsDisplayed()
 	}
 
 	@Test
@@ -774,10 +814,10 @@ class FoundationComposeTest {
 			}
 		}
 
-		onNodeWithText("Nothing received yet").assertIsDisplayed()
-		onNodeWithText("Start receiving").performClick()
-		onNodeWithText("How would you like to connect?").assertIsDisplayed()
-		onNodeWithText("Open a .vnd invitation").assertIsDisplayed()
+		onNodeWithText(Res.string.receive_empty_title.value).assertIsDisplayed()
+		onNodeWithText(Res.string.button_receive_files.value).performClick()
+		onNodeWithText(Res.string.receive_choose_method_title.value).assertIsDisplayed()
+		onNodeWithText(Res.string.receive_method_file.value).assertIsDisplayed()
 	}
 
 	@Test
@@ -813,11 +853,11 @@ class FoundationComposeTest {
 			}
 		}
 
-		onNodeWithContentDescription("Delete from receive history").assertIsDisplayed()
-		onNodeWithText("Clear history").performClick()
-		onNodeWithText("Clear receive history?").assertIsDisplayed()
-		onNodeWithText("Downloaded files will remain on this device.", substring = true).assertIsDisplayed()
-		onNodeWithContentDescription("Close").assertIsDisplayed()
+		onNodeWithContentDescription(Res.string.receive_delete_history_item.value).assertIsDisplayed()
+		onNodeWithText(Res.string.receive_clear_history.value).performClick()
+		onNodeWithText(Res.string.receive_clear_history_title.value).assertIsDisplayed()
+		onNodeWithText(Res.string.receive_clear_history_description.value).assertIsDisplayed()
+		onNodeWithContentDescription(Res.string.button_close.value).assertIsDisplayed()
 	}
 
 	@Test
@@ -883,3 +923,9 @@ class FoundationComposeTest {
 		updatedAt = 2L,
 	)
 }
+
+private val StringResource.value: String
+	get() = runBlocking { getString(this@value) }
+
+private fun StringResource.value(vararg formatArgs: Any): String =
+	runBlocking { getString(this@value, *formatArgs) }

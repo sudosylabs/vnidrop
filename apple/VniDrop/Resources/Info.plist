@@ -20,6 +20,8 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>VniDrop</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<true/>
 	<!-- macOS: a single instance only; re-launching activates the running app
 	     instead of spawning another copy. -->
 	<key>LSMultipleInstancesProhibited</key>

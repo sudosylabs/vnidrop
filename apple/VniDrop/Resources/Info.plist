@@ -21,7 +21,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>VniDrop</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
-	<true/>
+	<false/>
 	<!-- macOS: a single instance only; re-launching activates the running app
 	     instead of spawning another copy. -->
 	<key>LSMultipleInstancesProhibited</key>
@@ -75,8 +75,6 @@
 	<false/>
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>fetch</string>
-		<string>processing</string>
 		<string>remote-notification</string>
 	</array>
 	<key>UIFileSharingEnabled</key>

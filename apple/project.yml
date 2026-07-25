@@ -44,7 +44,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vnidrop.app
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "3"
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: VniDrop/Resources/Info.plist
         # Mirror the Info.plist identity so Xcode's Identity editor shows it too
@@ -63,6 +63,8 @@ targets:
           CODE_SIGN_ENTITLEMENTS: VniDrop/Resources/VniDrop.entitlements
         release:
           CODE_SIGN_ENTITLEMENTS: VniDrop/Resources/VniDrop.entitlements
+          # Produce a dSYM in the archive so symbol upload succeeds.
+          DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
     dependencies:
       - package: VnidropCore
       - package: SFSafeSymbols

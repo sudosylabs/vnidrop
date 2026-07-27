@@ -12,6 +12,15 @@ options:
     macOS: "15.0"
   createIntermediateGroups: true
 
+# Build configurations. Declaring `configs` replaces XcodeGen's Debug/Release
+# defaults, so both are re-listed here. `Release-Direct` is a release-type config
+# used only by the VniDropDirect (notarized DMG + Sparkle) target; the App Store
+# `VniDrop` target ships under plain `Release`.
+configs:
+  Debug: debug
+  Release: release
+  Release-Direct: release
+
 # Project-wide build settings (applied to every target/config).
 settings:
   base:
@@ -26,27 +35,44 @@ packages:
   SFSafeSymbols:
     url: https://github.com/SFSafeSymbols/SFSafeSymbols
     from: "5.3.0"
+  # Sparkle powers in-app auto-updates for the direct-download (.dmg) build only.
+  # It is linked exclusively by the VniDropDirect target — SwiftPM links products
+  # per target, not per config, so keeping it off the App Store target is what
+  # guarantees the store binary never bundles a self-updater (App Store forbids it).
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.9.4"
 
-targets:
-  VniDrop:
+# Shared definition for the two shipping app targets. `VniDrop` (App Store /
+# TestFlight) and `VniDropDirect` (notarized DMG + Sparkle) build the exact same
+# sources; only their destinations, extra dependencies, and the DIRECT_DISTRIBUTION
+# compile flag differ (set per target below).
+targetTemplates:
+  AppBase:
     type: application
-    supportedDestinations: [iOS, macOS]
     configFiles:
       Debug: Signing.xcconfig
       Release: Signing.xcconfig
+      Release-Direct: Signing.xcconfig
     sources:
       - path: VniDrop
         excludes:
           - "Resources/Info.plist"
           - "Resources/VniDrop.entitlements"
+          - "Resources/VniDropDirect.entitlements"
           - "Resources/**/.DS_Store"
     settings:
       base:
+        PRODUCT_NAME: VniDrop
         PRODUCT_BUNDLE_IDENTIFIER: com.vnidrop.app
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "7"
+        # Placeholder only — the real CFBundleVersion is stamped at build time as a
+        # UTC YYMMDD.HHMM timestamp by the "Stamp build number" phase below, so every
+        # build is monotonic and self-describing (shown as "MARKETING_VERSION (build)").
+        CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: VniDrop/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: VniDrop/Resources/VniDrop.entitlements
         # Mirror the Info.plist identity so Xcode's Identity editor shows it too
         # (the editor reads these build settings, not the manual plist).
         INFOPLIST_KEY_CFBundleDisplayName: VniDrop
@@ -59,11 +85,10 @@ targets:
         # AccentColor asset mirrors VniDropColors.brandPurple — keep them in sync.
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
       configs:
-        debug:
-          CODE_SIGN_ENTITLEMENTS: VniDrop/Resources/VniDrop.entitlements
         release:
-          CODE_SIGN_ENTITLEMENTS: VniDrop/Resources/VniDrop.entitlements
           # Produce a dSYM in the archive so symbol upload succeeds.
+          DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+        release-direct:
           DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
     dependencies:
       - package: VnidropCore
@@ -86,6 +111,52 @@ targets:
             echo "error: SwiftLint not installed — run 'brew install swiftlint'"
             exit 1
           fi
+    postBuildScripts:
+      # Stamp CFBundleVersion as a UTC YYMMDD.HHMM timestamp into the built
+      # Info.plist before code signing. Runs for every build (Xcode GUI archive and
+      # CLI alike), so both the App Store and direct-download channels get a
+      # monotonic, meaningful build id. CI/reproducible builds can pin it via the
+      # VNIDROP_BUILD env var. MARKETING_VERSION stays the human X.Y.Z version.
+      - name: Stamp build number (UTC timestamp)
+        basedOnDependencyAnalysis: false
+        script: |
+          build="${VNIDROP_BUILD:-$(date -u +%y%m%d.%H%M)}"
+          plist="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
+          if [ -f "$plist" ]; then
+            /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $build" "$plist"
+            echo "Stamped CFBundleVersion = $build"
+          else
+            echo "warning: Info.plist not found at $plist; CFBundleVersion not stamped"
+          fi
+
+targets:
+  # App Store / TestFlight target. iOS + macOS, sandboxed, no self-updater.
+  VniDrop:
+    templates: [AppBase]
+    supportedDestinations: [iOS, macOS]
+
+  # Direct-download macOS target: Developer ID signed, notarized, ships in a .dmg
+  # and self-updates via Sparkle. DIRECT_DISTRIBUTION gates all Sparkle code so the
+  # App Store target above never compiles or links it.
+  VniDropDirect:
+    templates: [AppBase]
+    supportedDestinations: [macOS]
+    settings:
+      base:
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DIRECT_DISTRIBUTION"
+        # Notarization requires the hardened runtime.
+        ENABLE_HARDENED_RUNTIME: YES
+        # Non-sandboxed entitlements: a sandboxed Developer ID app needs a
+        # provisioning profile, which direct distribution avoids. (App Store target
+        # keeps VniDrop.entitlements with the sandbox.)
+        CODE_SIGN_ENTITLEMENTS: VniDrop/Resources/VniDropDirect.entitlements
+        # The Rust core's macOS slice (vnidrop.xcframework) is arm64-only
+        # (build-core.sh builds aarch64-apple-darwin only), so the direct build is
+        # Apple-Silicon-only. Pin ARCHS so the Release-Direct (universal-by-default)
+        # link doesn't fail looking for x86_64 symbols.
+        ARCHS: arm64
+    dependencies:
+      - package: Sparkle
 
   VniDropTests:
     type: bundle.unit-test
@@ -93,6 +164,7 @@ targets:
     configFiles:
       Debug: Signing.xcconfig
       Release: Signing.xcconfig
+      Release-Direct: Signing.xcconfig
     sources:
       - path: Tests
     settings:
@@ -120,3 +192,15 @@ schemes:
       config: Release
     archive:
       config: Release
+
+  # Direct-download build: always the Release-Direct config (Sparkle + notarization).
+  VniDropDirect:
+    build:
+      targets:
+        VniDropDirect: all
+    run:
+      config: Release-Direct
+    profile:
+      config: Release-Direct
+    archive:
+      config: Release-Direct

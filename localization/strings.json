@@ -4629,6 +4629,23 @@
         "ru": "Поделиться"
       }
     },
+    "updates_check": {
+      "context": "macOS app menu item that checks for a new version via Sparkle. Direct-download (.dmg) build only; never shown in the App Store build.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "Check for Updates…",
+        "fr": "Rechercher les mises à jour…",
+        "es": "Buscar actualizaciones…",
+        "it": "Cerca aggiornamenti…",
+        "de": "Nach Updates suchen…",
+        "pt": "Procurar atualizações…",
+        "pl": "Sprawdź aktualizacje…",
+        "nl": "Zoeken naar updates…",
+        "ru": "Проверить наличие обновлений…"
+      }
+    },
     "value_unavailable": {
       "context": "Placeholder shown when a device-info or metadata value can't be read.",
       "translations": {

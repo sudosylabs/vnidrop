@@ -8,6 +8,10 @@ private let mainWindowId = "main"
 @main
 struct VniDropApp: App {
 	@StateObject private var externalInvitations = ExternalInvitationController()
+	#if DIRECT_DISTRIBUTION && os(macOS)
+	// Sparkle auto-updater, present only in the direct-download (.dmg) build.
+	@StateObject private var updater = SparkleUpdaterController()
+	#endif
 
 	var body: some Scene {
 		#if os(macOS)
@@ -18,6 +22,11 @@ struct VniDropApp: App {
 				.ignoresSafeArea()
 				.onOpenURL(perform: openInvitation)
 		}
+		#if DIRECT_DISTRIBUTION
+		.commands {
+			UpdatesCommands(controller: updater)
+		}
+		#endif
 		#else
 		WindowGroup(id: mainWindowId) {
 			RootView(dependencies: makeAppDependencies(externalInvitations: externalInvitations))

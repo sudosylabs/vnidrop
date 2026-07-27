@@ -122,6 +122,12 @@ open-apple-project: apple-project ## Generate and open the native Apple Xcode pr
 build-apple-macos: apple-project ## Build the native macOS app (unsigned by default).
 	cd $(ROOT)/apple && $(XCODEBUILD) -project VniDrop.xcodeproj -scheme VniDrop -configuration $(APPLE_CONFIGURATION) -derivedDataPath "$(APPLE_DERIVED_DATA)" -destination 'platform=macOS' CODE_SIGNING_ALLOWED=$(APPLE_CODE_SIGNING) CODE_SIGNING_REQUIRED=$(APPLE_CODE_SIGNING) build
 
+build-apple-macos-direct: apple-project ## Build the direct-download macOS target (Sparkle, unsigned) — CI compile check.
+	cd $(ROOT)/apple && $(XCODEBUILD) -project VniDrop.xcodeproj -scheme VniDropDirect -configuration Release-Direct -derivedDataPath "$(APPLE_DERIVED_DATA)" -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+
+build-apple-dmg: ## Build the signed/notarized direct-download .dmg (see apple/RELEASE-MACOS.md for required env).
+	cd $(ROOT) && apple/scripts/build-dmg.sh $(VERSION)
+
 open-apple: build-apple-macos ## Build and launch the native macOS app.
 	@test -d "$(APPLE_DERIVED_DATA)/Build/Products/$(APPLE_CONFIGURATION)/VniDrop.app" || { printf 'Built macOS app was not found.\n' >&2; exit 1; }
 	$(OPEN) "$(APPLE_DERIVED_DATA)/Build/Products/$(APPLE_CONFIGURATION)/VniDrop.app"

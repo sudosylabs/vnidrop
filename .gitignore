@@ -24,3 +24,4 @@ config.override.mk
 # Local design export scratch
 output/
 .screenshots
+apple/RELEASE-MACOS.md

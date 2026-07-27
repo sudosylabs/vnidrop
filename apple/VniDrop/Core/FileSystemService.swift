@@ -12,6 +12,10 @@ struct PickedShareFile: Equatable, Identifiable, Sendable {
 	var isTemporaryCopy: Bool = false
 	/// When true, `value` is a directory (path or security-scoped folder URL).
 	var isDirectory: Bool = false
+	/// macOS sandbox: a security-scoped bookmark captured at pick time so access to
+	/// `value` can be re-acquired when the core imports the file (the picker's own
+	/// scope ends immediately). Nil on iOS (which copies into the container instead).
+	var securityScopeBookmark: Data? = nil
 
 	var id: String { value }
 }

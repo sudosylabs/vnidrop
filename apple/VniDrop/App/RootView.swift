@@ -81,12 +81,18 @@ struct RootView: View {
 			switch phase {
 			case .active:
 				graph.visibility.setForeground(true)
+				graph.backgroundActivity.didBecomeForeground()
 				settingsModel.refreshNotificationPermission()
 				// Reconcile against the durable snapshot: while the window was
 				// unfocused/occluded (common on macOS) live events may not have
 				// rendered, leaving progress/status stale.
 				Task { _ = await graph.coreRepository.refresh() }
-			case .background, .inactive:
+			case .background:
+				graph.visibility.setForeground(false)
+				// Hold the process open for iOS's grace window so an active
+				// transfer can finish and notify before suspension.
+				graph.backgroundActivity.didEnterBackground()
+			case .inactive:
 				graph.visibility.setForeground(false)
 			@unknown default:
 				break

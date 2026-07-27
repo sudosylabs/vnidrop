@@ -3430,6 +3430,40 @@
         "ru": "Дополнительно"
       }
     },
+    "settings_ios_background_notice_body": {
+      "context": "Settings overview: explains iOS/iPadOS background limits so users don't think the app is broken. Apple platforms only.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "iPhone and iPad limit what apps may do in the background. VniDrop keeps a transfer that's already running alive long enough to finish and notify you after you leave the app, but it can't keep serving or receiving on its own once it's been in the background for a while. For long transfers, keep VniDrop open. On Mac, transfers continue in the background normally.",
+        "fr": "L’iPhone et l’iPad limitent ce que les apps peuvent faire en arrière-plan. VniDrop maintient un transfert déjà en cours assez longtemps pour le terminer et vous avertir après avoir quitté l’app, mais il ne peut pas continuer à envoyer ou recevoir seul une fois resté en arrière-plan un certain temps. Pour les transferts longs, gardez VniDrop ouvert. Sur Mac, les transferts se poursuivent normalement en arrière-plan.",
+        "es": "El iPhone y el iPad limitan lo que las apps pueden hacer en segundo plano. VniDrop mantiene una transferencia ya en curso el tiempo suficiente para terminarla y avisarte tras salir de la app, pero no puede seguir enviando o recibiendo por sí solo cuando lleva un rato en segundo plano. Para transferencias largas, mantén VniDrop abierto. En Mac, las transferencias continúan en segundo plano con normalidad.",
+        "it": "iPhone e iPad limitano ciò che le app possono fare in background. VniDrop mantiene attivo un trasferimento già in corso quanto basta per completarlo e avvisarti dopo che esci dall’app, ma non può continuare a inviare o ricevere da solo dopo un po’ in background. Per i trasferimenti lunghi, tieni VniDrop aperto. Su Mac i trasferimenti proseguono normalmente in background.",
+        "de": "iPhone und iPad schränken ein, was Apps im Hintergrund tun dürfen. VniDrop hält eine bereits laufende Übertragung lange genug am Leben, um sie abzuschließen und dich zu benachrichtigen, nachdem du die App verlässt, kann aber nicht von selbst weiter senden oder empfangen, wenn es länger im Hintergrund war. Lass VniDrop bei langen Übertragungen geöffnet. Auf dem Mac laufen Übertragungen im Hintergrund normal weiter.",
+        "pt": "O iPhone e o iPad limitam o que as apps podem fazer em segundo plano. O VniDrop mantém uma transferência já em curso ativa o tempo suficiente para terminar e notificá-lo depois de sair da app, mas não consegue continuar a enviar ou receber sozinho depois de algum tempo em segundo plano. Para transferências longas, mantenha o VniDrop aberto. No Mac, as transferências continuam normalmente em segundo plano.",
+        "pl": "iPhone i iPad ograniczają to, co aplikacje mogą robić w tle. VniDrop utrzymuje już trwający transfer wystarczająco długo, aby go dokończyć i powiadomić Cię po opuszczeniu aplikacji, ale nie może samodzielnie wysyłać ani odbierać po dłuższym czasie w tle. Przy długich transferach nie zamykaj VniDrop. Na Macu transfery są kontynuowane w tle normalnie.",
+        "nl": "iPhone en iPad beperken wat apps op de achtergrond mogen doen. VniDrop houdt een al lopende overdracht lang genoeg actief om deze te voltooien en je te melden nadat je de app verlaat, maar kan niet zelf blijven verzenden of ontvangen als het al een tijd op de achtergrond is. Houd VniDrop open bij lange overdrachten. Op de Mac gaan overdrachten normaal door op de achtergrond.",
+        "ru": "iPhone и iPad ограничивают действия приложений в фоне. VniDrop удерживает уже идущую передачу достаточно долго, чтобы завершить её и уведомить вас после выхода из приложения, но не может сам продолжать отправку или приём, пробыв некоторое время в фоне. Для долгих передач держите VniDrop открытым. На Mac передачи продолжаются в фоне как обычно."
+      }
+    },
+    "settings_ios_background_notice_title": {
+      "context": "Settings overview: title of the iOS/iPadOS background-limits notice. Apple platforms only.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "Background limits on iPhone & iPad",
+        "fr": "Limites en arrière-plan sur iPhone et iPad",
+        "es": "Límites en segundo plano en iPhone y iPad",
+        "it": "Limiti in background su iPhone e iPad",
+        "de": "Hintergrund-Grenzen auf iPhone & iPad",
+        "pt": "Limites em segundo plano no iPhone e iPad",
+        "pl": "Ograniczenia w tle na iPhonie i iPadzie",
+        "nl": "Achtergrondlimieten op iPhone en iPad",
+        "ru": "Ограничения фона на iPhone и iPad"
+      }
+    },
     "settings_network_title": {
       "context": "Settings overview row and Network settings screen title.",
       "translations": {

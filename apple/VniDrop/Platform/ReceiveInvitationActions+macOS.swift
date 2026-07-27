@@ -22,7 +22,7 @@ final class MacReceiveInvitationActions: ReceiveInvitationActions {
 		}
 		panel.begin { response in
 			guard response == .OK, let url = panel.url else {
-				onResult(.failure(InvitationError.message("cancelled")))
+				onResult(.failure(InvitationError.cancelled))
 				return
 			}
 			onResult(Result {
@@ -33,11 +33,11 @@ final class MacReceiveInvitationActions: ReceiveInvitationActions {
 	}
 
 	func scanQrCode(onResult: @escaping (Result<String, Error>) -> Void) {
-		onResult(.failure(InvitationError.message("QR scanning is unavailable on macOS")))
+		onResult(.failure(InvitationError.qrUnavailable))
 	}
 
 	func readNfcInvitation(onResult: @escaping (Result<String, Error>) -> Void) {
-		onResult(.failure(InvitationError.message("NFC is unavailable on macOS")))
+		onResult(.failure(InvitationError.nfcUnavailable))
 	}
 
 	func cancel() {}

@@ -206,7 +206,7 @@ final class SettingsModel: ObservableObject {
 	}
 
 	func onReceiveFolderPicked(_ folder: ReceiveFolder) { preferences.setReceiveFolder(folder) }
-	func onReceiveFolderPickFailed(_ reason: String) { messages.error(InvitationError.message(reason)) }
+	func onReceiveFolderPickFailed(_ reason: String) { messages.error(InvitationError.raw(reason)) }
 	func resetReceiveFolder() { preferences.resetReceiveFolder() }
 
 	/// Whether the current receive folder is the platform default (so the reset
@@ -475,7 +475,7 @@ final class SettingsModel: ObservableObject {
 				loadStorageUsage()
 				messages.show(UiMessage(text: .resource(L10n.Storage.transfersDeleted), tone: .success))
 			} else {
-				messages.error(InvitationError.message("Could not delete \(failures) transfer records"))
+				messages.error(InvitationError.deleteRecordsFailed)
 			}
 		}
 	}

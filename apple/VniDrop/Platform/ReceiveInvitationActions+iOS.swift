@@ -29,7 +29,7 @@ final class IosReceiveInvitationActions: NSObject, ReceiveInvitationActions, UID
 		picker.delegate = self
 		picker.modalPresentationStyle = .formSheet
 		guard let presenter = topPresenter() else {
-			return onResult(.failure(InvitationError.message("Could not find an iOS view controller")))
+			return onResult(.failure(InvitationError.viewControllerUnavailable))
 		}
 		presenter.present(picker, animated: true)
 	}
@@ -37,12 +37,12 @@ final class IosReceiveInvitationActions: NSObject, ReceiveInvitationActions, UID
 	func scanQrCode(onResult: @escaping (Result<String, Error>) -> Void) {
 		cancel()
 		guard let presenter = topPresenter() else {
-			return onResult(.failure(InvitationError.message("Could not find an iOS view controller")))
+			return onResult(.failure(InvitationError.viewControllerUnavailable))
 		}
 		ensureCameraAccess { [weak self] granted in
 			guard let self else { return }
 			guard granted else {
-				return onResult(.failure(InvitationError.message("Camera access is required to scan QR codes")))
+				return onResult(.failure(InvitationError.cameraUnavailable))
 			}
 			let scanner = QrScannerViewController { result in
 				self.qrController = nil
@@ -57,7 +57,7 @@ final class IosReceiveInvitationActions: NSObject, ReceiveInvitationActions, UID
 	func readNfcInvitation(onResult: @escaping (Result<String, Error>) -> Void) {
 		cancel()
 		guard NFCNDEFReaderSession.readingAvailable else {
-			return onResult(.failure(InvitationError.message("NFC reading is unavailable on this device")))
+			return onResult(.failure(InvitationError.nfcUnavailable))
 		}
 		let reader = InvitationNfcReader { [weak self] result in
 			self?.nfcReader = nil
@@ -80,7 +80,7 @@ final class IosReceiveInvitationActions: NSObject, ReceiveInvitationActions, UID
 		let result = documentResult
 		documentResult = nil
 		result?(Result {
-			guard let url = urls.first else { throw InvitationError.message("The selected invitation URL was invalid") }
+			guard let url = urls.first else { throw InvitationError.invalidInvitationURL }
 			let started = url.startAccessingSecurityScopedResource()
 			defer { if started { url.stopAccessingSecurityScopedResource() } }
 			let data = try Data(contentsOf: url)
@@ -157,19 +157,19 @@ final class QrScannerViewController: UIViewController, AVCaptureMetadataOutputOb
 	}
 
 	func cancelScan() {
-		finish(.failure(InvitationError.message("QR scanning was cancelled")))
+		finish(.failure(InvitationError.cancelled))
 	}
 
 	private func configureSession() {
 		guard let device = AVCaptureDevice.default(for: .video),
 			  let input = try? AVCaptureDeviceInput(device: device),
 			  session.canAddInput(input) else {
-			return finish(.failure(InvitationError.message("No camera is available")))
+			return finish(.failure(InvitationError.cameraUnavailable))
 		}
 		session.addInput(input)
 		let output = AVCaptureMetadataOutput()
 		guard session.canAddOutput(output) else {
-			return finish(.failure(InvitationError.message("Could not configure the QR scanner")))
+			return finish(.failure(InvitationError.cameraUnavailable))
 		}
 		session.addOutput(output)
 		output.setMetadataObjectsDelegate(self, queue: .main)
@@ -220,7 +220,7 @@ final class InvitationNfcReader: NSObject, NFCNDEFReaderSessionDelegate, @unchec
 
 	func start() {
 		let reader = NFCNDEFReaderSession(delegate: self, queue: .main, invalidateAfterFirstRead: true)
-		reader.alertMessage = "Hold your iPhone near a VniDrop invitation tag"
+		reader.alertMessage = String(localized: L10n.Receive.nfcWaiting)
 		session = reader
 		reader.begin()
 	}
@@ -233,7 +233,7 @@ final class InvitationNfcReader: NSObject, NFCNDEFReaderSessionDelegate, @unchec
 	func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error) {
 		if finished { return }
 		let cancelled = (error as NSError).code == 200
-		finish(.failure(InvitationError.message(cancelled ? "NFC reading was cancelled" : error.localizedDescription)))
+		finish(.failure(cancelled ? InvitationError.cancelled : InvitationError.raw(error.localizedDescription)))
 	}
 
 	func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage]) {
@@ -242,7 +242,7 @@ final class InvitationNfcReader: NSObject, NFCNDEFReaderSessionDelegate, @unchec
 				.flatMap { $0.records }
 				.compactMap { payloadAsInvitation($0) }
 				.first
-			guard let ticket else { throw InvitationError.message("This NFC tag does not contain a VniDrop invitation") }
+			guard let ticket else { throw InvitationError.nfcFailed }
 			return ticket
 		}
 		session.invalidate()

@@ -23,23 +23,42 @@ final class ExternalInvitationController: ObservableObject {
 	}
 
 	func reportOpenFailure(message: String) {
-		continuation?.yield(.failure(InvitationError.message(message)))
+		continuation?.yield(.failure(InvitationError.raw(message)))
 	}
 }
 
+/// Semantic, UI-agnostic invitation/transfer failures. Cases carry no display
+/// text: `Error.toUiText()` (UI layer) maps each case to a localized `L10n` key,
+/// so there are no free-form English strings to keep in sync or substring-match.
+/// `.raw` is the escape hatch for genuinely dynamic system/core messages (e.g. a
+/// `CoreNFC` `localizedDescription` or a picker's failure reason), never shown
+/// verbatim — it is still routed through `reasonHints`.
 enum InvitationError: LocalizedError {
 	case empty
 	case tooLarge
 	case invalidEncoding
-	case message(String)
+	case shareEmpty
+	case cancelled
+	case coreNotInitialized
+	case unsupportedOperation
+	case noWindowAvailable
+	case viewControllerUnavailable
+	case filesystemUnavailable
+	case invalidInvitationURL
+	case nfcUnavailable
+	case nfcFailed
+	case cameraUnavailable
+	case qrUnavailable
+	case bugReportingUnavailable
+	case selectionFailed
+	case deleteRecordsFailed
+	case raw(String)
 
+	/// Developer/log-facing only — never surfaced to users. Derived from the case
+	/// so there are no hand-written English blobs; `.raw` passes its payload through.
 	var errorDescription: String? {
-		switch self {
-		case .empty: return "The invitation is empty"
-		case .tooLarge: return "The invitation is too large"
-		case .invalidEncoding: return "The invitation is not valid text"
-		case .message(let m): return m
-		}
+		if case .raw(let reason) = self { return reason }
+		return String(describing: self)
 	}
 }
 

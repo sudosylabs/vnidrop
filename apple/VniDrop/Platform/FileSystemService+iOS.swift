@@ -32,10 +32,10 @@ struct IosFileSystemService: FileSystemService {
 
 	func revealReceiveFolder(_ folder: ReceiveFolder) async -> Result<Void, Error> {
 		guard canRevealReceiveFolder(folder) else {
-			return .failure(InvitationError.message("The receive folder is not VniDrop Documents"))
+			return .failure(InvitationError.filesystemUnavailable)
 		}
 		guard let url = URL(string: "shareddocuments://\(folder.value)") else {
-			return .failure(InvitationError.message("The Files location URL is unavailable"))
+			return .failure(InvitationError.filesystemUnavailable)
 		}
 		let opened = await withCheckedContinuation { continuation in
 			DispatchQueue.main.async {
@@ -44,7 +44,7 @@ struct IosFileSystemService: FileSystemService {
 				}
 			}
 		}
-		return opened ? .success(()) : .failure(InvitationError.message("Could not open VniDrop Documents in Files"))
+		return opened ? .success(()) : .failure(InvitationError.filesystemUnavailable)
 	}
 
 	func discardPickedFiles(_ files: [PickedShareFile]) async {
@@ -62,7 +62,7 @@ struct IosFileSystemService: FileSystemService {
 		accessPolicy: ShareAccessPolicy
 	) async -> Result<Share, Error> {
 		guard !files.isEmpty else {
-			return .failure(InvitationError.message("Select at least one file to share"))
+			return .failure(InvitationError.shareEmpty)
 		}
 		let sources = files.map { $0.toIosShareSource() }
 		return await repository.shareSources(

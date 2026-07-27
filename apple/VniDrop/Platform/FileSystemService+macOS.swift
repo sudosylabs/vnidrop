@@ -42,7 +42,7 @@ struct MacFileSystemService: FileSystemService {
 		accessPolicy: ShareAccessPolicy
 	) async -> Result<Share, Error> {
 		guard !files.isEmpty else {
-			return .failure(InvitationError.message("Select at least one file to share"))
+			return .failure(InvitationError.shareEmpty)
 		}
 		// Re-acquire security-scoped access to every picked source (from the bookmark
 		// captured at pick time) and hold it across the whole share call. The core

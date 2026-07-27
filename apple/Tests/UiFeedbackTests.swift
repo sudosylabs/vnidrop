@@ -21,13 +21,13 @@ final class UiMessageControllerTests: XCTestCase {
 
 	func testErrorSuppressesUserCancellation() {
 		let c = UiMessageController()
-		c.error(InvitationError.message("QR scanning was cancelled"))
+		c.error(InvitationError.cancelled)
 		XCTAssertNil(c.current) // cancellations are swallowed
 	}
 
 	func testErrorShowsNonCancellation() {
 		let c = UiMessageController()
-		c.error(InvitationError.message("The transfer was refused"))
+		c.error(InvitationError.raw("The transfer was refused"))
 		XCTAssertEqual(c.current?.tone, .error)
 	}
 }
@@ -36,20 +36,23 @@ final class UiMessageControllerTests: XCTestCase {
 final class UserFacingErrorTests: XCTestCase {
 
 	func testIsUserCancellation() {
-		XCTAssertTrue(InvitationError.message("NFC reading was cancelled").isUserCancellation)
-		XCTAssertTrue(InvitationError.message("User canceled the picker").isUserCancellation)
-		XCTAssertFalse(InvitationError.message("A database error occurred").isUserCancellation)
+		XCTAssertTrue(InvitationError.cancelled.isUserCancellation)
+		XCTAssertTrue(InvitationError.raw("User canceled the picker").isUserCancellation)
+		XCTAssertFalse(InvitationError.raw("A database error occurred").isUserCancellation)
 	}
 
 	func testToUiTextMapsKnownReasons() {
-		XCTAssertEqual(InvitationError.message("The transfer was refused").toUiText(), .resource(L10n.Error.permission))
-		XCTAssertEqual(InvitationError.message("invalid ticket").toUiText(), .resource(L10n.Error.invalidTicket))
-		XCTAssertEqual(InvitationError.message("Select at least one file to share").toUiText(), .resource(L10n.Error.shareEmpty))
-		XCTAssertEqual(InvitationError.message("Camera access is required").toUiText(), .resource(L10n.Error.camera))
+		// Typed cases map directly at the UI boundary.
+		XCTAssertEqual(InvitationError.shareEmpty.toUiText(), .resource(L10n.Error.shareEmpty))
+		XCTAssertEqual(InvitationError.cameraUnavailable.toUiText(), .resource(L10n.Error.camera))
+		XCTAssertEqual(InvitationError.nfcFailed.toUiText(), .resource(L10n.Error.nfc))
+		// Dynamic `.raw` payloads still fall through the substring hints.
+		XCTAssertEqual(InvitationError.raw("The transfer was refused").toUiText(), .resource(L10n.Error.permission))
+		XCTAssertEqual(InvitationError.raw("invalid ticket").toUiText(), .resource(L10n.Error.invalidTicket))
 	}
 
 	func testToUiTextFallsBackToGeneric() {
-		XCTAssertEqual(InvitationError.message("something entirely unexpected").toUiText(), .resource(L10n.Error.generic))
+		XCTAssertEqual(InvitationError.raw("something entirely unexpected").toUiText(), .resource(L10n.Error.generic))
 	}
 
 	func testToUiTextMapsTypedTransferFailures() {

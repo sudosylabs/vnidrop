@@ -17,7 +17,7 @@ final class MacTransferShareActions: TransferShareActions {
 		panel.allowedContentTypes = []
 		panel.begin { response in
 			guard response == .OK, let url = panel.url else {
-				onResult(.failure(InvitationError.message("cancelled")))
+				onResult(.failure(InvitationError.cancelled))
 				return
 			}
 			onResult(Result { try ticket.write(to: url, atomically: true, encoding: .utf8) })
@@ -28,7 +28,7 @@ final class MacTransferShareActions: TransferShareActions {
 		do {
 			let url = try writeTemporaryInvitation(ticket: ticket, transferName: transferName)
 			guard let view = NSApp.keyWindow?.contentView else {
-				onResult(.failure(InvitationError.message("No window available")))
+				onResult(.failure(InvitationError.noWindowAvailable))
 				return
 			}
 			let picker = NSSharingServicePicker(items: [url])
@@ -40,7 +40,7 @@ final class MacTransferShareActions: TransferShareActions {
 	}
 
 	func writeInvitationToNfc(ticket: String, onResult: @escaping (Result<Void, Error>) -> Void) {
-		onResult(.failure(InvitationError.message("NFC is unavailable on macOS")))
+		onResult(.failure(InvitationError.nfcUnavailable))
 	}
 
 	func cancelNfcWrite() {}

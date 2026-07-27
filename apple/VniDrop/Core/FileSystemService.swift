@@ -52,7 +52,7 @@ extension FileSystemService {
 	func canRevealReceiveFolder(_ folder: ReceiveFolder) -> Bool { false }
 
 	func revealReceiveFolder(_ folder: ReceiveFolder) async -> Result<Void, Error> {
-		.failure(InvitationError.message("Revealing the receive folder is not supported"))
+		.failure(InvitationError.unsupportedOperation)
 	}
 
 	func discardPickedFiles(_ files: [PickedShareFile]) async {}

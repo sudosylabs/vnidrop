@@ -44,7 +44,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vnidrop.app
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "3"
+        CURRENT_PROJECT_VERSION: "7"
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: VniDrop/Resources/Info.plist
         # Mirror the Info.plist identity so Xcode's Identity editor shows it too
@@ -114,3 +114,9 @@ schemes:
       config: Debug
       targets:
         - VniDropTests
+    # TestFlight ships the Release build; make the Archive/Profile actions explicit
+    # so Product → Archive can never pick up a Debug configuration.
+    profile:
+      config: Release
+    archive:
+      config: Release

@@ -20,7 +20,7 @@ protocol BugReportService {
 /// Offline-safe no-op used until the diagnostics transport is configured.
 struct NoopBugReportService: BugReportService {
 	func submit(_ draft: BugReportDraft, deviceInfo: DeviceInfo?) async -> Result<Void, Error> {
-		.failure(InvitationError.message("Bug reporting is not configured"))
+		.failure(InvitationError.bugReportingUnavailable)
 	}
 	func previewLogBytes() async -> Int { 0 }
 }

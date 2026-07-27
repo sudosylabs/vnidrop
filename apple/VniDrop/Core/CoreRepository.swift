@@ -156,7 +156,7 @@ final class CoreRepository: ObservableObject, CoreGateway {
 			return .failure(CoreNetworkLifecycleError.transitionInProgress)
 		}
 		guard !sources.isEmpty else {
-			return .failure(InvitationError.message("Select at least one file to share"))
+			return .failure(InvitationError.shareEmpty)
 		}
 		return await runCore {
 			let result = try self.requireCore().shareFiles(
@@ -353,7 +353,7 @@ final class CoreRepository: ObservableObject, CoreGateway {
 
 	private nonisolated func requireCore() throws -> VnidropCore {
 		guard let core = self.core else {
-			throw InvitationError.message("Initialize the core first.")
+			throw InvitationError.coreNotInitialized
 		}
 		return core
 	}

@@ -5,6 +5,9 @@ import VnidropCore
 /// `ui/feedback/UserFacingError.kt`. Never exposes raw `reason=` blobs.
 extension Error {
 	func toUiText() -> UiText {
+		if let invitation = self as? InvitationError {
+			return invitation.uiText
+		}
 		if let vni = self as? VnidropError {
 			switch vni {
 			case .Ticket:
@@ -40,6 +43,7 @@ extension Error {
 
 	/// True when the user intentionally backed out of a flow.
 	var isUserCancellation: Bool {
+		if let invitation = self as? InvitationError, case .cancelled = invitation { return true }
 		if let vni = self as? VnidropError, case .Cancelled = vni { return true }
 		let haystack = technicalDetail.lowercased()
 		if haystack.isEmpty {
@@ -72,6 +76,39 @@ extension Error {
 		switch vni {
 		case .FilesystemPermission, .DestinationExists, .InvalidInput: return false
 		default: return true
+		}
+	}
+}
+
+/// Maps each semantic `InvitationError` case to a localized user-facing message.
+/// This is the sole `InvitationError` → `L10n` boundary: no substring guessing,
+/// except for `.raw`, whose dynamic payload still falls through `reasonHints`.
+extension InvitationError {
+	var uiText: UiText {
+		switch self {
+		case .empty:
+			return .resource(L10n.Error.invitationEmpty)
+		case .tooLarge, .unsupportedOperation, .noWindowAvailable,
+			 .viewControllerUnavailable, .qrUnavailable, .bugReportingUnavailable, .cancelled:
+			return .resource(L10n.Error.generic)
+		case .invalidEncoding, .invalidInvitationURL:
+			return .resource(L10n.Error.invalidTicket)
+		case .shareEmpty:
+			return .resource(L10n.Error.shareEmpty)
+		case .coreNotInitialized:
+			return .resource(L10n.Error.startingUp)
+		case .filesystemUnavailable:
+			return .resource(L10n.Error.filesystem)
+		case .nfcUnavailable, .nfcFailed:
+			return .resource(L10n.Error.nfc)
+		case .cameraUnavailable:
+			return .resource(L10n.Error.camera)
+		case .selectionFailed:
+			return .resource(L10n.Error.selectionFailed)
+		case .deleteRecordsFailed:
+			return .resource(L10n.Error.repository)
+		case .raw(let reason):
+			return reasonHints(reason) ?? .resource(L10n.Error.generic)
 		}
 	}
 }

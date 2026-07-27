@@ -32,3 +32,18 @@ custom_rules:
     regex: '\b(Text|Label|Button|Toggle|Link|NavigationLink|Section|Picker|Stepper|TextField|SecureField|DisclosureGroup|Menu|GroupBox)\("[^"]'
     message: "Pass a typed L10n.* accessor (or Text(verbatim:)), not a raw string literal."
     severity: warning
+  raw_alert_message:
+    name: "Raw NFC/alert message"
+    # User-facing UIKit/CoreNFC prompts (e.g. NFCReaderSession.alertMessage) must
+    # be localized, not hardcoded English.
+    regex: '\balertMessage\s*=\s*"'
+    message: "Assign a localized value (String(localized: L10n.*)), not a raw string literal."
+    severity: warning
+  raw_invitation_error:
+    name: "Raw InvitationError literal"
+    # InvitationError.raw is the escape hatch for genuinely dynamic system/core
+    # messages; a string literal here is a loose user-facing string that belongs
+    # in a typed InvitationError case mapped to L10n in UserFacingError.swift.
+    regex: 'InvitationError\.raw\("'
+    message: "Add a typed InvitationError case + L10n mapping instead of a literal .raw(\"…\")."
+    severity: warning

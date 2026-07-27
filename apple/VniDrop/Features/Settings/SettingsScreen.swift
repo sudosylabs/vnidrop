@@ -24,6 +24,21 @@ struct SettingsScreen: View {
 	var body: some View {
 		NavigationStack(path: path) {
 			Form {
+				#if os(iOS)
+				// iOS suspends the app in the background, so serving/receiving
+				// can't run indefinitely there (unlike macOS). Tell users up
+				// front so the platform limit doesn't read as a bug.
+				Section {
+					VStack(alignment: .leading, spacing: 6) {
+						Label(String(localized: L10n.Settings.iosBackgroundNoticeTitle), systemSymbol: .moonZzz)
+							.font(.subheadline.weight(.semibold))
+						Text(String(localized: L10n.Settings.iosBackgroundNoticeBody))
+							.font(.footnote)
+							.foregroundStyle(.secondary)
+					}
+					.padding(.vertical, 2)
+				}
+				#endif
 				Section {
 					NavigationLink(value: SettingsSection.preferences) {
 						SettingsRow(icon: .personCropCircle, title: String(localized: L10n.Preferences.title), value: model.state.username)

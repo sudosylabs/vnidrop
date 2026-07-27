@@ -2,10 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- iOS: NFC NDEF reading. -->
+	<!-- iOS: NFC reader formats. The iOS 26 SDK requires TAG here and rejects
+	     NDEF at App Store upload (error 90778 "NDEF is disallowed"). Our
+	     NFCNDEFReaderSession usage keeps working under the TAG entitlement. -->
 	<key>com.apple.developer.nfc.readersession.formats</key>
 	<array>
-		<string>NDEF</string>
+		<string>TAG</string>
 	</array>
 
 	<!-- macOS App Sandbox: user-selected files for share/receive, and network

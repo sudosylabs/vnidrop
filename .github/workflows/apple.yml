@@ -76,3 +76,8 @@ jobs:
 
       - name: Build and test Apple app
         run: make check-apple
+
+      - name: Build direct-download macOS target (Sparkle, unsigned)
+        # Keeps the VniDropDirect (.dmg/Sparkle) target compiling; signing and
+        # notarization happen only in apple-release.yml on a tag.
+        run: make build-apple-macos-direct

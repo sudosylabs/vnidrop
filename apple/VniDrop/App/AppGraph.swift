@@ -13,6 +13,7 @@ final class AppGraph: ObservableObject {
 	let filePreviewRepository: FilePreviewRepository
 	let approvalCoordinator: ApprovalCoordinator
 	let transferNotificationCoordinator: TransferNotificationCoordinator
+	let backgroundActivity: BackgroundActivityController
 
 	init(dependencies: AppDependencies, coreRepository: CoreRepository? = nil) {
 		self.dependencies = dependencies
@@ -39,6 +40,7 @@ final class AppGraph: ObservableObject {
 			visibility: visibility,
 			messages: messages
 		)
+		self.backgroundActivity = BackgroundActivityController(repository: coreRepository)
 		AppLogger.info("lifecycle", "graph created", ["platform": dependencies.environment.name])
 	}
 

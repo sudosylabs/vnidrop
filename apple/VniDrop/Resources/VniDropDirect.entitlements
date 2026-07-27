@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Entitlements for the direct-download (Developer ID + notarized) macOS build.
+
+     Deliberately NOT sandboxed: a sandboxed app signed for Developer ID requires a
+     provisioning profile, whereas direct-distribution apps run outside the App
+     Store sandbox by convention. Gatekeeper trust here comes from the hardened
+     runtime (ENABLE_HARDENED_RUNTIME) plus notarization, not the sandbox. The App
+     Store target (VniDrop) keeps VniDrop.entitlements with the sandbox enabled.
+
+     Networking and user file access need no entitlements once unsandboxed. -->
+<dict>
+</dict>
+</plist>

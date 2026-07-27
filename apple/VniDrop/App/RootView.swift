@@ -14,6 +14,10 @@ struct RootView: View {
 
 	@Environment(\.scenePhase) private var scenePhase
 
+	/// Drives the approval sheet; toggled from the pending-approval `onChange` so the
+	/// presentation can be deferred until the Share/QR sheet has dismissed on macOS.
+	@State private var showApproval = false
+
 	init(dependencies: AppDependencies) {
 		let graph = AppGraph(dependencies: dependencies)
 		_graph = StateObject(wrappedValue: graph)
@@ -58,6 +62,7 @@ struct RootView: View {
 				navigation(windowClass: windowClass)
 				SnackbarHost(controller: messages)
 				ApprovalModalHost(
+					isPresented: $showApproval,
 					state: approvals.state,
 					onAccept: approvals.accept,
 					onRefuse: approvals.refuse
@@ -81,22 +86,43 @@ struct RootView: View {
 			switch phase {
 			case .active:
 				graph.visibility.setForeground(true)
+				graph.backgroundActivity.didBecomeForeground()
 				settingsModel.refreshNotificationPermission()
 				// Reconcile against the durable snapshot: while the window was
 				// unfocused/occluded (common on macOS) live events may not have
 				// rendered, leaving progress/status stale.
 				Task { _ = await graph.coreRepository.refresh() }
-			case .background, .inactive:
+			case .background:
+				graph.visibility.setForeground(false)
+				// Hold the process open for iOS's grace window so an active
+				// transfer can finish and notify before suspension.
+				graph.backgroundActivity.didEnterBackground()
+			case .inactive:
 				graph.visibility.setForeground(false)
 			@unknown default:
 				break
 			}
 		}
-		// A pending approval is a blocking modal; close the sender's detail panel
-		// (e.g. the Share/QR sheet) so the approval sheet isn't presented under it
-		// on macOS.
+		// A pending approval is a blocking modal. Close the sender's detail panel
+		// (e.g. the Share/QR sheet) first, then present the approval sheet — but on
+		// macOS a sheet presented while another is still dismissing is silently
+		// dropped, so defer the presentation until that dismissal finishes.
 		.onChange(of: approvals.state.current?.id) { _, id in
-			if id != nil { sendModel.closeDetailPanel() }
+			guard id != nil else { showApproval = false; return }
+			let wasShowingSheet = sendModel.state.detailPanel != nil
+			sendModel.closeDetailPanel()
+			#if os(macOS)
+			if wasShowingSheet {
+				DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+					if approvals.state.current != nil { showApproval = true }
+				}
+			} else {
+				showApproval = true
+			}
+			#else
+			_ = wasShowingSheet
+			showApproval = true
+			#endif
 		}
 		#if os(macOS)
 		// macOS keeps `scenePhase == .active` even when the app loses focus, so

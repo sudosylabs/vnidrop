@@ -5,13 +5,17 @@ import SFSafeSymbols
 /// be swiped away. The endpoint id is the trusted identity; display names are
 /// peer-provided.
 struct ApprovalModalHost: View {
+	/// Driven by the host so presentation can be deferred until any competing sheet
+	/// (the Share/QR drawer) has finished dismissing — macOS silently drops a sheet
+	/// presented while another is still animating out.
+	@Binding var isPresented: Bool
 	let state: ApprovalState
 	let onAccept: (String) -> Void
 	let onRefuse: (String) -> Void
 
 	var body: some View {
 		Color.clear
-			.sheet(isPresented: .constant(state.current != nil)) {
+			.sheet(isPresented: $isPresented) {
 				if let request = state.current {
 					ApprovalSheet(state: state, request: request, onAccept: onAccept, onRefuse: onRefuse)
 						.interactiveDismissDisabled(true)

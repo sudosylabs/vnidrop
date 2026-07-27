@@ -18,3 +18,7 @@ Local.xcconfig
 .swiftpm/
 DerivedData/
 *.xcuserstate
+
+# Direct-download (.dmg) build outputs — apple/scripts/build-dmg.sh
+.build-dmg/
+dist/

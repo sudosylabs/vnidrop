@@ -36,7 +36,7 @@ final class IosTransferShareActions: NSObject, TransferShareActions {
 	func writeInvitationToNfc(ticket: String, onResult: @escaping (Result<Void, Error>) -> Void) {
 		cancelNfcWrite()
 		guard NFCNDEFReaderSession.readingAvailable else {
-			onResult(.failure(InvitationError.message("NFC is unavailable on this device")))
+			onResult(.failure(InvitationError.nfcUnavailable))
 			return
 		}
 		let writer = InvitationNfcWriter(ticket: ticket) { [weak self] result in
@@ -55,7 +55,7 @@ final class IosTransferShareActions: NSObject, TransferShareActions {
 	@MainActor
 	private func present(_ controller: UIViewController) throws {
 		guard let presenter = topPresenter() else {
-			throw InvitationError.message("Could not find an iOS view controller")
+			throw InvitationError.viewControllerUnavailable
 		}
 		presenter.present(controller, animated: true)
 	}
@@ -76,7 +76,7 @@ final class InvitationNfcWriter: NSObject, NFCNDEFReaderSessionDelegate, @unchec
 
 	func start() {
 		let reader = NFCNDEFReaderSession(delegate: self, queue: .main, invalidateAfterFirstRead: false)
-		reader.alertMessage = "Hold your iPhone near a writable NFC tag"
+		reader.alertMessage = String(localized: L10n.Transfer.nfcWaiting)
 		session = reader
 		reader.begin()
 	}
@@ -89,14 +89,14 @@ final class InvitationNfcWriter: NSObject, NFCNDEFReaderSessionDelegate, @unchec
 	func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error) {
 		if finished { return }
 		let cancelled = (error as NSError).code == 200 // readerSessionInvalidationErrorUserCanceled
-		finish(.failure(InvitationError.message(cancelled ? "NFC writing was cancelled" : error.localizedDescription)))
+		finish(.failure(cancelled ? InvitationError.cancelled : InvitationError.raw(error.localizedDescription)))
 	}
 
 	func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage]) {}
 
 	func readerSession(_ session: NFCNDEFReaderSession, didDetect tags: [NFCNDEFTag]) {
 		guard let firstTag = tags.first else {
-			return finish(.failure(InvitationError.message("No NFC tag was detected")))
+			return finish(.failure(InvitationError.nfcFailed))
 		}
 		// CoreNFC completion handlers run on the session's `.main` queue; these
 		// framework values are safe to use there.
@@ -109,18 +109,18 @@ final class InvitationNfcWriter: NSObject, NFCNDEFReaderSessionDelegate, @unchec
 				if let queryError { return self.finish(.failure(queryError)) }
 				switch status {
 				case .notSupported:
-					self.finish(.failure(InvitationError.message("This NFC tag does not support NDEF")))
+					self.finish(.failure(InvitationError.nfcFailed))
 				case .readOnly:
-					self.finish(.failure(InvitationError.message("This NFC tag is read-only")))
+					self.finish(.failure(InvitationError.nfcFailed))
 				default:
 					guard let message = self.invitationMessage() else {
-						return self.finish(.failure(InvitationError.message("Could not encode the invitation for NFC")))
+						return self.finish(.failure(InvitationError.nfcFailed))
 					}
 					tag.writeNDEF(message) { writeError in
 						if let writeError {
 							self.finish(.failure(writeError))
 						} else {
-							session.alertMessage = "Invitation written"
+							session.alertMessage = String(localized: L10n.Transfer.nfcWritten)
 							session.invalidate()
 							self.finish(.success(()))
 						}

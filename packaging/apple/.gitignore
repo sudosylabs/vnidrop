@@ -1,0 +1,7 @@
+# Exported screenshots (large; regenerated from the design source) — not tracked.
+*.jpg
+*.jpeg
+
+# macOS / editor junk
+.DS_Store
+*~lock~

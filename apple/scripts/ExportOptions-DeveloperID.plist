@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Export options for the direct-download (Developer ID) macOS build consumed by
+     `xcodebuild -exportArchive` in build-dmg.sh. This produces a Developer
+     ID–signed, hardened-runtime .app suitable for notarization and distribution
+     outside the Mac App Store. The App Store build uses a different flow entirely. -->
+<dict>
+	<key>method</key>
+	<string>developer-id</string>
+	<key>signingStyle</key>
+	<string>manual</string>
+	<!-- Xcode manages the Developer ID Application certificate lookup from the
+	     keychain; the hardened runtime is enabled via ENABLE_HARDENED_RUNTIME in the
+	     VniDropDirect target. -->
+	<key>teamID</key>
+	<string>${DEVELOPMENT_TEAM}</string>
+</dict>
+</plist>

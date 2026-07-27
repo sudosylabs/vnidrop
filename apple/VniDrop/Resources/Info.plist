@@ -20,6 +20,8 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>VniDrop</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- macOS: a single instance only; re-launching activates the running app
 	     instead of spawning another copy. -->
 	<key>LSMultipleInstancesProhibited</key>
@@ -55,6 +57,20 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
+	<!-- Sparkle auto-update (direct-download .dmg build only). These keys are inert
+	     in the App Store build, which never loads Sparkle (DIRECT_DISTRIBUTION off).
+	     The feed is appcast.xml attached as an asset to each GitHub Release; the
+	     /releases/latest/download/ path always redirects to the newest (non-
+	     prerelease) release's copy, and its <enclosure> points at that same release's
+	     .dmg — no GitHub Pages or repo commits needed. SUPublicEDKey must be the EdDSA
+	     public key printed by Sparkle's `generate_keys` — replace the placeholder
+	     before shipping (see apple/RELEASE-MACOS.md). -->
+	<key>SUFeedURL</key>
+	<string>https://github.com/sudosylabs/vnidrop/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>/vcOgyrhPi3e58yL8M7hZvDCOgsAKyBsQu/7ChAUk1M=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>NFCReaderUsageDescription</key>
@@ -73,8 +89,6 @@
 	<false/>
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>fetch</string>
-		<string>processing</string>
 		<string>remote-notification</string>
 	</array>
 	<key>UIFileSharingEnabled</key>

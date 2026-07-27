@@ -34,11 +34,29 @@ Prerequisites: Xcode, Rust with the Apple targets
 make apple-core          # Rust core, Swift bindings, and XCFramework
 make apple-project       # generate apple/VniDrop.xcodeproj
 make open-apple-project  # generate and open the project in Xcode
-make build-apple-macos   # unsigned macOS build
+make build-apple-macos   # unsigned macOS build (App Store target)
 make open-apple          # build and launch the macOS app
-make build-apple-ios     # unsigned iOS simulator build
+make build-apple-ios     # unsigned iOS simulator app
 make check-apple         # iOS simulator tests
 ```
+
+### macOS shipping channels
+
+The macOS app ships through two targets that build identical sources:
+
+- **`VniDrop`** (`Release`) — Mac App Store / TestFlight. Sandboxed, no
+  self-updater.
+- **`VniDropDirect`** (`Release-Direct`) — direct-download `.dmg` on GitHub
+  Releases + Homebrew cask. Adds the **Sparkle** auto-updater behind the
+  `DIRECT_DISTRIBUTION` compile flag, so the App Store binary never links Sparkle.
+
+```bash
+make build-apple-macos-direct   # unsigned compile-check of the direct target
+make build-apple-dmg VERSION=x.y.z  # signed (+ notarized) .dmg
+```
+
+Full signing, notarization, appcast, and cask flow: see
+[`RELEASE-MACOS.md`](RELEASE-MACOS.md).
 
 Use `APPLE_PROFILE=release` to request a release Rust core, or set
 `APPLE_DESTINATION` to override the automatically selected iOS simulator.

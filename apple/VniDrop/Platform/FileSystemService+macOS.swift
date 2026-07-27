@@ -42,8 +42,24 @@ struct MacFileSystemService: FileSystemService {
 		accessPolicy: ShareAccessPolicy
 	) async -> Result<Share, Error> {
 		guard !files.isEmpty else {
-			return .failure(InvitationError.message("Select at least one file to share"))
+			return .failure(InvitationError.shareEmpty)
 		}
+		// Re-acquire security-scoped access to every picked source (from the bookmark
+		// captured at pick time) and hold it across the whole share call. The core
+		// imports the bytes during shareFiles(), so access only needs to survive that
+		// call; without this, the import fails with EPERM under the App Store sandbox.
+		var scopedURLs: [URL] = []
+		for file in files {
+			guard let bookmark = file.securityScopeBookmark else { continue }
+			var stale = false
+			guard let url = try? URL(
+				resolvingBookmarkData: bookmark, options: .withSecurityScope,
+				relativeTo: nil, bookmarkDataIsStale: &stale
+			), url.startAccessingSecurityScopedResource() else { continue }
+			scopedURLs.append(url)
+		}
+		defer { scopedURLs.forEach { $0.stopAccessingSecurityScopedResource() } }
+
 		let sources = files.map {
 			ShareSource(kind: .path, value: $0.value, displayName: $0.displayName, isDirectory: $0.isDirectory)
 		}

@@ -154,7 +154,7 @@ final class SendModel: ObservableObject {
 	}
 
 	func onFilePickFailed(_ reason: String) {
-		messages.error(InvitationError.message(reason.isEmpty ? "selection failed" : reason))
+		messages.error(reason.isEmpty ? InvitationError.selectionFailed : InvitationError.raw(reason))
 	}
 
 	func clearSelectedSource() {

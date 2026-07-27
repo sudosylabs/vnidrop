@@ -107,9 +107,15 @@ enum PickerSupport {
 		)
 		#else
 		let size = isDirectory ? nil : (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize.map { UInt64($0) }
+		// Capture a security-scoped bookmark while the picker's scope is still held,
+		// so the core can re-acquire access to open the file at import time (under
+		// the App Store sandbox). Non-sandboxed builds don't need it but it's harmless.
+		let bookmark = try? url.bookmarkData(
+			options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil
+		)
 		return PickedShareFile(
 			value: url.path, displayName: url.lastPathComponent, sizeBytes: size,
-			isTemporaryCopy: false, isDirectory: isDirectory
+			isTemporaryCopy: false, isDirectory: isDirectory, securityScopeBookmark: bookmark
 		)
 		#endif
 	}

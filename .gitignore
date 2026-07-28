@@ -25,3 +25,4 @@ config.override.mk
 output/
 .screenshots
 apple/RELEASE-MACOS.md
+apple/Generated/*.xcconfig

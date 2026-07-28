@@ -40,6 +40,12 @@ make build-apple-ios     # unsigned iOS simulator app
 make check-apple         # iOS simulator tests
 ```
 
+`make apple-project` also generates ignored Store and Direct version xcconfig
+files. Their `CURRENT_PROJECT_VERSION` values come from the central version
+resolver as UTC `YYYYMMDD.HHMM.SS` build identifiers. Regenerate the project
+before creating another App Store archive so it receives a fresh build number;
+direct DMG builds refresh their own value automatically.
+
 ### macOS shipping channels
 
 The macOS app ships through two targets that build identical sources:

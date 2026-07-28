@@ -54,10 +54,6 @@ val androidVersionCode = canonicalInteger(
 	requiredVersionProperty("ANDROID_VERSION_CODE"),
 	1L..2_100_000_000L,
 ).toInt()
-val appleBuildNumber = requiredVersionProperty("APPLE_BUILD_NUMBER")
-require(appleBuildNumber.matches(Regex("[1-9][0-9]*(\\.[0-9]+){0,2}"))) {
-	"APPLE_BUILD_NUMBER must contain one to three period-separated non-negative integers and start above zero"
-}
 val windowsVersionEpoch = canonicalInteger(
 	"WINDOWS_VERSION_EPOCH",
 	requiredVersionProperty("WINDOWS_VERSION_EPOCH"),
@@ -73,7 +69,6 @@ val windowsPackageVersion =
 extra["vnidrop.productVersion"] = productVersion
 extra["vnidrop.releaseChannel"] = releaseChannel
 extra["vnidrop.androidVersionCode"] = androidVersionCode
-extra["vnidrop.appleBuildNumber"] = appleBuildNumber
 extra["vnidrop.windowsPackageVersion"] = windowsPackageVersion
 
 tasks.register("verifyVersion") {
@@ -83,6 +78,5 @@ tasks.register("verifyVersion") {
 	inputs.property("productVersion", productVersion)
 	inputs.property("releaseChannel", releaseChannel)
 	inputs.property("androidVersionCode", androidVersionCode)
-	inputs.property("appleBuildNumber", appleBuildNumber)
 	inputs.property("windowsPackageVersion", windowsPackageVersion)
 }

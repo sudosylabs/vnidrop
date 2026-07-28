@@ -1,0 +1,53 @@
+name: Release pipeline checks
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/android-release.yml"
+      - ".github/workflows/apple-release.yml"
+      - ".github/workflows/linux-packages.yml"
+      - ".github/workflows/release-checks.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/windows-store.yml"
+      - "packaging/android/**"
+      - "packaging/release/**"
+      - "packaging/version/**"
+      - "version.properties"
+      - "Makefile"
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/android-release.yml"
+      - ".github/workflows/apple-release.yml"
+      - ".github/workflows/linux-packages.yml"
+      - ".github/workflows/release-checks.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/windows-store.yml"
+      - "packaging/android/**"
+      - "packaging/release/**"
+      - "packaging/version/**"
+      - "version.properties"
+      - "Makefile"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scripts:
+    name: Validate release scripts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Run release checks
+        run: make check-release

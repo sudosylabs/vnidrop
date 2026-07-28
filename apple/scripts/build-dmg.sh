@@ -29,10 +29,13 @@ SCHEME="VniDropDirect"
 CONFIG="Release-Direct"
 APP_NAME="VniDrop"
 VERSION_RESOLVER="$REPO_ROOT/packaging/version/resolve-version.sh"
+VERSION_CONFIG_GENERATOR="$REPO_ROOT/packaging/version/generate-apple-xcconfig.sh"
 
 VERSION="$("$VERSION_RESOLVER" product)"
-BUILD_NUMBER="$("$VERSION_RESOLVER" apple-build)"
+export VNIDROP_BUILD_TIME_UTC="${VNIDROP_BUILD_TIME_UTC:-$(date -u +%Y%m%d%H%M%S)}"
+BUILD_NUMBER="$("$VERSION_RESOLVER" apple-direct-build)"
 "$VERSION_RESOLVER" verify >/dev/null
+BUILD_METADATA="$DIST_DIR/$APP_NAME-$VERSION.build-info.json"
 
 # --- Resolve signing identity ------------------------------------------------
 if [ -z "${DEVELOPER_ID_APP:-}" ]; then
@@ -57,6 +60,7 @@ echo "    team:     ${DEVELOPMENT_TEAM:-<unknown>}"
 echo "==> Building Rust core (release)"
 CARGO_PROFILE_RELEASE_LTO=false "$SCRIPT_DIR/build-core.sh" release
 echo "==> Regenerating Xcode project"
+"$VERSION_CONFIG_GENERATOR" all
 ( cd "$APPLE_DIR" && xcodegen generate >/dev/null )
 
 rm -rf "$BUILD_DIR" && mkdir -p "$BUILD_DIR" "$DIST_DIR"
@@ -88,6 +92,18 @@ xcodebuild -exportArchive \
 	-exportOptionsPlist "$EXPORT_OPTS"
 APP="$EXPORT_DIR/$APP_NAME.app"
 [ -d "$APP" ] || { echo "error: export failed" >&2; exit 1; }
+ACTUAL_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+	"$APP/Contents/Info.plist")"
+ACTUAL_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' \
+	"$APP/Contents/Info.plist")"
+[ "$ACTUAL_VERSION" = "$VERSION" ] || {
+	echo "error: exported app version $ACTUAL_VERSION does not match $VERSION" >&2
+	exit 1
+}
+[ "$ACTUAL_BUILD" = "$BUILD_NUMBER" ] || {
+	echo "error: exported app build $ACTUAL_BUILD does not match $BUILD_NUMBER" >&2
+	exit 1
+}
 
 # --- Build the DMG -----------------------------------------------------------
 DMG="$DIST_DIR/$APP_NAME-$VERSION.dmg"
@@ -133,7 +149,18 @@ else
 fi
 
 SIZE="$(stat -f%z "$DMG")"
+jq -n \
+	--arg productVersion "$VERSION" \
+	--arg directBuildNumber "$BUILD_NUMBER" \
+	--arg artifact "$(basename "$DMG")" \
+	'{
+		productVersion: $productVersion,
+		directBuildNumber: $directBuildNumber,
+		distribution: "direct",
+		artifact: $artifact
+	}' > "$BUILD_METADATA"
 echo "==> Done."
 echo "    dmg:     $DMG"
 echo "    version: $VERSION"
+echo "    build:   $BUILD_NUMBER"
 echo "    size:    $SIZE bytes"

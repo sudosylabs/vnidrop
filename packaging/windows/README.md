@@ -32,9 +32,9 @@ package version adds `WINDOWS_VERSION_EPOCH` to the product major. With epoch
 ## GitHub Actions
 
 The Windows Store package workflow runs automatically for relevant pull
-requests, for release tags matching vMAJOR.MINOR.PATCH, and by manual dispatch.
-Pull requests build and validate without retaining an artifact. Tags and manual
-runs retain:
+requests and by manual dispatch. The coordinated release workflow also calls
+it for a canonical `vMAJOR.MINOR.PATCH` tag. Pull requests build and validate
+without retaining an artifact. Manual and coordinated-release runs retain:
 
 - VniDrop_VERSION_x64.msix
 - VniDrop_VERSION_x64.msixupload
@@ -56,7 +56,8 @@ MakeAppx unpacks the finished package.
 Microsoft's current GitHub Actions publishing flow is for updates to an
 already-live free product. For the first release:
 
-1. Run this workflow from a release tag or by manual dispatch.
+1. Push a canonical release tag to run the coordinated workflow, or run the
+   Windows package workflow manually.
 2. Download the retained artifact.
 3. Test that exact build on an interactive Windows VM. Local installation needs
    an ephemeral development signature trusted only by that VM; this is not a

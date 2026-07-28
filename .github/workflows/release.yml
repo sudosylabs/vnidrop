@@ -1,0 +1,369 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vnidrop-release
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Verify release tag
+    if: ${{ vars.RELEASE_PIPELINE_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.app }}
+      android_code: ${{ steps.version.outputs.android_code }}
+
+    steps:
+      - name: Checkout release history
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify canonical beta tag on current master
+        id: version
+        run: |
+          set -euo pipefail
+          packaging/version/resolve-version.sh verify >/dev/null
+          version="$(packaging/version/resolve-version.sh product)"
+          channel="$(packaging/version/resolve-version.sh channel)"
+          master_sha="$(git rev-parse origin/master)"
+          if [ "$GITHUB_SHA" != "$master_sha" ]; then
+            echo "Release tags must point at the current master commit" >&2
+            exit 1
+          fi
+          if [ "$channel" != "beta" ]; then
+            echo "Only beta closed-testing releases are enabled" >&2
+            exit 1
+          fi
+          echo "app=$version" >> "$GITHUB_OUTPUT"
+          echo "android_code=$(packaging/version/resolve-version.sh android-code)" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse an existing GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "GitHub Release $GITHUB_REF_NAME already exists" >&2
+            exit 1
+          fi
+
+  linux:
+    name: Linux packages
+    needs: preflight
+    uses: ./.github/workflows/linux-packages.yml
+
+  windows:
+    name: Windows Store package
+    needs: preflight
+    uses: ./.github/workflows/windows-store.yml
+
+  macos:
+    name: Signed and notarized macOS package
+    needs: preflight
+    uses: ./.github/workflows/apple-release.yml
+    secrets: inherit
+
+  android:
+    name: Signed Android package
+    needs: preflight
+    uses: ./.github/workflows/android-release.yml
+    secrets: inherit
+
+  play-closed-testing:
+    name: Stage Play closed-testing draft
+    needs:
+      - preflight
+      - linux
+      - windows
+      - macos
+      - android
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: play-closed-testing
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Download signed Android artifacts
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: vnidrop-${{ needs.preflight.outputs.version }}-android-release
+          path: build/release/android
+
+      - name: Validate closed-testing configuration
+        env:
+          WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          PLAY_SERVICE_ACCOUNT: ${{ vars.GCP_PLAY_SERVICE_ACCOUNT }}
+          PLAY_PACKAGE_NAME: ${{ vars.PLAY_PACKAGE_NAME }}
+          PLAY_CLOSED_TRACK: ${{ vars.PLAY_CLOSED_TRACK }}
+          PLAY_APP_SIGNING_CERT_SHA256: ${{ vars.PLAY_APP_SIGNING_CERT_SHA256 }}
+        run: |
+          for name in \
+            WORKLOAD_IDENTITY_PROVIDER \
+            PLAY_SERVICE_ACCOUNT \
+            PLAY_PACKAGE_NAME \
+            PLAY_CLOSED_TRACK \
+            PLAY_APP_SIGNING_CERT_SHA256; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing Play closed-testing configuration: $name" >&2
+              exit 1
+            fi
+          done
+          case "${PLAY_CLOSED_TRACK,,}" in
+            production|*:production)
+              echo "Production Play tracks are forbidden" >&2
+              exit 1
+              ;;
+          esac
+          if [ "$PLAY_PACKAGE_NAME" != "com.vnidrop.app" ]; then
+            echo "Unexpected Play package name: $PLAY_PACKAGE_NAME" >&2
+            exit 1
+          fi
+
+      - name: Authenticate to Google with GitHub OIDC
+        id: google-auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_PLAY_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/androidpublisher
+
+      - name: Stage AAB and download Play-signed APK
+        env:
+          GOOGLE_PLAY_ACCESS_TOKEN: ${{ steps.google-auth.outputs.access_token }}
+          PLAY_PACKAGE_NAME: ${{ vars.PLAY_PACKAGE_NAME }}
+          PLAY_CLOSED_TRACK: ${{ vars.PLAY_CLOSED_TRACK }}
+          PLAY_APP_SIGNING_CERT_SHA256: ${{ vars.PLAY_APP_SIGNING_CERT_SHA256 }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+          VERSION_CODE: ${{ needs.preflight.outputs.android_code }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          bundles=(build/release/android/*.aab)
+          if [ "${#bundles[@]}" -ne 1 ]; then
+            echo "Expected exactly one signed AAB" >&2
+            exit 1
+          fi
+          mkdir -p build/release/play
+          python3 packaging/android/publish_play.py \
+            --bundle "${bundles[0]}" \
+            --package-name "$PLAY_PACKAGE_NAME" \
+            --track "$PLAY_CLOSED_TRACK" \
+            --version-code "$VERSION_CODE" \
+            --release-name "$VERSION" \
+            --expected-app-certificate "$PLAY_APP_SIGNING_CERT_SHA256" \
+            --apk-output "build/release/play/VniDrop-${VERSION}-${VERSION_CODE}-play-universal.apk" \
+            --metadata-output build/release/play/play-release.json
+
+      - name: Set up Android SDK verification tools
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: "platform-tools build-tools;36.0.0"
+
+      - name: Verify Play-signed universal APK
+        env:
+          EXPECTED_CERT_SHA256: ${{ vars.PLAY_APP_SIGNING_CERT_SHA256 }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+          VERSION_CODE: ${{ needs.preflight.outputs.android_code }}
+        run: |
+          set -euo pipefail
+          apk="build/release/play/VniDrop-${VERSION}-${VERSION_CODE}-play-universal.apk"
+          apksigner_path="$(
+            find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner -perm -111 |
+              sort -r |
+              head -1
+          )"
+          apkanalyzer_path="$(
+            find "$ANDROID_SDK_ROOT/cmdline-tools" -type f -name apkanalyzer -perm -111 |
+              sort -r |
+              head -1
+          )"
+          if [ -z "$apksigner_path" ] || [ -z "$apkanalyzer_path" ]; then
+            echo "Android SDK verification tools were not found" >&2
+            exit 1
+          fi
+          "$apksigner_path" verify --verbose --print-certs "$apk" \
+            > build/release/play/apksigner-report.txt
+          actual="$(
+            awk -F': ' '/Signer #1 certificate SHA-256 digest:/ {print $2; exit}' \
+              build/release/play/apksigner-report.txt |
+              tr -d '[:space:]:' |
+              tr '[:upper:]' '[:lower:]'
+          )"
+          expected="$(
+            printf '%s' "$EXPECTED_CERT_SHA256" |
+              tr -d '[:space:]:' |
+              tr '[:upper:]' '[:lower:]'
+          )"
+          if [ -z "$actual" ] || [ "$actual" != "$expected" ]; then
+            echo "Play APK signing certificate mismatch" >&2
+            exit 1
+          fi
+          if [ "$("$apkanalyzer_path" manifest application-id "$apk")" != "com.vnidrop.app" ]; then
+            echo "Play APK package name mismatch" >&2
+            exit 1
+          fi
+          if [ "$("$apkanalyzer_path" manifest version-name "$apk")" != "$VERSION" ]; then
+            echo "Play APK version name mismatch" >&2
+            exit 1
+          fi
+          if [ "$("$apkanalyzer_path" manifest version-code "$apk")" != "$VERSION_CODE" ]; then
+            echo "Play APK version code mismatch" >&2
+            exit 1
+          fi
+          rm build/release/play/apksigner-report.txt
+          (
+            cd build/release/play
+            sha256sum \
+              "VniDrop-${VERSION}-${VERSION_CODE}-play-universal.apk" \
+              play-release.json \
+              > SHA256SUMS
+          )
+
+      - name: Upload Play-signed APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vnidrop-${{ needs.preflight.outputs.version }}-android-play
+          path: build/release/play/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+  publish-github:
+    name: Publish coordinated GitHub Release
+    needs:
+      - preflight
+      - linux
+      - windows
+      - macos
+      - play-closed-testing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Download Debian package
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: vnidrop-${{ needs.preflight.outputs.version }}-linux-deb-x64
+          path: build/release/downloads/deb
+
+      - name: Download RPM package
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: vnidrop-${{ needs.preflight.outputs.version }}-linux-rpm-x64
+          path: build/release/downloads/rpm
+
+      - name: Download macOS package
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: vnidrop-${{ needs.preflight.outputs.version }}-macos-dmg
+          path: build/release/downloads/macos
+
+      - name: Download Windows Store package
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: vnidrop-${{ needs.preflight.outputs.version }}-windows-store-x64
+          path: build/release/downloads/windows
+
+      - name: Download Play-signed APK
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: vnidrop-${{ needs.preflight.outputs.version }}-android-play
+          path: build/release/downloads/play
+
+      - name: Verify and assemble public release assets
+        run: packaging/release/assemble-release.sh
+
+      - name: Attest release provenance
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4
+        with:
+          subject-path: build/release/final/*
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            build/release/final/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "VniDrop ${{ needs.preflight.outputs.version }}" \
+            --generate-notes
+
+  update-homebrew:
+    name: Update Homebrew cask
+    needs:
+      - preflight
+      - macos
+      - publish-github
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Download macOS package
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: vnidrop-${{ needs.preflight.outputs.version }}-macos-dmg
+          path: dist
+
+      - name: Render Homebrew cask
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum "dist/VniDrop-${VERSION}.dmg" | cut -d' ' -f1)"
+          sed -e "s/^  version \".*\"/  version \"${VERSION}\"/" \
+              -e "s/^  sha256 \".*\"/  sha256 \"${sha}\"/" \
+              packaging/homebrew/vnidrop.rb > /tmp/vnidrop.rb
+
+      - name: Push cask to tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          git clone \
+            "https://x-access-token:${TAP_TOKEN}@github.com/sudosylabs/homebrew-vnidrop.git" \
+            tap
+          mkdir -p tap/Casks
+          cp /tmp/vnidrop.rb tap/Casks/vnidrop.rb
+          cd tap
+          git config user.name "vnidrop-release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git add Casks/vnidrop.rb
+          git commit -m "vnidrop ${VERSION}" || {
+            echo "Homebrew cask already matches ${VERSION}"
+            exit 0
+          }
+          git push

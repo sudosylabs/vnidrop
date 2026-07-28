@@ -13,9 +13,10 @@ repository should add repository metadata signing and its own update channel.
 
 ## GitHub Actions
 
-The Linux packages workflow runs for relevant pull requests, release tags
-matching `vMAJOR.MINOR.PATCH`, and manual dispatches. Each native package is
-built and validated on its matching distribution family:
+The Linux packages workflow runs for relevant pull requests and manual
+dispatches. The coordinated release workflow also calls it for a canonical
+`vMAJOR.MINOR.PATCH` tag. Each native package is built and validated on its
+matching distribution family:
 
 - `.deb` on Ubuntu 22.04 for a conservative glibc baseline
 - `.rpm` inside Fedora 43 so `jpackage` can discover normal RPM dependencies
@@ -23,9 +24,9 @@ built and validated on its matching distribution family:
 The shared JVM suite runs inside the Debian build job. Package construction and
 payload validation happen in both build jobs, so there is no separate test
 runner. Pull requests build and verify both packages but do not retain
-artifacts. Manual runs retain build artifacts for 14 days. A pushed version tag
-whose commit is on `master` creates the matching GitHub Release with the `.deb`,
-`.rpm`, and a combined `SHA256SUMS`.
+artifacts. Manual and coordinated-release runs retain build artifacts. The
+central release workflow creates the single GitHub Release only after every
+platform build and Play closed-testing stage succeeds.
 
 The legacy `v1.0.0` tag predates canonical versioning and does not define the
 current product version. New release tags must match `version.properties`.

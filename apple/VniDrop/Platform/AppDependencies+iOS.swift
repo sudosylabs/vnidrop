@@ -6,7 +6,7 @@ import UIKit
 @MainActor
 func makeAppDependencies(externalInvitations: ExternalInvitationController) -> AppDependencies {
 	let device = UIDevice.current
-	let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
+	let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
 	let env = PlatformEnvironment(
 		name: "\(device.systemName) \(device.systemVersion)",
 		appVersion: version,

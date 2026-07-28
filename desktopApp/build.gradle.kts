@@ -6,19 +6,7 @@ plugins {
 	alias(libs.plugins.composeCompiler)
 }
 
-val appVersion = providers.gradleProperty("vnidrop.version").get()
-val appVersionParts = appVersion.split(".")
-require(
-	appVersionParts.size == 3 &&
-		appVersionParts.mapIndexed { index, part ->
-			val number = part.toIntOrNull()
-			number != null &&
-				number.toString() == part &&
-				number in (if (index == 0) 1 else 0)..65535
-		}.all { it },
-) {
-	"vnidrop.version must be MAJOR.MINOR.PATCH with numeric components from 0 to 65535 and a non-zero major"
-}
+val appVersion = rootProject.extra["vnidrop.productVersion"] as String
 
 dependencies {
 	implementation(projects.shared)

@@ -37,7 +37,7 @@ plugins {
 	alias(libs.plugins.kotlinAtomicfu)
 }
 
-val appVersion = providers.gradleProperty("vnidrop.version").get()
+val appVersion = rootProject.extra["vnidrop.productVersion"] as String
 val desktopRustVariant = providers.gradleProperty("vnidrop.desktop.rustVariant")
 	.map { value ->
 		when (value.trim().lowercase()) {

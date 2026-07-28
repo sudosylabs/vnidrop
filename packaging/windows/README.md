@@ -24,8 +24,10 @@ after the first release. The manifest display name uses the exact reserved Store
 name; the product's in-app branding and launcher remain `VniDrop`.
 
 The initial package targets Windows Desktop x64, Windows 10 version 2004
-(build 19041) or later. The fourth MSIX version component is reserved by the
-Store, so app version 1.2.3 becomes package version 1.2.3.0.
+(build 19041) or later. The product version comes from `version.properties`.
+Because MSIX requires a non-zero major and reserves the fourth component, the
+package version adds `WINDOWS_VERSION_EPOCH` to the product major. With epoch
+`1`, product version `0.2.0` becomes package version `1.2.0.0`.
 
 ## GitHub Actions
 
@@ -87,9 +89,9 @@ The Store ID is a non-secret variable.
 From the repository root:
 
 ~~~powershell
-.\gradlew.bat :shared:jvmTest :desktopApp:createReleaseDistributable -Pvnidrop.version=1.0.0 -Pvnidrop.desktop.rustVariant=release -Pvnidrop.diagnostics.included=false --no-daemon --no-configuration-cache --stacktrace
+.\gradlew.bat :shared:jvmTest :desktopApp:createReleaseDistributable -Pvnidrop.desktop.rustVariant=release -Pvnidrop.diagnostics.included=false --no-daemon --no-configuration-cache --stacktrace
 
-.\packaging\windows\build-msix.ps1 -Version 1.0.0 -AppImage .\desktopApp\build\compose\binaries\main-release\app\VniDrop -OutputDirectory .\build\release\windows
+.\packaging\windows\build-msix.ps1 -AppImage .\desktopApp\build\compose\binaries\main-release\app\VniDrop -OutputDirectory .\build\release\windows
 ~~~
 
 The packaging script requires Windows SDK 10.0.26100.0. It uses MakePri to

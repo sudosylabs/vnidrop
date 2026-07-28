@@ -37,6 +37,9 @@ plugins {
 	alias(libs.plugins.composeCompiler)
 }
 
+val appVersion = rootProject.extra["vnidrop.productVersion"] as String
+val androidVersionCode = rootProject.extra["vnidrop.androidVersionCode"] as Int
+
 kotlin {
 	compilerOptions {
 		jvmTarget = JvmTarget.JVM_11
@@ -59,8 +62,8 @@ android {
 		applicationId = "com.vnidrop.app"
 		minSdk = libs.versions.android.minSdk.get().toInt()
 		targetSdk = libs.versions.android.targetSdk.get().toInt()
-		versionCode = 1
-		versionName = "1.0"
+		versionCode = androidVersionCode
+		versionName = appVersion
 	}
 	packaging {
 		resources {

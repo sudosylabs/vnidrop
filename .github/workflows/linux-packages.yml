@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/linux-packages.yml"
       - "packaging/linux/**"
+      - "packaging/version/**"
+      - "version.properties"
       - "assets/linux/**"
       - "desktopApp/**"
       - "shared/**"
@@ -24,12 +26,6 @@ on:
     tags:
       - "v*.*.*"
   workflow_dispatch:
-    inputs:
-      version:
-        description: Release version in MAJOR.MINOR.PATCH form
-        required: true
-        default: "1.0.0"
-        type: string
 
 permissions:
   contents: read
@@ -88,16 +84,14 @@ jobs:
           restore-keys: |
             linux-deb-x64-cargo-1.91.0-
 
-      - name: Resolve version
+      - name: Resolve canonical version
         id: version
-        env:
-          REQUESTED_VERSION: ${{ inputs.version || '1.0.0' }}
         run: |
-          version=$(packaging/linux/resolve-version.sh "$REQUESTED_VERSION")
+          version=$(packaging/linux/resolve-version.sh)
           echo "app=$version" >> "$GITHUB_OUTPUT"
 
       - name: Test and build Debian package
-        run: make package-deb VERSION=${{ steps.version.outputs.app }}
+        run: make package-deb
 
       - name: Upload Debian artifact
         if: github.event_name != 'pull_request'
@@ -193,16 +187,14 @@ jobs:
           restore-keys: |
             linux-rpm-x64-cargo-1.91.0-
 
-      - name: Resolve version
+      - name: Resolve canonical version
         id: version
-        env:
-          REQUESTED_VERSION: ${{ inputs.version || '1.0.0' }}
         run: |
-          version=$(packaging/linux/resolve-version.sh "$REQUESTED_VERSION")
+          version=$(packaging/linux/resolve-version.sh)
           echo "app=$version" >> "$GITHUB_OUTPUT"
 
       - name: Build RPM package
-        run: make package-rpm VERSION=${{ steps.version.outputs.app }}
+        run: make package-rpm
 
       - name: Upload RPM artifact
         if: github.event_name != 'pull_request'

@@ -13,13 +13,13 @@ include $(ROOT)/make/release.mk
 .PHONY: test-rust-transfer test-rust-approval test-rust-lifecycle test-rust-output-sink
 .PHONY: check-shared test-shared test-android-host check-android verify-android-libs build-android run-desktop
 .PHONY: apple-core apple-project open-apple-project open-apple build-apple-macos build-apple-ios check-apple
-.PHONY: check-localization localization localization-migrate
+.PHONY: check-version check-localization localization localization-migrate
 .PHONY: check-docs run-docs check-diagnostics run-diagnostics diagnostics-db-local diagnostics-db-remote diagnostics-typegen deploy-diagnostics
 
 help: ## Show available commands and common configuration variables.
 	@grep -hE '^[A-Za-z0-9_.-]+:.*## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*## "} {printf "  %-28s %s\n", $$1, $$2}'
 	@printf '\nCommon variables:\n'
-	@printf '  %-28s %s\n' 'VERSION=x.y.z' 'Package version (default: $(VERSION))'
+	@printf '  %-28s %s\n' 'version.properties' 'Canonical application version ($(VERSION))'
 	@printf '  %-28s %s\n' 'APPLE_PROFILE=debug|release' 'Rust profile for the Apple XCFramework'
 	@printf '  %-28s %s\n' 'APPLE_CONFIGURATION=...' 'Xcode configuration (default: $(APPLE_CONFIGURATION))'
 	@printf '  %-28s %s\n' 'APPLE_DESTINATION=...' 'Optional xcodebuild destination override'
@@ -59,7 +59,12 @@ format: ## Format Rust sources.
 
 test: test-rust test-shared ## Run the main Rust and shared JVM test suites.
 
-check: check-rust check-shared check-localization check-docs check-diagnostics ## Run portable pre-PR verification.
+check: check-version check-rust check-shared check-localization check-docs check-diagnostics ## Run portable pre-PR verification.
+
+check-version: ## Validate the canonical version and its platform mappings.
+	cd $(ROOT) && packaging/version/test-version.sh
+	cd $(ROOT) && packaging/version/resolve-version.sh verify
+	cd $(ROOT) && $(GRADLE) verifyVersion $(GRADLE_FLAGS)
 
 check-rust: ## Run Rust formatting, lint, tests, and documentation checks.
 	cd $(ROOT) && $(CARGO) fmt --all -- --check
@@ -126,7 +131,7 @@ build-apple-macos-direct: apple-project ## Build the direct-download macOS targe
 	cd $(ROOT)/apple && $(XCODEBUILD) -project VniDrop.xcodeproj -scheme VniDropDirect -configuration Release-Direct -derivedDataPath "$(APPLE_DERIVED_DATA)" -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
 
 build-apple-dmg: ## Build the signed/notarized direct-download .dmg (see apple/RELEASE-MACOS.md for required env).
-	cd $(ROOT) && apple/scripts/build-dmg.sh $(VERSION)
+	cd $(ROOT) && apple/scripts/build-dmg.sh
 
 open-apple: build-apple-macos ## Build and launch the native macOS app.
 	@test -d "$(APPLE_DERIVED_DATA)/Build/Products/$(APPLE_CONFIGURATION)/VniDrop.app" || { printf 'Built macOS app was not found.\n' >&2; exit 1; }

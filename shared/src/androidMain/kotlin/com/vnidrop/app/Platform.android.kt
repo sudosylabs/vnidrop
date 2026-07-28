@@ -52,7 +52,7 @@ private class AndroidDeviceInfoProvider(
 
 private fun Context.appVersion(): String = runCatching {
 	packageManager.getPackageInfo(packageName, 0).versionName
-}.getOrNull()?.takeIf(String::isNotBlank) ?: "0.1.0"
+}.getOrNull()?.takeIf(String::isNotBlank) ?: "unknown"
 
 private fun Context.activeNetworkSummary(): String? = runCatching {
 	val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager

@@ -9,7 +9,7 @@
 # keychain). The resulting appcast.xml is uploaded as a release asset; the app's
 # SUFeedURL (/releases/latest/download/appcast.xml) always resolves to the newest.
 #
-# Usage: apple/scripts/generate-appcast.sh [version]
+# Usage: apple/scripts/generate-appcast.sh
 #
 # Environment:
 #   DIST_DIR              Folder holding the DMG(s). Default: apple/dist
@@ -24,12 +24,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 APPLE_DIR="$REPO_ROOT/apple"
 DIST_DIR="${DIST_DIR:-$APPLE_DIR/dist}"
 RELEASE_REPO="${RELEASE_REPO:-sudosylabs/vnidrop}"
+VERSION_RESOLVER="$REPO_ROOT/packaging/version/resolve-version.sh"
 
-VERSION="${1:-}"
-if [ -z "$VERSION" ] && [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
-	VERSION="${GITHUB_REF_NAME#v}"
-fi
-[ -n "$VERSION" ] || { echo "error: version required (arg or tag)" >&2; exit 1; }
+VERSION="$("$VERSION_RESOLVER" product)"
+"$VERSION_RESOLVER" verify >/dev/null
 
 # Enclosure URLs resolve to the specific release's assets.
 DOWNLOAD_PREFIX="https://github.com/$RELEASE_REPO/releases/download/v$VERSION"

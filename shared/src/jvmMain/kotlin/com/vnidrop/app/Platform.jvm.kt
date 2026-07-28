@@ -14,7 +14,7 @@ fun rememberJvmAppDependencies(externalInvitations: ExternalInvitationController
 		AppDependencies(
 			environment = PlatformEnvironment(
 				name = "Java ${System.getProperty("java.version")}",
-				appVersion = AppDependencies::class.java.`package`.implementationVersion ?: "0.1.0",
+				appVersion = AppDependencies::class.java.`package`.implementationVersion ?: "unknown",
 				defaultCoreDataDir = System.getProperty("user.home") + "/.vnidrop",
 				defaultUsername = System.getenv("COMPUTERNAME") ?: System.getenv("HOSTNAME") ?: System.getProperty("user.name") ?: "Receiver",
 				uiPlatform = uiPlatformForJvm(System.getProperty("os.name")),

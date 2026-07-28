@@ -106,7 +106,7 @@ impl HandshakeClient {
                 transfer_name: metadata.transfer_name.clone(),
                 receiver_name: receiver_name.map(ToOwned::to_owned),
                 receiver_device_name: None,
-                app_version: env!("CARGO_PKG_VERSION").to_string(),
+                app_version: env!("VNIDROP_PRODUCT_VERSION").to_string(),
             })
             .await
     }

@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "shared/**"
+      - "version.properties"
+      - "packaging/version/**"
       - "crates/vnidrop/**"
       - "Cargo.toml"
       - "Cargo.lock"
@@ -24,6 +26,8 @@ on:
       - master
     paths:
       - "shared/**"
+      - "version.properties"
+      - "packaging/version/**"
       - "crates/vnidrop/**"
       - "Cargo.toml"
       - "Cargo.lock"

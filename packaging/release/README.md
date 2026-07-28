@@ -27,8 +27,9 @@ private workflow artifacts. Partner Center submission stays manual until the
 first Microsoft Store release is certified. The Play release remains a draft
 on a closed-testing track; this pipeline cannot publish to production.
 
-To release, first update and merge `version.properties`, including monotonic
-Android and Apple build numbers. Then create and push the matching tag:
+To release, first update and merge `version.properties`, including a monotonic
+Android version code. Apple Store and Direct build numbers are derived
+independently at build time. Then create and push the matching tag:
 
 ```bash
 git tag -s v0.2.0 -m "VniDrop 0.2.0"

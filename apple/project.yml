@@ -1,9 +1,11 @@
 # XcodeGen spec for the native SwiftUI VniDrop app (iOS/iPadOS/macOS).
 # Regenerate the project with:  xcodegen generate  (run from apple/)
-# Requires two generated inputs first (both gitignored), before xcodegen:
+# Requires three generated inputs first (all gitignored), before xcodegen:
 #   - Rust core:      apple/scripts/build-core.sh debug
 #   - Localization:   (cd localization && bun run src/cli.ts generate)
 #                     -> VniDrop/Resources/Localizable.xcstrings, VniDrop/Generated/L10n.swift
+#   - Versions:       packaging/version/generate-apple-xcconfig.sh all
+#                     -> Generated/StoreVersion.xcconfig, Generated/DirectVersion.xcconfig
 name: VniDrop
 options:
   bundleIdPrefix: com.vnidrop
@@ -50,10 +52,6 @@ packages:
 targetTemplates:
   AppBase:
     type: application
-    configFiles:
-      Debug: Signing.xcconfig
-      Release: Signing.xcconfig
-      Release-Direct: Signing.xcconfig
     sources:
       - path: VniDrop
         excludes:
@@ -66,7 +64,6 @@ targetTemplates:
         PRODUCT_NAME: VniDrop
         PRODUCT_BUNDLE_IDENTIFIER: com.vnidrop.app
         MARKETING_VERSION: "$(PRODUCT_VERSION)"
-        CURRENT_PROJECT_VERSION: "$(APPLE_BUILD_NUMBER)"
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: VniDrop/Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: VniDrop/Resources/VniDrop.entitlements
@@ -114,6 +111,10 @@ targets:
   VniDrop:
     templates: [AppBase]
     supportedDestinations: [iOS, macOS]
+    configFiles:
+      Debug: Generated/StoreVersion.xcconfig
+      Release: Generated/StoreVersion.xcconfig
+      Release-Direct: Generated/StoreVersion.xcconfig
 
   # Direct-download macOS target: Developer ID signed, notarized, ships in a .dmg
   # and self-updates via Sparkle. DIRECT_DISTRIBUTION gates all Sparkle code so the
@@ -121,6 +122,10 @@ targets:
   VniDropDirect:
     templates: [AppBase]
     supportedDestinations: [macOS]
+    configFiles:
+      Debug: Generated/DirectVersion.xcconfig
+      Release: Generated/DirectVersion.xcconfig
+      Release-Direct: Generated/DirectVersion.xcconfig
     settings:
       base:
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DIRECT_DISTRIBUTION"

@@ -12,8 +12,7 @@ write_version() {
 		"PRODUCT_VERSION=$1" \
 		"RELEASE_CHANNEL=$2" \
 		"ANDROID_VERSION_CODE=$3" \
-		"APPLE_BUILD_NUMBER=$4" \
-		"WINDOWS_VERSION_EPOCH=$5" \
+		"WINDOWS_VERSION_EPOCH=$4" \
 		> "$scratch/version.properties"
 }
 
@@ -28,24 +27,41 @@ expect_failure() {
 	fi
 }
 
-write_version 0.2.0 beta 2 2 1
+export VNIDROP_BUILD_TIME_UTC=20260728143217
+
+write_version 0.2.0 beta 2 1
 [[ $(resolve product) == 0.2.0 ]]
 [[ $(resolve android-code) == 2 ]]
-[[ $(resolve apple-build) == 2 ]]
+[[ $(resolve apple-store-build) == 20260728.1432.17 ]]
+[[ $(resolve apple-direct-build) == 20260728.1432.17 ]]
 [[ $(resolve windows-package) == 1.2.0.0 ]]
 resolve verify-tag v0.2.0
 expect_failure resolve verify-tag v1.0.0
 
-write_version 1.0.0 stable 42 42 1
+write_version 1.0.0 stable 42 1
 [[ $(resolve windows-package) == 2.0.0.0 ]]
 
-write_version 01.0.0 beta 2 2 1
+write_version 01.0.0 beta 2 1
 expect_failure resolve verify
 
-write_version 0.2.0 beta 0 2 1
+write_version 0.2.0 beta 0 1
 expect_failure resolve verify
 
-write_version 65535.0.0 stable 2 2 1
+write_version 65535.0.0 stable 2 1
 expect_failure resolve verify
+
+VNIDROP_BUILD_TIME_UTC=20260728146000 expect_failure resolve verify
+VNIDROP_BUILD_TIME_UTC=2026-07-28 expect_failure resolve verify
+VNIDROP_BUILD_TIME_UTC=20260229080000 expect_failure resolve verify
+
+write_version 0.2.0 beta 2 1
+config_dir="$scratch/xcconfig"
+VNIDROP_APPLE_XCCONFIG_DIR="$config_dir" \
+	"$script_dir/generate-apple-xcconfig.sh" all
+grep -Fx "PRODUCT_VERSION = 0.2.0" "$config_dir/StoreVersion.xcconfig" >/dev/null
+grep -Fx "CURRENT_PROJECT_VERSION = 20260728.1432.17" \
+	"$config_dir/StoreVersion.xcconfig" >/dev/null
+grep -Fx "CURRENT_PROJECT_VERSION = 20260728.1432.17" \
+	"$config_dir/DirectVersion.xcconfig" >/dev/null
 
 printf 'Version resolver tests passed.\n'

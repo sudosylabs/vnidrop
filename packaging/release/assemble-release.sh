@@ -45,7 +45,6 @@ verify_checksum_file() {
 
 version="$("$resolver" product)"
 android_code="$("$resolver" android-code)"
-apple_build="$("$resolver" apple-build)"
 windows_package="$("$resolver" windows-package)"
 "$resolver" verify >/dev/null
 [[ $source_tag == "v$version" ]] || {
@@ -58,6 +57,7 @@ deb="$(find_single "$input_dir/deb" '*.deb' 'Debian package')"
 rpm="$(find_single "$input_dir/rpm" '*.rpm' 'RPM package')"
 dmg="$(find_single "$input_dir/macos" '*.dmg' 'macOS DMG')"
 appcast="$(find_single "$input_dir/macos" 'appcast.xml' 'Sparkle appcast')"
+apple_metadata="$(find_single "$input_dir/macos" '*.build-info.json' 'direct macOS build metadata')"
 play_apk="$(find_single "$input_dir/play" '*-play-universal.apk' 'Play-signed APK')"
 play_metadata="$(find_single "$input_dir/play" 'play-release.json' 'Play release metadata')"
 msix="$(find_single "$input_dir/windows" '*.msix' 'Windows MSIX')"
@@ -70,6 +70,14 @@ windows_metadata="$(find_single "$input_dir/windows" '*.build-info.json' 'Window
 [[ $(basename "$play_apk") == "VniDrop-${version}-${android_code}-play-universal.apk" ]]
 [[ $(basename "$msix") == "VniDrop_${version}_x64.msix" ]]
 [[ $(basename "$msixupload") == "VniDrop_${version}_x64.msixupload" ]]
+[[ $(jq -r '.productVersion' "$apple_metadata") == "$version" ]]
+[[ $(jq -r '.distribution' "$apple_metadata") == direct ]]
+[[ $(jq -r '.artifact' "$apple_metadata") == "$(basename "$dmg")" ]]
+apple_direct_build="$(jq -r '.directBuildNumber' "$apple_metadata")"
+[[ $apple_direct_build =~ ^[1-9][0-9]*(\.[0-9]+){0,2}$ ]] || {
+	printf 'Invalid direct Apple build number: %s\n' "$apple_direct_build" >&2
+	exit 1
+}
 
 deb_checksum="$(find_single "$input_dir/deb" '*.sha256' 'Debian checksum')"
 rpm_checksum="$(find_single "$input_dir/rpm" '*.sha256' 'RPM checksum')"
@@ -120,7 +128,7 @@ jq -n \
 	--arg tag "$source_tag" \
 	--arg commit "$source_commit" \
 	--arg androidVersionCode "$android_code" \
-	--arg appleBuildNumber "$apple_build" \
+	--arg appleDirectBuildNumber "$apple_direct_build" \
 	--arg windowsPackageVersion "$windows_package" \
 	--arg windowsMsixUpload "$(basename "$msixupload")" \
 	--arg windowsMsixUploadSha256 "$(sha256sum "$msixupload" | awk '{print $1}')" \
@@ -135,7 +143,7 @@ jq -n \
 		sourceCommit: $commit,
 		platformVersions: {
 			androidVersionCode: ($androidVersionCode | tonumber),
-			appleBuildNumber: $appleBuildNumber,
+			appleDirectBuildNumber: $appleDirectBuildNumber,
 			windowsPackageVersion: $windowsPackageVersion
 		},
 		play: {

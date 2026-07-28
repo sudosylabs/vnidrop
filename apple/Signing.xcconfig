@@ -1,6 +1,3 @@
-// Product and build versions are shared by every platform.
-#include "../version.properties"
-
 // VniDrop development and CI builds are intentionally unsigned.
 CODE_SIGNING_ALLOWED = NO
 CODE_SIGNING_REQUIRED = NO

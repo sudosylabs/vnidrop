@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-	[ValidateSet("Product", "Channel", "AndroidCode", "AppleBuild", "WindowsPackage", "Json", "Verify")]
+	[ValidateSet("Product", "Channel", "AndroidCode", "AppleStoreBuild", "AppleDirectBuild", "WindowsPackage", "Json", "Verify")]
 	[string] $Field = "Verify",
 
 	[switch] $VerifyTag,
@@ -48,8 +48,31 @@ function Convert-CanonicalInteger {
 $productVersion = Read-VersionProperty "PRODUCT_VERSION"
 $releaseChannel = Read-VersionProperty "RELEASE_CHANNEL"
 $androidVersionCodeText = Read-VersionProperty "ANDROID_VERSION_CODE"
-$appleBuildNumber = Read-VersionProperty "APPLE_BUILD_NUMBER"
 $windowsVersionEpochText = Read-VersionProperty "WINDOWS_VERSION_EPOCH"
+$buildTimeUtc = $env:VNIDROP_BUILD_TIME_UTC
+if ([string]::IsNullOrWhiteSpace($buildTimeUtc)) {
+	$buildTimeUtc = [DateTime]::UtcNow.ToString(
+		"yyyyMMddHHmmss",
+		[Globalization.CultureInfo]::InvariantCulture
+	)
+}
+if ($buildTimeUtc -notmatch "^[0-9]{14}$") {
+	throw "VNIDROP_BUILD_TIME_UTC must use YYYYMMDDHHMMSS"
+}
+$parsedBuildTime = [DateTime]::MinValue
+if (-not [DateTime]::TryParseExact(
+		$buildTimeUtc,
+		"yyyyMMddHHmmss",
+		[Globalization.CultureInfo]::InvariantCulture,
+		[Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal,
+		[ref] $parsedBuildTime
+	)) {
+	throw "VNIDROP_BUILD_TIME_UTC is not a valid UTC timestamp"
+}
+$appleBuildNumber = $parsedBuildTime.ToString(
+	"yyyyMMdd.HHmm.ss",
+	[Globalization.CultureInfo]::InvariantCulture
+)
 
 if ($productVersion -notmatch "^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$") {
 	throw "PRODUCT_VERSION must use canonical MAJOR.MINOR.PATCH integers"
@@ -62,9 +85,6 @@ if ($releaseChannel -notmatch "^[a-z][a-z0-9-]*$") {
 	throw "RELEASE_CHANNEL contains unsupported characters"
 }
 $androidVersionCode = Convert-CanonicalInteger "ANDROID_VERSION_CODE" $androidVersionCodeText 1 2100000000
-if ($appleBuildNumber -notmatch "^[1-9][0-9]*(\.[0-9]+){0,2}$") {
-	throw "APPLE_BUILD_NUMBER must contain one to three period-separated non-negative integers and start above zero"
-}
 $windowsVersionEpoch = Convert-CanonicalInteger "WINDOWS_VERSION_EPOCH" $windowsVersionEpochText 1 65535
 $windowsMajor = $productMajor + $windowsVersionEpoch
 if ($windowsMajor -gt 65535) {
@@ -80,7 +100,8 @@ $versionInfo = [ordered] @{
 	productVersion = $productVersion
 	releaseChannel = $releaseChannel
 	androidVersionCode = $androidVersionCode
-	appleBuildNumber = $appleBuildNumber
+	appleStoreBuildNumber = $appleBuildNumber
+	appleDirectBuildNumber = $appleBuildNumber
 	windowsPackageVersion = $windowsPackageVersion
 }
 
@@ -88,10 +109,11 @@ switch ($Field) {
 	"Product" { $productVersion }
 	"Channel" { $releaseChannel }
 	"AndroidCode" { $androidVersionCode }
-	"AppleBuild" { $appleBuildNumber }
+	"AppleStoreBuild" { $appleBuildNumber }
+	"AppleDirectBuild" { $appleBuildNumber }
 	"WindowsPackage" { $windowsPackageVersion }
 	"Json" { $versionInfo | ConvertTo-Json -Compress }
 	"Verify" {
-		"VniDrop $productVersion ($releaseChannel), Android $androidVersionCode, Apple $appleBuildNumber, MSIX $windowsPackageVersion"
+		"VniDrop $productVersion ($releaseChannel), Android $androidVersionCode, Apple Store $appleBuildNumber, Apple Direct $appleBuildNumber, MSIX $windowsPackageVersion"
 	}
 }

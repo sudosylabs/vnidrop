@@ -145,6 +145,7 @@ jobs:
           name: vnidrop-${{ steps.version.outputs.app }}-macos-dmg
           path: |
             apple/dist/VniDrop-*.dmg
+            apple/dist/VniDrop-*.build-info.json
             apple/dist/appcast.xml
           if-no-files-found: error
           retention-days: 14

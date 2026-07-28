@@ -19,6 +19,7 @@ mkdir -p \
 version="$("$repo_root/packaging/version/resolve-version.sh" product)"
 android_code="$("$repo_root/packaging/version/resolve-version.sh" android-code)"
 windows_package="$("$repo_root/packaging/version/resolve-version.sh" windows-package)"
+apple_direct_build=20260728.1432.17
 
 printf 'deb\n' > "$input_dir/deb/vnidrop_${version}-1_amd64.deb"
 printf 'rpm\n' > "$input_dir/rpm/vnidrop-${version}-1.x86_64.rpm"
@@ -27,6 +28,17 @@ printf '<url>VniDrop-%s.dmg</url>\n' "$version" > "$input_dir/macos/appcast.xml"
 printf 'apk\n' > "$input_dir/play/VniDrop-${version}-${android_code}-play-universal.apk"
 printf 'msix\n' > "$input_dir/windows/VniDrop_${version}_x64.msix"
 printf 'msixupload\n' > "$input_dir/windows/VniDrop_${version}_x64.msixupload"
+
+jq -n \
+	--arg productVersion "$version" \
+	--arg directBuildNumber "$apple_direct_build" \
+	--arg artifact "VniDrop-${version}.dmg" \
+	'{
+		productVersion: $productVersion,
+		directBuildNumber: $directBuildNumber,
+		distribution: "direct",
+		artifact: $artifact
+	}' > "$input_dir/macos/VniDrop-${version}.build-info.json"
 
 jq -n \
 	--arg releaseName "$version" \
@@ -94,6 +106,8 @@ done < <(find "$output_dir" -maxdepth 1 -type f -print | sort)
 [[ ${actual_public_files[*]} == "${expected_public_files[*]}" ]]
 
 [[ $(jq -r '.productVersion' "$output_dir/release-manifest.json") == "$version" ]]
+[[ $(jq -r '.platformVersions.appleDirectBuildNumber' \
+	"$output_dir/release-manifest.json") == "$apple_direct_build" ]]
 [[ $(jq -r '.play.status' "$output_dir/release-manifest.json") == draft ]]
 [[ $(jq -r '.windowsStore.publicReleaseAsset' "$output_dir/release-manifest.json") == false ]]
 (

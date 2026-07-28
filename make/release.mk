@@ -1,11 +1,10 @@
 .PHONY: package-deb package-rpm package-msix
 
-package-deb: ## Build and verify a Debian x64 package (VERSION=x.y.z).
+package-deb: ## Build and verify a Debian x64 package.
 	@test "$(HOST_OS)" = linux || { printf 'Debian packaging requires Linux.\n' >&2; exit 1; }
 	@cd $(ROOT); \
-	version="$$(packaging/linux/resolve-version.sh "$(VERSION)")"; \
+	version="$$(packaging/linux/resolve-version.sh)"; \
 	$(GRADLE) :shared:jvmTest :desktopApp:packageReleaseDeb \
-		-Pvnidrop.version="$$version" \
 		-Pvnidrop.desktop.rustVariant=release \
 		-Pvnidrop.diagnostics.included=false \
 		$(GRADLE_RELEASE_FLAGS); \
@@ -19,12 +18,11 @@ package-deb: ## Build and verify a Debian x64 package (VERSION=x.y.z).
 	( cd "$$output_directory" && sha256sum "$$output_name" > "$$output_name.sha256" ); \
 	printf 'Package: %s/%s\n' "$$output_directory" "$$output_name"
 
-package-rpm: ## Build and verify an RPM x64 package (VERSION=x.y.z).
+package-rpm: ## Build and verify an RPM x64 package.
 	@test "$(HOST_OS)" = linux || { printf 'RPM packaging requires Linux.\n' >&2; exit 1; }
 	@cd $(ROOT); \
-	version="$$(packaging/linux/resolve-version.sh "$(VERSION)")"; \
+	version="$$(packaging/linux/resolve-version.sh)"; \
 	$(GRADLE) :desktopApp:packageReleaseRpm \
-		-Pvnidrop.version="$$version" \
 		-Pvnidrop.desktop.rustVariant=release \
 		-Pvnidrop.diagnostics.included=false \
 		$(GRADLE_RELEASE_FLAGS); \
@@ -38,14 +36,12 @@ package-rpm: ## Build and verify an RPM x64 package (VERSION=x.y.z).
 	( cd "$$output_directory" && sha256sum "$$output_name" > "$$output_name.sha256" ); \
 	printf 'Package: %s/%s\n' "$$output_directory" "$$output_name"
 
-package-msix: ## Build and verify an unsigned Windows Store MSIX (VERSION=x.y.z).
+package-msix: ## Build and verify an unsigned Windows Store MSIX.
 	@test "$(HOST_OS)" = windows || { printf 'MSIX packaging requires Windows.\n' >&2; exit 1; }
 	cd $(ROOT) && $(GRADLE) :shared:jvmTest :desktopApp:createReleaseDistributable \
-		-Pvnidrop.version="$(VERSION)" \
 		-Pvnidrop.desktop.rustVariant=release \
 		-Pvnidrop.diagnostics.included=false \
 		$(GRADLE_RELEASE_FLAGS)
 	cd $(ROOT) && $(POWERSHELL) -NoProfile -File packaging/windows/build-msix.ps1 \
-		-Version "$(VERSION)" \
 		-AppImage desktopApp/build/compose/binaries/main-release/app/VniDrop \
 		-OutputDirectory build/release/windows

@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "apple/**"
+      - "version.properties"
+      - "packaging/version/**"
       - "crates/vnidrop/**"
       - "crates/uniffi-bindgen/**"
       - "Cargo.toml"
@@ -18,6 +20,8 @@ on:
       - master
     paths:
       - "apple/**"
+      - "version.properties"
+      - "packaging/version/**"
       - "crates/vnidrop/**"
       - "crates/uniffi-bindgen/**"
       - "Cargo.toml"

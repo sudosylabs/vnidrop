@@ -1,9 +1,6 @@
 [CmdletBinding()]
 param(
 	[Parameter(Mandatory)]
-	[string] $Version,
-
-	[Parameter(Mandatory)]
 	[string] $AppImage,
 
 	[Parameter(Mandatory)]
@@ -87,16 +84,11 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
 	throw "MSIX packaging must run on Windows"
 }
 
-$versionParts = $Version.Split(".")
-Assert-Condition ($versionParts.Count -eq 3) "Version must use MAJOR.MINOR.PATCH"
-for ($index = 0; $index -lt $versionParts.Count; $index++) {
-	$part = $versionParts[$index]
-	$number = 0
-	Assert-Condition ([int]::TryParse($part, [ref] $number)) "Version components must be integers"
-	Assert-Condition ($number.ToString() -eq $part) "Version components must not contain leading zeroes"
-	Assert-Condition ($number -ge $(if ($index -eq 0) { 1 } else { 0 }) -and $number -le 65535) "Version components must be between 0 and 65535, with a non-zero major"
-}
-$packageVersion = "$Version.0"
+$versionResolver = Join-Path $PSScriptRoot "..\version\resolve-version.ps1"
+$versionInfoJson = & $versionResolver -Field Json -VerifyTag
+$versionInfo = $versionInfoJson | ConvertFrom-Json
+$Version = [string] $versionInfo.productVersion
+$packageVersion = [string] $versionInfo.windowsPackageVersion
 
 $appImagePath = (Resolve-Path -LiteralPath $AppImage).Path
 Assert-Condition (Test-Path -LiteralPath $appImagePath -PathType Container) "App image not found: $AppImage"

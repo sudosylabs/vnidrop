@@ -52,7 +52,7 @@ The macOS app ships through two targets that build identical sources:
 
 ```bash
 make build-apple-macos-direct   # unsigned compile-check of the direct target
-make build-apple-dmg VERSION=x.y.z  # signed (+ notarized) .dmg
+make build-apple-dmg                # signed (+ notarized) .dmg
 ```
 
 Full signing, notarization, appcast, and cask flow: see

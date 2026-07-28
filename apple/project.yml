@@ -65,11 +65,8 @@ targetTemplates:
       base:
         PRODUCT_NAME: VniDrop
         PRODUCT_BUNDLE_IDENTIFIER: com.vnidrop.app
-        MARKETING_VERSION: "0.1.0"
-        # Placeholder only — the real CFBundleVersion is stamped at build time as a
-        # UTC YYMMDD.HHMM timestamp by the "Stamp build number" phase below, so every
-        # build is monotonic and self-describing (shown as "MARKETING_VERSION (build)").
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "$(PRODUCT_VERSION)"
+        CURRENT_PROJECT_VERSION: "$(APPLE_BUILD_NUMBER)"
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: VniDrop/Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: VniDrop/Resources/VniDrop.entitlements
@@ -110,23 +107,6 @@ targetTemplates:
           else
             echo "error: SwiftLint not installed — run 'brew install swiftlint'"
             exit 1
-          fi
-    postBuildScripts:
-      # Stamp CFBundleVersion as a UTC YYMMDD.HHMM timestamp into the built
-      # Info.plist before code signing. Runs for every build (Xcode GUI archive and
-      # CLI alike), so both the App Store and direct-download channels get a
-      # monotonic, meaningful build id. CI/reproducible builds can pin it via the
-      # VNIDROP_BUILD env var. MARKETING_VERSION stays the human X.Y.Z version.
-      - name: Stamp build number (UTC timestamp)
-        basedOnDependencyAnalysis: false
-        script: |
-          build="${VNIDROP_BUILD:-$(date -u +%y%m%d.%H%M)}"
-          plist="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
-          if [ -f "$plist" ]; then
-            /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $build" "$plist"
-            echo "Stamped CFBundleVersion = $build"
-          else
-            echo "warning: Info.plist not found at $plist; CFBundleVersion not stamped"
           fi
 
 targets:

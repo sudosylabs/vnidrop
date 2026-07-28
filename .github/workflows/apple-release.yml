@@ -8,20 +8,14 @@ name: Apple release (macOS DMG)
 # The App Store / TestFlight build is NOT produced here — that goes through Xcode
 # Organizer / App Store Connect. This workflow only covers direct distribution.
 #
-# Trigger: push a tag vMAJOR.MINOR.PATCH (must point at a commit on master), or
-# run manually with an explicit version (produces artifacts, no Release).
+# Trigger: push the canonical vMAJOR.MINOR.PATCH tag (must point at a commit on
+# master), or run manually using the version committed in version.properties.
 
 on:
   push:
     tags:
       - "v*.*.*"
   workflow_dispatch:
-    inputs:
-      version:
-        description: Release version in MAJOR.MINOR.PATCH form
-        required: true
-        default: "0.1.0"
-        type: string
 
 permissions:
   contents: read
@@ -58,17 +52,11 @@ jobs:
             exit 1
           fi
 
-      - name: Resolve version
+      - name: Resolve canonical version
         id: version
-        env:
-          REQUESTED_VERSION: ${{ inputs.version || '' }}
         run: |
-          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
-            version="${GITHUB_REF_NAME#v}"
-          else
-            version="$REQUESTED_VERSION"
-          fi
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "bad version '$version'" >&2; exit 1; }
+          packaging/version/resolve-version.sh verify >/dev/null
+          version="$(packaging/version/resolve-version.sh product)"
           echo "app=$version" >> "$GITHUB_OUTPUT"
 
       - name: Select Xcode
@@ -147,12 +135,12 @@ jobs:
           echo "SPARKLE_ED_KEY_FILE=$RUNNER_TEMP/sparkle_ed_private_key" >> "$GITHUB_ENV"
 
       - name: Build, sign & notarize DMG
-        run: apple/scripts/build-dmg.sh "${{ steps.version.outputs.app }}"
+        run: apple/scripts/build-dmg.sh
 
       - name: Generate appcast
         env:
           RELEASE_REPO: ${{ github.repository }}
-        run: apple/scripts/generate-appcast.sh "${{ steps.version.outputs.app }}"
+        run: apple/scripts/generate-appcast.sh
 
       - name: Upload artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

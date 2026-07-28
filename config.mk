@@ -1,5 +1,5 @@
-# Default command configuration. Override locally in the ignored
-# config.override.mk or on the command line (for example: make package-deb VERSION=1.2.0).
+# Default command configuration. Override local tool paths in the ignored
+# config.override.mk or on the command line.
 
 ifeq ($(OS),Windows_NT)
 HOST_OS := windows
@@ -24,7 +24,7 @@ XCODEGEN ?= xcodegen
 OPEN ?= open
 POWERSHELL ?= pwsh
 
-VERSION ?= $(shell sed -n 's/^vnidrop.version=//p' $(ROOT)/gradle.properties)
+override VERSION := $(shell $(ROOT)/packaging/version/resolve-version.sh product)
 APPLE_PROFILE ?= debug
 APPLE_CONFIGURATION ?= Debug
 APPLE_DESTINATION ?=

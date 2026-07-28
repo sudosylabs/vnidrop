@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/windows-store.yml"
       - "packaging/windows/**"
+      - "packaging/version/**"
+      - "version.properties"
       - "assets/windows/**"
       - "desktopApp/**"
       - "shared/**"
@@ -21,12 +23,6 @@ on:
     tags:
       - "v*.*.*"
   workflow_dispatch:
-    inputs:
-      version:
-        description: Release version in MAJOR.MINOR.PATCH form
-        required: true
-        default: "1.0.0"
-        type: string
 
 permissions:
   contents: read
@@ -77,37 +73,13 @@ jobs:
           restore-keys: |
             windows-x64-cargo-1.91.0-
 
-      - name: Resolve Store version
+      - name: Resolve canonical version
         id: version
         shell: pwsh
-        env:
-          REQUESTED_VERSION: ${{ inputs.version || '1.0.0' }}
         run: |
-          $version = $env:REQUESTED_VERSION
-          if ($env:GITHUB_REF_TYPE -eq "tag") {
-            if ($env:GITHUB_REF_NAME -notmatch "^v[0-9]+\.[0-9]+\.[0-9]+$") {
-              throw "Store release tags must use vMAJOR.MINOR.PATCH"
-            }
-            $version = $env:GITHUB_REF_NAME.Substring(1)
-          }
-
-          if ($version -notmatch "^[0-9]+\.[0-9]+\.[0-9]+$") {
-            throw "Version must use MAJOR.MINOR.PATCH"
-          }
-          $parts = $version.Split(".")
-          for ($index = 0; $index -lt $parts.Count; $index++) {
-            $part = $parts[$index]
-            $number = 0
-            if (-not [int]::TryParse($part, [ref] $number) -or $number.ToString() -ne $part) {
-              throw "Version components must be canonical integers"
-            }
-            if ($number -lt $(if ($index -eq 0) { 1 } else { 0 }) -or $number -gt 65535) {
-              throw "Version components must be between 0 and 65535, with a non-zero major"
-            }
-          }
-
-          "app=$version" >> $env:GITHUB_OUTPUT
-          "package=$version.0" >> $env:GITHUB_OUTPUT
+          $version = .\packaging\version\resolve-version.ps1 -Field Json -VerifyTag | ConvertFrom-Json
+          "app=$($version.productVersion)" >> $env:GITHUB_OUTPUT
+          "package=$($version.windowsPackageVersion)" >> $env:GITHUB_OUTPUT
 
       - name: Test and build release app image
         shell: pwsh
@@ -115,7 +87,6 @@ jobs:
           $arguments = @(
             ":shared:jvmTest"
             ":desktopApp:createReleaseDistributable"
-            "-Pvnidrop.version=${{ steps.version.outputs.app }}"
             "-Pvnidrop.desktop.rustVariant=release"
             "-Pvnidrop.diagnostics.included=false"
             "--no-daemon"
@@ -131,7 +102,6 @@ jobs:
         shell: pwsh
         run: |
           $arguments = @{
-            Version = "${{ steps.version.outputs.app }}"
             AppImage = ".\desktopApp\build\compose\binaries\main-release\app\VniDrop"
             OutputDirectory = ".\build\release\windows"
           }

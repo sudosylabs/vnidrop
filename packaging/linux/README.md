@@ -27,9 +27,8 @@ artifacts. Manual runs retain build artifacts for 14 days. A pushed version tag
 whose commit is on `master` creates the matching GitHub Release with the `.deb`,
 `.rpm`, and a combined `SHA256SUMS`.
 
-The existing `v1.0.0` tag predates this workflow and will not run it
-retroactively. Use the next version tag after this configuration reaches
-`master`.
+The legacy `v1.0.0` tag predates canonical versioning and does not define the
+current product version. New release tags must match `version.properties`.
 
 ## Install a downloaded package
 
@@ -61,11 +60,12 @@ Use JDK 21 and Rust 1.91. Build DEB packages on Debian/Ubuntu with `dpkg` and
 `fakeroot`; build RPM packages on Fedora with `rpm-build`. Building an RPM on
 Ubuntu prevents `jpackage` from discovering normal RPM dependencies.
 
-From the repository root on the matching Linux family, run one of:
+Set the release in `version.properties`. From the repository root on the
+matching Linux family, run one of:
 
 ```bash
-make package-deb VERSION=1.0.0
-make package-rpm VERSION=1.0.0
+make package-deb
+make package-rpm
 ```
 
 The Make targets collect the Compose output under `build/release/linux/`, then

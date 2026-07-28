@@ -7,8 +7,7 @@
 # This is the direct-distribution counterpart to the App Store archive flow; it
 # never touches the App Store `VniDrop` target. The Rust crate is not modified.
 #
-# Usage: apple/scripts/build-dmg.sh [version]
-#   version   MAJOR.MINOR.PATCH; defaults to MARKETING_VERSION / the git tag.
+# Usage: apple/scripts/build-dmg.sh
 #
 # Environment:
 #   DEVELOPER_ID_APP   Codesign identity, e.g. "Developer ID Application: … (TEAMID)".
@@ -29,29 +28,11 @@ PROJECT="$APPLE_DIR/VniDrop.xcodeproj"
 SCHEME="VniDropDirect"
 CONFIG="Release-Direct"
 APP_NAME="VniDrop"
+VERSION_RESOLVER="$REPO_ROOT/packaging/version/resolve-version.sh"
 
-# --- Resolve version (arg > git tag > project MARKETING_VERSION) -------------
-resolve_version() {
-	local v="${1:-}"
-	if [ -z "$v" ] && [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
-		v="${GITHUB_REF_NAME#v}"
-	fi
-	if [ -z "$v" ]; then
-		v="$(sed -nE 's/.*MARKETING_VERSION: "([0-9.]+)".*/\1/p' "$APPLE_DIR/project.yml" | head -1)"
-	fi
-	if [[ ! "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-		echo "version must be MAJOR.MINOR.PATCH (got '$v')" >&2
-		exit 1
-	fi
-	printf '%s' "$v"
-}
-VERSION="$(resolve_version "${1:-}")"
-
-# CFBundleVersion is a UTC YYMMDD.HHMM timestamp stamped by the target's
-# "Stamp build number" build phase. Pin it here (one value for the whole archive)
-# so the app, DMG, and appcast all agree; Sparkle compares it to order updates.
-BUILD_NUMBER="$(date -u +%y%m%d.%H%M)"
-export VNIDROP_BUILD="$BUILD_NUMBER"
+VERSION="$("$VERSION_RESOLVER" product)"
+BUILD_NUMBER="$("$VERSION_RESOLVER" apple-build)"
+"$VERSION_RESOLVER" verify >/dev/null
 
 # --- Resolve signing identity ------------------------------------------------
 if [ -z "${DEVELOPER_ID_APP:-}" ]; then

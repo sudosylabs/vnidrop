@@ -5,7 +5,7 @@ import AppKit
 /// Builds the macOS dependency graph, mirroring `rememberIosAppDependencies`.
 @MainActor
 func makeAppDependencies(externalInvitations: ExternalInvitationController) -> AppDependencies {
-	let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
+	let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
 	let host = Host.current().localizedName ?? "Mac"
 	let env = PlatformEnvironment(
 		name: "macOS " + ProcessInfo.processInfo.operatingSystemVersionString,

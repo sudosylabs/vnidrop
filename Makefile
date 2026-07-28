@@ -13,7 +13,7 @@ include $(ROOT)/make/release.mk
 .PHONY: test-rust-transfer test-rust-approval test-rust-lifecycle test-rust-output-sink
 .PHONY: check-shared test-shared test-android-host check-android verify-android-libs build-android run-desktop
 .PHONY: apple-core apple-project open-apple-project open-apple build-apple-macos build-apple-ios check-apple
-.PHONY: check-version check-localization localization localization-migrate
+.PHONY: check-version check-release check-localization localization localization-migrate
 .PHONY: check-docs run-docs check-diagnostics run-diagnostics diagnostics-db-local diagnostics-db-remote diagnostics-typegen deploy-diagnostics
 
 help: ## Show available commands and common configuration variables.
@@ -65,6 +65,12 @@ check-version: ## Validate the canonical version and its platform mappings.
 	cd $(ROOT) && packaging/version/test-version.sh
 	cd $(ROOT) && packaging/version/resolve-version.sh verify
 	cd $(ROOT) && $(GRADLE) verifyVersion $(GRADLE_FLAGS)
+
+check-release: ## Validate coordinated release scripts and workflow YAML.
+	cd $(ROOT) && bash -n packaging/android/build-release.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh
+	cd $(ROOT) && packaging/release/test-assemble-release.sh
+	cd $(ROOT) && python3 -m unittest discover -s packaging/android/tests -v
+	cd $(ROOT) && ruby -e 'require "yaml"; ARGV.each { |file| YAML.load_file(file) }' .github/workflows/*.yml
 
 check-rust: ## Run Rust formatting, lint, tests, and documentation checks.
 	cd $(ROOT) && $(CARGO) fmt --all -- --check

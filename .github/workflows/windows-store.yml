@@ -19,9 +19,7 @@ on:
       - "gradle/**"
       - "gradlew"
       - "gradlew.bat"
-  push:
-    tags:
-      - "v*.*.*"
+  workflow_call:
   workflow_dispatch:
 
 permissions:

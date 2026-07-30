@@ -53,18 +53,6 @@ verify_archive_entries() {
 	done
 }
 
-find_apksigner() {
-	if command -v apksigner >/dev/null 2>&1; then
-		command -v apksigner
-		return
-	fi
-	local sdk_root=${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}
-	[[ -n $sdk_root ]] || return 1
-	find "$sdk_root/build-tools" -type f -name apksigner -perm -111 2>/dev/null |
-		sort -r |
-		head -1
-}
-
 for name in \
 	VNIDROP_ANDROID_KEYSTORE_PATH \
 	VNIDROP_ANDROID_KEYSTORE_PASSWORD \
@@ -119,26 +107,12 @@ grep -F 'jar verified.' <<< "$jarsigner_report" >/dev/null || {
 }
 verify_archive_entries "$source_apk" "${required_apk_libraries[@]}"
 verify_archive_entries "$source_aab" "${required_aab_libraries[@]}"
-apksigner_path="$(find_apksigner)" || {
-	printf 'apksigner was not found in PATH or the Android SDK\n' >&2
-	exit 1
-}
-signature_report="$("$apksigner_path" verify --verbose --print-certs "$source_apk")"
 actual_fingerprint="$(
-	printf '%s\n' "$signature_report" |
-		awk -F': ' '/Signer #1 certificate SHA-256 digest:/ {print $2; exit}'
+	"$script_dir/verify-apk-signature.sh" \
+		"$source_apk" \
+		"$VNIDROP_ANDROID_UPLOAD_CERT_SHA256"
 )"
-[[ -n $actual_fingerprint ]] || {
-	printf 'Could not read the APK signing certificate fingerprint\n' >&2
-	exit 1
-}
-actual_fingerprint="$(normalize_fingerprint "$actual_fingerprint")"
 expected_fingerprint="$(normalize_fingerprint "$VNIDROP_ANDROID_UPLOAD_CERT_SHA256")"
-[[ $actual_fingerprint == "$expected_fingerprint" ]] || {
-	printf 'APK signing certificate mismatch: expected %s, got %s\n' \
-		"$expected_fingerprint" "$actual_fingerprint" >&2
-	exit 1
-}
 aab_fingerprint="$(
 	keytool -printcert -jarfile "$source_aab" |
 		awk -F': ' '/SHA256:/ {print $2; exit}'

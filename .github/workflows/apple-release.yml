@@ -132,7 +132,7 @@ jobs:
           echo "SPARKLE_ED_KEY_FILE=$RUNNER_TEMP/sparkle_ed_private_key" >> "$GITHUB_ENV"
 
       - name: Build, sign & notarize DMG
-        run: apple/scripts/build-dmg.sh
+        run: make build-apple-dmg
 
       - name: Generate appcast
         env:

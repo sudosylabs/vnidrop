@@ -25,4 +25,17 @@ grep -F 'run: make build-apple-dmg' \
 	exit 1
 }
 
+signing_line="$(
+	awk '/sign-exported-app\.sh/ {print NR; exit}' \
+		"$repo_root/apple/scripts/build-dmg.sh"
+)"
+dmg_line="$(
+	awk '/echo "==> Building DMG"/ {print NR; exit}' \
+		"$repo_root/apple/scripts/build-dmg.sh"
+)"
+[[ -n $signing_line && -n $dmg_line && $signing_line -lt $dmg_line ]] || {
+	printf 'The exported app must enforce hardened-runtime signing before DMG creation\n' >&2
+	exit 1
+}
+
 printf 'Release configuration tests passed.\n'

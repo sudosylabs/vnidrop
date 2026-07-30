@@ -105,6 +105,12 @@ ACTUAL_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' \
 	exit 1
 }
 
+echo "==> Enforcing hardened-runtime signature"
+"$SCRIPT_DIR/sign-exported-app.sh" \
+	"$APP" \
+	"$DEVELOPER_ID_APP" \
+	"$APPLE_DIR/VniDrop/Resources/VniDropDirect.entitlements"
+
 # --- Build the DMG -----------------------------------------------------------
 DMG="$DIST_DIR/$APP_NAME-$VERSION.dmg"
 rm -f "$DMG"

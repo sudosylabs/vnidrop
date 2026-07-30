@@ -71,8 +71,10 @@ check-version: ## Validate the canonical version and its platform mappings.
 	cd $(ROOT) && $(GRADLE) verifyVersion $(GRADLE_FLAGS)
 
 check-release: ## Validate coordinated release scripts and workflow YAML.
-	cd $(ROOT) && bash -n packaging/android/build-release.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh
+	cd $(ROOT) && bash -n packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh
+	cd $(ROOT) && packaging/android/tests/test_verify_apk_signature.sh
 	cd $(ROOT) && packaging/release/test-assemble-release.sh
+	cd $(ROOT) && packaging/release/test-release-config.sh
 	cd $(ROOT) && python3 -m unittest discover -s packaging/android/tests -v
 	cd $(ROOT) && ruby -e 'require "yaml"; ARGV.each { |file| YAML.load_file(file) }' .github/workflows/*.yml
 
@@ -143,7 +145,7 @@ build-apple-macos: apple-project ## Build the native macOS app (unsigned by defa
 build-apple-macos-direct: apple-project ## Build the direct-download macOS target (Sparkle, unsigned) — CI compile check.
 	cd $(ROOT)/apple && $(XCODEBUILD) -project VniDrop.xcodeproj -scheme VniDropDirect -configuration Release-Direct -derivedDataPath "$(APPLE_DERIVED_DATA)" -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
 
-build-apple-dmg: ## Build the signed/notarized direct-download .dmg (see apple/RELEASE-MACOS.md for required env).
+build-apple-dmg: localization ## Build the signed/notarized direct-download .dmg (see apple/RELEASE-MACOS.md for required env).
 	cd $(ROOT) && apple/scripts/build-dmg.sh
 
 open-apple: build-apple-macos ## Build and launch the native macOS app.

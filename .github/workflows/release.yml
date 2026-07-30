@@ -185,37 +185,19 @@ jobs:
         run: |
           set -euo pipefail
           apk="build/release/play/VniDrop-${VERSION}-${VERSION_CODE}-play-universal.apk"
-          apksigner_path="$(
-            find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner -perm -111 |
-              sort -r |
-              head -1
-          )"
           apkanalyzer_path="$(
             find "$ANDROID_SDK_ROOT/cmdline-tools" -type f -name apkanalyzer -perm -111 |
               sort -r |
               head -1
           )"
-          if [ -z "$apksigner_path" ] || [ -z "$apkanalyzer_path" ]; then
-            echo "Android SDK verification tools were not found" >&2
+          if [ -z "$apkanalyzer_path" ]; then
+            echo "apkanalyzer was not found" >&2
             exit 1
           fi
-          "$apksigner_path" verify --verbose --print-certs "$apk" \
-            > build/release/play/apksigner-report.txt
-          actual="$(
-            awk -F': ' '/Signer #1 certificate SHA-256 digest:/ {print $2; exit}' \
-              build/release/play/apksigner-report.txt |
-              tr -d '[:space:]:' |
-              tr '[:upper:]' '[:lower:]'
-          )"
-          expected="$(
-            printf '%s' "$EXPECTED_CERT_SHA256" |
-              tr -d '[:space:]:' |
-              tr '[:upper:]' '[:lower:]'
-          )"
-          if [ -z "$actual" ] || [ "$actual" != "$expected" ]; then
-            echo "Play APK signing certificate mismatch" >&2
-            exit 1
-          fi
+          packaging/android/verify-apk-signature.sh \
+            "$apk" \
+            "$EXPECTED_CERT_SHA256" \
+            >/dev/null
           if [ "$("$apkanalyzer_path" manifest application-id "$apk")" != "com.vnidrop.app" ]; then
             echo "Play APK package name mismatch" >&2
             exit 1
@@ -228,7 +210,6 @@ jobs:
             echo "Play APK version code mismatch" >&2
             exit 1
           fi
-          rm build/release/play/apksigner-report.txt
           (
             cd build/release/play
             sha256sum \

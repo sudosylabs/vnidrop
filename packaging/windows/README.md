@@ -74,16 +74,21 @@ Use this restricted-capability justification in Submission options:
 > Rust and JVM libraries and needs normal user-level filesystem and network
 > access to transfer user-selected files directly between devices.
 
-After the first release is certified and live, Store publication can be added
-as a separate protected job. Keep its Partner Center credentials in a GitHub
-Environment, not in this build job:
+After the first release is certified and live, the coordinated release
+workflow submits the generated `.msixupload` from a separate protected job.
+Keep its Partner Center credentials in the `microsoft-store` GitHub
+Environment, not in the build job:
 
 - AZURE_AD_TENANT_ID
 - AZURE_AD_APPLICATION_CLIENT_ID
 - AZURE_AD_APPLICATION_SECRET
 - SELLER_ID
 
-The Store ID is a non-secret variable.
+Set `MICROSOFT_STORE_PRODUCT_ID` to `9NJ5Q0FG7TGL` as a non-secret variable in
+the same environment. The publishing job validates the product ID,
+authenticates with the pinned Microsoft Store Developer CLI, verifies access to
+the product, and submits only the package for certification. Existing listings,
+pricing, and availability are preserved.
 
 ## Manual build on Windows
 

@@ -246,6 +246,114 @@ jobs:
           retention-days: 90
           compression-level: 0
 
+  publish-microsoft-store:
+    name: Submit Microsoft Store update
+    needs:
+      - preflight
+      - linux
+      - windows
+      - macos
+      - play-closed-testing
+    runs-on: windows-2025
+    timeout-minutes: 30
+    environment: microsoft-store
+    permissions:
+      contents: read
+
+    steps:
+      - name: Download Windows Store package
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: vnidrop-${{ needs.preflight.outputs.version }}-windows-store-x64
+          path: build/release/windows
+
+      - name: Validate Microsoft Store configuration
+        id: store-package
+        shell: pwsh
+        env:
+          AZURE_AD_TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          AZURE_AD_APPLICATION_CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          AZURE_AD_APPLICATION_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          SELLER_ID: ${{ secrets.SELLER_ID }}
+          MICROSOFT_STORE_PRODUCT_ID: ${{ vars.MICROSOFT_STORE_PRODUCT_ID }}
+        run: |
+          $configuration = @{
+            AZURE_AD_TENANT_ID = $env:AZURE_AD_TENANT_ID
+            AZURE_AD_APPLICATION_CLIENT_ID = $env:AZURE_AD_APPLICATION_CLIENT_ID
+            AZURE_AD_APPLICATION_SECRET = $env:AZURE_AD_APPLICATION_SECRET
+            SELLER_ID = $env:SELLER_ID
+            MICROSOFT_STORE_PRODUCT_ID = $env:MICROSOFT_STORE_PRODUCT_ID
+          }
+          foreach ($entry in $configuration.GetEnumerator()) {
+            if ([string]::IsNullOrWhiteSpace($entry.Value) -or $entry.Value -eq "REPLACE_ME") {
+              throw "Missing Microsoft Store configuration: $($entry.Key)"
+            }
+          }
+          if ($env:MICROSOFT_STORE_PRODUCT_ID -ne "9NJ5Q0FG7TGL") {
+            throw "Unexpected Microsoft Store product ID: $env:MICROSOFT_STORE_PRODUCT_ID"
+          }
+          $packages = @(
+            Get-ChildItem build/release/windows -File -Filter *.msixupload -Recurse
+          )
+          if ($packages.Count -ne 1) {
+            throw "Expected exactly one msixupload package, found $($packages.Count)"
+          }
+          "path=$($packages[0].FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Set up Microsoft Store Developer CLI
+        uses: microsoft/microsoft-store-apppublisher@15abd1c50fcc164b19cb240fb04ef3c49bf715a2 # v1.1
+        with:
+          version: v0.3.9
+
+      - name: Authenticate and verify Store access
+        shell: pwsh
+        env:
+          AZURE_AD_TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          AZURE_AD_APPLICATION_CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          AZURE_AD_APPLICATION_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          SELLER_ID: ${{ secrets.SELLER_ID }}
+          MICROSOFT_STORE_PRODUCT_ID: ${{ vars.MICROSOFT_STORE_PRODUCT_ID }}
+        run: |
+          msstore settings --enableTelemetry false
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to disable Microsoft Store CLI telemetry"
+          }
+          msstore reconfigure `
+            --tenantId "$env:AZURE_AD_TENANT_ID" `
+            --sellerId "$env:SELLER_ID" `
+            --clientId "$env:AZURE_AD_APPLICATION_CLIENT_ID" `
+            --clientSecret "$env:AZURE_AD_APPLICATION_SECRET"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Microsoft Store authentication failed"
+          }
+          msstore apps get "$env:MICROSOFT_STORE_PRODUCT_ID"
+          if ($LASTEXITCODE -ne 0) {
+            throw "The Microsoft Store application is not accessible"
+          }
+
+      - name: Publish package to Microsoft Store
+        shell: pwsh
+        env:
+          MICROSOFT_STORE_PRODUCT_ID: ${{ vars.MICROSOFT_STORE_PRODUCT_ID }}
+          STORE_PACKAGE: ${{ steps.store-package.outputs.path }}
+        run: |
+          msstore publish "$env:STORE_PACKAGE" `
+            --appId "$env:MICROSOFT_STORE_PRODUCT_ID"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Microsoft Store package publication failed"
+          }
+
+      - name: Summarize Store submission
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+          MICROSOFT_STORE_PRODUCT_ID: ${{ vars.MICROSOFT_STORE_PRODUCT_ID }}
+        run: |
+          "### Microsoft Store submission" >> $env:GITHUB_STEP_SUMMARY
+          "- App version: $env:VERSION" >> $env:GITHUB_STEP_SUMMARY
+          "- Product ID: $env:MICROSOFT_STORE_PRODUCT_ID" >> $env:GITHUB_STEP_SUMMARY
+          "- Package submitted for certification" >> $env:GITHUB_STEP_SUMMARY
+
   publish-github:
     name: Publish coordinated GitHub Release
     needs:
@@ -254,6 +362,7 @@ jobs:
       - windows
       - macos
       - play-closed-testing
+      - publish-microsoft-store
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:

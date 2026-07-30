@@ -13,19 +13,23 @@ Platform workflows upload private workflow artifacts. After every native build
 passes, the release pipeline:
 
 1. stages the signed AAB as a draft on the configured Play closed-test track;
-2. downloads the universal APK signed by Play;
-3. verifies and assembles the public artifacts;
-4. generates checksums and GitHub build-provenance attestations;
-5. creates exactly one GitHub Release;
-6. updates the Homebrew cask.
+2. submits the unsigned `.msixupload` package to Microsoft Store certification;
+3. downloads the universal APK signed by Play;
+4. verifies and assembles the public artifacts;
+5. generates checksums and GitHub build-provenance attestations;
+6. creates exactly one GitHub Release;
+7. updates the Homebrew cask.
 
 Public GitHub Release assets are the DEB, RPM, notarized DMG, Sparkle appcast,
 Play-signed universal APK, checksum file, and release manifest.
 
 The unsigned Microsoft `.msixupload` and upload-signed Android AAB remain
-private workflow artifacts. Partner Center submission stays manual until the
-first Microsoft Store release is certified. The Play release remains a draft
-on a closed-testing track; this pipeline cannot publish to production.
+private workflow artifacts. The protected `microsoft-store` GitHub Environment
+supplies the Partner Center credentials and Store product ID used to submit the
+Windows package. Microsoft publishes the update after certification; the job
+does not change Store listings, pricing, or availability. The Play release
+remains a draft on a closed-testing track; this pipeline cannot publish it to
+production.
 
 To release, prepare and merge the new product version. Android, Microsoft Store,
 and Apple build/package versions are derived automatically:

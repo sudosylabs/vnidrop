@@ -66,7 +66,8 @@ VNIDROP_BUILD_TIME_UTC=20260229080000 expect_failure resolve verify
 
 write_version 0.2.0 beta 1
 config_dir="$scratch/xcconfig"
-VNIDROP_APPLE_XCCONFIG_DIR="$config_dir" \
+VNIDROP_VERSION_FILE="$scratch/version.properties" \
+	VNIDROP_APPLE_XCCONFIG_DIR="$config_dir" \
 	"$script_dir/generate-apple-xcconfig.sh" all
 grep -Fx "PRODUCT_VERSION = 0.2.0" "$config_dir/StoreVersion.xcconfig" >/dev/null
 grep -Fx "CURRENT_PROJECT_VERSION = 20260728.1432.17" \

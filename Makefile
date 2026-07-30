@@ -13,7 +13,7 @@ include $(ROOT)/make/release.mk
 .PHONY: test-rust-transfer test-rust-approval test-rust-lifecycle test-rust-output-sink
 .PHONY: check-shared test-shared test-android-host check-android verify-android-libs build-android run-desktop
 .PHONY: apple-core apple-version-config apple-project open-apple-project open-apple build-apple-macos build-apple-ios check-apple
-.PHONY: check-version check-release check-localization localization localization-migrate
+.PHONY: prepare-release check-version check-release check-localization localization localization-migrate
 .PHONY: check-docs run-docs check-diagnostics run-diagnostics diagnostics-db-local diagnostics-db-remote diagnostics-typegen deploy-diagnostics
 
 help: ## Show available commands and common configuration variables.
@@ -60,6 +60,10 @@ format: ## Format Rust sources.
 test: test-rust test-shared ## Run the main Rust and shared JVM test suites.
 
 check: check-version check-rust check-shared check-localization check-docs check-diagnostics ## Run portable pre-PR verification.
+
+prepare-release: ## Update PRODUCT_VERSION and show its derived store versions (RELEASE_VERSION=x.y.z).
+	@test -n "$(RELEASE_VERSION)" || { printf 'Usage: make prepare-release RELEASE_VERSION=x.y.z\n' >&2; exit 1; }
+	cd $(ROOT) && packaging/version/prepare-release.sh "$(RELEASE_VERSION)"
 
 check-version: ## Validate the canonical version and its platform mappings.
 	cd $(ROOT) && packaging/version/test-version.sh

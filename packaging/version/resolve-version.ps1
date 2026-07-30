@@ -47,7 +47,6 @@ function Convert-CanonicalInteger {
 
 $productVersion = Read-VersionProperty "PRODUCT_VERSION"
 $releaseChannel = Read-VersionProperty "RELEASE_CHANNEL"
-$androidVersionCodeText = Read-VersionProperty "ANDROID_VERSION_CODE"
 $windowsVersionEpochText = Read-VersionProperty "WINDOWS_VERSION_EPOCH"
 $buildTimeUtc = $env:VNIDROP_BUILD_TIME_UTC
 if ([string]::IsNullOrWhiteSpace($buildTimeUtc)) {
@@ -78,13 +77,16 @@ if ($productVersion -notmatch "^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*
 	throw "PRODUCT_VERSION must use canonical MAJOR.MINOR.PATCH integers"
 }
 $productParts = $productVersion.Split(".")
-$productMajor = Convert-CanonicalInteger "PRODUCT_VERSION major" $productParts[0] 0 65534
-$null = Convert-CanonicalInteger "PRODUCT_VERSION minor" $productParts[1] 0 65535
-$null = Convert-CanonicalInteger "PRODUCT_VERSION patch" $productParts[2] 0 65535
+$productMajor = Convert-CanonicalInteger "PRODUCT_VERSION major" $productParts[0] 0 2099
+$productMinor = Convert-CanonicalInteger "PRODUCT_VERSION minor" $productParts[1] 0 999
+$productPatch = Convert-CanonicalInteger "PRODUCT_VERSION patch" $productParts[2] 0 999
 if ($releaseChannel -notmatch "^[a-z][a-z0-9-]*$") {
 	throw "RELEASE_CHANNEL contains unsupported characters"
 }
-$androidVersionCode = Convert-CanonicalInteger "ANDROID_VERSION_CODE" $androidVersionCodeText 1 2100000000
+$androidVersionCode = $productMajor * 1000000L + $productMinor * 1000L + $productPatch
+if ($androidVersionCode -lt 1 -or $androidVersionCode -gt 2100000000L) {
+	throw "Derived Android version code must be between 1 and 2100000000"
+}
 $windowsVersionEpoch = Convert-CanonicalInteger "WINDOWS_VERSION_EPOCH" $windowsVersionEpochText 1 65535
 $windowsMajor = $productMajor + $windowsVersionEpoch
 if ($windowsMajor -gt 65535) {

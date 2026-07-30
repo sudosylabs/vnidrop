@@ -137,7 +137,8 @@ codesign --force --sign "$DEVELOPER_ID_APP" --timestamp "$DMG"
 # --- Notarize + staple -------------------------------------------------------
 if [ -n "${NOTARY_PROFILE:-}" ]; then
 	echo "==> Notarizing (profile: $NOTARY_PROFILE)"
-	xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
+	NOTARY_LOG="$DIST_DIR/$APP_NAME-$VERSION.notary-log.json"
+	"$SCRIPT_DIR/notarize.sh" "$DMG" "$NOTARY_PROFILE" "$NOTARY_LOG"
 	echo "==> Stapling"
 	xcrun stapler staple "$DMG"
 	xcrun stapler validate "$DMG"

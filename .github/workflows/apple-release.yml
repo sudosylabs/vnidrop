@@ -134,6 +134,15 @@ jobs:
       - name: Build, sign & notarize DMG
         run: make build-apple-dmg
 
+      - name: Upload notarization diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vnidrop-${{ steps.version.outputs.app }}-notarization-diagnostics
+          path: apple/dist/*.notary-log.json
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Generate appcast
         env:
           RELEASE_REPO: ${{ github.repository }}

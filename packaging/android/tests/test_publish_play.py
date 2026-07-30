@@ -1,4 +1,5 @@
 import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -42,6 +43,69 @@ class PublishPlayTests(unittest.TestCase):
         self.assertEqual(
             publish_play.find_universal_apk(response, "aa:bb"),
             ("aabb", "correct"),
+        )
+
+    def test_downloads_generated_apk_as_media(self):
+        class FakePlayClient:
+            def __init__(self):
+                self.download_urls = []
+                self.media_attempts = 0
+
+            def request_json(self, method, url):
+                self.assert_request(method, url)
+                return {
+                    "generatedApks": [
+                        {
+                            "certificateSha256Hash": "AA:BB",
+                            "generatedUniversalApk": {
+                                "downloadId": "download/id+=",
+                            },
+                        }
+                    ]
+                }
+
+            def request(self, method, url):
+                self.assert_request(method, url)
+                self.download_urls.append(url)
+                if not url.endswith("?alt=media"):
+                    return b""
+                self.media_attempts += 1
+                return b"apk" if self.media_attempts == 2 else b""
+
+            @staticmethod
+            def assert_request(method, url):
+                if method != "GET" or not url.startswith(publish_play.API_ROOT):
+                    raise AssertionError(f"unexpected request: {method} {url}")
+
+        client = FakePlayClient()
+        with tempfile.TemporaryDirectory() as scratch:
+            output = Path(scratch) / "universal.apk"
+            fingerprint = publish_play.download_universal_apk(
+                client,
+                "com.example app",
+                2002,
+                "aa:bb",
+                output,
+                attempts=2,
+                interval_seconds=0,
+            )
+            self.assertEqual(fingerprint, "aabb")
+            self.assertEqual(output.read_bytes(), b"apk")
+
+        self.assertEqual(
+            client.download_urls,
+            [
+                (
+                    f"{publish_play.API_ROOT}/applications/com.example%20app/"
+                    "generatedApks/2002/downloads/"
+                    "download%2Fid%2B%3D:download?alt=media"
+                ),
+                (
+                    f"{publish_play.API_ROOT}/applications/com.example%20app/"
+                    "generatedApks/2002/downloads/"
+                    "download%2Fid%2B%3D:download?alt=media"
+                ),
+            ],
         )
 
     def test_track_update_preserves_existing_releases_and_adds_draft(self):

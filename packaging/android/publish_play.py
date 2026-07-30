@@ -184,6 +184,19 @@ def generated_apks_url(package_name: str, version_code: int) -> str:
     return f"{API_ROOT}/applications/{package}/generatedApks/{version_code}"
 
 
+def generated_apk_download_url(
+    package_name: str,
+    version_code: int,
+    download_id: str,
+) -> str:
+    package = urllib.parse.quote(package_name, safe="")
+    download = urllib.parse.quote(download_id, safe="")
+    return (
+        f"{API_ROOT}/applications/{package}/generatedApks/"
+        f"{version_code}/downloads/{download}:download?alt=media"
+    )
+
+
 def get_generated_apks(
     client: PlayClient,
     package_name: str,
@@ -216,22 +229,23 @@ def download_universal_apk(
             selected = find_universal_apk(response, expected_fingerprint)
             if selected is not None:
                 fingerprint, download_id = selected
-                package = urllib.parse.quote(package_name, safe="")
-                download = urllib.parse.quote(download_id, safe="")
-                url = (
-                    f"{API_ROOT}/applications/{package}/generatedApks/"
-                    f"{version_code}/downloads/{download}:download"
+                apk = client.request(
+                    "GET",
+                    generated_apk_download_url(
+                        package_name,
+                        version_code,
+                        download_id,
+                    ),
                 )
-                output.parent.mkdir(parents=True, exist_ok=True)
-                output.write_bytes(client.request("GET", url))
-                if output.stat().st_size == 0:
-                    raise RuntimeError("Google Play returned an empty universal APK")
-                return fingerprint
+                if apk:
+                    output.parent.mkdir(parents=True, exist_ok=True)
+                    output.write_bytes(apk)
+                    return fingerprint
         if attempt < attempts:
             time.sleep(interval_seconds)
     raise RuntimeError(
-        "Google Play did not provide a universal APK signed with the expected "
-        f"certificate after {attempts} attempts"
+        "Google Play did not provide a non-empty universal APK signed with the "
+        f"expected certificate after {attempts} attempts"
     )
 
 

@@ -41,19 +41,18 @@ val productVersionMatch = Regex("(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-
 	.matchEntire(productVersion)
 	?: error("PRODUCT_VERSION must use canonical MAJOR.MINOR.PATCH integers")
 val productVersionParts = productVersionMatch.groupValues.drop(1).map(String::toLong)
-require(productVersionParts[0] <= 65534 && productVersionParts.drop(1).all { it <= 65535 }) {
-	"PRODUCT_VERSION components exceed the supported store ranges"
+require(productVersionParts[0] <= 2099 && productVersionParts.drop(1).all { it <= 999 }) {
+	"PRODUCT_VERSION must use a major no greater than 2099 and minor/patch no greater than 999"
 }
 
 val releaseChannel = requiredVersionProperty("RELEASE_CHANNEL")
 require(releaseChannel.matches(Regex("[a-z][a-z0-9-]*"))) {
 	"RELEASE_CHANNEL contains unsupported characters"
 }
-val androidVersionCode = canonicalInteger(
-	"ANDROID_VERSION_CODE",
-	requiredVersionProperty("ANDROID_VERSION_CODE"),
-	1L..2_100_000_000L,
-).toInt()
+val androidVersionCode =
+	(productVersionParts[0] * 1_000_000L + productVersionParts[1] * 1_000L + productVersionParts[2])
+		.also { require(it in 1L..2_100_000_000L) { "Derived Android version code is out of range" } }
+		.toInt()
 val windowsVersionEpoch = canonicalInteger(
 	"WINDOWS_VERSION_EPOCH",
 	requiredVersionProperty("WINDOWS_VERSION_EPOCH"),

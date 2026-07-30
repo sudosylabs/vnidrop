@@ -34,22 +34,28 @@ validate_canonical_integer() {
 
 product_version="$(read_property PRODUCT_VERSION)"
 release_channel="$(read_property RELEASE_CHANNEL)"
-android_version_code="$(read_property ANDROID_VERSION_CODE)"
 windows_version_epoch="$(read_property WINDOWS_VERSION_EPOCH)"
 build_time_utc="${VNIDROP_BUILD_TIME_UTC:-$(date -u +%Y%m%d%H%M%S)}"
 
 [[ $product_version =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] ||
 	fail "PRODUCT_VERSION must use canonical MAJOR.MINOR.PATCH integers"
 IFS=. read -r product_major product_minor product_patch <<< "$product_version"
-validate_canonical_integer "PRODUCT_VERSION major" "$product_major" 0 65534
-validate_canonical_integer "PRODUCT_VERSION minor" "$product_minor" 0 65535
-validate_canonical_integer "PRODUCT_VERSION patch" "$product_patch" 0 65535
+validate_canonical_integer "PRODUCT_VERSION major" "$product_major" 0 2099
+validate_canonical_integer "PRODUCT_VERSION minor" "$product_minor" 0 999
+validate_canonical_integer "PRODUCT_VERSION patch" "$product_patch" 0 999
 [[ $release_channel =~ ^[a-z][a-z0-9-]*$ ]] ||
 	fail "RELEASE_CHANNEL must start with a lowercase letter and contain only lowercase letters, digits, and hyphens"
-validate_canonical_integer "ANDROID_VERSION_CODE" "$android_version_code" 1 2100000000
 validate_canonical_integer "WINDOWS_VERSION_EPOCH" "$windows_version_epoch" 1 65535
 [[ $build_time_utc =~ ^[0-9]{14}$ ]] ||
 	fail "VNIDROP_BUILD_TIME_UTC must use YYYYMMDDHHMMSS"
+
+android_version_code=$((
+	(10#$product_major * 1000000) +
+		(10#$product_minor * 1000) +
+		10#$product_patch
+))
+(( android_version_code >= 1 && android_version_code <= 2100000000 )) ||
+	fail "Derived Android version code must be between 1 and 2100000000"
 
 build_month="${build_time_utc:4:2}"
 build_day="${build_time_utc:6:2}"

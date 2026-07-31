@@ -142,7 +142,8 @@ struct DetailPanelContent: View {
 				loading: model.state.isLoadingReceivers,
 				events: model.coreState.events,
 				transferTotalSize: transfer.totalSize,
-				onCancel: model.cancelReceiver
+				onCancel: model.cancelReceiver,
+				onAccept: model.acceptReceiver
 			)
 		case .share:
 			TransferSharePanel(model: model, transfer: transfer)
@@ -193,6 +194,7 @@ struct ReceiverHistoryPanel: View {
 	let events: [CoreEventModel]
 	let transferTotalSize: UInt64
 	let onCancel: (String) -> Void
+	let onAccept: (String) -> Void
 
 	var body: some View {
 		PanelContainer(title: String(localized: L10n.Transfer.receiversTitle)) {
@@ -203,7 +205,12 @@ struct ReceiverHistoryPanel: View {
 			} else {
 				ForEach(Array(receivers.enumerated()), id: \.element.id) { index, receiver in
 					if index > 0 { Divider().overlay(colors.borderDefault) }
-					ReceiverRow(receiver: receiver, sendProgress: sendProgress(for: receiver), onCancel: onCancel)
+					ReceiverRow(
+						receiver: receiver,
+						sendProgress: sendProgress(for: receiver),
+						onCancel: onCancel,
+						onAccept: onAccept
+					)
 				}
 			}
 		}
@@ -224,6 +231,7 @@ private struct ReceiverRow: View {
 	let receiver: ReceiverRequestModel
 	let sendProgress: TransferProgress?
 	let onCancel: (String) -> Void
+	let onAccept: (String) -> Void
 
 	/// Only pending requests can be cancelled per-receiver: the core rejects a
 	/// negative response to an already-accepted request ("...not approved, or it
@@ -257,14 +265,27 @@ private struct ReceiverRow: View {
 			}
 			.frame(maxWidth: .infinity, alignment: .leading)
 			if isCancelable {
-				Button(role: .destructive) {
-					onCancel(receiver.id)
-				} label: {
-					Text(String(localized: L10n.Button.refuse))
-						.font(VniType.bodySmall)
+				VStack(alignment: .trailing, spacing: 8) {
+					Button(role: .destructive) {
+						onCancel(receiver.id)
+					} label: {
+						Text(String(localized: L10n.Button.refuse))
+							.font(VniType.bodySmall)
+					}
+					.buttonStyle(.borderless)
+					.tint(.red)
+					// Fallback approve action, in case the approval modal didn't surface.
+					Button {
+						onAccept(receiver.id)
+					} label: {
+						Text(String(localized: L10n.Button.approve))
+							.font(VniType.bodySmall).fontWeight(.medium)
+							.foregroundStyle(.white)
+							.padding(.horizontal, 16).padding(.vertical, 7)
+							.background(Color.green, in: Capsule())
+					}
+					.buttonStyle(.plain)
 				}
-				.buttonStyle(.borderless)
-				.tint(.red)
 			}
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)

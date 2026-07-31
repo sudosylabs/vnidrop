@@ -25,6 +25,11 @@ struct SendState: Equatable {
 	var selectedTransferId: UInt64?
 	var transferThumbnails: [UInt64: Data] = [:]
 	var detailPanel: TransferDetailPanel?
+	/// Transfer whose share panel is presented inline from the list context menu
+	/// (distinct from `detailPanel == .share`, which shows it from the detail view).
+	/// Held in the model — not `SendScreen` @State — so the approval flow can dismiss
+	/// it centrally before presenting its modal.
+	var shareTargetId: UInt64?
 	var receiverHistory: [ReceiverRequestModel] = []
 	var isLoadingReceivers = false
 	var isDeleteConfirmationOpen = false
@@ -55,6 +60,18 @@ final class SendModel: ObservableObject {
 	private let filePreviewRepository: FilePreviewRepository
 	private let messages: UiMessageController
 	private var cancellables = Set<AnyCancellable>()
+
+	/// Fires *after* a share/QR sheet (the detail-view panel or the list-level share
+	/// sheet) has finished animating out. The approval flow waits on this to present
+	/// its modal on macOS, where a sheet shown while another is still dismissing is
+	/// dropped — using the real completion instead of a guessed delay.
+	private let shareSheetsDismissedSubject = PassthroughSubject<Void, Never>()
+	var shareSheetsDismissed: AnyPublisher<Void, Never> {
+		shareSheetsDismissedSubject.eraseToAnyPublisher()
+	}
+
+	/// Invoked by a share sheet's `onDismiss` completion.
+	func shareSheetDidDismiss() { shareSheetsDismissedSubject.send(()) }
 
 	init(
 		repository: CoreGateway,
@@ -201,6 +218,17 @@ final class SendModel: ObservableObject {
 	}
 	func closeDetailPanel() { state.detailPanel = nil }
 
+	func openShareTarget(_ transferId: UInt64) { state.shareTargetId = transferId }
+	func closeShareTarget() { state.shareTargetId = nil }
+
+	/// Dismisses every share/QR surface at once — the detail-view share panel and the
+	/// list-level share sheet. Used before presenting the receiver-approval modal, so
+	/// no competing sheet is left open (macOS drops a sheet shown over another).
+	func dismissShareSheets() {
+		state.detailPanel = nil
+		state.shareTargetId = nil
+	}
+
 	func requestDeleteTransfer() { state.isDeleteConfirmationOpen = true }
 	func dismissDeleteTransfer() { if !state.isDeleting { state.isDeleteConfirmationOpen = false } }
 
@@ -257,8 +285,19 @@ final class SendModel: ObservableObject {
 	/// Uses the core's `respondReceiverRequest` (no backend change); applies to
 	/// receivers that are still pending or accepted.
 	func cancelReceiver(requestId: String) {
+		respondToReceiver(requestId: requestId, accepted: false)
+	}
+
+	/// Approves a single pending receiver by responding to its request positively.
+	/// A fallback for when the approval modal didn't surface — the pending receiver
+	/// can still be accepted from its row in the transfer's receivers panel.
+	func acceptReceiver(requestId: String) {
+		respondToReceiver(requestId: requestId, accepted: true)
+	}
+
+	private func respondToReceiver(requestId: String, accepted: Bool) {
 		Task {
-			let result = await repository.respondReceiverRequest(requestId: requestId, accepted: false, reason: nil)
+			let result = await repository.respondReceiverRequest(requestId: requestId, accepted: accepted, reason: nil)
 			switch result {
 			case .success:
 				if let transferId = state.selectedTransferId { refreshReceivers(transferId) }

@@ -25,6 +25,21 @@ grep -F 'run: make build-apple-dmg' \
 	exit 1
 }
 
+store_reconfigure_line="$(
+	awk '/msstore reconfigure/ {print NR; exit}' \
+		"$repo_root/.github/workflows/release.yml"
+)"
+store_settings_line="$(
+	awk '/msstore settings --enableTelemetry false/ {print NR; exit}' \
+		"$repo_root/.github/workflows/release.yml"
+)"
+[[ -n $store_reconfigure_line &&
+	-n $store_settings_line &&
+	$store_reconfigure_line -lt $store_settings_line ]] || {
+	printf 'Microsoft Store CLI credentials must be configured before changing settings\n' >&2
+	exit 1
+}
+
 signing_line="$(
 	awk '/sign-exported-app\.sh/ {print NR; exit}' \
 		"$repo_root/apple/scripts/build-dmg.sh"

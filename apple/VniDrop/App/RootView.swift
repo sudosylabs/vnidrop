@@ -56,11 +56,13 @@ struct RootView: View {
 				// StateObject. Deriving them in `init` bound the view to a throwaway
 				// AppGraph rebuilt on every re-init, whose coordinator never receives
 				// core events — so the approval modal never appeared.
-				OverlayLayer(
+				ApprovalLayer(
 					approvals: graph.approvalCoordinator,
-					messages: graph.messages,
 					sendModel: sendModel
 				)
+				// Top-most so the toast is never covered by the approval overlay's
+				// full-bleed clear layer. Observes the live `graph.messages` directly.
+				SnackbarHost(controller: graph.messages)
 			}
 			.overlay {
 				// A small, unobtrusive indicator while the core finishes its async
@@ -190,13 +192,12 @@ struct RootView: View {
 	}
 }
 
-/// Hosts the snackbar and the approval modal, observing the coordinator and message
-/// controller passed in from the persisted `AppGraph`. Kept as a child view so the
-/// `@ObservedObject` subscriptions are established here (in `body`) against the live
-/// instances, rather than in `RootView.init` against a throwaway graph.
-private struct OverlayLayer: View {
+/// Hosts the approval modal, observing the coordinator passed in from the persisted
+/// `AppGraph`. Kept as a child view so the `@ObservedObject` subscription is
+/// established here (in `body`) against the live instance, rather than in
+/// `RootView.init` against a throwaway graph.
+private struct ApprovalLayer: View {
 	@ObservedObject var approvals: ApprovalCoordinator
-	@ObservedObject var messages: UiMessageController
 	let sendModel: SendModel
 
 	/// Drives the approval sheet; toggled from the pending-approval `onChange` so the
@@ -209,15 +210,12 @@ private struct OverlayLayer: View {
 	@State private var approvalAwaitingSheetDismiss = false
 
 	var body: some View {
-		ZStack {
-			SnackbarHost(controller: messages)
-			ApprovalModalHost(
-				isPresented: $showApproval,
-				state: approvals.state,
-				onAccept: approvals.accept,
-				onRefuse: approvals.refuse
-			)
-		}
+		ApprovalModalHost(
+			isPresented: $showApproval,
+			state: approvals.state,
+			onAccept: approvals.accept,
+			onRefuse: approvals.refuse
+		)
 		// A pending approval is a blocking modal. Close any open share/QR sheet first
 		// (the detail-view panel *or* the list-level share sheet), then present the
 		// approval sheet: the approval is presented from the app root and neither

@@ -19,7 +19,19 @@ struct LocalNotification {
 /// Presents notifications even while the app is active. Without a delegate the
 /// system drops the banner when the app is frontmost — very visible on macOS,
 /// where the app window is usually open when a transfer completes.
-private final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
+///
+/// `@MainActor` is required, not just convenient: these delegate methods are
+/// `async`, so their continuation resumes at the return point on whatever executor
+/// they ran on. When the system hands a notification-tap back to UIKit it performs
+/// state-restoration/snapshot work synchronously on that thread — which asserts
+/// "Call must be made on main thread" and crashes if the method returned off-main.
+/// Main-actor isolation guarantees the return happens on the main thread.
+// `@preconcurrency` on the conformance: these delegate requirements are nonisolated
+// with non-Sendable UN* parameters, which strict concurrency won't otherwise let a
+// main actor-isolated type witness. The main-actor isolation is what fixes the
+// crash (see the type doc above); the attribute inserts the runtime hop.
+@MainActor
+private final class NotificationPresenter: NSObject, @preconcurrency UNUserNotificationCenterDelegate {
 	func userNotificationCenter(
 		_ center: UNUserNotificationCenter,
 		willPresent notification: UNNotification
@@ -36,14 +48,12 @@ private final class NotificationPresenter: NSObject, UNUserNotificationCenterDel
 		didReceive response: UNNotificationResponse
 	) async {
 		#if os(macOS)
-		await MainActor.run {
-			NSApp.activate(ignoringOtherApps: true)
-			// Reopen/focus the single main window (activation triggers SwiftUI's
-			// reopen handling when it was closed).
-			for window in NSApp.windows where window.canBecomeMain {
-				window.makeKeyAndOrderFront(nil)
-				break
-			}
+		NSApp.activate(ignoringOtherApps: true)
+		// Reopen/focus the single main window (activation triggers SwiftUI's
+		// reopen handling when it was closed).
+		for window in NSApp.windows where window.canBecomeMain {
+			window.makeKeyAndOrderFront(nil)
+			break
 		}
 		#endif
 	}

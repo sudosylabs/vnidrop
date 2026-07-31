@@ -26,6 +26,10 @@ configs:
 # Project-wide build settings (applied to every target/config).
 settings:
   base:
+    # Apple Silicon only. Intel Macs are unsupported (going EOL with macOS 28), and
+    # the Rust core's macOS slice (vnidrop.xcframework) is built arm64-only, so a
+    # universal link would fail looking for x86_64 symbols anyway.
+    ARCHS: arm64
     # Strip unreachable code from release binaries.
     DEAD_CODE_STRIPPING: YES
     # Flag user-facing strings that aren't localized (the app ships 9 languages).
@@ -135,11 +139,6 @@ targets:
         # provisioning profile, which direct distribution avoids. (App Store target
         # keeps VniDrop.entitlements with the sandbox.)
         CODE_SIGN_ENTITLEMENTS: VniDrop/Resources/VniDropDirect.entitlements
-        # The Rust core's macOS slice (vnidrop.xcframework) is arm64-only
-        # (build-core.sh builds aarch64-apple-darwin only), so the direct build is
-        # Apple-Silicon-only. Pin ARCHS so the Release-Direct (universal-by-default)
-        # link doesn't fail looking for x86_64 symbols.
-        ARCHS: arm64
     dependencies:
       - package: Sparkle
 

@@ -134,6 +134,12 @@ jobs:
       - name: Build, sign & notarize DMG
         run: make build-apple-dmg
 
+      - name: Package prebuilt core
+        # build-apple-dmg builds the release Rust core + Swift bindings; bundle them
+        # (xcframework + Vnidrop.swift + checksum) as a release asset so consumers can
+        # skip building the core. See apple/scripts/package-core.sh.
+        run: make package-apple-core
+
       - name: Upload notarization diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -156,5 +162,7 @@ jobs:
             apple/dist/VniDrop-*.dmg
             apple/dist/VniDrop-*.build-info.json
             apple/dist/appcast.xml
+            apple/dist/VnidropCore-*.zip
+            apple/dist/VnidropCore-*.zip.sha256
           if-no-files-found: error
           retention-days: 14

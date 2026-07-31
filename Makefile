@@ -12,7 +12,7 @@ include $(ROOT)/make/release.mk
 .PHONY: format test check check-rust audit-rust test-rust test-rust-all
 .PHONY: test-rust-transfer test-rust-approval test-rust-lifecycle test-rust-output-sink
 .PHONY: check-shared test-shared test-android-host check-android verify-android-libs build-android run-desktop
-.PHONY: apple-core apple-version-config apple-project open-apple-project open-apple build-apple-macos build-apple-ios check-apple
+.PHONY: apple-core apple-version-config apple-project open-apple-project open-apple build-apple-macos build-apple-ios check-apple package-apple-core
 .PHONY: prepare-release check-version check-release check-localization localization localization-migrate
 .PHONY: check-docs run-docs check-diagnostics run-diagnostics diagnostics-db-local diagnostics-db-remote diagnostics-typegen deploy-diagnostics
 
@@ -149,6 +149,9 @@ build-apple-macos-direct: apple-project ## Build the direct-download macOS targe
 
 build-apple-dmg: localization ## Build the signed/notarized direct-download .dmg (see apple/RELEASE-MACOS.md for required env).
 	cd $(ROOT) && apple/scripts/build-dmg.sh
+
+package-apple-core: ## Zip the prebuilt core (xcframework + bindings) + checksum into apple/dist (build the core first).
+	cd $(ROOT) && apple/scripts/package-core.sh
 
 open-apple: build-apple-macos ## Build and launch the native macOS app.
 	@test -d "$(APPLE_DERIVED_DATA)/Build/Products/$(APPLE_CONFIGURATION)/VniDrop.app" || { printf 'Built macOS app was not found.\n' >&2; exit 1; }

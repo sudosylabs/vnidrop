@@ -9,14 +9,8 @@ struct RootView: View {
 	@StateObject private var sendModel: SendModel
 	@StateObject private var receiveModel: ReceiveModel
 	@StateObject private var settingsModel: SettingsModel
-	@ObservedObject private var messages: UiMessageController
-	@ObservedObject private var approvals: ApprovalCoordinator
 
 	@Environment(\.scenePhase) private var scenePhase
-
-	/// Drives the approval sheet; toggled from the pending-approval `onChange` so the
-	/// presentation can be deferred until the Share/QR sheet has dismissed on macOS.
-	@State private var showApproval = false
 
 	init(dependencies: AppDependencies) {
 		let graph = AppGraph(dependencies: dependencies)
@@ -50,8 +44,6 @@ struct RootView: View {
 			messages: graph.messages,
 			bugReports: NoopBugReportService()
 		))
-		messages = graph.messages
-		approvals = graph.approvalCoordinator
 	}
 
 	var body: some View {
@@ -60,13 +52,17 @@ struct RootView: View {
 			let isDark = resolveDarkTheme(appModel.themeMode, systemDark: systemDark)
 			ZStack {
 				navigation(windowClass: windowClass)
-				SnackbarHost(controller: messages)
-				ApprovalModalHost(
-					isPresented: $showApproval,
-					state: approvals.state,
-					onAccept: approvals.accept,
-					onRefuse: approvals.refuse
+				// Observe the coordinator/messages from the *persisted* `graph`
+				// StateObject. Deriving them in `init` bound the view to a throwaway
+				// AppGraph rebuilt on every re-init, whose coordinator never receives
+				// core events — so the approval modal never appeared.
+				ApprovalLayer(
+					approvals: graph.approvalCoordinator,
+					sendModel: sendModel
 				)
+				// Top-most so the toast is never covered by the approval overlay's
+				// full-bleed clear layer. Observes the live `graph.messages` directly.
+				SnackbarHost(controller: graph.messages)
 			}
 			.overlay {
 				// A small, unobtrusive indicator while the core finishes its async
@@ -102,27 +98,6 @@ struct RootView: View {
 			@unknown default:
 				break
 			}
-		}
-		// A pending approval is a blocking modal. Close the sender's detail panel
-		// (e.g. the Share/QR sheet) first, then present the approval sheet — but on
-		// macOS a sheet presented while another is still dismissing is silently
-		// dropped, so defer the presentation until that dismissal finishes.
-		.onChange(of: approvals.state.current?.id) { _, id in
-			guard id != nil else { showApproval = false; return }
-			let wasShowingSheet = sendModel.state.detailPanel != nil
-			sendModel.closeDetailPanel()
-			#if os(macOS)
-			if wasShowingSheet {
-				DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-					if approvals.state.current != nil { showApproval = true }
-				}
-			} else {
-				showApproval = true
-			}
-			#else
-			_ = wasShowingSheet
-			showApproval = true
-			#endif
 		}
 		#if os(macOS)
 		// macOS keeps `scenePhase == .active` even when the app loses focus, so
@@ -214,6 +189,66 @@ struct RootView: View {
 				receiveModel.onInvitationResult(.invitationFile, .failure(error))
 			}
 		}
+	}
+}
+
+/// Hosts the approval modal, observing the coordinator passed in from the persisted
+/// `AppGraph`. Kept as a child view so the `@ObservedObject` subscription is
+/// established here (in `body`) against the live instance, rather than in
+/// `RootView.init` against a throwaway graph.
+private struct ApprovalLayer: View {
+	@ObservedObject var approvals: ApprovalCoordinator
+	let sendModel: SendModel
+
+	/// Drives the approval sheet; toggled from the pending-approval `onChange` so the
+	/// presentation can be deferred until the Share/QR sheet has dismissed on macOS.
+	@State private var showApproval = false
+
+	/// macOS-only: an approval arrived while a share/QR sheet was still up. We close
+	/// that sheet and present the approval once its dismissal completes (see
+	/// `sendModel.shareSheetsDismissed`), since macOS drops a sheet shown mid-dismissal.
+	@State private var approvalAwaitingSheetDismiss = false
+
+	var body: some View {
+		ApprovalModalHost(
+			isPresented: $showApproval,
+			state: approvals.state,
+			onAccept: approvals.accept,
+			onRefuse: approvals.refuse
+		)
+		// A pending approval is a blocking modal. Close any open share/QR sheet first
+		// (the detail-view panel *or* the list-level share sheet), then present the
+		// approval sheet: the approval is presented from the app root and neither
+		// platform reliably stacks it over a sheet owned by the Send screen.
+		.onChange(of: approvals.state.current?.id) { _, id in
+			guard id != nil else {
+				showApproval = false
+				approvalAwaitingSheetDismiss = false
+				return
+			}
+			let wasShowingSheet = sendModel.state.detailPanel != nil
+				|| sendModel.state.shareTargetId != nil
+			sendModel.dismissShareSheets()
+			#if os(macOS)
+			// macOS silently drops a sheet presented while another is still dismissing,
+			// so wait for that sheet's real dismissal completion before presenting.
+			if wasShowingSheet {
+				approvalAwaitingSheetDismiss = true
+			} else {
+				showApproval = true
+			}
+			#else
+			_ = wasShowingSheet
+			showApproval = true
+			#endif
+		}
+		#if os(macOS)
+		.onReceive(sendModel.shareSheetsDismissed) { _ in
+			guard approvalAwaitingSheetDismiss else { return }
+			approvalAwaitingSheetDismiss = false
+			if approvals.state.current != nil { showApproval = true }
+		}
+		#endif
 	}
 }
 

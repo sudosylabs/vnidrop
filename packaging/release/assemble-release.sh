@@ -58,6 +58,7 @@ rpm="$(find_single "$input_dir/rpm" '*.rpm' 'RPM package')"
 dmg="$(find_single "$input_dir/macos" '*.dmg' 'macOS DMG')"
 appcast="$(find_single "$input_dir/macos" 'appcast.xml' 'Sparkle appcast')"
 apple_metadata="$(find_single "$input_dir/macos" '*.build-info.json' 'direct macOS build metadata')"
+apple_core="$(find_single "$input_dir/macos" 'VnidropCore-*.zip' 'Apple prebuilt core bundle')"
 play_apk="$(find_single "$input_dir/play" '*-play-universal.apk' 'Play-signed APK')"
 play_metadata="$(find_single "$input_dir/play" 'play-release.json' 'Play release metadata')"
 msix="$(find_single "$input_dir/windows" '*.msix' 'Windows MSIX')"
@@ -67,6 +68,7 @@ windows_metadata="$(find_single "$input_dir/windows" '*.build-info.json' 'Window
 [[ $(basename "$deb") == "vnidrop_${version}-1_amd64.deb" ]]
 [[ $(basename "$rpm") == "vnidrop-${version}-1.x86_64.rpm" ]]
 [[ $(basename "$dmg") == "VniDrop-${version}.dmg" ]]
+[[ $(basename "$apple_core") == "VnidropCore-${version}.zip" ]]
 [[ $(basename "$play_apk") == "VniDrop-${version}-${android_code}-play-universal.apk" ]]
 [[ $(basename "$msix") == "VniDrop_${version}_x64.msix" ]]
 [[ $(basename "$msixupload") == "VniDrop_${version}_x64.msixupload" ]]
@@ -83,10 +85,12 @@ deb_checksum="$(find_single "$input_dir/deb" '*.sha256' 'Debian checksum')"
 rpm_checksum="$(find_single "$input_dir/rpm" '*.sha256' 'RPM checksum')"
 windows_checksums="$(find_single "$input_dir/windows" 'SHA256SUMS' 'Windows checksums')"
 play_checksums="$(find_single "$input_dir/play" 'SHA256SUMS' 'Play APK checksums')"
+apple_core_checksum="$(find_single "$input_dir/macos" 'VnidropCore-*.zip.sha256' 'Apple prebuilt core checksum')"
 verify_checksum_file "$deb_checksum"
 verify_checksum_file "$rpm_checksum"
 verify_checksum_file "$windows_checksums"
 verify_checksum_file "$play_checksums"
+verify_checksum_file "$apple_core_checksum"
 
 [[ $(jq -r '.releaseStatus' "$play_metadata") == draft ]]
 [[ $(jq -r '.releaseName' "$play_metadata") == "$version" ]]
@@ -103,7 +107,7 @@ mkdir -p "$output_dir"
 	printf 'Release output directory must be empty: %s\n' "$output_dir" >&2
 	exit 1
 }
-cp "$deb" "$rpm" "$dmg" "$appcast" "$play_apk" "$output_dir/"
+cp "$deb" "$rpm" "$dmg" "$appcast" "$play_apk" "$apple_core" "$output_dir/"
 
 payloads=(
 	"$output_dir/$(basename "$deb")"
@@ -111,6 +115,7 @@ payloads=(
 	"$output_dir/$(basename "$dmg")"
 	"$output_dir/$(basename "$appcast")"
 	"$output_dir/$(basename "$play_apk")"
+	"$output_dir/$(basename "$apple_core")"
 )
 files_json="$(
 	for file in "${payloads[@]}"; do
@@ -168,6 +173,7 @@ jq -n \
 		"$(basename "$dmg")" \
 		"$(basename "$appcast")" \
 		"$(basename "$play_apk")" \
+		"$(basename "$apple_core")" \
 		release-manifest.json \
 		> SHA256SUMS
 )

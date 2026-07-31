@@ -7,11 +7,16 @@ struct AdaptiveDrawer<DrawerContent: View>: ViewModifier {
 	@Binding var isPresented: Bool
 	let windowClass: WindowClass
 	let onDismiss: () -> Void
+	/// Fired after the sheet's dismissal animation completes (as opposed to
+	/// `onDismiss`, which requests the close). Lets callers serialize a follow-up
+	/// sheet against this one's actual teardown instead of guessing a delay.
+	let onDismissed: (() -> Void)?
 	@ViewBuilder let drawerContent: () -> DrawerContent
 
 	func body(content: Content) -> some View {
 		content.sheet(
-			isPresented: Binding(get: { isPresented }, set: { if !$0 { onDismiss() } })
+			isPresented: Binding(get: { isPresented }, set: { if !$0 { onDismiss() } }),
+			onDismiss: onDismissed
 		) {
 			SheetChrome(onClose: onDismiss) { drawerContent() }
 				.modifier(PhoneDetents(enabled: windowClass == .phone))
@@ -56,11 +61,12 @@ extension View {
 		isPresented: Binding<Bool>,
 		windowClass: WindowClass,
 		onDismiss: @escaping () -> Void,
+		onDismissed: (() -> Void)? = nil,
 		@ViewBuilder content: @escaping () -> DrawerContent
 	) -> some View {
 		modifier(AdaptiveDrawer(
 			isPresented: isPresented, windowClass: windowClass,
-			onDismiss: onDismiss, drawerContent: content
+			onDismiss: onDismiss, onDismissed: onDismissed, drawerContent: content
 		))
 	}
 }

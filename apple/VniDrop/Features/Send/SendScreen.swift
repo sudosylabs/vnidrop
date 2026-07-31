@@ -7,13 +7,17 @@ struct SendScreen: View {
 	@ObservedObject var model: SendModel
 	let windowClass: WindowClass
 
-	/// Transfer whose share panel is presented inline from the list context menu.
-	@State private var shareTarget: Transfer?
 	/// Transfer pending an inline (list-level) delete confirmation.
 	@State private var deleteTarget: Transfer?
 
 	private var outgoing: [Transfer] {
 		model.coreState.transfers.filter { $0.direction == .send }
+	}
+	/// The transfer whose list-level share sheet is open, resolved from the model's
+	/// `shareTargetId` (kept in the model so the approval flow can dismiss it).
+	private var shareTarget: Transfer? {
+		guard let id = model.state.shareTargetId else { return nil }
+		return outgoing.first { $0.transferId == id }
 	}
 	private var selectedTransfer: Transfer? {
 		guard let id = model.state.selectedTransferId else { return nil }
@@ -50,9 +54,10 @@ struct SendScreen: View {
 			// composer drawer on the outer body, so the two don't clash). Opens the
 			// share panel over the list without navigating into the transfer detail.
 			.adaptiveDrawer(
-				isPresented: Binding(get: { shareTarget != nil }, set: { if !$0 { shareTarget = nil } }),
+				isPresented: Binding(get: { shareTarget != nil }, set: { if !$0 { model.closeShareTarget() } }),
 				windowClass: windowClass,
-				onDismiss: { shareTarget = nil }
+				onDismiss: model.closeShareTarget,
+				onDismissed: model.shareSheetDidDismiss
 			) {
 				if let shareTarget {
 					TransferSharePanel(model: model, transfer: shareTarget)
@@ -92,7 +97,8 @@ struct SendScreen: View {
 			.adaptiveDrawer(
 				isPresented: Binding(get: { model.state.detailPanel != nil }, set: { _ in }),
 				windowClass: windowClass,
-				onDismiss: model.closeDetailPanel
+				onDismiss: model.closeDetailPanel,
+				onDismissed: model.shareSheetDidDismiss
 			) {
 				if let panel = model.state.detailPanel {
 					DetailPanelContent(model: model, transfer: transfer, panel: panel)
@@ -127,7 +133,7 @@ struct SendScreen: View {
 					.contextMenu {
 						if transfer.ticket != nil {
 							Button {
-								shareTarget = transfer
+								model.openShareTarget(transfer.transferId)
 							} label: {
 								Label(String(localized: L10n.Transfer.shareTitle), systemSymbol: .squareAndArrowUp)
 							}

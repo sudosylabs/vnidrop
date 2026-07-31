@@ -25,6 +25,7 @@ printf 'deb\n' > "$input_dir/deb/vnidrop_${version}-1_amd64.deb"
 printf 'rpm\n' > "$input_dir/rpm/vnidrop-${version}-1.x86_64.rpm"
 printf 'dmg\n' > "$input_dir/macos/VniDrop-${version}.dmg"
 printf '<url>VniDrop-%s.dmg</url>\n' "$version" > "$input_dir/macos/appcast.xml"
+printf 'core\n' > "$input_dir/macos/VnidropCore-${version}.zip"
 printf 'apk\n' > "$input_dir/play/VniDrop-${version}-${android_code}-play-universal.apk"
 printf 'msix\n' > "$input_dir/windows/VniDrop_${version}_x64.msix"
 printf 'msixupload\n' > "$input_dir/windows/VniDrop_${version}_x64.msixupload"
@@ -69,6 +70,11 @@ jq -n \
 		> "vnidrop-${version}-1.x86_64.rpm.sha256"
 )
 (
+	cd "$input_dir/macos"
+	sha256sum "VnidropCore-${version}.zip" \
+		> "VnidropCore-${version}.zip.sha256"
+)
+(
 	cd "$input_dir/play"
 	sha256sum \
 		"VniDrop-${version}-${android_code}-play-universal.apk" \
@@ -94,6 +100,7 @@ expected_public_files=(
 	"SHA256SUMS"
 	"VniDrop-${version}-${android_code}-play-universal.apk"
 	"VniDrop-${version}.dmg"
+	"VnidropCore-${version}.zip"
 	"appcast.xml"
 	"release-manifest.json"
 	"vnidrop-${version}-1.x86_64.rpm"

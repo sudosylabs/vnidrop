@@ -52,7 +52,7 @@ import vnidrop.shared.generated.resources.os_version_title
 import vnidrop.shared.generated.resources.value_unavailable
 import vnidrop.shared.generated.resources.version_title
 
-private const val PrivacyPolicyUrl = "https://github.com/vnidrop/vnidrop"
+private val PrivacyPolicyUrl = com.vnidrop.app.AppConfig.PRIVACY_POLICY_URL
 
 @Composable
 internal fun AboutSettings(

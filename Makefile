@@ -12,7 +12,7 @@ include $(ROOT)/make/release.mk
 .PHONY: format test check check-rust audit-rust test-rust test-rust-all
 .PHONY: test-rust-transfer test-rust-approval test-rust-lifecycle test-rust-output-sink
 .PHONY: check-shared test-shared test-android-host check-android verify-android-libs build-android run-desktop
-.PHONY: apple-core apple-version-config apple-project open-apple-project open-apple build-apple-macos build-apple-ios check-apple package-apple-core
+.PHONY: apple-core apple-version-config apple-app-config apple-project open-apple-project open-apple build-apple-macos build-apple-ios check-apple package-apple-core
 .PHONY: prepare-release check-version check-release check-localization localization localization-migrate
 .PHONY: check-docs run-docs check-diagnostics run-diagnostics diagnostics-db-local diagnostics-db-remote diagnostics-typegen deploy-diagnostics
 
@@ -71,8 +71,9 @@ check-version: ## Validate the canonical version and its platform mappings.
 	cd $(ROOT) && $(GRADLE) verifyVersion $(GRADLE_FLAGS)
 
 check-release: ## Validate coordinated release scripts and workflow YAML.
-	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh
+	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh
 	cd $(ROOT) && apple/scripts/tests/test-notarize.sh
+	cd $(ROOT) && apple/scripts/tests/test-generate-appconfig.sh
 	cd $(ROOT) && apple/scripts/tests/test-sign-exported-app.sh
 	cd $(ROOT) && packaging/android/tests/test_verify_apk_signature.sh
 	cd $(ROOT) && packaging/release/test-assemble-release.sh
@@ -135,7 +136,10 @@ apple-core: ## Build the Rust XCFramework and generated Swift bindings.
 apple-version-config: ## Generate derived Store and Direct Apple build settings.
 	cd $(ROOT) && packaging/version/generate-apple-xcconfig.sh all
 
-apple-project: apple-core localization apple-version-config ## Generate the native Apple Xcode project.
+apple-app-config: ## Generate AppConfig.swift from the shared app.properties.
+	cd $(ROOT) && apple/scripts/generate-appconfig.sh
+
+apple-project: apple-core localization apple-version-config apple-app-config ## Generate the native Apple Xcode project.
 	cd $(ROOT)/apple && $(XCODEGEN) generate
 
 open-apple-project: apple-project ## Generate and open the native Apple Xcode project.

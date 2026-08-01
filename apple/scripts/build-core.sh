@@ -44,6 +44,13 @@ export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-15.0}"
 # This never touches the Rust crate — it only changes how the build is invoked.
 export CARGO_PROFILE_DEV_STRIP=none
 
+# The workspace `[profile.release] lto = "thin"` corrupts host proc-macro / build
+# script dylibs when cross-compiling ("mis-aligned LINKEDIT string pool"). Cargo
+# forbids overriding `lto` per build-override, so disable thin LTO for the whole
+# release build here — the crate is still fully optimized (opt-level 3, debuginfo
+# stripped), which is what shrinks the static lib. This never edits the Cargo crate.
+export CARGO_PROFILE_RELEASE_LTO=false
+
 IOS_TARGET="aarch64-apple-ios"
 SIM_ARM_TARGET="aarch64-apple-ios-sim"
 SIM_X64_TARGET="x86_64-apple-ios"

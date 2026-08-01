@@ -375,7 +375,7 @@ struct StorageSettings: View {
 struct AboutSettings: View {
 	@ObservedObject var model: SettingsModel
 
-	private static let privacyPolicyURL = URL(string: "https://github.com/vnidrop/vnidrop")!
+	private static let privacyPolicyURL = AppConfig.privacyPolicyURL
 
 	var body: some View {
 		Section {

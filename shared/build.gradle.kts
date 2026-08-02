@@ -14,6 +14,7 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.jvm.tasks.Jar
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 abstract class VerifyHostCargoTaskSelection : DefaultTask() {
 	@get:Input
@@ -112,7 +113,7 @@ val generateDiagnosticsBuildConfig by tasks.registering {
 
 // App-wide public constants (privacy policy URL, …) from the shared app.properties,
 // so Apple and KMP read one source of truth instead of hardcoding values.
-val appProperties = java.util.Properties().apply {
+val appProperties = Properties().apply {
 	rootProject.file("app.properties").inputStream().use(::load)
 }
 val privacyPolicyUrl: String = appProperties.getProperty("PRIVACY_POLICY_URL")?.trim().orEmpty()

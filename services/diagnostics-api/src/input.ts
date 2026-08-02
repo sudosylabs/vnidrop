@@ -10,13 +10,6 @@ export type InputResult<T> = { ok: true; value: T } | InputFailure;
 
 export type NormalizedProperties = Record<string, string>;
 
-export interface NormalizedEvent {
-	name: string;
-	timestampMillis: number;
-	properties: NormalizedProperties;
-	schemaVersion: 1;
-}
-
 export interface NormalizedBreadcrumb {
 	name: string;
 	timestampMillis: number;
@@ -29,28 +22,6 @@ export interface NormalizedDevice {
 	operatingSystem: string;
 	network: string;
 	batteryLevel: string;
-}
-
-export interface NormalizedEventsPayload {
-	batchId: string;
-	installId: string;
-	appVersion: string;
-	platform: string;
-	events: NormalizedEvent[];
-}
-
-export interface NormalizedCrashPayload {
-	id: string;
-	installId: string;
-	appVersion: string;
-	platform: string;
-	exceptionType: string;
-	exceptionMessage: string;
-	stackTrace: string;
-	occurredAt: number;
-	diagnosticsEnabledAtCapture: boolean;
-	breadcrumbs: NormalizedBreadcrumb[];
-	schemaVersion: 1;
 }
 
 export interface NormalizedBugPayload {
@@ -164,119 +135,6 @@ export async function readJsonObject(
 	return success(parsed);
 }
 
-export function normalizeEvents(
-	body: JsonObject,
-	maxEvents = 50,
-): InputResult<NormalizedEventsPayload> {
-	if (!isPlainObject(body)) return failure(400, "invalid_body");
-	if (!Number.isSafeInteger(maxEvents) || maxEvents <= 0) {
-		throw new RangeError("maxEvents must be a positive safe integer");
-	}
-
-	const batchId = idField(body, ["batchId", "batch_id"], "invalid_batch_id");
-	if (!batchId.ok) return batchId;
-	const installId = installIdField(body);
-	if (!installId.ok) return installId;
-	const appVersion = stringField(body, ["appVersion", "app_version"], 40, "invalid_app_version");
-	if (!appVersion.ok) return appVersion;
-	const platform = stringField(body, ["platform"], 40, "invalid_platform");
-	if (!platform.ok) return platform;
-
-	const batchSchema = schemaVersion(body);
-	if (!batchSchema.ok) return batchSchema;
-	const rawEvents = pick(body, ["events"]);
-	if (!Array.isArray(rawEvents)) return failure(400, "invalid_events");
-	if (rawEvents.length === 0) return failure(400, "empty_batch");
-	if (rawEvents.length > maxEvents) return failure(400, "batch_too_large");
-
-	const events: NormalizedEvent[] = [];
-	for (const rawEvent of rawEvents) {
-		const event = normalizeEvent(rawEvent);
-		if (!event.ok) return event;
-		events.push(event.value);
-	}
-
-	return success({
-		batchId: batchId.value,
-		installId: installId.value,
-		appVersion: appVersion.value,
-		platform: platform.value,
-		events,
-	});
-}
-
-export function normalizeCrash(body: JsonObject): InputResult<NormalizedCrashPayload> {
-	if (!isPlainObject(body)) return failure(400, "invalid_body");
-
-	const id = idField(body, ["id"], "invalid_id");
-	if (!id.ok) return id;
-	const installId = installIdField(body);
-	if (!installId.ok) return installId;
-	const appVersion = stringField(body, ["appVersion", "app_version"], 40, "invalid_app_version");
-	if (!appVersion.ok) return appVersion;
-	const platform = stringField(body, ["platform"], 40, "invalid_platform");
-	if (!platform.ok) return platform;
-	const exceptionType = stringField(
-		body,
-		["exceptionType", "exception_type"],
-		120,
-		"invalid_exception_type",
-		true,
-		true,
-	);
-	if (!exceptionType.ok) return exceptionType;
-	const exceptionMessage = stringField(
-		body,
-		["exceptionMessage", "exception_message"],
-		2_000,
-		"invalid_exception_message",
-		true,
-	);
-	if (!exceptionMessage.ok) return exceptionMessage;
-	const stackTrace = stringField(
-		body,
-		["stackTrace", "stack_trace"],
-		32_000,
-		"invalid_stack_trace",
-		true,
-	);
-	if (!stackTrace.ok) return stackTrace;
-	const occurredAt = timestampField(
-		body,
-		["timestampMillis", "timestamp_millis", "occurredAt", "occurred_at"],
-	);
-	if (!occurredAt.ok) return occurredAt;
-	const diagnosticsEnabled = booleanField(
-		body,
-		[
-			"diagnosticsEnabledAtCapture",
-			"diagnostics_enabled_at_capture",
-			"diagnostics_enabled",
-		],
-		"invalid_diagnostics_enabled",
-		true,
-	);
-	if (!diagnosticsEnabled.ok) return diagnosticsEnabled;
-	const version = schemaVersion(body);
-	if (!version.ok) return version;
-	const breadcrumbs = normalizeBreadcrumbs(pick(body, ["breadcrumbs"]));
-	if (!breadcrumbs.ok) return breadcrumbs;
-
-	return success({
-		id: id.value,
-		installId: installId.value,
-		appVersion: appVersion.value,
-		platform: platform.value,
-		exceptionType: exceptionType.value,
-		exceptionMessage: exceptionMessage.value,
-		stackTrace: stackTrace.value,
-		occurredAt: occurredAt.value,
-		diagnosticsEnabledAtCapture: diagnosticsEnabled.value,
-		breadcrumbs: breadcrumbs.value,
-		schemaVersion: version.value,
-	});
-}
-
 export function normalizeBug(body: JsonObject): InputResult<NormalizedBugPayload> {
 	if (!isPlainObject(body)) return failure(400, "invalid_body");
 
@@ -337,24 +195,6 @@ export function normalizeBug(body: JsonObject): InputResult<NormalizedBugPayload
 		logs: includeLogs.value === true ? logs.value : "",
 		device: device.value,
 		breadcrumbs: breadcrumbs.value,
-		schemaVersion: version.value,
-	});
-}
-
-function normalizeEvent(raw: unknown): InputResult<NormalizedEvent> {
-	if (!isPlainObject(raw)) return failure(400, "invalid_event");
-	const name = stringField(raw, ["name"], 64, "invalid_event", true, true);
-	if (!name.ok) return name;
-	const timestamp = timestampField(raw, ["timestampMillis", "timestamp_millis", "ts"]);
-	if (!timestamp.ok) return failure(400, "invalid_event");
-	const properties = normalizeProperties(pick(raw, ["properties", "props"]), "invalid_event");
-	if (!properties.ok) return properties;
-	const version = schemaVersion(raw);
-	if (!version.ok) return version;
-	return success({
-		name: name.value,
-		timestampMillis: timestamp.value,
-		properties: properties.value,
 		schemaVersion: version.value,
 	});
 }

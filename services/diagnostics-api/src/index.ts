@@ -1,20 +1,15 @@
 import {
 	normalizeBug,
-	normalizeCrash,
-	normalizeEvents,
 	readJsonObject,
 } from "./input";
 import {
 	type DiagnosticsEnv,
 	runRetention,
 	storeBug,
-	storeCrash,
-	storeEvents,
 } from "./storage";
 
 const DEFAULT_MAX_BODY_BYTES = 262_144;
 const HARD_MAX_BODY_BYTES = 1_048_576;
-const DEFAULT_MAX_EVENTS = 50;
 
 export default {
 	async fetch(request: Request, env: DiagnosticsEnv, _ctx: ExecutionContext): Promise<Response> {
@@ -72,41 +67,6 @@ export default {
 			if (!parsed.ok) return json({ error: parsed.error }, parsed.status, requestId);
 
 			switch (url.pathname) {
-				case "/v1/events": {
-					const maxEvents = boundedPositiveInt(env.MAX_EVENTS_PER_BATCH, DEFAULT_MAX_EVENTS, 1, 100);
-					const normalized = normalizeEvents(parsed.value, maxEvents);
-					if (!normalized.ok) {
-						return json({ error: normalized.error }, normalized.status, requestId);
-					}
-					const result = await storeEvents(normalized.value, env);
-					return json(
-						{
-							ok: true,
-							id: result.id,
-							stored: result.stored,
-							duplicate: result.duplicate,
-						},
-						202,
-						requestId,
-					);
-				}
-				case "/v1/crashes": {
-					const normalized = normalizeCrash(parsed.value);
-					if (!normalized.ok) {
-						return json({ error: normalized.error }, normalized.status, requestId);
-					}
-					const result = await storeCrash(normalized.value, env);
-					return json(
-						{
-							ok: true,
-							id: result.id,
-							fingerprint: result.fingerprint,
-							duplicate: result.duplicate,
-						},
-						202,
-						requestId,
-					);
-				}
 				case "/v1/bugs": {
 					const normalized = normalizeBug(parsed.value);
 					if (!normalized.ok) {
@@ -160,12 +120,6 @@ async function readiness(env: DiagnosticsEnv, requestId: string): Promise<Respon
 	try {
 		await env.DB.batch([
 			env.DB.prepare(
-				"SELECT id, received_at, install_id, payload_json FROM event_batches LIMIT 1",
-			),
-			env.DB.prepare(
-				"SELECT id, occurred_at, stack_r2_key, breadcrumbs_json FROM crashes LIMIT 1",
-			),
-			env.DB.prepare(
 				"SELECT id, occurred_at, logs_r2_key, device_json FROM bugs LIMIT 1",
 			),
 		]);
@@ -216,8 +170,8 @@ async function installRateLimited(
 	return !result.success;
 }
 
-function isIngestPath(path: string): path is "/v1/events" | "/v1/crashes" | "/v1/bugs" {
-	return path === "/v1/events" || path === "/v1/crashes" || path === "/v1/bugs";
+function isIngestPath(path: string): path is "/v1/bugs" {
+	return path === "/v1/bugs";
 }
 
 async function timingSafeEqual(provided: string, expected: string): Promise<boolean> {

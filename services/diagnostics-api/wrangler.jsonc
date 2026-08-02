@@ -47,13 +47,8 @@
 			},
 		},
 	],
-	// Optional: bind Analytics Engine as `AE` when event volume justifies it.
-	// "analytics_engine_datasets": [
-	// 	{ "binding": "AE", "dataset": "vnidrop_events" },
-	// ],
 	"vars": {
 		"MAX_BODY_BYTES": "262144",
-		"MAX_EVENTS_PER_BATCH": "50",
 		"RETENTION_DAYS": "90",
 	},
 }

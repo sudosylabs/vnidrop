@@ -127,18 +127,18 @@ people, especially when using **Anyone with this transfer**.
 - Native SwiftUI apps on iOS, iPadOS, and macOS; Compose apps on Android,
   Windows, and Linux
 - Strict custom HTTPS relay profiles with safe apply and rollback
-- Opt-in diagnostics with transfer contents, invitations, and file paths
-  excluded
+- Optional user-submitted bug reports with transfer contents, invitations, and
+  file paths excluded
 
 ## Privacy by design
 
-- **No hosted transfer copy.** VniDrop does not upload file contents to its
-  diagnostics service or a VniDrop storage bucket.
+- **No hosted transfer copy.** VniDrop does not upload file contents to a bug-report
+  service or a VniDrop storage bucket.
 - **Encrypted in transit.** Iroh connections are authenticated and encrypted
   end to end, including when a relay is needed.
 - **Local control.** Transfer history and sharing state stay on the device.
 - **Sensitive invitations.** An invitation can grant access, so it is
-  deliberately excluded from product logs and diagnostics.
+  deliberately excluded from product logs and bug reports.
 - **Explicit access.** Approval is required by default, and stopping a share
   removes access immediately.
 

@@ -3,14 +3,14 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Privacy policy",
   description:
-    "How VniDrop handles transfers, local app data, optional diagnostics, bug reports, and website visits.",
+    "How VniDrop handles transfers, local app data, optional bug reports, and website visits.",
 };
 
 const sections = [
   ["scope", "Scope"],
   ["transfers", "Transfers"],
   ["local-data", "Local data"],
-  ["diagnostics", "Diagnostics"],
+  ["bug-reports", "Bug reports"],
   ["website", "Website"],
   ["permissions", "Permissions"],
   ["providers", "Service providers"],
@@ -29,9 +29,9 @@ export default function PrivacyPage() {
           <h1>Privacy Policy</h1>
           <p>
             This policy explains what moves between devices, what stays local, and what is sent
-            only when you choose to share diagnostics or a bug report.
+            only when you choose to submit a bug report.
           </p>
-          <p className="privacy-meta">Effective July 16, 2026 · Version 1.1</p>
+          <p className="privacy-meta">Effective August 2, 2026 · Version 1.2</p>
         </div>
       </section>
 
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
               <p>
                 VniDrop has no user accounts and does not upload your transfer to a VniDrop file
                 store. Files travel over an authenticated, end-to-end encrypted connection.
-                Product diagnostics are opt-in; a bug report is sent only when you submit one.
+                VniDrop has no telemetry or analytics; a bug report is sent only when you submit one.
               </p>
             </div>
 
@@ -64,7 +64,7 @@ export default function PrivacyPage() {
               <h2>Scope and who “VniDrop” means</h2>
               <p>
                 This policy covers the official VniDrop website, the VniDrop applications for
-                Android, iOS, macOS, Windows, and Linux, and the diagnostics service configured by
+                Android, iOS, macOS, Windows, and Linux, and the bug-report service configured by
                 the official project. For an official release, VniDrop’s data controller is the
                 individual publisher named in the applicable app-store listing. In this policy,
                 “VniDrop,” “we,” and “us” also include the maintainers acting on that publisher’s
@@ -72,7 +72,7 @@ export default function PrivacyPage() {
               </p>
               <p>
                 VniDrop is open-source software. A build distributed or operated by someone else
-                may use different networking infrastructure, diagnostics settings, or website
+                may use different networking infrastructure, bug-report settings, or website
                 hosting. That distributor is responsible for explaining its own practices.
               </p>
             </section>
@@ -117,9 +117,9 @@ export default function PrivacyPage() {
               <ul>
                 <li>device identity and networking keys used to establish secure connections;</li>
                 <li>active shares, transfer history, receiver requests, progress, and status;</li>
-                <li>app preferences, including access and diagnostics choices;</li>
+                <li>app preferences, including access choices;</li>
                 <li>download destinations and locally managed transfer data; and</li>
-                <li>an anonymous installation identifier used only for diagnostics correlation.</li>
+                <li>an anonymous installation identifier used only for bug-report correlation.</li>
               </ul>
               <p>
                 This information remains until you remove the relevant history, stop or delete a
@@ -129,33 +129,27 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="diagnostics" className="policy-section">
-              <h2>Optional diagnostics and bug reports</h2>
-              <h3>Automatic product diagnostics</h3>
+            <section id="bug-reports" className="policy-section">
+              <h2>Optional bug reports</h2>
               <p>
-                Official releases indicate in the app settings whether automatic product
-                diagnostics are included. When included, automatic usage events and crash reports
-                are disabled until you enable “Share diagnostics.” If enabled, VniDrop may send an
-                anonymous installation ID, app version, platform, sparse event names and properties,
-                crash type and message, a redacted stack trace, timestamps, and recent in-app
-                breadcrumbs. You can turn this off at any time; doing so also removes pending local
-                crash reports.
+                VniDrop has no automatic telemetry, usage analytics, or crash auto-reporting.
+                Nothing is sent to a bug-report service unless you explicitly submit a report.
               </p>
               <h3>User-submitted bug reports</h3>
               <p>
-                A bug report is separate from the diagnostics toggle and is sent only when you press
-                submit. It can contain what you say happened, what you expected, reproduction steps,
-                an optional contact email, app and platform versions, an anonymous installation ID,
-                device name and model, operating system, network and battery information, recent
-                breadcrumbs, and optional recent logs. You can exclude logs before submitting.
+                A bug report is sent only when you press submit. It can contain what you say
+                happened, what you expected, reproduction steps, an optional contact email, app and
+                platform versions, an anonymous installation ID, device name and model, operating
+                system, network and battery information, and optional recent logs. You can exclude
+                logs before submitting.
               </p>
               <h3>Data deliberately excluded</h3>
               <p>
-                Automatic diagnostics are designed to exclude transfer contents, invitations, and
-                file paths. Before diagnostic text or optional logs are sent, VniDrop applies rules
-                intended to redact invitation tokens, endpoint identifiers, absolute paths, file and
-                content URIs, and platform document identifiers. No redaction system is perfect, so
-                review anything you type into a bug report and avoid including secrets.
+                Bug reports are designed to exclude transfer contents, invitations, and file paths.
+                Before optional logs are sent, VniDrop applies rules intended to redact invitation
+                tokens, endpoint identifiers, absolute paths, file and content URIs, and platform
+                document identifiers. No redaction system is perfect, so review anything you type
+                into a bug report and avoid including secrets.
               </p>
             </section>
 
@@ -223,7 +217,7 @@ export default function PrivacyPage() {
                   <dt>Cloudflare</dt>
                   <dd>
                     Proxies website requests and provides DNS, security, and abuse controls. When
-                    the optional diagnostics service is configured, it uses Cloudflare Workers, D1,
+                    the optional bug-report service is configured, it uses Cloudflare Workers, D1,
                     and R2.
                   </dd>
                 </div>
@@ -300,11 +294,7 @@ export default function PrivacyPage() {
                       <td>Until you delete them, clear app data, or uninstall</td>
                     </tr>
                     <tr>
-                      <th scope="row">Pending local crash reports</th>
-                      <td>Up to 30 days and 20 reports; deleted when diagnostics is disabled</td>
-                    </tr>
-                    <tr>
-                      <th scope="row">Server diagnostics and bug reports</th>
+                      <th scope="row">Server bug reports</th>
                       <td>The current project configuration is 90 days, with scheduled deletion</td>
                     </tr>
                     <tr>
@@ -317,7 +307,7 @@ export default function PrivacyPage() {
               <p>
                 Operational backups, provider logs, and deletion backlogs may persist briefly beyond
                 the stated period where necessary for security, integrity, or legal obligations. If
-                the production diagnostics retention configuration changes, this policy should be
+                the production bug-report retention configuration changes, this policy should be
                 updated to match it.
               </p>
             </section>
@@ -325,7 +315,6 @@ export default function PrivacyPage() {
             <section id="choices" className="policy-section">
               <h2>Your choices and rights</h2>
               <ul>
-                <li>Enable or disable “Share diagnostics” in VniDrop settings.</li>
                 <li>
                   Submit a bug report only when you choose, omit contact information, and exclude
                   logs.
@@ -343,7 +332,7 @@ export default function PrivacyPage() {
               <p>
                 Depending on where you live, privacy law may provide rights to access, correct,
                 delete, restrict, or object to processing of personal information. Because VniDrop
-                has no account and automatic diagnostics use an anonymous installation ID, we may
+                has no account and bug reports use an anonymous installation ID, we may
                 not be able to connect a server record to you without additional information. Use
                 the contact method below and provide only what is needed to locate your submission.
               </p>
@@ -353,7 +342,7 @@ export default function PrivacyPage() {
               <h2>Security</h2>
               <p>
                 VniDrop uses authenticated end-to-end encrypted connections, content verification,
-                deny-by-default share access, bounded diagnostics payloads, redaction, and safe file
+                deny-by-default share access, bounded bug-report payloads, redaction, and safe file
                 publishing that avoids silently replacing an existing file. No system can guarantee
                 absolute security. Keep invitations private, verify receiver names, keep your device
                 updated, and stop sharing when a transfer is finished.

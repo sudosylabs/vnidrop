@@ -24,9 +24,7 @@ data class AppPreferences(
 	val receiveFolder: ReceiveFolder,
 	val themeMode: ThemeMode,
 	val notificationsEnabled: Boolean,
-	/** Master opt-in for automatic telemetry + crash upload. Bug reports remain available always. */
-	val diagnosticsEnabled: Boolean = false,
-	/** Stable anonymous install id; never an account or advertising id. */
+	/** Stable anonymous install id for bug-report correlation; never an account or advertising id. */
 	val diagnosticsInstallId: String = "",
 	val relaySettings: RelaySettings = RelaySettings(),
 )
@@ -36,7 +34,6 @@ class AppPreferencesDefaults(
 	val receiveFolder: ReceiveFolder,
 	val themeMode: ThemeMode,
 	val notificationsEnabled: Boolean = false,
-	val diagnosticsEnabled: Boolean = false,
 )
 
 interface PreferencesRepository {
@@ -46,7 +43,6 @@ interface PreferencesRepository {
 	suspend fun resetReceiveFolder()
 	suspend fun setThemeMode(mode: ThemeMode)
 	suspend fun setNotificationsEnabled(enabled: Boolean)
-	suspend fun setDiagnosticsEnabled(enabled: Boolean)
 	suspend fun setRelaySettings(settings: RelaySettings)
 	/** Ensures a durable install id exists and returns it. */
 	suspend fun ensureDiagnosticsInstallId(): String
@@ -83,7 +79,6 @@ class AppPreferencesRepository(
 				receiveFolder = resolveReceiveFolder(prefs, defaults.receiveFolder),
 				themeMode = prefs[PreferenceKeys.ThemeMode]?.let { themeModeOrNull(it) } ?: defaults.themeMode,
 				notificationsEnabled = prefs[PreferenceKeys.NotificationsEnabled] ?: defaults.notificationsEnabled,
-				diagnosticsEnabled = prefs[PreferenceKeys.DiagnosticsEnabled] ?: defaults.diagnosticsEnabled,
 				diagnosticsInstallId = prefs[PreferenceKeys.DiagnosticsInstallId].orEmpty(),
 				relaySettings = RelaySettings(
 					mode = relayMode,
@@ -122,12 +117,6 @@ class AppPreferencesRepository(
 		}
 	}
 
-	override suspend fun setDiagnosticsEnabled(enabled: Boolean) {
-		dataStore.edit { prefs ->
-			prefs[PreferenceKeys.DiagnosticsEnabled] = enabled
-		}
-	}
-
 	override suspend fun setRelaySettings(settings: RelaySettings) {
 		dataStore.edit { prefs ->
 			prefs[PreferenceKeys.RelayMode] = settings.mode.name
@@ -160,7 +149,6 @@ private object PreferenceKeys {
 	val ReceiveFolderDisplayName = stringPreferencesKey("receive_folder_display_name")
 	val ThemeMode = stringPreferencesKey("theme_mode")
 	val NotificationsEnabled = booleanPreferencesKey("notifications_enabled")
-	val DiagnosticsEnabled = booleanPreferencesKey("diagnostics_enabled")
 	val DiagnosticsInstallId = stringPreferencesKey("diagnostics_install_id")
 	val RelayMode = stringPreferencesKey("relay_mode")
 	val RelayUrls = stringPreferencesKey("relay_urls")

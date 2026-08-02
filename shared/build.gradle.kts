@@ -49,7 +49,7 @@ val desktopRustVariant = providers.gradleProperty("vnidrop.desktop.rustVariant")
 	.orElse(Variant.Debug)
 
 // Compile-time switches (gradle.properties or -P…).
-// included=false: no Share-diagnostics toggle, no telemetry/crash auto-upload stack.
+// included=false: user-initiated bug reports use a NoOp transport (never sent).
 // endpoint/key both empty: transport is NoOp (safe default until Cloudflare is deployed).
 val diagnosticsIncluded: Boolean =
 	(findProperty("vnidrop.diagnostics.included") as String?)?.toBooleanStrictOrNull() ?: false

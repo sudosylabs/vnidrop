@@ -421,33 +421,6 @@ class ViewModelsTest {
 	}
 
 	@Test
-	fun settingsTogglesDiagnosticsPreference() = runTest {
-		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-		val preferences = preferences()
-		val viewModel = settingsViewModel(preferences, diagnosticsIncluded = true)
-		advanceUntilIdle()
-		assertFalse(viewModel.state.value.diagnosticsEnabled)
-		viewModel.setDiagnosticsEnabled(true)
-		advanceUntilIdle()
-		assertTrue(preferences.mutablePreferences.value.diagnosticsEnabled)
-		assertTrue(viewModel.state.value.diagnosticsEnabled)
-	}
-
-	@Test
-	fun settingsIgnoresDiagnosticsOptInWhenExcluded() = runTest {
-		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-		val preferences = preferences()
-		val viewModel = settingsViewModel(preferences)
-		advanceUntilIdle()
-
-		viewModel.setDiagnosticsEnabled(true)
-		advanceUntilIdle()
-
-		assertFalse(preferences.mutablePreferences.value.diagnosticsEnabled)
-		assertFalse(viewModel.state.value.diagnosticsEnabled)
-	}
-
-	@Test
 	fun settingsSubmitsBugReportAndClearsForm() = runTest {
 		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 		val preferences = preferences()
@@ -993,7 +966,6 @@ class ViewModelsTest {
 			receiveFolder = folder,
 			themeMode = ThemeMode.System,
 			notificationsEnabled = false,
-			diagnosticsEnabled = false,
 			diagnosticsInstallId = "test-install",
 		),
 	)
@@ -1005,7 +977,6 @@ class ViewModelsTest {
 		notifications: FakeNotificationService = FakeNotificationService(),
 		transport: DiagnosticsTransport = RecordingDiagnosticsTransport(),
 		fileSystem: FakeFileSystemService = FakeFileSystemService(folder),
-		diagnosticsIncluded: Boolean = false,
 		repository: FakeCoreGateway = FakeCoreGateway(),
 	) = SettingsViewModel(
 		environment(),
@@ -1023,7 +994,6 @@ class ViewModelsTest {
 			platform = "Test",
 			logReader = { "sample log line" },
 		),
-		diagnosticsIncluded = diagnosticsIncluded,
 	)
 
 	private fun receivedTransfer(id: ULong, status: TransferStatus) = Transfer(

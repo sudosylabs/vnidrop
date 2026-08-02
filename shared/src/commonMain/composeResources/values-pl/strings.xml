@@ -80,10 +80,6 @@
     <string name="button_write_nfc">Zapisz na tagu NFC</string>
     <string name="device_model_title">Model urządzenia</string>
     <string name="device_name_title">Nazwa urządzenia</string>
-    <string name="diagnostics_description">Wysyłaj anonimowe raporty o awariach i zdarzenia użytkowania, aby pomóc nam ulepszać VniDrop. Możesz to wyłączyć w dowolnej chwili. Zaproszenia, ścieżki plików i zawartość transferów nigdy nie są dołączane.</string>
-    <string name="diagnostics_disabled_message">Udostępnianie diagnostyki jest wyłączone.</string>
-    <string name="diagnostics_enabled_message">Udostępnianie diagnostyki jest włączone.</string>
-    <string name="diagnostics_title">Udostępniaj diagnostykę</string>
     <string name="error_camera">Do zeskanowania kodu QR wymagany jest dostęp do aparatu.</string>
     <string name="error_device_info">Nie udało się wczytać informacji o urządzeniu.</string>
     <string name="error_destination_exists">W miejscu docelowym istnieje już plik o tej samej nazwie. Wybierz inny folder lub usuń istniejący plik.</string>

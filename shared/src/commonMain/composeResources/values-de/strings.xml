@@ -80,10 +80,6 @@
     <string name="button_write_nfc">Auf NFC-Tag schreiben</string>
     <string name="device_model_title">Gerätemodell</string>
     <string name="device_name_title">Gerätename</string>
-    <string name="diagnostics_description">Anonyme Absturzberichte und Nutzungsereignisse senden, damit wir VniDrop verbessern können. Sie können dies jederzeit deaktivieren. Einladungen, Dateipfade und Übertragungsinhalte werden niemals einbezogen.</string>
-    <string name="diagnostics_disabled_message">Die Freigabe von Diagnosedaten ist deaktiviert.</string>
-    <string name="diagnostics_enabled_message">Die Freigabe von Diagnosedaten ist aktiviert.</string>
-    <string name="diagnostics_title">Diagnosedaten teilen</string>
     <string name="error_camera">Für das Scannen eines QR-Codes ist Kamerazugriff erforderlich.</string>
     <string name="error_device_info">Geräteinformationen konnten nicht geladen werden.</string>
     <string name="error_destination_exists">Am Ziel ist bereits eine Datei mit demselben Namen vorhanden. Wählen Sie einen anderen Ordner oder entfernen Sie die vorhandene Datei.</string>

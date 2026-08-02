@@ -80,10 +80,6 @@
     <string name="button_write_nfc">Write to NFC tag</string>
     <string name="device_model_title">Device model</string>
     <string name="device_name_title">Device name</string>
-    <string name="diagnostics_description">Send anonymous crash reports and usage events so we can improve VniDrop. You can turn this off anytime. Invitations, file paths, and transfer contents are never included.</string>
-    <string name="diagnostics_disabled_message">Diagnostics sharing is off.</string>
-    <string name="diagnostics_enabled_message">Diagnostics sharing is on.</string>
-    <string name="diagnostics_title">Share diagnostics</string>
     <string name="error_camera">Camera access is required to scan a QR code.</string>
     <string name="error_device_info">Could not load device information.</string>
     <string name="error_destination_exists">A file with the same name already exists in the destination. Choose another folder or remove the existing file.</string>

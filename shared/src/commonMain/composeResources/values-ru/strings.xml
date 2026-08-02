@@ -80,10 +80,6 @@
     <string name="button_write_nfc">Записать на NFC-метку</string>
     <string name="device_model_title">Модель устройства</string>
     <string name="device_name_title">Имя устройства</string>
-    <string name="diagnostics_description">Отправлять анонимные отчёты о сбоях и события использования, чтобы помочь нам улучшать VniDrop. Вы можете отключить это в любой момент. Приглашения, пути к файлам и содержимое передач никогда не включаются.</string>
-    <string name="diagnostics_disabled_message">Передача диагностики отключена.</string>
-    <string name="diagnostics_enabled_message">Передача диагностики включена.</string>
-    <string name="diagnostics_title">Делиться диагностикой</string>
     <string name="error_camera">Для сканирования QR-кода требуется доступ к камере.</string>
     <string name="error_device_info">Не удалось загрузить сведения об устройстве.</string>
     <string name="error_destination_exists">В папке назначения уже есть файл с таким именем. Выберите другую папку или удалите существующий файл.</string>

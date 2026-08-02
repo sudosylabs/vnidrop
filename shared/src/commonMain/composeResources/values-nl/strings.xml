@@ -80,10 +80,6 @@
     <string name="button_write_nfc">Naar NFC-tag schrijven</string>
     <string name="device_model_title">Apparaatmodel</string>
     <string name="device_name_title">Apparaatnaam</string>
-    <string name="diagnostics_description">Verstuur anonieme crashrapporten en gebruiksgebeurtenissen zodat we VniDrop kunnen verbeteren. U kunt dit op elk moment uitschakelen. Uitnodigingen, bestandspaden en overdrachtsinhoud worden nooit meegestuurd.</string>
-    <string name="diagnostics_disabled_message">Het delen van diagnostische gegevens is uitgeschakeld.</string>
-    <string name="diagnostics_enabled_message">Het delen van diagnostische gegevens is ingeschakeld.</string>
-    <string name="diagnostics_title">Diagnostische gegevens delen</string>
     <string name="error_camera">Voor het scannen van een QR-code is toegang tot de camera vereist.</string>
     <string name="error_device_info">Apparaatgegevens konden niet worden geladen.</string>
     <string name="error_destination_exists">Er staat al een bestand met dezelfde naam in de doelmap. Kies een andere map of verwijder het bestaande bestand.</string>

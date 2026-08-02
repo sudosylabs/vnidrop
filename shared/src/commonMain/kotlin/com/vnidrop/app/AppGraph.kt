@@ -19,9 +19,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.launch
 
 class AppGraph(
 	val dependencies: AppDependencies,
@@ -40,11 +37,9 @@ class AppGraph(
 			receiveFolder = dependencies.fileSystemService.defaultReceiveFolder(),
 			themeMode = ThemeMode.System,
 			notificationsEnabled = false,
-			diagnosticsEnabled = false,
 		),
 	)
 	val diagnostics = DiagnosticsCoordinator.create(
-		appDataDir = dependencies.environment.defaultCoreDataDir,
 		appVersion = dependencies.environment.appVersion,
 		platform = dependencies.environment.name,
 		preferencesRepository = preferencesRepository,
@@ -75,12 +70,6 @@ class AppGraph(
 	init {
 		AppLogger.initialize(dependencies.environment.defaultCoreDataDir)
 		diagnostics.start()
-		applicationScope.launch {
-			visibility.isForeground
-				.drop(1)
-				.filter { isForeground -> !isForeground }
-				.collect { diagnostics.telemetry.flush() }
-		}
 	}
 
 	fun close() {

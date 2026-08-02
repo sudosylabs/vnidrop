@@ -80,10 +80,6 @@
     <string name="button_write_nfc">Escrever em etiqueta NFC</string>
     <string name="device_model_title">Modelo do dispositivo</string>
     <string name="device_name_title">Nome do dispositivo</string>
-    <string name="diagnostics_description">Enviar relatórios de falhas e eventos de utilização anónimos para nos ajudar a melhorar o VniDrop. Pode desativar isto a qualquer momento. Convites, caminhos de ficheiros e conteúdos das transferências nunca são incluídos.</string>
-    <string name="diagnostics_disabled_message">A partilha de diagnósticos está desativada.</string>
-    <string name="diagnostics_enabled_message">A partilha de diagnósticos está ativada.</string>
-    <string name="diagnostics_title">Partilhar diagnósticos</string>
     <string name="error_camera">É necessário acesso à câmara para ler um código QR.</string>
     <string name="error_device_info">Não foi possível carregar as informações do dispositivo.</string>
     <string name="error_destination_exists">Já existe um ficheiro com o mesmo nome no destino. Escolha outra pasta ou remova o ficheiro existente.</string>

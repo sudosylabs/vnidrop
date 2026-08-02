@@ -24,8 +24,7 @@ final class AppGraph: ObservableObject {
 			fallback: AppPreferencesDefaults(
 				username: dependencies.environment.defaultUsername,
 				receiveFolder: dependencies.fileSystemService.defaultReceiveFolder(),
-				themeMode: .system,
-				diagnosticsEnabled: false
+				themeMode: .system
 			)
 		)
 		self.approvalCoordinator = ApprovalCoordinator(

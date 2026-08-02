@@ -24,8 +24,3 @@ struct NoopBugReportService: BugReportService {
 	}
 	func previewLogBytes() async -> Int { 0 }
 }
-
-/// Whether the diagnostics stack is compiled in (mirrors DiagnosticsBuildConfig).
-enum DiagnosticsBuildConfig {
-	static let included = false
-}

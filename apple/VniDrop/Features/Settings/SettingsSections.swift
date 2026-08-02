@@ -415,17 +415,6 @@ struct AboutSettings: View {
 				Label(String(localized: L10n.About.privacyPolicyLabel), systemSymbol: .handRaised)
 			}
 		}
-
-		if DiagnosticsBuildConfig.included {
-			Section {
-				Toggle(isOn: Binding(
-					get: { model.state.diagnosticsEnabled },
-					set: { model.setDiagnosticsEnabled($0) }
-				)) {
-					Text(String(localized: L10n.Diagnostics.title))
-				}
-			}
-		}
 	}
 }
 

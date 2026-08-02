@@ -15,8 +15,7 @@ final class SettingsModelTests: XCTestCase {
 			preferences: preferences,
 			notifications: LocalNotificationService(),
 			messages: UiMessageController(),
-			bugReports: NoopBugReportService(),
-			diagnosticsIncluded: false
+			bugReports: NoopBugReportService()
 		)
 	}
 

@@ -44,7 +44,6 @@ struct SettingsState: Equatable {
 	var supportsCustomReceiveFolders = true
 	var themeMode: ThemeMode = .system
 	var notificationPermission: NotificationPermission = .notDetermined
-	var diagnosticsEnabled = false
 	var relayMode: RelayPreferenceMode = .automatic
 	var relayURLs: [String] = []
 	var relayValidationError: RelayConfigurationValidationError?
@@ -76,7 +75,7 @@ struct SettingsState: Equatable {
 			&& lhs.supportsCustomReceiveFolders == rhs.supportsCustomReceiveFolders
 			&& lhs.themeMode == rhs.themeMode
 			&& lhs.notificationPermission == rhs.notificationPermission
-			&& lhs.diagnosticsEnabled == rhs.diagnosticsEnabled && lhs.appVersion == rhs.appVersion
+			&& lhs.appVersion == rhs.appVersion
 			&& lhs.relayMode == rhs.relayMode && lhs.relayURLs == rhs.relayURLs
 			&& lhs.relayValidationError == rhs.relayValidationError
 			&& lhs.relayConfigurationIsDirty == rhs.relayConfigurationIsDirty
@@ -111,7 +110,6 @@ final class SettingsModel: ObservableObject {
 	private let notifications: LocalNotificationService
 	private let messages: UiMessageController
 	private let bugReports: BugReportService
-	private let diagnosticsIncluded: Bool
 
 	private var usernamePersistTask: Task<Void, Never>?
 	private var hasLocalUsernameDraft = false
@@ -126,8 +124,7 @@ final class SettingsModel: ObservableObject {
 		preferences: AppPreferencesRepository,
 		notifications: LocalNotificationService,
 		messages: UiMessageController,
-		bugReports: BugReportService,
-		diagnosticsIncluded: Bool = DiagnosticsBuildConfig.included
+		bugReports: BugReportService
 	) {
 		self.environment = environment
 		self.deviceInfoProvider = deviceInfoProvider
@@ -137,7 +134,6 @@ final class SettingsModel: ObservableObject {
 		self.notifications = notifications
 		self.messages = messages
 		self.bugReports = bugReports
-		self.diagnosticsIncluded = diagnosticsIncluded
 		self.state = SettingsState(
 			supportsCustomReceiveFolders: fileSystemService.supportsCustomReceiveFolders,
 			appVersion: environment.appVersion
@@ -151,7 +147,6 @@ final class SettingsModel: ObservableObject {
 				self.state.username = self.hasLocalUsernameDraft ? self.state.username : prefs.username
 				self.state.receiveFolder = folder
 				self.state.themeMode = prefs.themeMode
-				self.state.diagnosticsEnabled = prefs.diagnosticsEnabled
 				if !self.hasRelayConfigurationDraft {
 					self.state.relayMode = prefs.relayConfiguration.mode
 					self.state.relayURLs = prefs.relayConfiguration.relayURLs
@@ -227,17 +222,6 @@ final class SettingsModel: ObservableObject {
 			if permission == .unsupported {
 				messages.show(UiMessage(text: .resource(L10n.Notifications.unsupported), tone: .warning))
 			}
-		}
-	}
-
-	func setDiagnosticsEnabled(_ enabled: Bool) {
-		if !diagnosticsIncluded { return }
-		Task {
-			preferences.setDiagnosticsEnabled(enabled)
-			messages.show(UiMessage(
-				text: .resource(enabled ? L10n.Diagnostics.enabledMessage : L10n.Diagnostics.disabledMessage),
-				tone: .success
-			))
 		}
 	}
 

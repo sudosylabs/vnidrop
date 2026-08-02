@@ -5,12 +5,6 @@ package com.vnidrop.app.diagnostics
  * intentionally abstracted; nothing here assumes a network backend.
  */
 
-data class Breadcrumb(
-	val name: String,
-	val timestampMillis: Long,
-	val properties: Map<String, String> = emptyMap(),
-)
-
 data class DeviceSnapshot(
 	val deviceName: String?,
 	val deviceModel: String?,
@@ -32,7 +26,6 @@ data class BugReport(
 	val includeLogs: Boolean,
 	val logs: String,
 	val device: DeviceSnapshot,
-	val breadcrumbs: List<Breadcrumb>,
 	val schemaVersion: Int = DiagnosticsSchemaVersion,
 )
 

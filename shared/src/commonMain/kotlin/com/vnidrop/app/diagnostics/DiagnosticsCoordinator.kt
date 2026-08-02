@@ -13,7 +13,6 @@ import kotlinx.coroutines.launch
 class DiagnosticsCoordinator(
 	val preferencesRepository: PreferencesRepository,
 	val transport: DiagnosticsTransport,
-	val breadcrumbs: BreadcrumbBuffer,
 	val bugReports: BugReportService,
 	private val scope: CoroutineScope,
 ) {
@@ -32,18 +31,15 @@ class DiagnosticsCoordinator(
 			scope: CoroutineScope,
 			transport: DiagnosticsTransport = NoOpDiagnosticsTransport(),
 		): DiagnosticsCoordinator {
-			val breadcrumbs = BreadcrumbBuffer()
 			val bugReports = BugReportService(
 				preferencesRepository = preferencesRepository,
 				transport = transport,
-				breadcrumbs = breadcrumbs,
 				appVersion = appVersion,
 				platform = platform,
 			)
 			return DiagnosticsCoordinator(
 				preferencesRepository = preferencesRepository,
 				transport = transport,
-				breadcrumbs = breadcrumbs,
 				bugReports = bugReports,
 				scope = scope,
 			)

@@ -18,7 +18,6 @@ import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.TransferStatus
-import com.vnidrop.app.diagnostics.BreadcrumbBuffer
 import com.vnidrop.app.diagnostics.BugReportService
 import com.vnidrop.app.diagnostics.DiagnosticsTransport
 import com.vnidrop.app.diagnostics.NoOpDiagnosticsTransport
@@ -989,7 +988,6 @@ class ViewModelsTest {
 		BugReportService(
 			preferencesRepository = preferences,
 			transport = transport,
-			breadcrumbs = BreadcrumbBuffer(),
 			appVersion = "1.0",
 			platform = "Test",
 			logReader = { "sample log line" },

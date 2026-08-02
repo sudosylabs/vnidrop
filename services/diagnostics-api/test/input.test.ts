@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-	MAX_BREADCRUMBS_JSON_BYTES,
 	MAX_DEVICE_JSON_BYTES,
 	MAX_LOG_BYTES,
 	normalizeBug,
@@ -119,20 +118,11 @@ describe("normalizers", () => {
 		});
 	});
 
-	it("keeps logs, breadcrumbs, and device JSON within valid byte budgets", () => {
-		const properties = Object.fromEntries(
-			Array.from({ length: 12 }, (_, index) => [`key-${index}-${"\u0000".repeat(40)}`, "\u0000".repeat(128)]),
-		);
-		const breadcrumbs = Array.from({ length: 40 }, (_, index) => ({
-			name: `crumb-${index}`,
-			timestamp_millis: index,
-			properties,
-		}));
+	it("keeps logs and device JSON within valid byte budgets", () => {
 		const result = normalizeBug(
 			bugPayload({
 				include_logs: true,
 				logs: "😀".repeat(60_000),
-				breadcrumbs,
 				device: {
 					device_name: "\u0000".repeat(200),
 					device_model: "\u0000".repeat(200),
@@ -145,14 +135,9 @@ describe("normalizers", () => {
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-		const breadcrumbsJson = JSON.stringify(result.value.breadcrumbs);
 		const deviceJson = JSON.stringify(result.value.device);
 		expect(ENCODER.encode(result.value.logs).byteLength).toBe(MAX_LOG_BYTES);
-		expect(ENCODER.encode(breadcrumbsJson).byteLength).toBeLessThanOrEqual(
-			MAX_BREADCRUMBS_JSON_BYTES,
-		);
 		expect(ENCODER.encode(deviceJson).byteLength).toBeLessThanOrEqual(MAX_DEVICE_JSON_BYTES);
-		expect(JSON.parse(breadcrumbsJson)).toEqual(result.value.breadcrumbs);
 		expect(JSON.parse(deviceJson)).toEqual(result.value.device);
 	});
 
@@ -218,7 +203,6 @@ function bugPayload(overrides: Record<string, unknown> = {}): Record<string, unk
 		contact: "",
 		logs: "",
 		device: {},
-		breadcrumbs: [],
 		schema_version: 1,
 		...overrides,
 	};

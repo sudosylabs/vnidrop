@@ -8,8 +8,6 @@ internal object DiagnosticsJson {
 	internal const val MaxInstallIdBytes = 80
 	internal const val MaxAppVersionBytes = 40
 	internal const val MaxPlatformBytes = 40
-	private const val MaxBreadcrumbsJsonBytes = 16_000
-	private const val MaxBreadcrumbs = 40
 
 	fun bugBody(report: BugReport): String {
 		val logs = if (report.includeLogs) report.logs else ""
@@ -72,47 +70,7 @@ internal object DiagnosticsJson {
 		appendJsonField("network", report.device.network.orEmpty())
 		append(',')
 		appendJsonField("batteryLevel", report.device.batteryLevel.orEmpty())
-		append("},")
-		append("\"breadcrumbs\":")
-		appendBreadcrumbs(report.breadcrumbs)
 		append('}')
-	}
-
-	private fun StringBuilder.appendBreadcrumbs(crumbs: List<Breadcrumb>) {
-		append('[')
-		var encodedBytes = 2
-		var appended = 0
-		for (crumb in crumbs) {
-			if (appended == MaxBreadcrumbs) break
-			val name = sanitizeDiagnosticName(crumb.name)
-			if (name.isBlank() || crumb.timestampMillis < 0) continue
-			val encoded = buildString {
-				append('{')
-				appendJsonField("name", name)
-				append(',')
-				append("\"timestampMillis\":")
-				append(crumb.timestampMillis)
-				append(',')
-				append("\"properties\":")
-				appendStringMap(crumb.properties)
-				append('}')
-			}
-			val additionBytes = encoded.encodeToByteArray().size + if (appended == 0) 0 else 1
-			if (encodedBytes + additionBytes > MaxBreadcrumbsJsonBytes) break
-			if (appended > 0) append(',')
-			append(encoded)
-			encodedBytes += additionBytes
-			appended += 1
-		}
-		append(']')
-	}
-
-	private fun StringBuilder.appendStringMap(map: Map<String, String>) {
-		append('{')
-		sanitizeDiagnosticProperties(map).entries.forEachIndexed { index, (key, value) ->
-			if (index > 0) append(',')
-			appendJsonField(key, value)
-		}
 		append('}')
 	}
 

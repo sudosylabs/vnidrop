@@ -121,7 +121,7 @@ describe("diagnostics Worker", () => {
 
 		const row = await env.DB.prepare(
 			`SELECT occurred_at AS occurredAt, logs_r2_key AS logsKey,
-			        device_json AS deviceJson, breadcrumbs_json AS breadcrumbsJson
+			        device_json AS deviceJson
 			 FROM bugs WHERE id = ?`,
 		)
 			.bind(id)
@@ -129,7 +129,6 @@ describe("diagnostics Worker", () => {
 				occurredAt: number;
 				logsKey: string;
 				deviceJson: string;
-				breadcrumbsJson: string;
 			}>();
 		expect(row?.occurredAt).toBe(3);
 		expect(JSON.parse(row?.deviceJson ?? "null")).toEqual({
@@ -139,9 +138,6 @@ describe("diagnostics Worker", () => {
 			network: "offline",
 			batteryLevel: "90%",
 		});
-		expect(JSON.parse(row?.breadcrumbsJson ?? "null")).toEqual([
-			{ name: "opened", timestampMillis: 2, properties: {} },
-		]);
 		expect(await (await env.BLOBS.get(row?.logsKey ?? "missing"))?.text()).toBe("first logs");
 
 		const objects = await env.BLOBS.list({ prefix: `bugs/${id}/` });
@@ -198,15 +194,15 @@ describe("diagnostics Worker", () => {
 				`INSERT INTO bugs
 				 (id, received_at, occurred_at, install_id, app_version, platform,
 				  what_happened, expected, steps, contact, logs_r2_key,
-				  device_json, breadcrumbs_json, status, schema_version)
-				 VALUES (?, ?, ?, ?, '', '', 'failed', 'worked', '', '', ?, '{}', '[]', 'open', 1)`,
+				  device_json, status, schema_version)
+				 VALUES (?, ?, ?, ?, '', '', 'failed', 'worked', '', '', ?, '{}', 'open', 1)`,
 			).bind(oldBugId, oldReceivedAt, oldReceivedAt, INSTALL_ID, oldBugKey),
 			env.DB.prepare(
 				`INSERT INTO bugs
 				 (id, received_at, occurred_at, install_id, app_version, platform,
 				  what_happened, expected, steps, contact, logs_r2_key,
-				  device_json, breadcrumbs_json, status, schema_version)
-				 VALUES (?, ?, ?, ?, '', '', 'failed', 'worked', '', '', NULL, '{}', '[]', 'open', 1)`,
+				  device_json, status, schema_version)
+				 VALUES (?, ?, ?, ?, '', '', 'failed', 'worked', '', '', NULL, '{}', 'open', 1)`,
 			).bind(currentBugId, Date.now(), Date.now(), INSTALL_ID),
 		]);
 
@@ -283,10 +279,10 @@ describe("diagnostics Worker", () => {
 			 INSERT INTO bugs (
 			   id, received_at, occurred_at, install_id, app_version, platform,
 			   what_happened, expected, steps, contact, logs_r2_key,
-			   device_json, breadcrumbs_json, status, schema_version
+			   device_json, status, schema_version
 			 )
 			 SELECT 'retention-backlog-' || printf('%04d', value), ?, ?, ?, '', '',
-			        'failed', 'worked', '', '', NULL, '{}', '[]', 'open', 1
+			        'failed', 'worked', '', '', NULL, '{}', 'open', 1
 			 FROM sequence`,
 		)
 			.bind(oldReceivedAt, oldReceivedAt, INSTALL_ID)
@@ -358,7 +354,6 @@ function bugPayload(id: string, logs: string): Record<string, unknown> {
 			network: "offline",
 			batteryLevel: "90%",
 		},
-		breadcrumbs: [{ name: "opened", timestampMillis: 2, properties: {} }],
 		schemaVersion: 1,
 	};
 }
@@ -382,7 +377,6 @@ function normalizedBug(id: string, logs: string): NormalizedBugPayload {
 			network: "offline",
 			batteryLevel: "90%",
 		},
-		breadcrumbs: [],
 		schemaVersion: 1,
 	};
 }

@@ -32,12 +32,12 @@ export async function storeBug(
 	try {
 		const result = await database
 			.prepare(
-			`INSERT INTO bugs (
-			  id, received_at, occurred_at, install_id, app_version, platform,
-			  what_happened, expected, steps, contact, logs_r2_key,
-			  device_json, breadcrumbs_json, status, schema_version
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)
-			ON CONFLICT(id) DO NOTHING`,
+				`INSERT INTO bugs (
+				  id, received_at, occurred_at, install_id, app_version, platform,
+				  what_happened, expected, steps, contact, logs_r2_key,
+				  device_json, status, schema_version
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)
+				ON CONFLICT(id) DO NOTHING`,
 			)
 			.bind(
 				payload.id,
@@ -52,7 +52,6 @@ export async function storeBug(
 				payload.contact,
 				logsKey,
 				JSON.stringify(payload.device),
-				JSON.stringify(payload.breadcrumbs),
 				payload.schemaVersion,
 			)
 			.run();

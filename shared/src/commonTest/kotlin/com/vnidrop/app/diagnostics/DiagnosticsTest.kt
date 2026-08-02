@@ -205,21 +205,10 @@ class DiagnosticsTest {
 	}
 
 	@Test
-	fun breadcrumbBufferKeepsOnlyLatestEntries() {
-		val buffer = BreadcrumbBuffer(capacity = 3)
-		buffer.add("a")
-		buffer.add("b")
-		buffer.add("c")
-		buffer.add("d")
-		assertEquals(listOf("b", "c", "d"), buffer.snapshot().map { it.name })
-	}
-
-	@Test
 	fun bugReportRequiresWhatAndExpected() = runTest {
 		val service = BugReportService(
 			preferencesRepository = fakePrefs(),
 			transport = RecordingDiagnosticsTransport(),
-			breadcrumbs = BreadcrumbBuffer(),
 			appVersion = "1.0",
 			platform = "Test",
 			logReader = { "logs" },
@@ -238,7 +227,6 @@ class DiagnosticsTest {
 		val service = BugReportService(
 			preferencesRepository = fakePrefs(),
 			transport = throwingTransport,
-			breadcrumbs = BreadcrumbBuffer(),
 			appVersion = "1.0",
 			platform = "Test",
 		)
@@ -255,7 +243,6 @@ class DiagnosticsTest {
 		val service = BugReportService(
 			preferencesRepository = fakePrefs(),
 			transport = transport,
-			breadcrumbs = BreadcrumbBuffer(),
 			appVersion = "1.0",
 			platform = "Test",
 			logReader = { LogRedactor.redact("ticket=abcdefghijklmnopqrstuvwxyz012345 plain") },
@@ -286,7 +273,6 @@ class DiagnosticsTest {
 		val service = BugReportService(
 			preferencesRepository = fakePrefs(),
 			transport = RecordingDiagnosticsTransport(),
-			breadcrumbs = BreadcrumbBuffer(),
 			appVersion = "1.0",
 			platform = "Test",
 			logReader = { rawLogs },
@@ -304,7 +290,6 @@ class DiagnosticsTest {
 		val service = BugReportService(
 			preferencesRepository = fakePrefs(),
 			transport = RecordingDiagnosticsTransport(),
-			breadcrumbs = BreadcrumbBuffer(),
 			appVersion = "1.0",
 			platform = "Test",
 			logReader = { "🙂".repeat(60_000) },
@@ -333,7 +318,6 @@ class DiagnosticsTest {
 		includeLogs = includeLogs,
 		logs = logs,
 		device = DeviceSnapshot(null, null, "OS", null, null),
-		breadcrumbs = emptyList(),
 	)
 
 	private fun fakePrefs() = FakePreferencesRepository(

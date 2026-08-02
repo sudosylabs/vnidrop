@@ -8,14 +8,6 @@ export type InputFailure = {
 
 export type InputResult<T> = { ok: true; value: T } | InputFailure;
 
-export type NormalizedProperties = Record<string, string>;
-
-export interface NormalizedBreadcrumb {
-	name: string;
-	timestampMillis: number;
-	properties: NormalizedProperties;
-}
-
 export interface NormalizedDevice {
 	deviceName: string;
 	deviceModel: string;
@@ -36,16 +28,12 @@ export interface NormalizedBugPayload {
 	contact: string;
 	logs: string;
 	device: NormalizedDevice;
-	breadcrumbs: NormalizedBreadcrumb[];
 	schemaVersion: 1;
 }
 
 export const MAX_LOG_BYTES = 192 * 1024;
-export const MAX_BREADCRUMBS_JSON_BYTES = 16_000;
 export const MAX_DEVICE_JSON_BYTES = 4_000;
 
-const MAX_PROPERTIES = 12;
-const MAX_BREADCRUMBS = 40;
 const MISSING = Symbol("missing");
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UTF8_ENCODER = new TextEncoder();
@@ -177,8 +165,6 @@ export function normalizeBug(body: JsonObject): InputResult<NormalizedBugPayload
 	if (!logs.ok) return logs;
 	const device = normalizeDevice(pick(body, ["device"]));
 	if (!device.ok) return device;
-	const breadcrumbs = normalizeBreadcrumbs(pick(body, ["breadcrumbs"]));
-	if (!breadcrumbs.ok) return breadcrumbs;
 	const version = schemaVersion(body);
 	if (!version.ok) return version;
 
@@ -194,60 +180,8 @@ export function normalizeBug(body: JsonObject): InputResult<NormalizedBugPayload
 		contact: contact.value,
 		logs: includeLogs.value === true ? logs.value : "",
 		device: device.value,
-		breadcrumbs: breadcrumbs.value,
 		schemaVersion: version.value,
 	});
-}
-
-function normalizeBreadcrumbs(raw: unknown | typeof MISSING): InputResult<NormalizedBreadcrumb[]> {
-	if (raw === MISSING) return success([]);
-	if (!Array.isArray(raw)) return failure(400, "invalid_breadcrumbs");
-
-	const breadcrumbs: NormalizedBreadcrumb[] = [];
-	for (const item of raw.slice(0, MAX_BREADCRUMBS)) {
-		if (!isPlainObject(item)) return failure(400, "invalid_breadcrumbs");
-		const name = stringField(item, ["name"], 64, "invalid_breadcrumbs", true, true);
-		if (!name.ok) return name;
-		const timestamp = timestampField(item, ["timestampMillis", "timestamp_millis", "ts"]);
-		if (!timestamp.ok) return failure(400, "invalid_breadcrumbs");
-		const properties = normalizeProperties(
-			pick(item, ["properties", "props"]),
-			"invalid_breadcrumbs",
-		);
-		if (!properties.ok) return properties;
-
-		breadcrumbs.push({
-			name: name.value,
-			timestampMillis: timestamp.value,
-			properties: properties.value,
-		});
-		if (jsonBytes(breadcrumbs) > MAX_BREADCRUMBS_JSON_BYTES) {
-			breadcrumbs.pop();
-			break;
-		}
-	}
-	return success(breadcrumbs);
-}
-
-function normalizeProperties(
-	raw: unknown | typeof MISSING,
-	error: string,
-): InputResult<NormalizedProperties> {
-	if (raw === MISSING) return success({});
-	if (!isPlainObject(raw)) return failure(400, error);
-
-	const entries: Array<[string, string]> = [];
-	const normalizedKeys = new Set<string>();
-	for (const [key, value] of Object.entries(raw).slice(0, MAX_PROPERTIES)) {
-		if (typeof value !== "string") return failure(400, error);
-		const normalizedKey = truncateUtf8(key, 40);
-		if (normalizedKey.length === 0 || normalizedKeys.has(normalizedKey)) {
-			return failure(400, error);
-		}
-		normalizedKeys.add(normalizedKey);
-		entries.push([normalizedKey, truncateUtf8(value, 128)]);
-	}
-	return success(Object.fromEntries(entries));
 }
 
 function normalizeDevice(raw: unknown | typeof MISSING): InputResult<NormalizedDevice> {

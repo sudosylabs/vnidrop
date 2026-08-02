@@ -16,8 +16,6 @@ import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.core.usesCustomRelayUrls
 import com.vnidrop.app.diagnostics.BugReportDraft
 import com.vnidrop.app.diagnostics.BugReportService
-import com.vnidrop.app.diagnostics.DiagnosticsBuildConfig
-import com.vnidrop.app.diagnostics.DiagnosticsCoordinator
 import com.vnidrop.app.notifications.LocalNotificationService
 import com.vnidrop.app.notifications.NotificationPermission
 import com.vnidrop.app.preferences.PreferencesRepository
@@ -43,8 +41,6 @@ import vnidrop.shared.generated.resources.bug_report_missing_what
 import vnidrop.shared.generated.resources.bug_report_submit_failed
 import vnidrop.shared.generated.resources.bug_report_submitted
 import vnidrop.shared.generated.resources.button_open_settings
-import vnidrop.shared.generated.resources.diagnostics_disabled_message
-import vnidrop.shared.generated.resources.diagnostics_enabled_message
 import vnidrop.shared.generated.resources.notifications_enabled_message
 import vnidrop.shared.generated.resources.notifications_permission_denied
 import vnidrop.shared.generated.resources.notifications_settings_open_failed
@@ -102,7 +98,6 @@ data class SettingsState(
 	val endpointId: String? = null,
 	val notificationsEnabled: Boolean = false,
 	val notificationPermission: NotificationPermission = NotificationPermission.NotDetermined,
-	val diagnosticsEnabled: Boolean = false,
 	val deviceInfo: DeviceInfo? = null,
 	val appVersion: String = "",
 	val isLoadingDeviceInfo: Boolean = false,
@@ -138,8 +133,6 @@ class SettingsViewModel(
 	private val notifications: LocalNotificationService,
 	private val messages: UiMessageController,
 	private val bugReports: BugReportService,
-	private val diagnostics: DiagnosticsCoordinator? = null,
-	private val diagnosticsIncluded: Boolean = DiagnosticsBuildConfig.INCLUDED,
 ) : ViewModel() {
 	private val _state = MutableStateFlow(
 		SettingsState(
@@ -167,7 +160,6 @@ class SettingsViewModel(
 						receiveFolder = receiveFolder,
 						themeMode = preferences.themeMode,
 						notificationsEnabled = preferences.notificationsEnabled,
-						diagnosticsEnabled = preferences.diagnosticsEnabled,
 						savedRelaySettings = preferences.relaySettings,
 						relayMode = if (hasLocalRelayDraft) current.relayMode else preferences.relaySettings.mode,
 						relayUrls = if (hasLocalRelayDraft) {
@@ -512,25 +504,6 @@ class SettingsViewModel(
 		}
 	}
 
-	fun setDiagnosticsEnabled(enabled: Boolean) {
-		if (!diagnosticsIncluded) return
-		viewModelScope.launch {
-			preferencesRepository.setDiagnosticsEnabled(enabled)
-			diagnostics?.record(
-				if (enabled) "diagnostics_enabled" else "diagnostics_disabled",
-			)
-			messages.show(
-				UiMessage(
-					UiText.Resource(
-						if (enabled) Res.string.diagnostics_enabled_message
-						else Res.string.diagnostics_disabled_message,
-					),
-					UiMessageTone.Success,
-				),
-			)
-		}
-	}
-
 	fun setBugWhatHappened(value: String) = _state.update { it.copy(bugWhatHappened = value) }
 	fun setBugExpected(value: String) = _state.update { it.copy(bugExpected = value) }
 	fun setBugSteps(value: String) = _state.update { it.copy(bugSteps = value) }
@@ -565,7 +538,6 @@ class SettingsViewModel(
 				)
 				result.fold(
 					onSuccess = {
-						diagnostics?.record("bug_report_submitted")
 						_state.update {
 							it.copy(
 								isSubmittingBugReport = false,

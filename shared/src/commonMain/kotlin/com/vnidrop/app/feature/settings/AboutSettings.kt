@@ -18,7 +18,6 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.vnidrop.app.diagnostics.DiagnosticsBuildConfig
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
 import com.vnidrop.app.ui.theme.LocalVniDropColors
@@ -46,18 +45,15 @@ import vnidrop.shared.generated.resources.about_privacy_title
 import vnidrop.shared.generated.resources.about_tagline
 import vnidrop.shared.generated.resources.about_title
 import vnidrop.shared.generated.resources.device_model_title
-import vnidrop.shared.generated.resources.diagnostics_description
-import vnidrop.shared.generated.resources.diagnostics_title
 import vnidrop.shared.generated.resources.os_version_title
 import vnidrop.shared.generated.resources.value_unavailable
 import vnidrop.shared.generated.resources.version_title
 
-private const val PrivacyPolicyUrl = "https://github.com/vnidrop/vnidrop"
+private val PrivacyPolicyUrl = com.vnidrop.app.AppConfig.PRIVACY_POLICY_URL
 
 @Composable
 internal fun AboutSettings(
 	state: SettingsState,
-	onDiagnosticsChanged: (Boolean) -> Unit,
 	onReportBug: () -> Unit,
 	onBack: () -> Unit,
 	showBack: Boolean,
@@ -130,17 +126,6 @@ internal fun AboutSettings(
 		}
 
 		SettingsGroup {
-			if (DiagnosticsBuildConfig.INCLUDED) {
-				SettingsToggleRow(
-					icon = AppIcon.Info,
-					title = stringResource(Res.string.diagnostics_title),
-					description = stringResource(Res.string.diagnostics_description),
-					checked = state.diagnosticsEnabled,
-					enabled = true,
-					onCheckedChange = onDiagnosticsChanged,
-				)
-				SettingsDivider()
-			}
 			SettingsRow(
 				icon = AppIcon.Bug,
 				title = stringResource(Res.string.about_bug_report),

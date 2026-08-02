@@ -210,9 +210,6 @@ class FakePreferencesRepository(
 	override suspend fun resetReceiveFolder() = Unit
 	override suspend fun setThemeMode(mode: ThemeMode) { mutablePreferences.value = mutablePreferences.value.copy(themeMode = mode) }
 	override suspend fun setNotificationsEnabled(enabled: Boolean) { mutablePreferences.value = mutablePreferences.value.copy(notificationsEnabled = enabled) }
-	override suspend fun setDiagnosticsEnabled(enabled: Boolean) {
-		mutablePreferences.value = mutablePreferences.value.copy(diagnosticsEnabled = enabled)
-	}
 	override suspend fun setRelaySettings(settings: RelaySettings) {
 		mutablePreferences.value = mutablePreferences.value.copy(relaySettings = settings)
 	}

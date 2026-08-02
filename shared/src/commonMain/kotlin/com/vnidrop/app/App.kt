@@ -80,7 +80,6 @@ fun App(
 			graph.coreRepository,
 			graph.preferencesRepository,
 			graph.messages,
-			graph.diagnostics,
 		)
 	}
 	val sendViewModel = viewModel {
@@ -105,7 +104,6 @@ fun App(
 			dependencies.localNotificationService,
 			graph.messages,
 			graph.diagnostics.bugReports,
-			graph.diagnostics,
 		)
 	}
 	val appState by appViewModel.state.collectAsStateWithLifecycle()

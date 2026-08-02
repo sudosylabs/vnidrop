@@ -375,7 +375,7 @@ struct StorageSettings: View {
 struct AboutSettings: View {
 	@ObservedObject var model: SettingsModel
 
-	private static let privacyPolicyURL = URL(string: "https://github.com/vnidrop/vnidrop")!
+	private static let privacyPolicyURL = AppConfig.privacyPolicyURL
 
 	var body: some View {
 		Section {
@@ -413,17 +413,6 @@ struct AboutSettings: View {
 			LabeledContent(String(localized: L10n.About.licenseLabel), value: "Apache 2.0")
 			Link(destination: Self.privacyPolicyURL) {
 				Label(String(localized: L10n.About.privacyPolicyLabel), systemSymbol: .handRaised)
-			}
-		}
-
-		if DiagnosticsBuildConfig.included {
-			Section {
-				Toggle(isOn: Binding(
-					get: { model.state.diagnosticsEnabled },
-					set: { model.setDiagnosticsEnabled($0) }
-				)) {
-					Text(String(localized: L10n.Diagnostics.title))
-				}
 			}
 		}
 	}

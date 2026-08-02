@@ -1,13 +1,13 @@
 # VniDrop diagnostics API
 
-Cloudflare Worker for ingesting batched telemetry, crash reports, and user-submitted
-bug reports. D1 stores searchable metadata; R2 stores larger stack traces and logs.
+Cloudflare Worker for ingesting user-submitted bug reports. D1 stores searchable
+metadata; R2 stores the larger attached logs.
 
 The service is designed for modest traffic and low operating cost:
 
-- one D1 row is written per telemetry batch, not per event;
-- crash stacks and bug logs are stored in R2 instead of D1;
-- request and batch limits reject oversized work before storage writes;
+- one D1 row is written per bug report;
+- bug logs are stored in R2 instead of D1;
+- request limits reject oversized work before storage writes;
 - an hourly scheduled cleanup and an R2 lifecycle rule enforce retention;
 - no Queue, Durable Object, or KV resources are required.
 
@@ -35,15 +35,13 @@ X-VniDrop-Install-Id: <anonymous install UUID>
 |--------|------|------|
 | `GET` | `/live` | process liveness; does not touch storage |
 | `GET` | `/health` | authenticated readiness; checks required configuration and the D1 schema |
-| `POST` | `/v1/events` | `{ batchId, installId, appVersion?, platform?, events: [...] }` |
-| `POST` | `/v1/crashes` | app crash payload |
 | `POST` | `/v1/bugs` | app bug-report payload |
 
-Batch and report IDs are client-generated UUIDs. A client must reuse the same ID
-when retrying so D1 can acknowledge the request without storing it twice.
+Report IDs are client-generated UUIDs. A client must reuse the same ID when
+retrying so D1 can acknowledge the request without storing it twice.
 
-Accepted reports return `202`. Defaults are a 262,144-byte request limit and at
-most 50 events per batch. Cloudflare rate-limit bindings allow 30 requests per
+Accepted reports return `202`. The default is a 262,144-byte request limit.
+Cloudflare rate-limit bindings allow 30 requests per
 installation and 120 requests per source, per ingest route, per minute. Source
 limits run before shared-key verification so rejected traffic is bounded too.
 These counters are eventually consistent and local to a Cloudflare location, so
@@ -153,11 +151,11 @@ migrations to the isolated local database assigned to each test file.
 `RETENTION_DAYS` defaults to 90. The `17 * * * *` cron trigger runs cleanup at
 17 minutes past every hour. Cleanup works in bounded batches: it deletes each
 expired report's referenced R2 object before deleting that exact D1 row. The R2
-lifecycle rule is an independent backstop for stack and log objects, including
-objects left behind by a partial ingest failure. Each scheduled run can remove
-8,000 event batches and 7,200 rows from each report table while staying below
-D1's per-invocation query ceiling. Later hourly runs continue any backlog.
-Reaching the cap emits a structured warning with the remaining expired-row counts;
+lifecycle rule is an independent backstop for log objects, including objects left
+behind by a partial ingest failure. Each scheduled run can remove 7,200 bug rows
+while staying below D1's per-invocation query ceiling. Later hourly runs continue
+any backlog.
+Reaching the cap emits a structured warning with the remaining expired-row count;
 alert on that warning because
 retention is necessarily best-effort during sustained distributed abuse.
 
@@ -179,23 +177,20 @@ vnidrop.diagnostics.ingestKey=<same value as INGEST_KEY>
 
 Both the endpoint and key are required. When both are empty the app uses its
 offline-safe no-op transport; configuring only one fails the Gradle build.
-`vnidrop.diagnostics.included=false` disables
-automatic telemetry and crash upload, but a configured endpoint can still accept
-an explicit user-submitted bug report. Treat the app-side key as an abuse-control
-token with the limitations described above.
+`vnidrop.diagnostics.included=false` routes bug reports to that no-op transport
+(never sent); a configured endpoint accepts an explicit user-submitted bug report.
+Treat the app-side key as an abuse-control token with the limitations described
+above.
 
 ## Reading reports
 
 ```bash
 npx wrangler d1 execute vnidrop-diagnostics --remote \
-  --command "SELECT id, exception_type, platform, occurred_at FROM crashes ORDER BY occurred_at DESC LIMIT 20"
-
-npx wrangler d1 execute vnidrop-diagnostics --remote \
   --command "SELECT id, what_happened, status, occurred_at FROM bugs WHERE status = 'open' ORDER BY occurred_at DESC LIMIT 20"
 ```
 
-R2 object keys use `crashes/<id>/<attempt-id>/stack.txt` and
-`bugs/<id>/<attempt-id>/logs.txt`. The unique attempt segment prevents a retry
-from overwriting an already accepted object before D1 detects the duplicate.
+R2 object keys use `bugs/<id>/<attempt-id>/logs.txt`. The unique attempt segment
+prevents a retry from overwriting an already accepted object before D1 detects
+the duplicate.
 There is no public administration endpoint; inspect reports through authenticated
 Cloudflare tools or a future Access-protected dashboard.

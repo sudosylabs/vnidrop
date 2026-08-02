@@ -21,7 +21,6 @@ data class BugReportDraft(
 class BugReportService(
 	private val preferencesRepository: PreferencesRepository,
 	private val transport: DiagnosticsTransport,
-	private val breadcrumbs: BreadcrumbBuffer,
 	private val appVersion: String,
 	private val platform: String,
 	private val logReader: () -> String = {
@@ -53,7 +52,6 @@ class BugReportService(
 				network = deviceInfo?.network?.takeUtf8Bytes(96),
 				batteryLevel = deviceInfo?.batteryLevel?.takeUtf8Bytes(64),
 			),
-			breadcrumbs = breadcrumbs.snapshot(),
 		)
 	}
 

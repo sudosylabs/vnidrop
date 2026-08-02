@@ -18,7 +18,6 @@ import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.TransferStatus
-import com.vnidrop.app.diagnostics.BreadcrumbBuffer
 import com.vnidrop.app.diagnostics.BugReportService
 import com.vnidrop.app.diagnostics.DiagnosticsTransport
 import com.vnidrop.app.diagnostics.NoOpDiagnosticsTransport
@@ -418,33 +417,6 @@ class ViewModelsTest {
 		advanceUntilIdle()
 		assertFalse(preferences.mutablePreferences.value.notificationsEnabled)
 		assertEquals(NotificationPermission.Unsupported, viewModel.state.value.notificationPermission)
-	}
-
-	@Test
-	fun settingsTogglesDiagnosticsPreference() = runTest {
-		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-		val preferences = preferences()
-		val viewModel = settingsViewModel(preferences, diagnosticsIncluded = true)
-		advanceUntilIdle()
-		assertFalse(viewModel.state.value.diagnosticsEnabled)
-		viewModel.setDiagnosticsEnabled(true)
-		advanceUntilIdle()
-		assertTrue(preferences.mutablePreferences.value.diagnosticsEnabled)
-		assertTrue(viewModel.state.value.diagnosticsEnabled)
-	}
-
-	@Test
-	fun settingsIgnoresDiagnosticsOptInWhenExcluded() = runTest {
-		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-		val preferences = preferences()
-		val viewModel = settingsViewModel(preferences)
-		advanceUntilIdle()
-
-		viewModel.setDiagnosticsEnabled(true)
-		advanceUntilIdle()
-
-		assertFalse(preferences.mutablePreferences.value.diagnosticsEnabled)
-		assertFalse(viewModel.state.value.diagnosticsEnabled)
 	}
 
 	@Test
@@ -993,7 +965,6 @@ class ViewModelsTest {
 			receiveFolder = folder,
 			themeMode = ThemeMode.System,
 			notificationsEnabled = false,
-			diagnosticsEnabled = false,
 			diagnosticsInstallId = "test-install",
 		),
 	)
@@ -1005,7 +976,6 @@ class ViewModelsTest {
 		notifications: FakeNotificationService = FakeNotificationService(),
 		transport: DiagnosticsTransport = RecordingDiagnosticsTransport(),
 		fileSystem: FakeFileSystemService = FakeFileSystemService(folder),
-		diagnosticsIncluded: Boolean = false,
 		repository: FakeCoreGateway = FakeCoreGateway(),
 	) = SettingsViewModel(
 		environment(),
@@ -1018,12 +988,10 @@ class ViewModelsTest {
 		BugReportService(
 			preferencesRepository = preferences,
 			transport = transport,
-			breadcrumbs = BreadcrumbBuffer(),
 			appVersion = "1.0",
 			platform = "Test",
 			logReader = { "sample log line" },
 		),
-		diagnosticsIncluded = diagnosticsIncluded,
 	)
 
 	private fun receivedTransfer(id: ULong, status: TransferStatus) = Transfer(

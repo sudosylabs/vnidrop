@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-	MAX_BREADCRUMBS_JSON_BYTES,
 	MAX_DEVICE_JSON_BYTES,
 	MAX_LOG_BYTES,
 	normalizeBug,
-	normalizeCrash,
-	normalizeEvents,
 	readJsonObject,
 } from "../src/input";
 
@@ -57,7 +54,7 @@ describe("readJsonObject", () => {
 	});
 
 	it("requires application/json with a UTF-8 charset", async () => {
-		const missing = new Request("https://example.test/v1/events", {
+		const missing = new Request("https://example.test/v1/bugs", {
 			method: "POST",
 			body: "{}",
 		});
@@ -108,18 +105,6 @@ describe("readJsonObject", () => {
 
 describe("normalizers", () => {
 	it("preserves false booleans and rejects their string representation", () => {
-		const crash = crashPayload(false);
-		const normalizedCrash = normalizeCrash(crash);
-		expect(normalizedCrash.ok).toBe(true);
-		if (normalizedCrash.ok) {
-			expect(normalizedCrash.value.diagnosticsEnabledAtCapture).toBe(false);
-		}
-		expect(normalizeCrash(crashPayload("false"))).toEqual({
-			ok: false,
-			status: 400,
-			error: "invalid_diagnostics_enabled",
-		});
-
 		const bug = bugPayload({ include_logs: false, logs: "discard me" });
 		const normalizedBug = normalizeBug(bug);
 		expect(normalizedBug.ok).toBe(true);
@@ -133,20 +118,11 @@ describe("normalizers", () => {
 		});
 	});
 
-	it("keeps logs, breadcrumbs, and device JSON within valid byte budgets", () => {
-		const properties = Object.fromEntries(
-			Array.from({ length: 12 }, (_, index) => [`key-${index}-${"\u0000".repeat(40)}`, "\u0000".repeat(128)]),
-		);
-		const breadcrumbs = Array.from({ length: 40 }, (_, index) => ({
-			name: `crumb-${index}`,
-			timestamp_millis: index,
-			properties,
-		}));
+	it("keeps logs and device JSON within valid byte budgets", () => {
 		const result = normalizeBug(
 			bugPayload({
 				include_logs: true,
 				logs: "😀".repeat(60_000),
-				breadcrumbs,
 				device: {
 					device_name: "\u0000".repeat(200),
 					device_model: "\u0000".repeat(200),
@@ -159,54 +135,38 @@ describe("normalizers", () => {
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-		const breadcrumbsJson = JSON.stringify(result.value.breadcrumbs);
 		const deviceJson = JSON.stringify(result.value.device);
 		expect(ENCODER.encode(result.value.logs).byteLength).toBe(MAX_LOG_BYTES);
-		expect(ENCODER.encode(breadcrumbsJson).byteLength).toBeLessThanOrEqual(
-			MAX_BREADCRUMBS_JSON_BYTES,
-		);
 		expect(ENCODER.encode(deviceJson).byteLength).toBeLessThanOrEqual(MAX_DEVICE_JSON_BYTES);
-		expect(JSON.parse(breadcrumbsJson)).toEqual(result.value.breadcrumbs);
 		expect(JSON.parse(deviceJson)).toEqual(result.value.device);
 	});
 
 	it("requires stable report IDs and validates supplied IDs and schema versions", () => {
-		const result = normalizeEvents({
-			events: [{ name: "opened", ts: 1, schema_version: 1 }],
-		});
-		expect(result).toEqual({ ok: false, status: 400, error: "invalid_batch_id" });
-		const legacyInstall = normalizeEvents({
-			batch_id: ID,
-			install_id: "legacy-test-install",
-			events: [{ name: "opened", ts: 1 }],
-		});
-		expect(legacyInstall.ok && legacyInstall.value.installId).toBe("legacy-test-install");
-		const missingInstall = normalizeEvents({
-			batch_id: ID,
-			events: [{ name: "opened", ts: 1 }],
-		});
-		expect(missingInstall.ok && missingInstall.value.installId).toBe("unknown");
-		expect(
-			normalizeEvents({
-				batch_id: ID,
-				install_id: "bad\u0000install",
-				events: [{ name: "opened", ts: 1 }],
-			}),
-		).toEqual({ ok: false, status: 400, error: "invalid_install_id" });
+		const missingId = normalizeBug(bugPayload({ id: undefined }));
+		expect(missingId).toEqual({ ok: false, status: 400, error: "invalid_id" });
 
-		expect(
-			normalizeEvents({
-				batch_id: "not-a-uuid",
-				events: [{ name: "opened", timestamp_millis: 1 }],
-			}),
-		).toEqual({ ok: false, status: 400, error: "invalid_batch_id" });
-		expect(
-			normalizeEvents({
-				batch_id: ID,
-				install_id: INSTALL_ID,
-				events: [{ name: "opened", timestamp_millis: 1, schema_version: 2 }],
-			}),
-		).toEqual({ ok: false, status: 400, error: "unsupported_schema_version" });
+		const legacyInstall = normalizeBug(bugPayload({ install_id: "legacy-test-install" }));
+		expect(legacyInstall.ok && legacyInstall.value.installId).toBe("legacy-test-install");
+
+		const missingInstall = normalizeBug(bugPayload({ install_id: undefined }));
+		expect(missingInstall.ok && missingInstall.value.installId).toBe("unknown");
+
+		expect(normalizeBug(bugPayload({ install_id: "bad\u0000install" }))).toEqual({
+			ok: false,
+			status: 400,
+			error: "invalid_install_id",
+		});
+
+		expect(normalizeBug(bugPayload({ id: "not-a-uuid" }))).toEqual({
+			ok: false,
+			status: 400,
+			error: "invalid_id",
+		});
+		expect(normalizeBug(bugPayload({ schema_version: 2 }))).toEqual({
+			ok: false,
+			status: 400,
+			error: "unsupported_schema_version",
+		});
 	});
 });
 
@@ -215,7 +175,7 @@ function chunkedJsonRequest(
 	contentType = "application/json; charset=utf-8",
 	contentLength?: string,
 ): Request {
-	return new Request("https://example.test/v1/events", {
+	return new Request("https://example.test/v1/bugs", {
 		method: "POST",
 		headers: {
 			"content-type": contentType,
@@ -230,24 +190,8 @@ function chunkedJsonRequest(
 	});
 }
 
-function crashPayload(diagnosticsEnabled: unknown): Record<string, unknown> {
-	return {
-		id: ID,
-		install_id: INSTALL_ID,
-		app_version: "1.0",
-		platform: "test",
-		exception_type: "ExampleError",
-		exception_message: "message",
-		stack_trace: "stack",
-		occurred_at: 1,
-		diagnostics_enabled: diagnosticsEnabled,
-		schema_version: 1,
-		breadcrumbs: [],
-	};
-}
-
 function bugPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-	return {
+	const payload: Record<string, unknown> = {
 		id: ID,
 		install_id: INSTALL_ID,
 		app_version: "1.0",
@@ -259,8 +203,12 @@ function bugPayload(overrides: Record<string, unknown> = {}): Record<string, unk
 		contact: "",
 		logs: "",
 		device: {},
-		breadcrumbs: [],
 		schema_version: 1,
 		...overrides,
 	};
+	// An explicit `undefined` override omits the key entirely (simulating a missing field).
+	for (const key of Object.keys(overrides)) {
+		if (overrides[key] === undefined) delete payload[key];
+	}
+	return payload;
 }

@@ -8,85 +8,6 @@ internal object DiagnosticsJson {
 	internal const val MaxInstallIdBytes = 80
 	internal const val MaxAppVersionBytes = 40
 	internal const val MaxPlatformBytes = 40
-	private const val MaxBreadcrumbsJsonBytes = 16_000
-	private const val MaxBreadcrumbs = 40
-	private const val SizedBatchId = "00000000-0000-4000-8000-000000000000"
-
-	fun eventsBody(
-		batchId: String,
-		installId: String,
-		appVersion: String,
-		platform: String,
-		events: List<TelemetryEvent>,
-	): String = buildString {
-		append('{')
-		appendJsonField("batchId", batchId)
-		append(',')
-		appendJsonField("installId", installId)
-		append(',')
-		appendJsonField("appVersion", appVersion)
-		append(',')
-		appendJsonField("platform", platform)
-		append(',')
-		append("\"events\":[")
-		events.forEachIndexed { index, event ->
-			if (index > 0) append(',')
-			append('{')
-			appendJsonField("name", event.name)
-			append(',')
-			append("\"timestampMillis\":")
-			append(event.timestampMillis)
-			append(',')
-			append("\"schemaVersion\":")
-			append(event.schemaVersion)
-			append(',')
-			append("\"properties\":")
-			appendStringMap(event.properties)
-			append('}')
-		}
-		append("]}")
-	}
-
-	fun eventBatchFitsRequest(events: List<TelemetryEvent>): Boolean =
-		eventsBody(
-			batchId = SizedBatchId,
-			installId = "\u0000".repeat(MaxInstallIdBytes),
-			appVersion = "\u0000".repeat(MaxAppVersionBytes),
-			platform = "\u0000".repeat(MaxPlatformBytes),
-			events = events,
-		).encodeToByteArray().size <= MaxRequestBytes
-
-	fun crashBody(report: CrashReport): String = buildString {
-		append('{')
-		appendJsonField("id", report.id)
-		append(',')
-		append("\"timestampMillis\":")
-		append(report.timestampMillis)
-		append(',')
-		appendJsonField("installId", report.installId)
-		append(',')
-		appendJsonField("appVersion", report.appVersion)
-		append(',')
-		appendJsonField("platform", report.platform)
-		append(',')
-		appendJsonField("exceptionType", report.exceptionType)
-		append(',')
-		appendJsonField("exceptionMessage", report.exceptionMessage)
-		append(',')
-		appendJsonField("stackTrace", report.stackTrace)
-		append(',')
-		append("\"diagnosticsEnabledAtCapture\":")
-		append(requireNotNull(report.diagnosticsEnabledAtCapture) {
-			"crash consent must be resolved before delivery"
-		})
-		append(',')
-		append("\"schemaVersion\":")
-		append(report.schemaVersion)
-		append(',')
-		append("\"breadcrumbs\":")
-		appendBreadcrumbs(report.breadcrumbs)
-		append('}')
-	}
 
 	fun bugBody(report: BugReport): String {
 		val logs = if (report.includeLogs) report.logs else ""
@@ -149,47 +70,7 @@ internal object DiagnosticsJson {
 		appendJsonField("network", report.device.network.orEmpty())
 		append(',')
 		appendJsonField("batteryLevel", report.device.batteryLevel.orEmpty())
-		append("},")
-		append("\"breadcrumbs\":")
-		appendBreadcrumbs(report.breadcrumbs)
 		append('}')
-	}
-
-	private fun StringBuilder.appendBreadcrumbs(crumbs: List<Breadcrumb>) {
-		append('[')
-		var encodedBytes = 2
-		var appended = 0
-		for (crumb in crumbs) {
-			if (appended == MaxBreadcrumbs) break
-			val name = sanitizeDiagnosticName(crumb.name)
-			if (name.isBlank() || crumb.timestampMillis < 0) continue
-			val encoded = buildString {
-				append('{')
-				appendJsonField("name", name)
-				append(',')
-				append("\"timestampMillis\":")
-				append(crumb.timestampMillis)
-				append(',')
-				append("\"properties\":")
-				appendStringMap(crumb.properties)
-				append('}')
-			}
-			val additionBytes = encoded.encodeToByteArray().size + if (appended == 0) 0 else 1
-			if (encodedBytes + additionBytes > MaxBreadcrumbsJsonBytes) break
-			if (appended > 0) append(',')
-			append(encoded)
-			encodedBytes += additionBytes
-			appended += 1
-		}
-		append(']')
-	}
-
-	private fun StringBuilder.appendStringMap(map: Map<String, String>) {
-		append('{')
-		sanitizeDiagnosticProperties(map).entries.forEachIndexed { index, (key, value) ->
-			if (index > 0) append(',')
-			appendJsonField(key, value)
-		}
 		append('}')
 	}
 

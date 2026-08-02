@@ -5,83 +5,43 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * Owns diagnostics services for the app process: telemetry, crashes, bug reports.
+ * Owns user-initiated bug reports for the app process.
  *
- * When [DiagnosticsBuildConfig.INCLUDED] is false (compile-time), telemetry and
- * crash auto-reporting are never started; [bugReports] still works for support.
+ * Telemetry and crash auto-reporting were removed; only [bugReports] remains,
+ * and it only sends when the user submits a report from Settings.
  */
 class DiagnosticsCoordinator(
 	val preferencesRepository: PreferencesRepository,
 	val transport: DiagnosticsTransport,
-	val breadcrumbs: BreadcrumbBuffer,
-	val telemetry: TelemetryRecorder,
-	val crashReporter: CrashReporter,
 	val bugReports: BugReportService,
 	private val scope: CoroutineScope,
-	private val included: Boolean = DiagnosticsBuildConfig.INCLUDED,
 ) {
 	fun start() {
-		// Install id is useful for bug-report correlation even without telemetry.
+		// Install id is useful for bug-report correlation.
 		scope.launch {
 			preferencesRepository.ensureDiagnosticsInstallId()
 		}
-		if (!included) return
-		crashReporter.startObservingPreferences()
-		crashReporter.installUnhandledExceptionHandler()
-		scope.launch {
-			crashReporter.flushPending()
-		}
-	}
-
-	fun record(name: String, properties: Map<String, String> = emptyMap()) {
-		if (!included) return
-		telemetry.record(name, properties)
 	}
 
 	companion object {
 		fun create(
-			appDataDir: String,
 			appVersion: String,
 			platform: String,
 			preferencesRepository: PreferencesRepository,
 			scope: CoroutineScope,
 			transport: DiagnosticsTransport = NoOpDiagnosticsTransport(),
-			included: Boolean = DiagnosticsBuildConfig.INCLUDED,
 		): DiagnosticsCoordinator {
-			val breadcrumbs = BreadcrumbBuffer()
-			val crashStore = createPendingCrashStore(appDataDir)
-			val telemetry = TelemetryRecorder(
-				preferencesRepository = preferencesRepository,
-				transport = transport,
-				breadcrumbs = breadcrumbs,
-				scope = scope,
-				included = included,
-			)
-			val crashReporter = CrashReporter(
-				store = crashStore,
-				preferencesRepository = preferencesRepository,
-				transport = transport,
-				breadcrumbs = breadcrumbs,
-				appVersion = appVersion,
-				platform = platform,
-				scope = scope,
-			)
 			val bugReports = BugReportService(
 				preferencesRepository = preferencesRepository,
 				transport = transport,
-				breadcrumbs = breadcrumbs,
 				appVersion = appVersion,
 				platform = platform,
 			)
 			return DiagnosticsCoordinator(
 				preferencesRepository = preferencesRepository,
 				transport = transport,
-				breadcrumbs = breadcrumbs,
-				telemetry = telemetry,
-				crashReporter = crashReporter,
 				bugReports = bugReports,
 				scope = scope,
-				included = included,
 			)
 		}
 	}

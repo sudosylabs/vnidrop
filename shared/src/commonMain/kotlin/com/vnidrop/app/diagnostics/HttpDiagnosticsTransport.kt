@@ -27,33 +27,6 @@ class HttpDiagnosticsTransport(
 		}
 	}
 
-	override suspend fun sendEvents(batch: TelemetryBatch): Result<Unit> {
-		if (batch.events.isEmpty()) return Result.success(Unit)
-		if (batch.events.size > TelemetryRecorder.MaxEventsPerBatch) {
-			return Result.failure(DiagnosticsPayloadException("diagnostics event batch is too large"))
-		}
-		if (batch.events.any { it.name.isBlank() || it.timestampMillis < 0 }) {
-			return Result.failure(DiagnosticsPayloadException("diagnostics event batch is invalid"))
-		}
-		val installId = sanitizeDiagnosticsInstallId(installIdProvider())
-		val body = DiagnosticsJson.eventsBody(
-			batch.id,
-			installId,
-			appVersion.takeUtf8Bytes(DiagnosticsJson.MaxAppVersionBytes),
-			platform.takeUtf8Bytes(DiagnosticsJson.MaxPlatformBytes),
-			batch.events,
-		)
-		return postJson("/v1/events", body, installId, batch.id)
-	}
-
-	override suspend fun sendCrash(report: CrashReport): Result<Unit> {
-		if (report.diagnosticsEnabledAtCapture == null) {
-			return Result.failure(DiagnosticsPayloadException("crash consent is unresolved"))
-		}
-		val body = DiagnosticsJson.crashBody(report)
-		return postJson("/v1/crashes", body, report.installId, report.id)
-	}
-
 	override suspend fun sendBugReport(report: BugReport): Result<Unit> {
 		val body = DiagnosticsJson.bugBody(report)
 		return postJson("/v1/bugs", body, report.installId, report.id)

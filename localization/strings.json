@@ -1178,62 +1178,6 @@
         "ru": "Имя устройства"
       }
     },
-    "diagnostics_description": {
-      "context": "Settings > Diagnostics: explanation of what anonymous diagnostics collect.",
-      "translations": {
-        "en": "Send anonymous crash reports and usage events so we can improve VniDrop. You can turn this off anytime. Invitations, file paths, and transfer contents are never included.",
-        "fr": "Envoyer des rapports de plantage et des événements d’utilisation anonymes pour nous aider à améliorer VniDrop. Vous pouvez désactiver cela à tout moment. Les invitations, chemins de fichiers et contenus de transfert ne sont jamais inclus.",
-        "es": "Enviar informes de fallos y eventos de uso anónimos para ayudarnos a mejorar VniDrop. Puede desactivarlo en cualquier momento. Las invitaciones, las rutas de archivos y el contenido de las transferencias nunca se incluyen.",
-        "it": "Invia report di arresto anomalo ed eventi d’uso anonimi per aiutarci a migliorare VniDrop. Può disattivarlo in qualsiasi momento. Inviti, percorsi dei file e contenuti dei trasferimenti non vengono mai inclusi.",
-        "de": "Anonyme Absturzberichte und Nutzungsereignisse senden, damit wir VniDrop verbessern können. Sie können dies jederzeit deaktivieren. Einladungen, Dateipfade und Übertragungsinhalte werden niemals einbezogen.",
-        "pt": "Enviar relatórios de falhas e eventos de utilização anónimos para nos ajudar a melhorar o VniDrop. Pode desativar isto a qualquer momento. Convites, caminhos de ficheiros e conteúdos das transferências nunca são incluídos.",
-        "pl": "Wysyłaj anonimowe raporty o awariach i zdarzenia użytkowania, aby pomóc nam ulepszać VniDrop. Możesz to wyłączyć w dowolnej chwili. Zaproszenia, ścieżki plików i zawartość transferów nigdy nie są dołączane.",
-        "nl": "Verstuur anonieme crashrapporten en gebruiksgebeurtenissen zodat we VniDrop kunnen verbeteren. U kunt dit op elk moment uitschakelen. Uitnodigingen, bestandspaden en overdrachtsinhoud worden nooit meegestuurd.",
-        "ru": "Отправлять анонимные отчёты о сбоях и события использования, чтобы помочь нам улучшать VniDrop. Вы можете отключить это в любой момент. Приглашения, пути к файлам и содержимое передач никогда не включаются."
-      }
-    },
-    "diagnostics_disabled_message": {
-      "context": "Settings > Diagnostics: confirmation shown when diagnostics are turned off.",
-      "translations": {
-        "en": "Diagnostics sharing is off.",
-        "fr": "Le partage des diagnostics est désactivé.",
-        "es": "El uso compartido de diagnósticos está desactivado.",
-        "it": "La condivisione dei dati diagnostici è disattivata.",
-        "de": "Die Freigabe von Diagnosedaten ist deaktiviert.",
-        "pt": "A partilha de diagnósticos está desativada.",
-        "pl": "Udostępnianie diagnostyki jest wyłączone.",
-        "nl": "Het delen van diagnostische gegevens is uitgeschakeld.",
-        "ru": "Передача диагностики отключена."
-      }
-    },
-    "diagnostics_enabled_message": {
-      "context": "Settings > Diagnostics: confirmation shown when diagnostics are turned on.",
-      "translations": {
-        "en": "Diagnostics sharing is on.",
-        "fr": "Le partage des diagnostics est activé.",
-        "es": "El uso compartido de diagnósticos está activado.",
-        "it": "La condivisione dei dati diagnostici è attivata.",
-        "de": "Die Freigabe von Diagnosedaten ist aktiviert.",
-        "pt": "A partilha de diagnósticos está ativada.",
-        "pl": "Udostępnianie diagnostyki jest włączone.",
-        "nl": "Het delen van diagnostische gegevens is ingeschakeld.",
-        "ru": "Передача диагностики включена."
-      }
-    },
-    "diagnostics_title": {
-      "context": "Settings > Diagnostics: toggle title.",
-      "translations": {
-        "en": "Share diagnostics",
-        "fr": "Partager les diagnostics",
-        "es": "Compartir diagnósticos",
-        "it": "Condividi dati diagnostici",
-        "de": "Diagnosedaten teilen",
-        "pt": "Partilhar diagnósticos",
-        "pl": "Udostępniaj diagnostykę",
-        "nl": "Diagnostische gegevens delen",
-        "ru": "Делиться диагностикой"
-      }
-    },
     "error_camera": {
       "context": "Error: camera permission is needed to scan a QR code.",
       "translations": {

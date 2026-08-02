@@ -114,7 +114,7 @@ The Rust core (iroh network stack) links `SystemConfiguration`, `Security`, and
 Screens mirror the Compose UI in `shared/`. Two deliberate simplifications:
 - Empty-state Lottie animations are rendered as SF Symbols (no `lottie-ios`
   dependency); swap in `lottie-ios` if exact-parity animation is required.
-- The full diagnostics/telemetry stack (`diagnostics/*`) is stubbed behind
-  `BugReportService` / `DiagnosticsBuildConfig` and lands in a later phase; the UI
-  hides the diagnostics toggle when not compiled in.
+- Bug reporting is stubbed behind `BugReportService` (`NoopBugReportService`) and
+  a real transport lands in a later phase. There is no telemetry or crash
+  auto-reporting.
 ```

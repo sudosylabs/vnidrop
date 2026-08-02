@@ -5,40 +5,6 @@ package com.vnidrop.app.diagnostics
  * intentionally abstracted; nothing here assumes a network backend.
  */
 
-data class TelemetryEvent(
-	val name: String,
-	val timestampMillis: Long,
-	val properties: Map<String, String> = emptyMap(),
-	val schemaVersion: Int = DiagnosticsSchemaVersion,
-)
-
-/** One idempotent upload unit; [id] remains stable when delivery is retried. */
-data class TelemetryBatch(
-	val id: String,
-	val events: List<TelemetryEvent>,
-)
-
-data class Breadcrumb(
-	val name: String,
-	val timestampMillis: Long,
-	val properties: Map<String, String> = emptyMap(),
-)
-
-data class CrashReport(
-	val id: String,
-	val timestampMillis: Long,
-	val installId: String,
-	val appVersion: String,
-	val platform: String,
-	val exceptionType: String,
-	val exceptionMessage: String,
-	val stackTrace: String,
-	val breadcrumbs: List<Breadcrumb>,
-	/** `null` only while a startup crash is waiting for the persisted preference to load. */
-	val diagnosticsEnabledAtCapture: Boolean?,
-	val schemaVersion: Int = DiagnosticsSchemaVersion,
-)
-
 data class DeviceSnapshot(
 	val deviceName: String?,
 	val deviceModel: String?,
@@ -60,7 +26,6 @@ data class BugReport(
 	val includeLogs: Boolean,
 	val logs: String,
 	val device: DeviceSnapshot,
-	val breadcrumbs: List<Breadcrumb>,
 	val schemaVersion: Int = DiagnosticsSchemaVersion,
 )
 

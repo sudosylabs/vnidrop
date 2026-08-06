@@ -72,6 +72,16 @@ enum ShareAccessPolicy: Equatable, Sendable {
 	case anyoneWithTransfer
 }
 
+/// Where a picked selection is going.
+///
+/// A contact destination deliberately carries no access policy: the core forces
+/// approval-required for offers, so exposing the choice here would imply a
+/// setting that does not exist.
+enum ShareDestination: Equatable, Sendable {
+	case invitation(accessPolicy: ShareAccessPolicy)
+	case contact(endpointId: String)
+}
+
 enum TransferDirection: Equatable, Sendable {
 	case send
 	case receive

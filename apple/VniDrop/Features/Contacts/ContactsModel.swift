@@ -52,19 +52,28 @@ struct ContactsState: Equatable {
 final class ContactsModel: ObservableObject {
 	@Published private(set) var state = ContactsState()
 
+	/// Set when the detail screen asks for a file picker; the platform picker
+	/// modifier observes it, mirroring `SendModel`.
+	@Published var pendingFilePick = false
+	/// Device the picked files are destined for.
+	@Published private(set) var sendTarget: String?
+
 	private let repository: CoreGateway
 	private let messages: UiMessageController
 	private let preferences: AppPreferencesRepository
+	private let fileSystemService: FileSystemService
 	private var cancellables = Set<AnyCancellable>()
 
 	init(
 		repository: CoreGateway,
 		messages: UiMessageController,
-		preferences: AppPreferencesRepository
+		preferences: AppPreferencesRepository,
+		fileSystemService: FileSystemService
 	) {
 		self.repository = repository
 		self.messages = messages
 		self.preferences = preferences
+		self.fileSystemService = fileSystemService
 		state.grantLifetime = preferences.preferences.grantLifetime
 
 		repository.signals
@@ -245,6 +254,48 @@ final class ContactsModel: ObservableObject {
 		let ticket = await repository.respondToOffer(offerId: offerId, accepted: accepted)
 		state.pendingOffers.removeAll { $0.offerId == offerId }
 		return ticket
+	}
+
+	// MARK: - Sending to a device
+
+	/// Start choosing files to send to a remembered device.
+	func chooseFilesToSend(to endpointId: String) {
+		sendTarget = endpointId
+		pendingFilePick = true
+	}
+
+	func onFilePickFailed(_ reason: String) {
+		sendTarget = nil
+		messages.error(InvitationError.raw(reason))
+	}
+
+	/// Send the picked selection straight to the chosen device.
+	///
+	/// Only the receiving user is prompted; this call returns once they have
+	/// answered, so the button stays busy until then.
+	func onFilesPicked(_ files: [PickedShareFile]) async {
+		guard let endpointId = sendTarget else { return }
+		sendTarget = nil
+		guard !files.isEmpty else { return }
+
+		state.busyEndpoints.insert(endpointId)
+		defer { state.busyEndpoints.remove(endpointId) }
+
+		let result = await fileSystemService.sharePickedFiles(
+			repository: repository,
+			files: files,
+			transferName: files.count == 1 ? files[0].displayName : "",
+			senderName: preferences.preferences.username,
+			destination: .contact(endpointId: endpointId)
+		)
+		await fileSystemService.discardPickedFiles(files)
+		switch result {
+		case .success:
+			messages.tryShow(UiMessage(text: .resource(L10n.Send.transferCreated), tone: .success))
+			await refresh()
+		case .failure(let error):
+			messages.error(error)
+		}
 	}
 
 	// MARK: - Management

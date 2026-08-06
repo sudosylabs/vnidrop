@@ -220,7 +220,19 @@ struct ContactDetailScreen: View {
 						.textSelection(.enabled)
 				}
 
-				if !contact.canSend {
+				if contact.canSend {
+					Section {
+						Button {
+							model.chooseFilesToSend(to: endpointId)
+						} label: {
+							Label(
+								String(localized: L10n.Contacts.sendTo),
+								systemSymbol: .paperplane
+							)
+						}
+						.disabled(model.state.busyEndpoints.contains(endpointId))
+					}
+				} else {
 					Section {
 						Label(
 							String(localized: L10n.Contacts.unreachableBody),
@@ -247,6 +259,7 @@ struct ContactDetailScreen: View {
 		}
 		.formStyle(.grouped)
 		.navigationTitle(Text(contact?.displayName ?? ""))
+		.contactSendPickers(model: model)
 		.onAppear { label = contact?.localLabel ?? "" }
 		.onDisappear { commitLabel() }
 		.confirmationDialog(

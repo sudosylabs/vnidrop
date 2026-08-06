@@ -31,7 +31,8 @@ final class AppGraph: ObservableObject {
 		self.contactsModel = ContactsModel(
 			repository: coreRepository,
 			messages: messages,
-			preferences: preferencesRepository
+			preferences: preferencesRepository,
+			fileSystemService: dependencies.fileSystemService
 		)
 		self.approvalCoordinator = ApprovalCoordinator(
 			repository: coreRepository,

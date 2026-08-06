@@ -166,8 +166,20 @@ final class FakeFileSystemService: FileSystemService {
 	func defaultReceiveFolder() -> ReceiveFolder { folder }
 	func validateReceiveFolder(_ folder: ReceiveFolder) async -> FolderAccessStatus { .writable }
 	func canRevealReceiveFolder(_ folder: ReceiveFolder) -> Bool { false }
-	func sharePickedFiles(repository: CoreGateway, files: [PickedShareFile], transferName: String, senderName: String, accessPolicy: ShareAccessPolicy) async -> Result<Share, Error> {
-		await repository.shareSources([], transferName: transferName, senderName: senderName, accessPolicy: accessPolicy)
+	private(set) var shareDestinations: [ShareDestination] = []
+
+	func sharePickedFiles(repository: CoreGateway, files: [PickedShareFile], transferName: String, senderName: String, destination: ShareDestination) async -> Result<Share, Error> {
+		shareDestinations.append(destination)
+		switch destination {
+		case .invitation(let accessPolicy):
+			return await repository.shareSources(
+				[], transferName: transferName, senderName: senderName, accessPolicy: accessPolicy
+			)
+		case .contact(let endpointId):
+			return await repository.sendToContact(
+				endpointId: endpointId, sources: [], transferName: transferName, senderName: senderName
+			)
+		}
 	}
 }
 

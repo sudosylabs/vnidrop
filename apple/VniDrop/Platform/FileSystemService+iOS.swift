@@ -59,15 +59,23 @@ struct IosFileSystemService: FileSystemService {
 		files: [PickedShareFile],
 		transferName: String,
 		senderName: String,
-		accessPolicy: ShareAccessPolicy
+		destination: ShareDestination
 	) async -> Result<Share, Error> {
 		guard !files.isEmpty else {
 			return .failure(InvitationError.shareEmpty)
 		}
 		let sources = files.map { $0.toIosShareSource() }
-		return await repository.shareSources(
-			sources, transferName: transferName, senderName: senderName, accessPolicy: accessPolicy
-		)
+		switch destination {
+		case .invitation(let accessPolicy):
+			return await repository.shareSources(
+				sources, transferName: transferName, senderName: senderName, accessPolicy: accessPolicy
+			)
+		case .contact(let endpointId):
+			return await repository.sendToContact(
+				endpointId: endpointId, sources: sources,
+				transferName: transferName, senderName: senderName
+			)
+		}
 	}
 
 	private func validateSecurityScopedUrl(_ value: String) -> FolderAccessStatus {

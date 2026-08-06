@@ -353,7 +353,7 @@ final class SendModel: ObservableObject {
 				files: current.selectedFiles,
 				transferName: current.transferName.trimmingCharacters(in: .whitespacesAndNewlines),
 				senderName: current.senderName.trimmingCharacters(in: .whitespacesAndNewlines),
-				accessPolicy: current.accessPolicy
+				destination: .invitation(accessPolicy: current.accessPolicy)
 			)
 			switch result {
 			case .success(let share):

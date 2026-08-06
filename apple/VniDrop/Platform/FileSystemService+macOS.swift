@@ -39,7 +39,7 @@ struct MacFileSystemService: FileSystemService {
 		files: [PickedShareFile],
 		transferName: String,
 		senderName: String,
-		accessPolicy: ShareAccessPolicy
+		destination: ShareDestination
 	) async -> Result<Share, Error> {
 		guard !files.isEmpty else {
 			return .failure(InvitationError.shareEmpty)
@@ -63,9 +63,17 @@ struct MacFileSystemService: FileSystemService {
 		let sources = files.map {
 			ShareSource(kind: .path, value: $0.value, displayName: $0.displayName, isDirectory: $0.isDirectory)
 		}
-		return await repository.shareSources(
-			sources, transferName: transferName, senderName: senderName, accessPolicy: accessPolicy
-		)
+		switch destination {
+		case .invitation(let accessPolicy):
+			return await repository.shareSources(
+				sources, transferName: transferName, senderName: senderName, accessPolicy: accessPolicy
+			)
+		case .contact(let endpointId):
+			return await repository.sendToContact(
+				endpointId: endpointId, sources: sources,
+				transferName: transferName, senderName: senderName
+			)
+		}
 	}
 }
 #endif

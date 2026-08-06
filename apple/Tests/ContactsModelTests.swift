@@ -22,7 +22,8 @@ final class ContactsModelTests: XCTestCase {
 		let model = ContactsModel(
 			repository: gateway,
 			messages: UiMessageController(),
-			preferences: preferences
+			preferences: preferences,
+			fileSystemService: FakeFileSystemService()
 		)
 		return (model, preferences)
 	}
@@ -213,6 +214,68 @@ final class ContactsModelTests: XCTestCase {
 		XCTAssertEqual(subject.displayName, "Laptop")
 	}
 
+	/// Files picked for a device go out as an offer, never as an invitation
+	/// anyone holding the ticket could use.
+	func testSendingToAContactUsesTheContactDestination() async {
+		let gateway = FakeCoreGateway()
+		let files = FakeFileSystemService()
+		let defaults = UserDefaults(suiteName: "contacts-send-\(UUID().uuidString)")!
+		let preferences = AppPreferencesRepository(
+			defaults: defaults,
+			fallback: AppPreferencesDefaults(
+				username: "tester",
+				receiveFolder: ReceiveFolder(kind: .fileSystemPath, value: "/tmp", displayName: "Downloads"),
+				themeMode: .system
+			)
+		)
+		let model = ContactsModel(
+			repository: gateway,
+			messages: UiMessageController(),
+			preferences: preferences,
+			fileSystemService: files
+		)
+		gateway.sendToContactResult = .success(
+			Share(transferId: 1, ticket: "vnd1:x", transferName: "doc", contentHash: "h", fileCount: 1, totalSize: 2)
+		)
+
+		model.chooseFilesToSend(to: "peer")
+		XCTAssertTrue(model.pendingFilePick)
+		await model.onFilesPicked([
+			PickedShareFile(value: "/tmp/doc.txt", displayName: "doc.txt", isDirectory: false)
+		])
+
+		XCTAssertEqual(files.shareDestinations, [.contact(endpointId: "peer")])
+		XCTAssertEqual(gateway.sentToContacts, ["peer"])
+	}
+
+	/// A pick that arrives with no target must not be sent anywhere.
+	func testPickedFilesWithoutATargetAreIgnored() async {
+		let gateway = FakeCoreGateway()
+		let files = FakeFileSystemService()
+		let defaults = UserDefaults(suiteName: "contacts-send-\(UUID().uuidString)")!
+		let preferences = AppPreferencesRepository(
+			defaults: defaults,
+			fallback: AppPreferencesDefaults(
+				username: "tester",
+				receiveFolder: ReceiveFolder(kind: .fileSystemPath, value: "/tmp", displayName: "Downloads"),
+				themeMode: .system
+			)
+		)
+		let model = ContactsModel(
+			repository: gateway,
+			messages: UiMessageController(),
+			preferences: preferences,
+			fileSystemService: files
+		)
+
+		await model.onFilesPicked([
+			PickedShareFile(value: "/tmp/doc.txt", displayName: "doc.txt", isDirectory: false)
+		])
+
+		XCTAssertTrue(files.shareDestinations.isEmpty)
+		XCTAssertTrue(gateway.sentToContacts.isEmpty)
+	}
+
 	func testUnreachableContactIsSurfacedForRepairing() async {
 		let gateway = FakeCoreGateway()
 		gateway.contactsResult = .success([contact("peer", canSend: false)])
@@ -247,7 +310,8 @@ final class PairingSuggestionTests: XCTestCase {
 		let model = ContactsModel(
 			repository: gateway,
 			messages: UiMessageController(),
-			preferences: preferences
+			preferences: preferences,
+			fileSystemService: FakeFileSystemService()
 		)
 		return (model, preferences)
 	}

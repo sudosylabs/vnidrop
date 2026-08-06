@@ -33,12 +33,15 @@ protocol FileSystemService {
 	func revealReceiveFolder(_ folder: ReceiveFolder) async -> Result<Void, Error>
 	/// Releases only app-owned picker copies; never deletes original user sources.
 	func discardPickedFiles(_ files: [PickedShareFile]) async
+	/// Imports a picked selection, either as an invitation or straight to a
+	/// remembered device. One entry point so the platform's security-scoped
+	/// access handling covers both.
 	func sharePickedFiles(
 		repository: CoreGateway,
 		files: [PickedShareFile],
 		transferName: String,
 		senderName: String,
-		accessPolicy: ShareAccessPolicy
+		destination: ShareDestination
 	) async -> Result<Share, Error>
 }
 

@@ -18,9 +18,8 @@ apple/
     UI/Theme|Components|Navigation|Feedback|Shell/
     Platform/               # pickers, QR, NFC, share/export, per-OS file services
     Resources/              # Localizable.xcstrings, Info.plist, entitlements, assets
-  Tests/                    # XCTest (ported progress-derivation assertions)
-  Package.swift             # builds VniDrop/ as a library for CLI build/test
-  project.yml               # XcodeGen spec for the iOS/macOS app target
+  Tests/                    # XCTest bundle (VniDropTests target)
+  project.yml               # XcodeGen spec for the iOS/macOS app and test targets
 ```
 
 ## Build & run
@@ -72,18 +71,21 @@ opt in with `APPLE_CODE_SIGNING=YES`. For signed builds from Xcode, create the
 ignored `apple/Local.xcconfig` and override the signing settings there, including
 the development team.
 
-## Command-line typecheck & tests
+## Typecheck & tests
 
-`Package.swift` builds the same sources as a library (minus the `@main` entry),
-so the shared logic can be checked and unit-tested without Xcode:
+The Xcode project is the only build definition: it owns the UI, its package
+dependencies, and the `VniDropTests` bundle (module `VniDrop`, which is what the
+tests import). Everything runs through `xcodebuild`:
 
 ```bash
-cd apple
-swift build                       # macOS
-swift test                        # runs Tests/ (ported progress-derivation assertions)
-# iOS typecheck:
-swift build --triple arm64-apple-ios16.0-simulator --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)"
+make check-apple         # iOS simulator unit tests
+make build-apple-macos   # unsigned macOS build (typecheck)
 ```
+
+There is deliberately no SwiftPM manifest for the app. A second build definition
+would duplicate the target's package dependencies, and the previous one had
+already drifted out of sync with `project.yml` badly enough that neither
+`swift build` nor `swift test` worked.
 
 ## Generated / ignored artifacts
 
@@ -106,8 +108,7 @@ Rust crate itself is never changed.
 ## System frameworks
 
 The Rust core (iroh network stack) links `SystemConfiguration`, `Security`, and
-`libresolv`. These are declared in both `Package.swift` (for CLI build/test) and
-`project.yml` (for the app target).
+`libresolv`. These are declared in `project.yml` for the app target.
 
 ## Parity & scope
 

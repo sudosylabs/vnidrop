@@ -477,6 +477,29 @@ pub struct ContactSummary {
     pub can_send: bool,
 }
 
+/// Outcome of sending straight to a remembered device.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct ContactSendResult {
+    pub share: ShareResult,
+    /// False when the device was not running: the transfer is held here and the
+    /// device collects it the next time it opens VniDrop.
+    pub delivered: bool,
+}
+
+/// A transfer this device is holding until its target comes back online.
+///
+/// Cancelling the underlying transfer withdraws it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct HeldOfferSummary {
+    pub offer_id: String,
+    pub endpoint_id: String,
+    pub transfer_id: u64,
+    pub transfer_name: String,
+    pub file_count: u64,
+    pub total_bytes: u64,
+    pub created_at: i64,
+}
+
 /// A transfer a paired device is offering.
 ///
 /// The ticket is deliberately absent: it is a capability, and it is handed over

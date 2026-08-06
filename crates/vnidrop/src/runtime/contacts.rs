@@ -10,12 +10,13 @@ use anyhow::{Context, Result};
 use iroh::{EndpointAddr, EndpointId};
 use serde_json::json;
 
-use super::CoreInner;
+use super::{CoreInner, POLL_MIN_INTERVAL_MS};
 use crate::{
     api::{
-        ContactSummary, GrantLifetimeSetting, IncomingOffer, PendingPairing, ShareMetadataInput,
-        ShareResult, ShareSource, TransferAccessMode,
+        ContactSendResult, ContactSummary, GrantLifetimeSetting, HeldOfferSummary, IncomingOffer,
+        PendingPairing, ShareMetadataInput, ShareResult, ShareSource, TransferAccessMode,
     },
+    contacts::HeldOffer,
     error::VnidropError,
     grant::{GrantId, HeldGrant},
     offer::{
@@ -24,6 +25,14 @@ use crate::{
     ticket::{encode_persisted_sender_address, parse_persisted_sender_address},
     util::now_ms,
 };
+
+/// Whether a device may be polled again yet.
+///
+/// Split out because the surrounding call needs two live nodes to exercise,
+/// while the window itself is worth asserting on its own.
+pub(crate) fn should_poll(last_polled_ms: Option<i64>, now_ms: i64) -> bool {
+    last_polled_ms.is_none_or(|last| now_ms - last >= POLL_MIN_INTERVAL_MS)
+}
 
 impl CoreInner {
     pub(super) async fn list_contacts(&self) -> Result<Vec<ContactSummary>> {
@@ -152,7 +161,7 @@ impl CoreInner {
         endpoint_id: String,
         sources: Vec<ShareSource>,
         mut metadata: ShareMetadataInput,
-    ) -> Result<ShareResult> {
+    ) -> Result<ContactSendResult> {
         let store = self.repository.contacts();
         let grant = store
             .held_grant_for(&endpoint_id)
@@ -171,17 +180,23 @@ impl CoreInner {
         let sender_name = metadata.sender_name.clone();
         let share = self.share_files(sources, metadata).await?;
 
-        let outcome = self
+        // An unreachable device is the common case on mobile, not an error: the
+        // share stays here and the ticket waits for the peer to come and get it.
+        let outcome = match self
             .deliver_offer(&endpoint_id, &grant, &share, sender_name.as_deref())
             .await
-            .inspect_err(|_| {
-                // Nothing to serve if the offer never landed.
-                let inner = self.clone();
-                let transfer_id = share.transfer_id;
-                tokio::spawn(async move {
-                    let _ = inner.cancel_idle_or_share(transfer_id).await;
+        {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                self.hold_offer(&endpoint_id, &share, sender_name.as_deref())
+                    .await?;
+                tracing::debug!(%error, "offer held for later pickup");
+                return Ok(ContactSendResult {
+                    share,
+                    delivered: false,
                 });
-            })?;
+            }
+        };
 
         match outcome {
             OfferResponse::Accepted => {
@@ -197,7 +212,10 @@ impl CoreInner {
                     "offer-accepted",
                     json!({ "peer_endpoint_id": endpoint_id }),
                 );
-                Ok(share)
+                Ok(ContactSendResult {
+                    share,
+                    delivered: true,
+                })
             }
             OfferResponse::Declined { reason } | OfferResponse::Refused { reason } => {
                 let _ = self.cancel_idle_or_share(share.transfer_id).await;
@@ -219,6 +237,106 @@ impl CoreInner {
                 .into())
             }
         }
+    }
+
+    /// Keep an undeliverable offer on this device.
+    ///
+    /// The target is pre-authorised now rather than at pickup: it will dial
+    /// straight back after collecting the ticket, and the session outlives the
+    /// round trip.
+    async fn hold_offer(
+        self: &Arc<Self>,
+        endpoint_id: &str,
+        share: &ShareResult,
+        sender_name: Option<&str>,
+    ) -> Result<()> {
+        self.access_policy
+            .approve_endpoint(share.transfer_id, endpoint_id.to_string())
+            .await;
+        self.repository
+            .contacts()
+            .insert_held_offer(&HeldOffer {
+                offer_id: uuid::Uuid::new_v4().to_string(),
+                endpoint_id: endpoint_id.to_string(),
+                transfer_id: share.transfer_id,
+                ticket: share.ticket.clone(),
+                transfer_name: share.transfer_name.clone(),
+                sender_display_name: sender_name.map(ToOwned::to_owned),
+                file_count: share.file_count,
+                total_bytes: share.total_size,
+                created_at: now_ms(),
+            })
+            .await
+            .map_err(VnidropError::repository)?;
+        self.emit_transfer(
+            share.transfer_id,
+            "send",
+            "offer",
+            "offer-held",
+            json!({ "peer_endpoint_id": endpoint_id }),
+        );
+        Ok(())
+    }
+
+    /// Ask remembered devices whether they are holding anything for this one.
+    ///
+    /// Deliberately only ever called from a foreground transition or an explicit
+    /// user action: polling reveals to every contact that the app was opened,
+    /// which is why it is neither automatic nor backgrounded.
+    pub(super) async fn poll_contacts_for_offers(self: &Arc<Self>) -> Result<u64> {
+        let store = self.repository.contacts();
+        let contacts = store
+            .list_contacts()
+            .await
+            .map_err(VnidropError::repository)?;
+        let now = now_ms();
+        let mut collected = 0u64;
+
+        for contact in contacts {
+            if store
+                .is_blocked(&contact.endpoint_id)
+                .await
+                .unwrap_or(false)
+            {
+                continue;
+            }
+            {
+                // Rate limited per device so repeated app switching does not
+                // turn into a presence beacon.
+                let mut polled = self.last_polled.lock().await;
+                if !should_poll(polled.get(&contact.endpoint_id).copied(), now) {
+                    continue;
+                }
+                polled.insert(contact.endpoint_id.clone(), now);
+            }
+
+            let Ok(addr) = self.contact_addr(&contact.endpoint_id).await else {
+                continue;
+            };
+            let client = OfferService::client(self.endpoint.clone(), addr);
+            let Ok(polled) = client.poll_offers().await else {
+                // Offline is the expected outcome, not a failure worth surfacing.
+                continue;
+            };
+            for offer in polled.offers {
+                let added = self
+                    .offers
+                    .enqueue(
+                        contact.endpoint_id.clone(),
+                        offer.transfer_name,
+                        offer.sender_display_name,
+                        offer.file_count,
+                        offer.total_bytes,
+                        offer.ticket,
+                    )
+                    .await;
+                if added {
+                    collected += 1;
+                }
+            }
+            self.remember_addr(&contact.endpoint_id).await;
+        }
+        Ok(collected)
     }
 
     async fn deliver_offer(
@@ -256,6 +374,28 @@ impl CoreInner {
             .context("failed to deliver the offer")
             .map_err(VnidropError::transfer)
             .map_err(Into::into)
+    }
+
+    /// Transfers waiting for their target to come back online.
+    pub(super) async fn list_held_offers(&self) -> Result<Vec<HeldOfferSummary>> {
+        let held = self
+            .repository
+            .contacts()
+            .list_held_offers()
+            .await
+            .map_err(VnidropError::repository)?;
+        Ok(held
+            .into_iter()
+            .map(|offer| HeldOfferSummary {
+                offer_id: offer.offer_id,
+                endpoint_id: offer.endpoint_id,
+                transfer_id: offer.transfer_id,
+                transfer_name: offer.transfer_name,
+                file_count: offer.file_count,
+                total_bytes: offer.total_bytes,
+                created_at: offer.created_at,
+            })
+            .collect())
     }
 
     pub(super) async fn list_pending_offers(&self) -> Vec<IncomingOffer> {

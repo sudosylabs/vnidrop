@@ -20,11 +20,12 @@ mod util;
 
 pub use api::{
     clear_inactive_transfer_cache, default_core_limits, default_core_network_config,
-    ContactSummary, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig, CoreRelayMode,
-    CoreStorageUsage, GrantLifetimeSetting, IncomingOffer, PendingPairing, PublishedOutput,
-    ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest,
-    RuntimeStatus, ShareMetadataInput, ShareResult, ShareSource, SourceKind, StoredTransfer,
-    TicketInspection, TransferAccessMode, TransferMetadata,
+    ContactSendResult, ContactSummary, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig,
+    CoreRelayMode, CoreStorageUsage, GrantLifetimeSetting, HeldOfferSummary, IncomingOffer,
+    PendingPairing, PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact,
+    ReceivedLocatorKind, ReceiverRequest, RuntimeStatus, ShareMetadataInput, ShareResult,
+    ShareSource, SourceKind, StoredTransfer, TicketInspection, TransferAccessMode,
+    TransferMetadata,
 };
 pub use error::VnidropError;
 pub use runtime::VnidropCore;

@@ -93,6 +93,27 @@ pub(crate) async fn ensure_schema(pool: &SqlitePool) -> Result<()> {
 
     sqlx::query(
         r#"
+        CREATE TABLE IF NOT EXISTS held_offers (
+            offer_id TEXT PRIMARY KEY,
+            endpoint_id TEXT NOT NULL,
+            transfer_id INTEGER NOT NULL,
+            ticket TEXT NOT NULL,
+            transfer_name TEXT NOT NULL,
+            sender_display_name TEXT,
+            file_count INTEGER NOT NULL,
+            total_bytes INTEGER NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+        "#,
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_held_offers_endpoint ON held_offers(endpoint_id);")
+        .execute(pool)
+        .await?;
+
+    sqlx::query(
+        r#"
         CREATE TABLE IF NOT EXISTS blocked_endpoints (
             endpoint_id TEXT PRIMARY KEY,
             created_at INTEGER NOT NULL
@@ -103,6 +124,23 @@ pub(crate) async fn ensure_schema(pool: &SqlitePool) -> Result<()> {
     .await?;
 
     Ok(())
+}
+
+/// An offer that could not be delivered because the target was not running.
+///
+/// Held on this device, not a server: the share stays here and the receiver
+/// collects the ticket when its app next comes to the foreground.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct HeldOffer {
+    pub(crate) offer_id: String,
+    pub(crate) endpoint_id: String,
+    pub(crate) transfer_id: u64,
+    pub(crate) ticket: String,
+    pub(crate) transfer_name: String,
+    pub(crate) sender_display_name: Option<String>,
+    pub(crate) file_count: u64,
+    pub(crate) total_bytes: u64,
+    pub(crate) created_at: i64,
 }
 
 /// Contacts, grants, and blocks over the shared repository pool.
@@ -442,6 +480,84 @@ impl ContactStore {
         Ok(rows.into_iter().map(|row| row.get(0)).collect())
     }
 
+    // -- held offers ------------------------------------------------------
+
+    pub(crate) async fn insert_held_offer(&self, offer: &HeldOffer) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO held_offers
+                (offer_id, endpoint_id, transfer_id, ticket, transfer_name,
+                 sender_display_name, file_count, total_bytes, created_at)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            "#,
+        )
+        .bind(&offer.offer_id)
+        .bind(&offer.endpoint_id)
+        .bind(offer.transfer_id as i64)
+        .bind(&offer.ticket)
+        .bind(&offer.transfer_name)
+        .bind(offer.sender_display_name.as_deref())
+        .bind(offer.file_count as i64)
+        .bind(offer.total_bytes as i64)
+        .bind(offer.created_at)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Offers waiting for one device to come and collect them.
+    pub(crate) async fn held_offers_for(&self, endpoint_id: &str) -> Result<Vec<HeldOffer>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT offer_id, endpoint_id, transfer_id, ticket, transfer_name,
+                   sender_display_name, file_count, total_bytes, created_at
+            FROM held_offers
+            WHERE endpoint_id = ?1
+            ORDER BY created_at ASC
+            "#,
+        )
+        .bind(endpoint_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(row_to_held_offer).collect())
+    }
+
+    pub(crate) async fn list_held_offers(&self) -> Result<Vec<HeldOffer>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT offer_id, endpoint_id, transfer_id, ticket, transfer_name,
+                   sender_display_name, file_count, total_bytes, created_at
+            FROM held_offers
+            ORDER BY created_at ASC
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(row_to_held_offer).collect())
+    }
+
+    /// Consumed once handed over, so a device polling twice is not offered the
+    /// same transfer again.
+    pub(crate) async fn delete_held_offers(&self, offer_ids: &[String]) -> Result<()> {
+        let mut tx = self.pool.begin().await?;
+        for offer_id in offer_ids {
+            sqlx::query("DELETE FROM held_offers WHERE offer_id = ?1")
+                .bind(offer_id)
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn delete_held_offers_for_transfer(&self, transfer_id: u64) -> Result<()> {
+        sqlx::query("DELETE FROM held_offers WHERE transfer_id = ?1")
+            .bind(transfer_id as i64)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     // -- maintenance ------------------------------------------------------
 
     #[cfg(test)]
@@ -466,6 +582,20 @@ impl ContactStore {
         .await?
         .rows_affected();
         Ok(issued)
+    }
+}
+
+fn row_to_held_offer(row: sqlx::sqlite::SqliteRow) -> HeldOffer {
+    HeldOffer {
+        offer_id: row.get(0),
+        endpoint_id: row.get(1),
+        transfer_id: row.get::<i64, _>(2) as u64,
+        ticket: row.get(3),
+        transfer_name: row.get(4),
+        sender_display_name: row.get(5),
+        file_count: row.get::<i64, _>(6) as u64,
+        total_bytes: row.get::<i64, _>(7) as u64,
+        created_at: row.get(8),
     }
 }
 

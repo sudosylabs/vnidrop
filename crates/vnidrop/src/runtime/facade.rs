@@ -6,10 +6,11 @@ use serde_json::json;
 use super::CoreInner;
 use crate::{
     api::{
-        ContactSummary, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig, CoreStorageUsage,
-        GrantLifetimeSetting, IncomingOffer, PendingPairing, ReceiveOutputSink,
-        ReceiveOutputSinkV2, ReceivedArtifact, ReceiverRequest, RuntimeStatus, ShareMetadataInput,
-        ShareResult, ShareSource, StoredTransfer, TicketInspection, TransferAccessMode,
+        ContactSendResult, ContactSummary, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig,
+        CoreStorageUsage, GrantLifetimeSetting, HeldOfferSummary, IncomingOffer, PendingPairing,
+        ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact, ReceiverRequest, RuntimeStatus,
+        ShareMetadataInput, ShareResult, ShareSource, StoredTransfer, TicketInspection,
+        TransferAccessMode,
     },
     error::VnidropError,
     filesystem::platform_path,
@@ -286,9 +287,25 @@ impl VnidropCore {
         endpoint_id: String,
         sources: Vec<ShareSource>,
         metadata: ShareMetadataInput,
-    ) -> Result<ShareResult, VnidropError> {
+    ) -> Result<ContactSendResult, VnidropError> {
         self.block_on(self.inner.send_to_contact(endpoint_id, sources, metadata))
             .map_err(VnidropError::transfer)
+    }
+
+    /// Ask remembered devices whether they are holding transfers for this one.
+    ///
+    /// Call only from a foreground transition or an explicit user action: it
+    /// tells every contact that this device is awake. Returns how many offers
+    /// were collected.
+    pub fn poll_contacts_for_offers(&self) -> Result<u64, VnidropError> {
+        self.block_on(self.inner.poll_contacts_for_offers())
+            .map_err(VnidropError::transfer)
+    }
+
+    /// Transfers this device is holding for contacts that were not running.
+    pub fn list_held_offers(&self) -> Result<Vec<HeldOfferSummary>, VnidropError> {
+        self.block_on(self.inner.list_held_offers())
+            .map_err(VnidropError::repository)
     }
 
     /// Transfers paired devices are offering, awaiting this user's decision.

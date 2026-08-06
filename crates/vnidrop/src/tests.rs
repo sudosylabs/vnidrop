@@ -1,5 +1,7 @@
 #[path = "tests/access_policy.rs"]
 mod access_policy_tests;
+#[path = "tests/contact_polling.rs"]
+mod contact_polling_tests;
 #[path = "tests/contacts.rs"]
 mod contacts_tests;
 #[path = "tests/error.rs"]

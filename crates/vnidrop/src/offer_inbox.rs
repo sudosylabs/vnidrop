@@ -4,9 +4,10 @@
 //! not the transfer. Accepting hands the ticket to the platform layer, which
 //! runs the ordinary receive with its own destination rules.
 //!
-//! Nothing here is persisted. An offer is a live connection to a running app,
-//! so a restart correctly loses it rather than resurrecting a prompt whose
-//! sender is long gone.
+//! Nothing in this inbox is persisted: a prompt belongs to a live connection,
+//! so a restart correctly loses it rather than resurrecting one whose sender is
+//! long gone. Offers the *sender* could not deliver are a different thing and
+//! do persist — see `held_offers` in [`crate::contacts`].
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
@@ -156,6 +157,60 @@ impl OfferInbox {
                 }
             }
         }
+    }
+
+    /// Add an offer collected by polling.
+    ///
+    /// Unlike [`Self::submit`] there is no remote waiting on the answer: the
+    /// sender handed the ticket over and moved on, so this returns immediately.
+    pub(crate) async fn enqueue(
+        &self,
+        from_endpoint_id: String,
+        transfer_name: String,
+        sender_display_name: Option<String>,
+        file_count: u64,
+        total_bytes: u64,
+        ticket: String,
+    ) -> bool {
+        let offer_id = uuid::Uuid::new_v4().to_string();
+        {
+            let mut pending = self.pending.lock().await;
+            if pending.len() >= self.max_pending {
+                return false;
+            }
+            if pending
+                .values()
+                .any(|offer| offer.from_endpoint_id == from_endpoint_id)
+            {
+                return false;
+            }
+            pending.insert(
+                offer_id.clone(),
+                PendingOffer {
+                    offer_id: offer_id.clone(),
+                    from_endpoint_id: from_endpoint_id.clone(),
+                    sender_display_name: sender_display_name.clone(),
+                    transfer_name: transfer_name.clone(),
+                    file_count,
+                    total_bytes,
+                    received_at: now_ms(),
+                    ticket,
+                },
+            );
+        }
+        self.event_hub.emit_endpoint(
+            "offer",
+            "offer-collected",
+            json!({
+                "offer_id": offer_id,
+                "from_endpoint_id": from_endpoint_id,
+                "sender_display_name": sender_display_name,
+                "transfer_name": transfer_name,
+                "file_count": file_count,
+                "total_bytes": total_bytes,
+            }),
+        );
+        true
     }
 
     pub(crate) async fn list(&self) -> Vec<PendingOffer> {

@@ -16,7 +16,7 @@ use crate::{
     grant::{
         Challenge, GrantLifetime, GrantProof, GrantRejection, GrantSecret, HeldGrant, IssuedGrant,
     },
-    offer::{DeliverGrant, GrantDeliveryResponse, RevocationResponse, RevokeGrant},
+    offer::{DeliverGrant, GrantDeliveryResponse, PolledOffer, RevocationResponse, RevokeGrant},
     util::now_ms,
 };
 
@@ -288,6 +288,42 @@ impl PairingService {
             json!({ "peer_endpoint_id": peer_endpoint_id }),
         );
         Ok(grant)
+    }
+
+    /// Held offers addressed to `endpoint_id`, consumed as they are handed over.
+    ///
+    /// Deleting on delivery is what keeps a device that polls twice from being
+    /// offered the same transfer again.
+    pub(crate) async fn collect_held_offers(&self, endpoint_id: &str) -> Vec<PolledOffer> {
+        if self.contacts.is_blocked(endpoint_id).await.unwrap_or(false) {
+            return Vec::new();
+        }
+        let Ok(held) = self.contacts.held_offers_for(endpoint_id).await else {
+            return Vec::new();
+        };
+        if held.is_empty() {
+            return Vec::new();
+        }
+        let ids: Vec<String> = held.iter().map(|offer| offer.offer_id.clone()).collect();
+        if let Err(error) = self.contacts.delete_held_offers(&ids).await {
+            // Handing the same offer over twice is worse than not handing it
+            // over at all, so a failed consume aborts the delivery.
+            tracing::warn!(%error, "failed to consume held offers");
+            return Vec::new();
+        }
+        self.emit(
+            "held-offers-collected",
+            json!({ "peer_endpoint_id": endpoint_id, "count": held.len() }),
+        );
+        held.into_iter()
+            .map(|offer| PolledOffer {
+                ticket: offer.ticket,
+                transfer_name: offer.transfer_name,
+                sender_display_name: offer.sender_display_name,
+                file_count: offer.file_count,
+                total_bytes: offer.total_bytes,
+            })
+            .collect()
     }
 
     /// Validate a proof a peer presented, and push the idle deadline forward.

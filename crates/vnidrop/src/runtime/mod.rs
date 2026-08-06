@@ -17,6 +17,8 @@ mod receive;
 mod share;
 mod storage;
 
+#[cfg(test)]
+pub(crate) use self::contacts::should_poll;
 pub use facade::VnidropCore;
 #[cfg(test)]
 pub(crate) use provider::{consume_request_updates, RequestStreamOutcome};
@@ -68,6 +70,10 @@ use crate::{
 
 const RELAY_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Minimum gap between polls of the same device, so switching in and out of the
+/// app does not announce presence to every contact repeatedly.
+pub(super) const POLL_MIN_INTERVAL_MS: i64 = 5 * 60 * 1_000;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RelayStatus {
     Disabled,
@@ -97,6 +103,8 @@ pub(super) struct CoreInner {
     pub(super) approval: ApprovalService,
     pub(super) pairing: PairingService,
     pub(super) offers: OfferInbox,
+    /// Endpoint → last poll time, for the rate limit above.
+    pub(super) last_polled: TokioMutex<HashMap<String, i64>>,
     pub(super) limits: CoreLimits,
     pub(super) relay_mode: CoreRelayMode,
     pub(super) custom_relay_urls: Vec<RelayUrl>,
@@ -362,6 +370,7 @@ impl CoreInner {
             approval,
             pairing,
             offers,
+            last_polled: TokioMutex::new(HashMap::new()),
             relay_mode,
             custom_relay_urls: relay_urls,
             transfer_slots: Semaphore::new(limits.max_concurrent_transfers as usize),

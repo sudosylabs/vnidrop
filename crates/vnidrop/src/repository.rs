@@ -21,7 +21,7 @@ use crate::{
     util::now_ms,
 };
 
-const SCHEMA_VERSION: i64 = 8;
+const SCHEMA_VERSION: i64 = 9;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Repository {

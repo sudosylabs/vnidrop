@@ -108,6 +108,19 @@ impl OfferService {
     }
 }
 
+impl OfferService {
+    /// Hand a device the offers this one is holding for it.
+    ///
+    /// Needs no grant proof: iroh has already authenticated the remote endpoint
+    /// key, and the only thing returned is what this device already decided to
+    /// send to precisely that endpoint. A stranger polling gets an empty list.
+    async fn handle_poll(&self, remote_endpoint_id: &str) -> PolledOffers {
+        PolledOffers {
+            offers: self.pairing.collect_held_offers(remote_endpoint_id).await,
+        }
+    }
+}
+
 impl ProtocolHandler for OfferService {
     /// Accepts inbound connections from paired peers.
     ///
@@ -144,6 +157,11 @@ impl ProtocolHandler for OfferService {
                         .await;
                     let _ = tx.send(response).await;
                 }
+                OfferMessage::PollOffers(message) => {
+                    let WithChannels { tx, .. } = message;
+                    let response = self.handle_poll(&remote_endpoint_id).await;
+                    let _ = tx.send(response).await;
+                }
                 OfferMessage::SubmitOffer(message) => {
                     let WithChannels { inner, tx, .. } = message;
                     let response = self
@@ -165,6 +183,10 @@ pub(crate) struct OfferClient {
 }
 
 impl OfferClient {
+    pub(crate) async fn poll_offers(&self) -> Result<PolledOffers, irpc::Error> {
+        self.inner.rpc(PollOffers).await
+    }
+
     pub(crate) async fn request_challenge(&self) -> Result<Challenge, irpc::Error> {
         Ok(self.inner.rpc(RequestChallenge).await?.challenge)
     }
@@ -276,6 +298,27 @@ pub(crate) enum OfferResponse {
     Refused { reason: String },
 }
 
+/// Ask a device whether it is holding anything for this one.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct PollOffers;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct PolledOffers {
+    pub(crate) offers: Vec<PolledOffer>,
+}
+
+/// An offer collected by polling rather than pushed. Carries the ticket because
+/// the sender already decided to send it to this endpoint; the local user still
+/// confirms before anything is fetched.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct PolledOffer {
+    pub(crate) ticket: String,
+    pub(crate) transfer_name: String,
+    pub(crate) sender_display_name: Option<String>,
+    pub(crate) file_count: u64,
+    pub(crate) total_bytes: u64,
+}
+
 #[rpc_requests(message = OfferMessage)]
 #[derive(Debug, Serialize, Deserialize)]
 enum OfferProtocol {
@@ -287,4 +330,6 @@ enum OfferProtocol {
     RevokeGrant(RevokeGrant),
     #[rpc(tx=oneshot::Sender<OfferResponse>)]
     SubmitOffer(SubmitOffer),
+    #[rpc(tx=oneshot::Sender<PolledOffers>)]
+    PollOffers(PollOffers),
 }

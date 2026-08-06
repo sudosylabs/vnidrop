@@ -6,7 +6,9 @@
 //! - [`receive`] — ticket receive, download, export
 //! - [`lifecycle`] — cancel/delete/shutdown/status/access
 //! - [`provider`] — blob provider events and per-connection send progress
+//! - [`contacts`] — device history: pairing, forgetting, blocking
 
+mod contacts;
 mod delivery;
 mod facade;
 mod lifecycle;
@@ -55,6 +57,8 @@ use crate::{
     event_hub::EventHub,
     handshake::HandshakeService,
     logging::init_logging,
+    offer::OfferService,
+    pairing::PairingService,
     repository::Repository,
     secret::load_or_create_secret,
     ticket::ticket_matches_relay_profile,
@@ -90,6 +94,7 @@ pub(super) struct CoreInner {
     pub(super) repository: Repository,
     pub(super) event_hub: Arc<EventHub>,
     pub(super) approval: ApprovalService,
+    pub(super) pairing: PairingService,
     pub(super) limits: CoreLimits,
     pub(super) relay_mode: CoreRelayMode,
     pub(super) custom_relay_urls: Vec<RelayUrl>,
@@ -321,9 +326,16 @@ impl CoreInner {
             limits.max_metadata_bytes,
         );
         let handshake = HandshakeService::new(approval.clone());
+        let pairing = PairingService::new(
+            repository.contacts(),
+            event_hub.clone(),
+            limits.max_pending_offers as usize,
+            limits.max_metadata_bytes,
+        );
         let router = Router::builder(endpoint.clone())
             .accept(iroh_blobs::ALPN, blobs)
             .accept(HandshakeService::ALPN, handshake)
+            .accept(OfferService::ALPN, OfferService::new(pairing.clone()))
             .spawn();
 
         let inner = Arc::new(Self {
@@ -334,6 +346,7 @@ impl CoreInner {
             repository,
             event_hub,
             approval,
+            pairing,
             relay_mode,
             custom_relay_urls: relay_urls,
             transfer_slots: Semaphore::new(limits.max_concurrent_transfers as usize),

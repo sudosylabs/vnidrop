@@ -8,8 +8,8 @@
 //! tickets: never logged, never emitted in an event, never returned across the
 //! UniFFI boundary.
 
-// Exercised only by unit tests until the offer protocol consumes it. Remove
-// this once that lands.
+// A few operations are exercised only by unit tests until send-to-contact
+// offers consume them. Remove this once that lands.
 #![allow(dead_code)]
 
 use anyhow::{Context, Result};

@@ -180,6 +180,8 @@ pub struct CoreLimits {
     pub max_metadata_bytes: u64,
     pub max_events: u64,
     pub max_pending_approvals: u64,
+    /// Incoming pairing offers awaiting the local user's decision.
+    pub max_pending_offers: u64,
     pub max_concurrent_transfers: u64,
     pub event_queue_capacity: u64,
 }
@@ -198,6 +200,9 @@ impl Default for CoreLimits {
             max_events: 500,
             // Bound handshake spam / notification pressure on the sender.
             max_pending_approvals: 64,
+            // A pairing prompt needs the user in front of the device, so this
+            // is far smaller than the handshake queue.
+            max_pending_offers: 16,
             max_concurrent_transfers: 8,
             event_queue_capacity: 1_024,
         }
@@ -215,6 +220,7 @@ impl CoreLimits {
             ("max_metadata_bytes", self.max_metadata_bytes),
             ("max_events", self.max_events),
             ("max_pending_approvals", self.max_pending_approvals),
+            ("max_pending_offers", self.max_pending_offers),
             ("max_concurrent_transfers", self.max_concurrent_transfers),
             ("event_queue_capacity", self.event_queue_capacity),
         ];
@@ -225,6 +231,7 @@ impl CoreLimits {
         }
         for (name, value) in [
             ("max_pending_approvals", self.max_pending_approvals),
+            ("max_pending_offers", self.max_pending_offers),
             ("max_concurrent_transfers", self.max_concurrent_transfers),
             ("event_queue_capacity", self.event_queue_capacity),
         ] {
@@ -450,6 +457,42 @@ impl TransferMetadata {
 pub struct TicketInspection {
     pub kind: String,
     pub metadata: TransferMetadata,
+}
+
+/// A device the user has chosen to remember.
+///
+/// Deliberately carries no grant material: capabilities never cross the UniFFI
+/// boundary, only the fact that one exists (`can_send`).
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct ContactSummary {
+    pub endpoint_id: String,
+    /// Set locally by the user. Authoritative for display.
+    pub local_label: Option<String>,
+    /// Last name the device claimed. Untrusted; never promoted to the label.
+    pub remote_display_name: Option<String>,
+    pub last_transfer_at: Option<i64>,
+    pub created_at: i64,
+    /// Whether this device can currently be sent to, i.e. a live grant is held.
+    /// False after the peer revoked, expired, or reinstalled.
+    pub can_send: bool,
+}
+
+/// A device offering to be remembered, awaiting the local user's decision.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct PendingPairing {
+    pub endpoint_id: String,
+    pub display_name: Option<String>,
+    pub received_at: i64,
+}
+
+/// How long a grant survives without use, renewed on every accepted proof.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum GrantLifetimeSetting {
+    Days30,
+    #[default]
+    Days90,
+    Days365,
+    Never,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]

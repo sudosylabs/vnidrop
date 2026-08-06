@@ -6,10 +6,10 @@ use serde_json::json;
 use super::CoreInner;
 use crate::{
     api::{
-        CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig, CoreStorageUsage,
-        ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact, ReceiverRequest, RuntimeStatus,
-        ShareMetadataInput, ShareResult, ShareSource, StoredTransfer, TicketInspection,
-        TransferAccessMode,
+        ContactSummary, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig, CoreStorageUsage,
+        GrantLifetimeSetting, PendingPairing, ReceiveOutputSink, ReceiveOutputSinkV2,
+        ReceivedArtifact, ReceiverRequest, RuntimeStatus, ShareMetadataInput, ShareResult,
+        ShareSource, StoredTransfer, TicketInspection, TransferAccessMode,
     },
     error::VnidropError,
     filesystem::platform_path,
@@ -269,6 +269,82 @@ impl VnidropCore {
     ) -> Result<(), VnidropError> {
         self.block_on(self.inner.approval.respond(request_id, accepted, reason))
             .map_err(VnidropError::permission)
+    }
+
+    /// Devices the user has chosen to remember.
+    pub fn list_contacts(&self) -> Result<Vec<ContactSummary>, VnidropError> {
+        self.block_on(self.inner.list_contacts())
+            .map_err(VnidropError::repository)
+    }
+
+    /// Devices offering to be remembered, awaiting the local user's decision.
+    pub fn list_pending_pairings(&self) -> Vec<PendingPairing> {
+        self.block_on(self.inner.list_pending_pairings())
+    }
+
+    /// Agree to be reachable by a device, handing it a revocable capability.
+    ///
+    /// Independent of whether that device agrees to be reachable by us: each
+    /// direction is a separate decision.
+    pub fn allow_device_to_reach_me(
+        &self,
+        endpoint_id: String,
+        display_name: Option<String>,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .allow_device_to_reach_me(endpoint_id, display_name),
+        )
+        .map_err(VnidropError::transfer)
+    }
+
+    /// Accept or decline a device's offer to be remembered. Returns false when
+    /// the offer already lapsed.
+    pub fn respond_to_pairing(
+        &self,
+        endpoint_id: String,
+        accepted: bool,
+    ) -> Result<bool, VnidropError> {
+        self.block_on(self.inner.respond_to_pairing(endpoint_id, accepted))
+            .map_err(VnidropError::repository)
+    }
+
+    /// Forget a device and revoke its access. Takes effect locally at once; the
+    /// peer is notified best effort.
+    pub fn forget_contact(&self, endpoint_id: String) -> Result<(), VnidropError> {
+        self.block_on(self.inner.forget_contact(endpoint_id))
+            .map_err(VnidropError::repository)
+    }
+
+    /// Refuse a device outright. Unlike forgetting, the peer is told nothing.
+    pub fn block_contact(&self, endpoint_id: String) -> Result<(), VnidropError> {
+        self.block_on(self.inner.block_contact(endpoint_id))
+            .map_err(VnidropError::repository)
+    }
+
+    pub fn unblock_contact(&self, endpoint_id: String) -> Result<(), VnidropError> {
+        self.block_on(self.inner.unblock_contact(endpoint_id))
+            .map_err(VnidropError::repository)
+    }
+
+    pub fn list_blocked_contacts(&self) -> Result<Vec<String>, VnidropError> {
+        self.block_on(self.inner.list_blocked_contacts())
+            .map_err(VnidropError::repository)
+    }
+
+    pub fn set_contact_label(
+        &self,
+        endpoint_id: String,
+        label: Option<String>,
+    ) -> Result<(), VnidropError> {
+        self.block_on(self.inner.set_contact_label(endpoint_id, label))
+            .map_err(VnidropError::repository)
+    }
+
+    /// Idle lifetime applied to grants issued from now on. Existing grants keep
+    /// the lifetime they were issued with until they next renew.
+    pub fn set_grant_lifetime(&self, lifetime: GrantLifetimeSetting) {
+        self.block_on(self.inner.set_grant_lifetime(lifetime));
     }
 
     pub fn list_transfers(&self) -> Result<Vec<StoredTransfer>, VnidropError> {

@@ -9,8 +9,8 @@
 //! This module is pure: no storage, no network, no clock of its own. Callers
 //! supply `now_ms` so expiry and renewal stay testable.
 
-// Exercised only by unit tests until the contacts repository and the offer
-// protocol consume it. Remove this once those land.
+// A few helpers are exercised only by unit tests until send-to-contact offers
+// consume them. Remove this once that lands.
 #![allow(dead_code)]
 
 use std::fmt;
@@ -288,6 +288,17 @@ impl GrantLifetime {
 impl Default for GrantLifetime {
     fn default() -> Self {
         Self::Days(Self::DEFAULT_DAYS)
+    }
+}
+
+impl From<crate::api::GrantLifetimeSetting> for GrantLifetime {
+    fn from(setting: crate::api::GrantLifetimeSetting) -> Self {
+        match setting {
+            crate::api::GrantLifetimeSetting::Days30 => Self::Days(30),
+            crate::api::GrantLifetimeSetting::Days90 => Self::Days(90),
+            crate::api::GrantLifetimeSetting::Days365 => Self::Days(365),
+            crate::api::GrantLifetimeSetting::Never => Self::Never,
+        }
     }
 }
 

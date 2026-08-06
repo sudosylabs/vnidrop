@@ -8,6 +8,7 @@ enum SettingsSection: Hashable {
 	case appearance
 	case notifications
 	case network
+	case contacts
 	case storage
 	case about
 	case bugReport
@@ -19,6 +20,7 @@ enum SettingsSection: Hashable {
 		case .appearance: return L10n.Appearance.title
 		case .notifications: return L10n.Notifications.title
 		case .network: return L10n.Settings.networkTitle
+		case .contacts: return L10n.Contacts.title
 		case .storage: return L10n.Storage.title
 		case .about: return L10n.About.title
 		case .bugReport: return L10n.About.bugReport

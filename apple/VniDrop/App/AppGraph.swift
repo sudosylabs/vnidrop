@@ -12,6 +12,7 @@ final class AppGraph: ObservableObject {
 	let preferencesRepository: AppPreferencesRepository
 	let filePreviewRepository: FilePreviewRepository
 	let approvalCoordinator: ApprovalCoordinator
+	let contactsModel: ContactsModel
 	let transferNotificationCoordinator: TransferNotificationCoordinator
 	let backgroundActivity: BackgroundActivityController
 
@@ -26,6 +27,11 @@ final class AppGraph: ObservableObject {
 				receiveFolder: dependencies.fileSystemService.defaultReceiveFolder(),
 				themeMode: .system
 			)
+		)
+		self.contactsModel = ContactsModel(
+			repository: coreRepository,
+			messages: messages,
+			preferences: preferencesRepository
 		)
 		self.approvalCoordinator = ApprovalCoordinator(
 			repository: coreRepository,

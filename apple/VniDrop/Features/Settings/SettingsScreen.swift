@@ -5,6 +5,7 @@ import SFSafeSymbols
 /// navigation. The model stays the source of truth via a derived path binding.
 struct SettingsScreen: View {
 	@ObservedObject var model: SettingsModel
+	@ObservedObject var contacts: ContactsModel
 	let windowClass: WindowClass
 	@State private var showBugReport = false
 
@@ -54,6 +55,15 @@ struct SettingsScreen: View {
 					NavigationLink(value: SettingsSection.storage) {
 						SettingsRow(icon: .internaldrive, title: String(localized: L10n.Storage.title), value: nil)
 					}
+					NavigationLink(value: SettingsSection.contacts) {
+						SettingsRow(
+							icon: .laptopcomputerAndIphone,
+							title: String(localized: L10n.Contacts.title),
+							value: contacts.state.contacts.isEmpty
+								? nil
+								: String(contacts.state.contacts.count)
+						)
+					}
 				}
 				Section(String(localized: L10n.Settings.advancedTitle)) {
 					NavigationLink(value: SettingsSection.network) {
@@ -80,6 +90,17 @@ struct SettingsScreen: View {
 
 	@ViewBuilder
 	private func sectionForm(_ section: SettingsSection) -> some View {
+		// Contacts brings its own Form and push destination, so it is not wrapped
+		// in the shared section chrome.
+		if section == .contacts {
+			ContactsScreen(model: contacts)
+		} else {
+			settingsSectionForm(section)
+		}
+	}
+
+	@ViewBuilder
+	private func settingsSectionForm(_ section: SettingsSection) -> some View {
 		let content = Form {
 			SettingsSectionContent(model: model, section: section)
 		}
@@ -130,6 +151,9 @@ private struct SettingsSectionContent: View {
 			NetworkSettings(model: model)
 		case .storage:
 			StorageSettings(model: model)
+		case .contacts:
+			// Rendered by SettingsScreen itself, which owns the contacts model.
+			EmptyView()
 		case .about:
 			AboutSettings(model: model)
 		case .bugReport:

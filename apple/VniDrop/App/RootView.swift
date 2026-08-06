@@ -60,6 +60,11 @@ struct RootView: View {
 					approvals: graph.approvalCoordinator,
 					sendModel: sendModel
 				)
+				ContactPromptLayer(
+					contacts: graph.contactsModel,
+					receiveModel: receiveModel,
+					approvals: graph.approvalCoordinator
+				)
 				// Top-most so the toast is never covered by the approval overlay's
 				// full-bleed clear layer. Observes the live `graph.messages` directly.
 				SnackbarHost(controller: graph.messages)
@@ -167,7 +172,8 @@ struct RootView: View {
 		switch destination {
 		case .send: SendScreen(model: sendModel, windowClass: windowClass)
 		case .receive: ReceiveScreen(model: receiveModel, windowClass: windowClass)
-		case .settings: SettingsScreen(model: settingsModel, windowClass: windowClass)
+		case .settings:
+			SettingsScreen(model: settingsModel, contacts: graph.contactsModel, windowClass: windowClass)
 		}
 	}
 
@@ -283,3 +289,49 @@ import UIKit
 #else
 import AppKit
 #endif
+
+/// Hosts the device-history consent prompts, alongside `ApprovalLayer`.
+///
+/// Separate from the approval layer because the two never compete: an approval
+/// belongs to a transfer this device is sending, and these belong to a device
+/// asking to reach it. Both are suppressed while the other is up so the user is
+/// never answering two modals at once.
+private struct ContactPromptLayer: View {
+	@ObservedObject var contacts: ContactsModel
+	let receiveModel: ReceiveModel
+	@ObservedObject var approvals: ApprovalCoordinator
+
+	@State private var showPrompt = false
+
+	var body: some View {
+		ContactPromptHost(
+			isPresented: $showPrompt,
+			state: contacts.state,
+			onPairingResponse: { endpointId, accepted in
+				Task { await contacts.respondToPairing(endpointId: endpointId, accepted: accepted) }
+			},
+			onOfferResponse: { offerId, accepted in
+				Task {
+					// The ticket is released only on acceptance; the receive then
+					// runs through the ordinary path so the platform picks the
+					// destination.
+					if let ticket = await contacts.respondToOffer(offerId: offerId, accepted: accepted) {
+						receiveModel.receiveOffered(ticket: ticket)
+					}
+				}
+			}
+		)
+		.onChange(of: promptKey) { _, key in
+			showPrompt = key != nil
+		}
+	}
+
+	/// One identity for "is there something to answer", so an offer replacing a
+	/// pairing prompt re-presents rather than silently swapping content.
+	private var promptKey: String? {
+		guard approvals.state.current == nil else { return nil }
+		if let offer = contacts.state.currentOffer { return "offer-\(offer.offerId)" }
+		if let pairing = contacts.state.currentPairing { return "pairing-\(pairing.endpointId)" }
+		return nil
+	}
+}

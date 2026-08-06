@@ -6,6 +6,9 @@ enum ReceiveMethod {
 	case invitationFile
 	case qrCode
 	case nfc
+	/// Pushed by a remembered device and already accepted by the user, so no
+	/// invitation was acquired by hand.
+	case offer
 }
 
 enum ReceiveHistoryDeleteTarget: Equatable {
@@ -151,6 +154,40 @@ final class ReceiveModel: ObservableObject {
 		switch result {
 		case .success(let raw): inspectInvitation(method, raw)
 		case .failure(let error): messages.error(error)
+		}
+	}
+
+	/// Receive a transfer the user has already accepted in the offer prompt.
+	///
+	/// The consent happened in that prompt, so this does not ask again: it
+	/// inspects the ticket and starts, falling back to the ordinary review sheet
+	/// only when the destination is not usable and the user has to fix it.
+	func receiveOffered(ticket: String) {
+		let trimmed = ticket.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard !trimmed.isEmpty else { return messages.error(.resource(L10n.Error.invitationEmpty)) }
+		state.ticket = trimmed
+		state.method = .offer
+		state.inspection = nil
+		state.isInspecting = true
+		Task {
+			switch await repository.inspectTicket(trimmed) {
+			case .success(let inspection):
+				state.inspection = inspection
+				state.isInspecting = false
+				if state.canReceive(coreInitialized: coreState.isInitialized) {
+					receive()
+				} else {
+					// Usually a missing or unwritable destination: show the review
+					// sheet so the user can point it somewhere valid.
+					state.isAcquisitionOpen = true
+				}
+			case .failure(let error):
+				state.ticket = ""
+				state.method = nil
+				state.inspection = nil
+				state.isInspecting = false
+				messages.error(error)
+			}
 		}
 	}
 

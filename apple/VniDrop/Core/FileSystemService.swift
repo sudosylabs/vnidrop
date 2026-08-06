@@ -42,7 +42,7 @@ protocol FileSystemService {
 		transferName: String,
 		senderName: String,
 		destination: ShareDestination
-	) async -> Result<Share, Error>
+	) async -> Result<ContactSendOutcome, Error>
 }
 
 extension FileSystemService {

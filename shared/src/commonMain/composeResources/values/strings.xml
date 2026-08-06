@@ -337,6 +337,13 @@
     <string name="contacts_grant_lifetime_title">Forget unused devices after</string>
     <string name="contacts_grant_lifetime_hint">The countdown restarts every time you transfer with the device.</string>
     <string name="contacts_grant_lifetime_never">Never</string>
+    <string name="contacts_check_on_open">Check for waiting transfers</string>
+    <string name="contacts_check_on_open_hint">When you open VniDrop, your remembered devices are asked whether they have anything for you. This tells them when you opened the app.</string>
+    <string name="contacts_check_now">Check now</string>
+    <string name="contacts_check_none">Nothing waiting</string>
+    <string name="contacts_offer_held">That device is not open. The transfer will be delivered the next time it opens VniDrop.</string>
+    <string name="contacts_waiting_title">Waiting to be delivered</string>
+    <string name="contacts_waiting_hint">Cancel the transfer to withdraw it.</string>
     <plurals name="transfer_file_count">
         <item quantity="other">%1$d files</item>
         <item quantity="one">%1$d file</item>

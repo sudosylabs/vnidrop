@@ -127,6 +127,9 @@ struct AppPreferences: Equatable {
 	/// Devices the user declined to remember. Persisted so a repeat transfer
 	/// with the same device does not re-ask forever.
 	var declinedPairingSuggestions: Set<String>
+	/// Whether opening the app asks remembered devices for waiting transfers.
+	/// Off by default: it reveals app-open times to every contact.
+	var checkForOffersOnOpen: Bool
 }
 
 struct AppPreferencesDefaults {
@@ -152,6 +155,7 @@ final class AppPreferencesRepository: ObservableObject {
 		static let relayConfiguration = "relay_configuration"
 		static let grantLifetime = "grant_lifetime"
 		static let declinedPairingSuggestions = "declined_pairing_suggestions"
+		static let checkForOffersOnOpen = "check_for_offers_on_open"
 	}
 
 	init(defaults: UserDefaults = .standard, fallback: AppPreferencesDefaults) {
@@ -175,7 +179,8 @@ final class AppPreferencesRepository: ObservableObject {
 			diagnosticsInstallId: installId,
 			relayConfiguration: resolveRelayConfiguration(defaults),
 			grantLifetime: grantLifetime,
-			declinedPairingSuggestions: declined
+			declinedPairingSuggestions: declined,
+			checkForOffersOnOpen: defaults.bool(forKey: Key.checkForOffersOnOpen)
 		)
 	}
 
@@ -234,6 +239,11 @@ final class AppPreferencesRepository: ObservableObject {
 		var declined = preferences.declinedPairingSuggestions
 		guard declined.remove(endpointId) != nil else { return }
 		defaults.set(Array(declined), forKey: Key.declinedPairingSuggestions)
+		reload()
+	}
+
+	func setCheckForOffersOnOpen(_ enabled: Bool) {
+		defaults.set(enabled, forKey: Key.checkForOffersOnOpen)
 		reload()
 	}
 

@@ -65,7 +65,14 @@ protocol CoreGateway: AnyObject {
 		sources: [ShareSource],
 		transferName: String,
 		senderName: String
-	) async -> Result<Share, Error>
+	) async -> Result<ContactSendOutcome, Error>
+	/// Transfers this device is holding for contacts that were not running.
+	func heldOffers() async -> Result<[HeldOfferModel], Error>
+	/// Ask remembered devices whether they hold anything for this one.
+	///
+	/// Only ever called from a foreground transition or an explicit user action:
+	/// it reveals to every contact that this device is awake.
+	func pollContactsForOffers() async -> Result<UInt64, Error>
 	func forgetContact(endpointId: String) async -> Result<Void, Error>
 	func forgetAllContacts() async -> Result<UInt64, Error>
 	func blockContact(endpointId: String) async -> Result<Void, Error>

@@ -235,7 +235,13 @@ final class ContactsModelTests: XCTestCase {
 			fileSystemService: files
 		)
 		gateway.sendToContactResult = .success(
-			Share(transferId: 1, ticket: "vnd1:x", transferName: "doc", contentHash: "h", fileCount: 1, totalSize: 2)
+			ContactSendOutcome(
+				share: Share(
+					transferId: 1, ticket: "vnd1:x", transferName: "doc",
+					contentHash: "h", fileCount: 1, totalSize: 2
+				),
+				delivered: true
+			)
 		)
 
 		model.chooseFilesToSend(to: "peer")
@@ -274,6 +280,98 @@ final class ContactsModelTests: XCTestCase {
 
 		XCTAssertTrue(files.shareDestinations.isEmpty)
 		XCTAssertTrue(gateway.sentToContacts.isEmpty)
+	}
+
+	/// Polling is opt-in: it tells every contact the app was opened.
+	func testForegroundCheckIsSkippedUnlessEnabled() async {
+		let gateway = FakeCoreGateway()
+		let (model, _) = makeModel(gateway)
+
+		await model.checkForOffersOnForeground()
+
+		XCTAssertEqual(gateway.pollCount, 0)
+	}
+
+	func testForegroundCheckRunsOnceEnabled() async {
+		let gateway = FakeCoreGateway()
+		let (model, preferences) = makeModel(gateway)
+
+		model.setCheckForOffersOnOpen(true)
+		await model.checkForOffersOnForeground()
+
+		XCTAssertEqual(gateway.pollCount, 1)
+		XCTAssertTrue(preferences.preferences.checkForOffersOnOpen)
+	}
+
+	/// The explicit "check now" ignores the setting: the user just asked.
+	func testExplicitCheckRunsEvenWhenTheSettingIsOff() async {
+		let gateway = FakeCoreGateway()
+		gateway.pollResult = .success(2)
+		let (model, _) = makeModel(gateway)
+
+		let collected = await model.collectWaitingOffers()
+
+		XCTAssertEqual(collected, 2)
+		XCTAssertEqual(gateway.pollCount, 1)
+	}
+
+	/// A transfer that could not be delivered is reported as waiting, not as a
+	/// success nobody has received.
+	func testAnUndeliveredSendIsReportedAsWaiting() async {
+		let gateway = FakeCoreGateway()
+		let files = FakeFileSystemService()
+		let defaults = UserDefaults(suiteName: "contacts-held-\(UUID().uuidString)")!
+		let preferences = AppPreferencesRepository(
+			defaults: defaults,
+			fallback: AppPreferencesDefaults(
+				username: "tester",
+				receiveFolder: ReceiveFolder(kind: .fileSystemPath, value: "/tmp", displayName: "Downloads"),
+				themeMode: .system
+			)
+		)
+		let messages = UiMessageController()
+		let model = ContactsModel(
+			repository: gateway,
+			messages: messages,
+			preferences: preferences,
+			fileSystemService: files
+		)
+		gateway.sendToContactResult = .success(
+			ContactSendOutcome(
+				share: Share(
+					transferId: 1, ticket: "vnd1:x", transferName: "doc",
+					contentHash: "h", fileCount: 1, totalSize: 2
+				),
+				delivered: false
+			)
+		)
+
+		model.chooseFilesToSend(to: "peer")
+		await model.onFilesPicked([
+			PickedShareFile(value: "/tmp/doc.txt", displayName: "doc.txt", isDirectory: false)
+		])
+
+		XCTAssertEqual(messages.current?.tone, .info)
+	}
+
+	func testHeldOffersAreLoadedForDisplay() async {
+		let gateway = FakeCoreGateway()
+		gateway.heldOffersResult = .success([
+			HeldOfferModel(
+				offerId: "held-1",
+				endpointId: "peer",
+				transferId: 1,
+				transferName: "doc",
+				fileCount: 1,
+				totalBytes: 2,
+				createdAt: 0
+			)
+		])
+		let (model, _) = makeModel(gateway)
+
+		await model.refresh()
+
+		XCTAssertEqual(model.state.heldOffers.map(\.offerId), ["held-1"])
 	}
 
 	func testUnreachableContactIsSurfacedForRepairing() async {

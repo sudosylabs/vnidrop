@@ -337,6 +337,13 @@
     <string name="contacts_grant_lifetime_title">Забывать неиспользуемые устройства через</string>
     <string name="contacts_grant_lifetime_hint">Отсчёт начинается заново при каждой передаче с устройством.</string>
     <string name="contacts_grant_lifetime_never">Никогда</string>
+    <string name="contacts_check_on_open">Проверять ожидающие передачи</string>
+    <string name="contacts_check_on_open_hint">При открытии VniDrop сохранённые устройства опрашиваются, есть ли у них что-то для вас. Так они узнают, когда вы открыли приложение.</string>
+    <string name="contacts_check_now">Проверить сейчас</string>
+    <string name="contacts_check_none">Ничего не ожидает</string>
+    <string name="contacts_offer_held">Это устройство не открыто. Передача будет доставлена при следующем запуске VniDrop.</string>
+    <string name="contacts_waiting_title">Ожидает доставки</string>
+    <string name="contacts_waiting_hint">Отмените передачу, чтобы отозвать её.</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d файл</item>
         <item quantity="few">%1$d файла</item>

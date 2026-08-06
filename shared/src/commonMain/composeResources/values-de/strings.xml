@@ -337,6 +337,13 @@
     <string name="contacts_grant_lifetime_title">Ungenutzte Geräte entfernen nach</string>
     <string name="contacts_grant_lifetime_hint">Die Frist beginnt bei jeder Übertragung mit dem Gerät neu.</string>
     <string name="contacts_grant_lifetime_never">Nie</string>
+    <string name="contacts_check_on_open">Nach wartenden Übertragungen suchen</string>
+    <string name="contacts_check_on_open_hint">Beim Öffnen von VniDrop werden Ihre gespeicherten Geräte gefragt, ob sie etwas für Sie haben. Dadurch erfahren sie, wann Sie die App geöffnet haben.</string>
+    <string name="contacts_check_now">Jetzt prüfen</string>
+    <string name="contacts_check_none">Nichts wartet</string>
+    <string name="contacts_offer_held">Dieses Gerät ist nicht geöffnet. Die Übertragung wird beim nächsten Öffnen von VniDrop zugestellt.</string>
+    <string name="contacts_waiting_title">Wartet auf Zustellung</string>
+    <string name="contacts_waiting_hint">Brechen Sie die Übertragung ab, um sie zurückzuziehen.</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d Datei</item>
         <item quantity="other">%1$d Dateien</item>

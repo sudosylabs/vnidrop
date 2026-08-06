@@ -176,6 +176,12 @@ final class SettingsModel: ObservableObject {
 		loadDeviceInfo()
 	}
 
+	/// Surfaces "nothing waiting" from the contacts screen, which has no
+	/// message controller of its own.
+	func reportNothingWaiting() {
+		messages.tryShow(UiMessage(text: .resource(L10n.Contacts.checkNone), tone: .info))
+	}
+
 	func selectSection(_ section: SettingsSection) {
 		state.selectedSection = section
 		if section == .about || section == .bugReport {

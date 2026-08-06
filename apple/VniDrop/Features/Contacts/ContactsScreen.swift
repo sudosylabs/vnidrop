@@ -7,6 +7,8 @@ import SwiftUI
 /// not part of the send/receive flow.
 struct ContactsScreen: View {
 	@ObservedObject var model: ContactsModel
+	/// Reports an empty result, which a silent refresh cannot convey.
+	let onNothingWaiting: () -> Void
 
 	var body: some View {
 		Form {
@@ -30,6 +32,24 @@ struct ContactsScreen: View {
 				}
 			}
 
+			if !model.state.heldOffers.isEmpty {
+				Section(String(localized: L10n.Contacts.waitingTitle)) {
+					ForEach(model.state.heldOffers) { offer in
+						VStack(alignment: .leading, spacing: 2) {
+							Text(offer.transferName)
+							Text(String(offer.endpointId.prefix(16)))
+								.font(.caption.monospaced())
+								.foregroundStyle(.secondary)
+								.lineLimit(1)
+								.truncationMode(.middle)
+						}
+					}
+					Text(String(localized: L10n.Contacts.waitingHint))
+						.font(.footnote)
+						.foregroundStyle(.secondary)
+				}
+			}
+
 			if !model.state.blocked.isEmpty {
 				Section(String(localized: L10n.Contacts.blockedTitle)) {
 					ForEach(model.state.blocked, id: \.self) { endpointId in
@@ -42,6 +62,18 @@ struct ContactsScreen: View {
 						.foregroundStyle(.secondary)
 				}
 			}
+
+			CollectOffersSection(
+				enabled: model.state.checkForOffersOnOpen,
+				isChecking: model.state.isCheckingForOffers,
+				onToggle: model.setCheckForOffersOnOpen,
+				onCheckNow: {
+					Task {
+						let collected = await model.collectWaitingOffers()
+						if collected == 0 { onNothingWaiting() }
+					}
+				}
+			)
 
 			GrantLifetimeSection(
 				selection: model.state.grantLifetime,
@@ -125,6 +157,36 @@ private struct BlockedRow: View {
 			Spacer()
 			Button(String(localized: L10n.Contacts.unblock), action: onUnblock)
 				.buttonStyle(.borderless)
+		}
+	}
+}
+
+private struct CollectOffersSection: View {
+	let enabled: Bool
+	let isChecking: Bool
+	let onToggle: (Bool) -> Void
+	let onCheckNow: () -> Void
+
+	var body: some View {
+		Section {
+			Toggle(
+				String(localized: L10n.Contacts.checkOnOpen),
+				isOn: Binding(get: { enabled }, set: onToggle)
+			)
+			Button(action: onCheckNow) {
+				HStack {
+					Text(String(localized: L10n.Contacts.checkNow))
+					if isChecking {
+						Spacer()
+						ProgressView().controlSize(.small)
+					}
+				}
+			}
+			.disabled(isChecking)
+		} footer: {
+			// The privacy cost is the point of the setting, so it is stated
+			// where the switch is, not buried elsewhere.
+			Text(String(localized: L10n.Contacts.checkOnOpenHint))
 		}
 	}
 }

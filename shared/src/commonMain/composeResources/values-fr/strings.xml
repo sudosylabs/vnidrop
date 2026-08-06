@@ -337,6 +337,13 @@
     <string name="contacts_grant_lifetime_title">Oublier les appareils inutilisés après</string>
     <string name="contacts_grant_lifetime_hint">Le décompte redémarre à chaque transfert avec l’appareil.</string>
     <string name="contacts_grant_lifetime_never">Jamais</string>
+    <string name="contacts_check_on_open">Rechercher les transferts en attente</string>
+    <string name="contacts_check_on_open_hint">À l’ouverture de VniDrop, vos appareils enregistrés sont interrogés pour savoir s’ils ont quelque chose pour vous. Cela leur indique quand vous ouvrez l’application.</string>
+    <string name="contacts_check_now">Vérifier maintenant</string>
+    <string name="contacts_check_none">Rien en attente</string>
+    <string name="contacts_offer_held">Cet appareil n’est pas ouvert. Le transfert sera remis à sa prochaine ouverture de VniDrop.</string>
+    <string name="contacts_waiting_title">En attente de remise</string>
+    <string name="contacts_waiting_hint">Annulez le transfert pour le retirer.</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d fichier</item>
         <item quantity="other">%1$d fichiers</item>

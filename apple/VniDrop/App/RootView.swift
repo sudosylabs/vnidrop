@@ -93,6 +93,9 @@ struct RootView: View {
 				// unfocused/occluded (common on macOS) live events may not have
 				// rendered, leaving progress/status stale.
 				Task { _ = await graph.coreRepository.refresh() }
+				// Opt-in and foreground-only: collecting transfers held for this
+				// device also tells every contact that the app was opened.
+				Task { await graph.contactsModel.checkForOffersOnForeground() }
 			case .background:
 				graph.visibility.setForeground(false)
 				// Hold the process open for iOS's grace window so an active

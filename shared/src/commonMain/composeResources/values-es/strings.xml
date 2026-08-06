@@ -337,6 +337,13 @@
     <string name="contacts_grant_lifetime_title">Olvidar dispositivos sin usar tras</string>
     <string name="contacts_grant_lifetime_hint">La cuenta atrás se reinicia cada vez que transfieres con el dispositivo.</string>
     <string name="contacts_grant_lifetime_never">Nunca</string>
+    <string name="contacts_check_on_open">Buscar transferencias en espera</string>
+    <string name="contacts_check_on_open_hint">Al abrir VniDrop, se pregunta a tus dispositivos guardados si tienen algo para ti. Esto les indica cuándo abriste la aplicación.</string>
+    <string name="contacts_check_now">Comprobar ahora</string>
+    <string name="contacts_check_none">Nada en espera</string>
+    <string name="contacts_offer_held">Ese dispositivo no está abierto. La transferencia se entregará la próxima vez que abra VniDrop.</string>
+    <string name="contacts_waiting_title">Pendientes de entrega</string>
+    <string name="contacts_waiting_hint">Cancela la transferencia para retirarla.</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d archivo</item>
         <item quantity="other">%1$d archivos</item>

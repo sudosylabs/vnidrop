@@ -269,6 +269,27 @@ struct IncomingOfferModel: Equatable, Identifiable, Sendable {
 	}
 }
 
+/// A transfer waiting for its target device to come back online.
+struct HeldOfferModel: Equatable, Identifiable, Sendable {
+	let offerId: String
+	let endpointId: String
+	let transferId: UInt64
+	let transferName: String
+	let fileCount: UInt64
+	let totalBytes: UInt64
+	let createdAt: Int64
+
+	var id: String { offerId }
+}
+
+/// Outcome of sending straight to a remembered device.
+struct ContactSendOutcome: Equatable, Sendable {
+	let share: Share
+	/// False when the device was not running: the transfer is held locally and
+	/// collected the next time that device opens the app.
+	let delivered: Bool
+}
+
 /// How long a remembered device stays reachable while unused. The countdown
 /// restarts on every transfer.
 enum GrantLifetimeOption: String, CaseIterable, Identifiable, Sendable {

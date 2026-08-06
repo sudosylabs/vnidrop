@@ -90,7 +90,10 @@ final class FakeCoreGateway: CoreGateway {
 	var respondToPairingResult: Result<Bool, Error> = .success(true)
 	/// Ticket handed back when an offer is accepted; nil models a declined one.
 	var offerTicket: String? = "vnd1:offered"
-	var sendToContactResult: Result<Share, Error> = .failure(TestError.unimplemented)
+	var sendToContactResult: Result<ContactSendOutcome, Error> = .failure(TestError.unimplemented)
+	var heldOffersResult: Result<[HeldOfferModel], Error> = .success([])
+	var pollResult: Result<UInt64, Error> = .success(0)
+	private(set) var pollCount = 0
 	var forgetContactResult: Result<Void, Error> = .success(())
 	var blockedResult: Result<[String], Error> = .success([])
 
@@ -129,9 +132,14 @@ final class FakeCoreGateway: CoreGateway {
 		sources: [ShareSource],
 		transferName: String,
 		senderName: String
-	) async -> Result<Share, Error> {
+	) async -> Result<ContactSendOutcome, Error> {
 		sentToContacts.append(endpointId)
 		return sendToContactResult
+	}
+	func heldOffers() async -> Result<[HeldOfferModel], Error> { heldOffersResult }
+	func pollContactsForOffers() async -> Result<UInt64, Error> {
+		pollCount += 1
+		return pollResult
 	}
 	func forgetContact(endpointId: String) async -> Result<Void, Error> {
 		forgottenContacts.append(endpointId)
@@ -168,13 +176,14 @@ final class FakeFileSystemService: FileSystemService {
 	func canRevealReceiveFolder(_ folder: ReceiveFolder) -> Bool { false }
 	private(set) var shareDestinations: [ShareDestination] = []
 
-	func sharePickedFiles(repository: CoreGateway, files: [PickedShareFile], transferName: String, senderName: String, destination: ShareDestination) async -> Result<Share, Error> {
+	func sharePickedFiles(repository: CoreGateway, files: [PickedShareFile], transferName: String, senderName: String, destination: ShareDestination) async -> Result<ContactSendOutcome, Error> {
 		shareDestinations.append(destination)
 		switch destination {
 		case .invitation(let accessPolicy):
 			return await repository.shareSources(
 				[], transferName: transferName, senderName: senderName, accessPolicy: accessPolicy
 			)
+			.map { ContactSendOutcome(share: $0, delivered: true) }
 		case .contact(let endpointId):
 			return await repository.sendToContact(
 				endpointId: endpointId, sources: [], transferName: transferName, senderName: senderName

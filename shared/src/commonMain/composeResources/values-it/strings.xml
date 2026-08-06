@@ -337,6 +337,13 @@
     <string name="contacts_grant_lifetime_title">Dimentica i dispositivi inutilizzati dopo</string>
     <string name="contacts_grant_lifetime_hint">Il conteggio riparte a ogni trasferimento con il dispositivo.</string>
     <string name="contacts_grant_lifetime_never">Mai</string>
+    <string name="contacts_check_on_open">Cerca trasferimenti in attesa</string>
+    <string name="contacts_check_on_open_hint">All’apertura di VniDrop, ai dispositivi memorizzati viene chiesto se hanno qualcosa per te. Questo rivela loro quando apri l’app.</string>
+    <string name="contacts_check_now">Controlla ora</string>
+    <string name="contacts_check_none">Nulla in attesa</string>
+    <string name="contacts_offer_held">Quel dispositivo non è aperto. Il trasferimento verrà consegnato alla prossima apertura di VniDrop.</string>
+    <string name="contacts_waiting_title">In attesa di consegna</string>
+    <string name="contacts_waiting_hint">Annulla il trasferimento per ritirarlo.</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d file</item>
         <item quantity="other">%1$d file</item>

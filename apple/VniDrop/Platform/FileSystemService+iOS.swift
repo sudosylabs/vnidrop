@@ -60,7 +60,7 @@ struct IosFileSystemService: FileSystemService {
 		transferName: String,
 		senderName: String,
 		destination: ShareDestination
-	) async -> Result<Share, Error> {
+	) async -> Result<ContactSendOutcome, Error> {
 		guard !files.isEmpty else {
 			return .failure(InvitationError.shareEmpty)
 		}
@@ -70,6 +70,7 @@ struct IosFileSystemService: FileSystemService {
 			return await repository.shareSources(
 				sources, transferName: transferName, senderName: senderName, accessPolicy: accessPolicy
 			)
+			.map { ContactSendOutcome(share: $0, delivered: true) }
 		case .contact(let endpointId):
 			return await repository.sendToContact(
 				endpointId: endpointId, sources: sources,

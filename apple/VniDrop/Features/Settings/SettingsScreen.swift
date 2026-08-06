@@ -93,7 +93,9 @@ struct SettingsScreen: View {
 		// Contacts brings its own Form and push destination, so it is not wrapped
 		// in the shared section chrome.
 		if section == .contacts {
-			ContactsScreen(model: contacts)
+			ContactsScreen(model: contacts) {
+				model.reportNothingWaiting()
+			}
 		} else {
 			settingsSectionForm(section)
 		}

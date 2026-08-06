@@ -403,13 +403,27 @@ Dialing contacts on launch tells them when the app was opened and reveals the
 device's address to them — precisely the leak §1 avoids by refusing background
 presence polling. The pull is therefore bounded rather than automatic:
 
-- It runs only for contacts the user has explicitly marked as allowed to be
-  checked, or on an explicit "check for incoming" action.
+- It is **off by default**, behind a single setting whose own footer states the
+  cost, plus an explicit "Check now" action that works regardless.
 - It never runs in the background, only on an actual foreground transition.
-- It is rate-limited per contact, so repeated app switching does not turn into a
-  presence beacon.
+- It is rate-limited per contact (5 minutes), so repeated app switching does not
+  turn into a presence beacon.
 
-### 11.4 Scope statement for the UI
+**Deviation from the original draft, as built.** This specified a *per-contact*
+opt-in. What shipped is one global toggle, which is coarser: enabling it polls
+every contact rather than a chosen few. Per-contact control needs a schema
+column and a control on each device's detail screen, and the global switch with
+an honest footer covers the same threat — the user still decides whether their
+app-open times are revealed at all. Worth revisiting if anyone keeps contacts
+they would rather not signal to.
+
+### 11.4 What the sender sees
+
+A held offer is listed on the sender's device with its target, and withdrawing
+it is cancelling the transfer — stopping the share deletes the waiting ticket,
+so a cancelled transfer can never be collected afterwards.
+
+### 11.5 Scope statement for the UI
 
 Mobile-to-mobile transfer with both apps closed is not supported and must not be
 implied. The contact list distinguishes "reachable now" from "will be delivered

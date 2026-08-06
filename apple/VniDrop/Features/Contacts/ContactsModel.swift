@@ -32,6 +32,10 @@ struct ContactsState: Equatable {
 	var busyEndpoints: Set<String> = []
 	var busyOfferIds: Set<String> = []
 	var suggestions: [PairingSuggestion] = []
+	/// Transfers this device is holding for contacts that were not running.
+	var heldOffers: [HeldOfferModel] = []
+	var checkForOffersOnOpen = false
+	var isCheckingForOffers = false
 	var selectedEndpointId: String?
 
 	var selected: DeviceContact? {
@@ -75,6 +79,7 @@ final class ContactsModel: ObservableObject {
 		self.preferences = preferences
 		self.fileSystemService = fileSystemService
 		state.grantLifetime = preferences.preferences.grantLifetime
+		state.checkForOffersOnOpen = preferences.preferences.checkForOffersOnOpen
 
 		repository.signals
 			.sink { [weak self] signal in
@@ -129,6 +134,9 @@ final class ContactsModel: ObservableObject {
 		}
 		if case .success(let blocked) = await repository.blockedContacts() {
 			state.blocked = blocked
+		}
+		if case .success(let held) = await repository.heldOffers() {
+			state.heldOffers = held
 		}
 		state.pendingPairings = await repository.pendingPairings()
 		await refreshOffers()
@@ -203,6 +211,40 @@ final class ContactsModel: ObservableObject {
 	func declineSuggestion(_ suggestion: PairingSuggestion) {
 		state.suggestions.removeAll { $0.endpointId == suggestion.endpointId }
 		preferences.declinePairingSuggestion(suggestion.endpointId)
+	}
+
+	// MARK: - Collecting waiting transfers
+
+	func setCheckForOffersOnOpen(_ enabled: Bool) {
+		state.checkForOffersOnOpen = enabled
+		preferences.setCheckForOffersOnOpen(enabled)
+	}
+
+	/// Called when the app comes to the foreground.
+	///
+	/// Opt-in, because asking every contact whether they have something waiting
+	/// also tells them the app was opened. Never runs in the background.
+	func checkForOffersOnForeground() async {
+		guard state.checkForOffersOnOpen else { return }
+		_ = await collectWaitingOffers()
+	}
+
+	/// Explicit "check now". Returns how many transfers were collected so the
+	/// caller can report an empty result, which a silent refresh cannot.
+	@discardableResult
+	func collectWaitingOffers() async -> UInt64 {
+		guard !state.isCheckingForOffers else { return 0 }
+		state.isCheckingForOffers = true
+		defer { state.isCheckingForOffers = false }
+
+		switch await repository.pollContactsForOffers() {
+		case .success(let collected):
+			await refreshOffers()
+			return collected
+		case .failure(let error):
+			messages.error(error)
+			return 0
+		}
 	}
 
 	// MARK: - Selection
@@ -290,8 +332,13 @@ final class ContactsModel: ObservableObject {
 		)
 		await fileSystemService.discardPickedFiles(files)
 		switch result {
-		case .success:
-			messages.tryShow(UiMessage(text: .resource(L10n.Send.transferCreated), tone: .success))
+		case .success(let outcome):
+			// A closed app is a delay, not a failure: say so rather than
+			// reporting success for something nobody has received.
+			let text: UiText = outcome.delivered
+				? .resource(L10n.Send.transferCreated)
+				: .resource(L10n.Contacts.offerHeld)
+			messages.tryShow(UiMessage(text: text, tone: outcome.delivered ? .success : .info))
 			await refresh()
 		case .failure(let error):
 			messages.error(error)

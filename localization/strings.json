@@ -5124,6 +5124,104 @@
           "other": "{count} дня"
         }
       }
+    },
+    "contacts_check_on_open": {
+      "context": "Devices settings: toggle to check remembered devices for waiting transfers when the app opens.",
+      "translations": {
+        "en": "Check for waiting transfers",
+        "fr": "Rechercher les transferts en attente",
+        "es": "Buscar transferencias en espera",
+        "it": "Cerca trasferimenti in attesa",
+        "de": "Nach wartenden Übertragungen suchen",
+        "pt": "Procurar transferências em espera",
+        "pl": "Sprawdzaj oczekujące przesyłki",
+        "nl": "Controleren op wachtende overdrachten",
+        "ru": "Проверять ожидающие передачи"
+      }
+    },
+    "contacts_check_on_open_hint": {
+      "context": "Devices settings: warns that checking reveals to remembered devices when the app is opened.",
+      "translations": {
+        "en": "When you open VniDrop, your remembered devices are asked whether they have anything for you. This tells them when you opened the app.",
+        "fr": "À l’ouverture de VniDrop, vos appareils enregistrés sont interrogés pour savoir s’ils ont quelque chose pour vous. Cela leur indique quand vous ouvrez l’application.",
+        "es": "Al abrir VniDrop, se pregunta a tus dispositivos guardados si tienen algo para ti. Esto les indica cuándo abriste la aplicación.",
+        "it": "All’apertura di VniDrop, ai dispositivi memorizzati viene chiesto se hanno qualcosa per te. Questo rivela loro quando apri l’app.",
+        "de": "Beim Öffnen von VniDrop werden Ihre gespeicherten Geräte gefragt, ob sie etwas für Sie haben. Dadurch erfahren sie, wann Sie die App geöffnet haben.",
+        "pt": "Ao abrir o VniDrop, os dispositivos guardados são questionados se têm algo para si. Isto revela-lhes quando abriu a aplicação.",
+        "pl": "Po otwarciu VniDrop zapamiętane urządzenia są pytane, czy mają coś dla Ciebie. Dzięki temu wiedzą, kiedy otwierasz aplikację.",
+        "nl": "Bij het openen van VniDrop wordt aan je onthouden apparaten gevraagd of ze iets voor je hebben. Zij weten daardoor wanneer je de app opende.",
+        "ru": "При открытии VniDrop сохранённые устройства опрашиваются, есть ли у них что-то для вас. Так они узнают, когда вы открыли приложение."
+      }
+    },
+    "contacts_check_now": {
+      "context": "Devices screen: button that checks remembered devices for waiting transfers right now.",
+      "translations": {
+        "en": "Check now",
+        "fr": "Vérifier maintenant",
+        "es": "Comprobar ahora",
+        "it": "Controlla ora",
+        "de": "Jetzt prüfen",
+        "pt": "Verificar agora",
+        "pl": "Sprawdź teraz",
+        "nl": "Nu controleren",
+        "ru": "Проверить сейчас"
+      }
+    },
+    "contacts_check_none": {
+      "context": "Devices screen: result message when no device had anything waiting.",
+      "translations": {
+        "en": "Nothing waiting",
+        "fr": "Rien en attente",
+        "es": "Nada en espera",
+        "it": "Nulla in attesa",
+        "de": "Nichts wartet",
+        "pt": "Nada em espera",
+        "pl": "Nic nie czeka",
+        "nl": "Niets in de wacht",
+        "ru": "Ничего не ожидает"
+      }
+    },
+    "contacts_offer_held": {
+      "context": "Shown after sending to a device that was not running: the transfer waits for it to open the app.",
+      "translations": {
+        "en": "That device is not open. The transfer will be delivered the next time it opens VniDrop.",
+        "fr": "Cet appareil n’est pas ouvert. Le transfert sera remis à sa prochaine ouverture de VniDrop.",
+        "es": "Ese dispositivo no está abierto. La transferencia se entregará la próxima vez que abra VniDrop.",
+        "it": "Quel dispositivo non è aperto. Il trasferimento verrà consegnato alla prossima apertura di VniDrop.",
+        "de": "Dieses Gerät ist nicht geöffnet. Die Übertragung wird beim nächsten Öffnen von VniDrop zugestellt.",
+        "pt": "Esse dispositivo não está aberto. A transferência será entregue da próxima vez que abrir o VniDrop.",
+        "pl": "To urządzenie nie jest otwarte. Przesyłka zostanie dostarczona przy następnym uruchomieniu VniDrop.",
+        "nl": "Dat apparaat is niet geopend. De overdracht wordt bezorgd zodra het VniDrop weer opent.",
+        "ru": "Это устройство не открыто. Передача будет доставлена при следующем запуске VniDrop."
+      }
+    },
+    "contacts_waiting_title": {
+      "context": "Devices screen: section listing transfers waiting for their target device to come online.",
+      "translations": {
+        "en": "Waiting to be delivered",
+        "fr": "En attente de remise",
+        "es": "Pendientes de entrega",
+        "it": "In attesa di consegna",
+        "de": "Wartet auf Zustellung",
+        "pt": "A aguardar entrega",
+        "pl": "Oczekuje na dostarczenie",
+        "nl": "Wacht op bezorging",
+        "ru": "Ожидает доставки"
+      }
+    },
+    "contacts_waiting_hint": {
+      "context": "Devices screen: explains that a waiting transfer is withdrawn by cancelling it.",
+      "translations": {
+        "en": "Cancel the transfer to withdraw it.",
+        "fr": "Annulez le transfert pour le retirer.",
+        "es": "Cancela la transferencia para retirarla.",
+        "it": "Annulla il trasferimento per ritirarlo.",
+        "de": "Brechen Sie die Übertragung ab, um sie zurückzuziehen.",
+        "pt": "Cancele a transferência para a retirar.",
+        "pl": "Anuluj przesyłkę, aby ją wycofać.",
+        "nl": "Annuleer de overdracht om die in te trekken.",
+        "ru": "Отмените передачу, чтобы отозвать её."
+      }
     }
   }
 }

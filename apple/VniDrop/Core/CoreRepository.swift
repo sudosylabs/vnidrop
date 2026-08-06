@@ -335,7 +335,7 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		sources: [ShareSource],
 		transferName: String,
 		senderName: String
-	) async -> Result<Share, Error> {
+	) async -> Result<ContactSendOutcome, Error> {
 		guard !isNetworkTransitionInProgress else {
 			return .failure(CoreNetworkLifecycleError.transitionInProgress)
 		}
@@ -355,8 +355,16 @@ final class CoreRepository: ObservableObject, CoreGateway {
 					accessMode: .approvalRequired
 				)
 			)
-			return result.toModel()
+			return ContactSendOutcome(share: result.share.toModel(), delivered: result.delivered)
 		}
+	}
+
+	func heldOffers() async -> Result<[HeldOfferModel], Error> {
+		await runCore { try self.requireCore().listHeldOffers().map { $0.toModel() } }
+	}
+
+	func pollContactsForOffers() async -> Result<UInt64, Error> {
+		await runCore { try self.requireCore().pollContactsForOffers() }
 	}
 
 	func forgetContact(endpointId: String) async -> Result<Void, Error> {
@@ -653,6 +661,20 @@ extension IncomingOffer {
 			fileCount: fileCount,
 			totalBytes: totalBytes,
 			receivedAt: receivedAt
+		)
+	}
+}
+
+extension HeldOfferSummary {
+	func toModel() -> HeldOfferModel {
+		HeldOfferModel(
+			offerId: offerId,
+			endpointId: endpointId,
+			transferId: transferId,
+			transferName: transferName,
+			fileCount: fileCount,
+			totalBytes: totalBytes,
+			createdAt: createdAt
 		)
 	}
 }

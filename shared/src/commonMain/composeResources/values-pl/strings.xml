@@ -337,6 +337,13 @@
     <string name="contacts_grant_lifetime_title">Zapomnij nieużywane urządzenia po</string>
     <string name="contacts_grant_lifetime_hint">Odliczanie zaczyna się od nowa przy każdym przesłaniu.</string>
     <string name="contacts_grant_lifetime_never">Nigdy</string>
+    <string name="contacts_check_on_open">Sprawdzaj oczekujące przesyłki</string>
+    <string name="contacts_check_on_open_hint">Po otwarciu VniDrop zapamiętane urządzenia są pytane, czy mają coś dla Ciebie. Dzięki temu wiedzą, kiedy otwierasz aplikację.</string>
+    <string name="contacts_check_now">Sprawdź teraz</string>
+    <string name="contacts_check_none">Nic nie czeka</string>
+    <string name="contacts_offer_held">To urządzenie nie jest otwarte. Przesyłka zostanie dostarczona przy następnym uruchomieniu VniDrop.</string>
+    <string name="contacts_waiting_title">Oczekuje na dostarczenie</string>
+    <string name="contacts_waiting_hint">Anuluj przesyłkę, aby ją wycofać.</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d plik</item>
         <item quantity="few">%1$d pliki</item>

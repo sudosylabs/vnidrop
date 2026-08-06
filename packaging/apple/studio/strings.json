@@ -1,0 +1,69 @@
+{
+  "_comment": "Marketing captions for App Store screenshots. NOT app strings — these live only here. Translations below the English source are a first pass and should be reviewed by a native speaker.",
+  "screens": ["choose-receivers", "send-anywhere", "share-securely", "stay-private"],
+  "locales": {
+    "en": {
+      "_folder": "English",
+      "choose-receivers": { "title": "Choose Receivers", "subtitle": "Approve each person invited" },
+      "send-anywhere":    { "title": "Send Anywhere",    "subtitle": "Direct file transfer worldwide" },
+      "share-securely":   { "title": "Share Securely",   "subtitle": "QR, NFC or file" },
+      "stay-private":     { "title": "Stay Private",     "subtitle": "Encrypted with no server copy" }
+    },
+    "fr": {
+      "_folder": "French",
+      "choose-receivers": { "title": "Choisissez les destinataires", "subtitle": "Approuvez chaque personne invitée" },
+      "send-anywhere":    { "title": "Envoyez partout",               "subtitle": "Transfert direct dans le monde entier" },
+      "share-securely":   { "title": "Partagez en sécurité",          "subtitle": "QR, NFC ou fichier" },
+      "stay-private":     { "title": "Restez privé",                  "subtitle": "Chiffré, sans copie serveur" }
+    },
+    "de": {
+      "_folder": "German",
+      "choose-receivers": { "title": "Empfänger auswählen",  "subtitle": "Jede eingeladene Person bestätigen" },
+      "send-anywhere":    { "title": "Überallhin senden",    "subtitle": "Direkte Dateiübertragung weltweit" },
+      "share-securely":   { "title": "Sicher teilen",        "subtitle": "QR, NFC oder Datei" },
+      "stay-private":     { "title": "Privat bleiben",       "subtitle": "Verschlüsselt, ohne Server-Kopie" }
+    },
+    "es": {
+      "_folder": "Spanish",
+      "choose-receivers": { "title": "Elige destinatarios",       "subtitle": "Aprueba a cada invitado" },
+      "send-anywhere":    { "title": "Envía a cualquier lugar",   "subtitle": "Transferencia directa en todo el mundo" },
+      "share-securely":   { "title": "Comparte con seguridad",    "subtitle": "QR, NFC o archivo" },
+      "stay-private":     { "title": "Mantén la privacidad",      "subtitle": "Cifrado, sin copia en servidor" }
+    },
+    "it": {
+      "_folder": "Italian",
+      "choose-receivers": { "title": "Scegli i destinatari",  "subtitle": "Approva ogni invitato" },
+      "send-anywhere":    { "title": "Invia ovunque",         "subtitle": "Trasferimento diretto in tutto il mondo" },
+      "share-securely":   { "title": "Condividi in sicurezza","subtitle": "QR, NFC o file" },
+      "stay-private":     { "title": "Resta privato",         "subtitle": "Crittografato, senza copia sul server" }
+    },
+    "nl": {
+      "_folder": "Dutch",
+      "choose-receivers": { "title": "Kies ontvangers",   "subtitle": "Keur elke genodigde goed" },
+      "send-anywhere":    { "title": "Verstuur overal",   "subtitle": "Directe bestandsoverdracht wereldwijd" },
+      "share-securely":   { "title": "Deel veilig",       "subtitle": "QR, NFC of bestand" },
+      "stay-private":     { "title": "Blijf privé",       "subtitle": "Versleuteld, geen serverkopie" }
+    },
+    "pl": {
+      "_folder": "Polish",
+      "choose-receivers": { "title": "Wybierz odbiorców",       "subtitle": "Zatwierdź każdą zaproszoną osobę" },
+      "send-anywhere":    { "title": "Wysyłaj wszędzie",        "subtitle": "Bezpośredni transfer plików na całym świecie" },
+      "share-securely":   { "title": "Udostępniaj bezpiecznie", "subtitle": "Kod QR, NFC lub plik" },
+      "stay-private":     { "title": "Zachowaj prywatność",     "subtitle": "Szyfrowane, bez kopii na serwerze" }
+    },
+    "pt": {
+      "_folder": "Portuguese",
+      "choose-receivers": { "title": "Escolha os destinatários",   "subtitle": "Aprove cada pessoa convidada" },
+      "send-anywhere":    { "title": "Envie para qualquer lugar",  "subtitle": "Transferência direta pelo mundo todo" },
+      "share-securely":   { "title": "Compartilhe com segurança",  "subtitle": "QR, NFC ou arquivo" },
+      "stay-private":     { "title": "Mantenha a privacidade",     "subtitle": "Criptografado, sem cópia no servidor" }
+    },
+    "ru": {
+      "_folder": "Russian",
+      "choose-receivers": { "title": "Выбирайте получателей",    "subtitle": "Подтверждайте каждого приглашённого" },
+      "send-anywhere":    { "title": "Отправляйте куда угодно",  "subtitle": "Прямая передача файлов по всему миру" },
+      "share-securely":   { "title": "Делитесь безопасно",      "subtitle": "QR, NFC или файл" },
+      "stay-private":     { "title": "Оставайтесь приватными",  "subtitle": "Шифрование без копии на сервере" }
+    }
+  }
+}

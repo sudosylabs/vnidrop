@@ -12,24 +12,39 @@ struct RootView: View {
 
 	@Environment(\.scenePhase) private var scenePhase
 
+	#if DEBUG
+	@State private var screenshotScenario: ScreenshotScenario?
+	#endif
+
 	init(dependencies: AppDependencies) {
+		#if DEBUG
+		let scenario = ScreenshotScenario.current
+		let graph = AppGraph(
+			dependencies: dependencies,
+			coreGateway: scenario.map { ScreenshotCoreGateway(scenario: $0) }
+		)
+		_screenshotScenario = State(initialValue: scenario)
+		#else
 		let graph = AppGraph(dependencies: dependencies)
+		#endif
 		_graph = StateObject(wrappedValue: graph)
+		// The feature models observe `graph.gateway` — the real core normally, or the
+		// injected screenshot fixture — so a screenshot build never starts the core.
 		_appModel = StateObject(wrappedValue: AppModel(
 			environment: dependencies.environment,
-			repository: graph.coreRepository,
+			repository: graph.gateway,
 			preferences: graph.preferencesRepository,
 			messages: graph.messages
 		))
 		_sendModel = StateObject(wrappedValue: SendModel(
-			repository: graph.coreRepository,
+			repository: graph.gateway,
 			fileSystemService: dependencies.fileSystemService,
 			preferences: graph.preferencesRepository,
 			filePreviewRepository: graph.filePreviewRepository,
 			messages: graph.messages
 		))
 		_receiveModel = StateObject(wrappedValue: ReceiveModel(
-			repository: graph.coreRepository,
+			repository: graph.gateway,
 			fileSystemService: dependencies.fileSystemService,
 			preferences: graph.preferencesRepository,
 			messages: graph.messages
@@ -38,7 +53,7 @@ struct RootView: View {
 			environment: dependencies.environment,
 			deviceInfoProvider: dependencies.deviceInfoProvider,
 			fileSystemService: dependencies.fileSystemService,
-			repository: graph.coreRepository,
+			repository: graph.gateway,
 			preferences: graph.preferencesRepository,
 			notifications: dependencies.notificationService,
 			messages: graph.messages,
@@ -78,6 +93,15 @@ struct RootView: View {
 		}
 		.platformPickers(settingsModel: settingsModel)
 		.task { await consumeExternalInvitations() }
+		#if DEBUG
+		// Once the (fixture) core reports ready, drive the app into the target screen.
+		.task(id: sendModel.coreState.isInitialized) {
+			guard let scenario = screenshotScenario, sendModel.coreState.isInitialized else { return }
+			appModel.selectDestination(.send)
+			sendModel.openTransfer(ScreenshotCoreGateway.transferId)
+			if scenario == .share { sendModel.openShare() }
+		}
+		#endif
 		.onChange(of: scenePhase) { _, phase in
 			switch phase {
 			case .active:

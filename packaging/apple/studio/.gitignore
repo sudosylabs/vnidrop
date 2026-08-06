@@ -1,0 +1,8 @@
+generated/
+out-*.png
+assets/shots/**/*.png
+assets/mockup-*.png
+assets/mask-*.png
+assets/globe.png
+assets/ribbon.png
+!assets/README.md

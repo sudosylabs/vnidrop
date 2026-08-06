@@ -7,6 +7,10 @@ import Combine
 final class AppGraph: ObservableObject {
 	let dependencies: AppDependencies
 	let coreRepository: CoreRepository
+	/// The gateway the feature models and coordinators observe. Normally the real
+	/// `coreRepository`; in screenshot builds a fixture is injected so the UI shows
+	/// deterministic content without the Rust core (see `ScreenshotSupport`).
+	let gateway: CoreGateway
 	let visibility = AppVisibility()
 	let messages = UiMessageController()
 	let preferencesRepository: AppPreferencesRepository
@@ -15,10 +19,12 @@ final class AppGraph: ObservableObject {
 	let transferNotificationCoordinator: TransferNotificationCoordinator
 	let backgroundActivity: BackgroundActivityController
 
-	init(dependencies: AppDependencies, coreRepository: CoreRepository? = nil) {
+	init(dependencies: AppDependencies, coreRepository: CoreRepository? = nil, coreGateway: CoreGateway? = nil) {
 		self.dependencies = dependencies
 		let coreRepository = coreRepository ?? CoreRepository()
 		self.coreRepository = coreRepository
+		let gateway = coreGateway ?? coreRepository
+		self.gateway = gateway
 		self.filePreviewRepository = FilePreviewRepository(appDataDir: dependencies.environment.defaultCoreDataDir)
 		self.preferencesRepository = AppPreferencesRepository(
 			fallback: AppPreferencesDefaults(
@@ -28,13 +34,13 @@ final class AppGraph: ObservableObject {
 			)
 		)
 		self.approvalCoordinator = ApprovalCoordinator(
-			repository: coreRepository,
+			repository: gateway,
 			notifications: dependencies.notificationService,
 			visibility: visibility,
 			messages: messages
 		)
 		self.transferNotificationCoordinator = TransferNotificationCoordinator(
-			repository: coreRepository,
+			repository: gateway,
 			notifications: dependencies.notificationService,
 			visibility: visibility,
 			messages: messages

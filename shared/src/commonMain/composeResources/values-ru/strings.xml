@@ -306,10 +306,47 @@
     <string name="transfer_share_title">Поделиться</string>
     <string name="value_unavailable">Недоступно</string>
     <string name="version_title">Версия приложения</string>
+    <string name="contacts_title">Устройства</string>
+    <string name="contacts_subtitle">Устройства, с которыми вы уже обменивались файлами, могут получать их без нового приглашения.</string>
+    <string name="contacts_empty_title">Нет сохранённых устройств</string>
+    <string name="contacts_empty_body">После передачи оба устройства могут запомнить друг друга.</string>
+    <string name="contacts_unreachable">Требуется повторное сопряжение</string>
+    <string name="contacts_unreachable_body">Это устройство отозвало доступ или переустановило VniDrop. Выполните новую передачу, чтобы снова его запомнить.</string>
+    <string name="contacts_name_field">Имя на этом устройстве</string>
+    <string name="contacts_name_hint">Это имя видите только вы. Другое устройство не может его изменить.</string>
+    <string name="contacts_forget">Забыть устройство</string>
+    <string name="contacts_forget_body">Это устройство больше не сможет отправлять вам файлы без нового приглашения. Уже полученные файлы сохранятся.</string>
+    <string name="contacts_forget_all">Забыть все устройства</string>
+    <string name="contacts_block">Заблокировать устройство</string>
+    <string name="contacts_blocked_title">Заблокированные устройства</string>
+    <string name="contacts_unblock">Разблокировать</string>
+    <string name="contacts_unblock_hint">Разблокировка не восстанавливает доступ. Устройство нужно сопрячь заново.</string>
+    <string name="contacts_send_to">Отправить файлы</string>
+    <string name="contacts_last_transfer">Последняя передача %1$s</string>
+    <string name="pairing_request_title">Запомнить это устройство?</string>
+    <string name="pairing_request_body">%1$s разрешает отправлять файлы без нового приглашения.</string>
+    <string name="pairing_accept">Запомнить</string>
+    <string name="pairing_decline">Не сейчас</string>
+    <string name="pairing_allow_title">Разрешить этому устройству отправлять вам файлы?</string>
+    <string name="pairing_allow_body">Вы по-прежнему будете подтверждать каждую передачу и сможете отозвать разрешение в любой момент.</string>
+    <string name="pairing_allow_confirm">Разрешить</string>
+    <string name="offer_title">Входящая передача</string>
+    <string name="offer_body">%1$s хочет отправить вам «%2$s».</string>
+    <string name="offer_accept">Получить</string>
+    <string name="offer_decline">Отклонить</string>
+    <string name="contacts_grant_lifetime_title">Забывать неиспользуемые устройства через</string>
+    <string name="contacts_grant_lifetime_hint">Отсчёт начинается заново при каждой передаче с устройством.</string>
+    <string name="contacts_grant_lifetime_never">Никогда</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d файл</item>
         <item quantity="few">%1$d файла</item>
         <item quantity="many">%1$d файлов</item>
         <item quantity="other">%1$d файла</item>
+    </plurals>
+    <plurals name="contacts_grant_lifetime_days">
+        <item quantity="one">%1$d день</item>
+        <item quantity="few">%1$d дня</item>
+        <item quantity="many">%1$d дней</item>
+        <item quantity="other">%1$d дня</item>
     </plurals>
 </resources>

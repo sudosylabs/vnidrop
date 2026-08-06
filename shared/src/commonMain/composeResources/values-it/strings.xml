@@ -306,8 +306,43 @@
     <string name="transfer_share_title">Condividi</string>
     <string name="value_unavailable">Non disponibile</string>
     <string name="version_title">Versione dell’app</string>
+    <string name="contacts_title">Dispositivi</string>
+    <string name="contacts_subtitle">I dispositivi con cui hai già scambiato file possono riceverne altri senza un nuovo invito.</string>
+    <string name="contacts_empty_title">Nessun dispositivo memorizzato</string>
+    <string name="contacts_empty_body">Dopo un trasferimento, entrambi i dispositivi possono scegliere di ricordarsi a vicenda.</string>
+    <string name="contacts_unreachable">Richiede un nuovo abbinamento</string>
+    <string name="contacts_unreachable_body">Questo dispositivo ha revocato l’accesso o ha reinstallato VniDrop. Effettua un altro trasferimento per memorizzarlo di nuovo.</string>
+    <string name="contacts_name_field">Nome su questo dispositivo</string>
+    <string name="contacts_name_hint">Solo tu vedi questo nome. L’altro dispositivo non può mai modificarlo.</string>
+    <string name="contacts_forget">Dimentica dispositivo</string>
+    <string name="contacts_forget_body">Questo dispositivo non potrà più inviarti file senza un nuovo invito. I file già ricevuti vengono conservati.</string>
+    <string name="contacts_forget_all">Dimentica tutti i dispositivi</string>
+    <string name="contacts_block">Blocca dispositivo</string>
+    <string name="contacts_blocked_title">Dispositivi bloccati</string>
+    <string name="contacts_unblock">Sblocca</string>
+    <string name="contacts_unblock_hint">Sbloccare non ripristina l’accesso. Il dispositivo deve essere abbinato di nuovo.</string>
+    <string name="contacts_send_to">Invia file</string>
+    <string name="contacts_last_transfer">Ultimo trasferimento %1$s</string>
+    <string name="pairing_request_title">Ricordare questo dispositivo?</string>
+    <string name="pairing_request_body">%1$s ti consente di inviargli file senza un nuovo invito.</string>
+    <string name="pairing_accept">Ricorda</string>
+    <string name="pairing_decline">Non ora</string>
+    <string name="pairing_allow_title">Consentire a questo dispositivo di inviarti file?</string>
+    <string name="pairing_allow_body">Confermerai comunque ogni trasferimento e potrai revocare questa autorizzazione in qualsiasi momento.</string>
+    <string name="pairing_allow_confirm">Consenti</string>
+    <string name="offer_title">Trasferimento in arrivo</string>
+    <string name="offer_body">%1$s vuole inviarti «%2$s».</string>
+    <string name="offer_accept">Ricevi</string>
+    <string name="offer_decline">Rifiuta</string>
+    <string name="contacts_grant_lifetime_title">Dimentica i dispositivi inutilizzati dopo</string>
+    <string name="contacts_grant_lifetime_hint">Il conteggio riparte a ogni trasferimento con il dispositivo.</string>
+    <string name="contacts_grant_lifetime_never">Mai</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d file</item>
         <item quantity="other">%1$d file</item>
+    </plurals>
+    <plurals name="contacts_grant_lifetime_days">
+        <item quantity="one">%1$d giorno</item>
+        <item quantity="other">%1$d giorni</item>
     </plurals>
 </resources>

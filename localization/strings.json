@@ -4617,6 +4617,513 @@
         "nl": "App-versie",
         "ru": "Версия приложения"
       }
+    },
+    "contacts_title": {
+      "context": "Devices screen: title of the list of remembered devices.",
+      "translations": {
+        "en": "Devices",
+        "fr": "Appareils",
+        "es": "Dispositivos",
+        "it": "Dispositivi",
+        "de": "Geräte",
+        "pt": "Dispositivos",
+        "pl": "Urządzenia",
+        "nl": "Apparaten",
+        "ru": "Устройства"
+      }
+    },
+    "contacts_subtitle": {
+      "context": "Devices screen: one-line explanation under the title.",
+      "translations": {
+        "en": "Devices you have transferred with can receive files without a new invitation.",
+        "fr": "Les appareils avec lesquels vous avez déjà échangé peuvent recevoir des fichiers sans nouvelle invitation.",
+        "es": "Los dispositivos con los que ya has compartido pueden recibir archivos sin una nueva invitación.",
+        "it": "I dispositivi con cui hai già scambiato file possono riceverne altri senza un nuovo invito.",
+        "de": "Geräte, mit denen Sie bereits Dateien ausgetauscht haben, können ohne neue Einladung Dateien empfangen.",
+        "pt": "Os dispositivos com os quais já transferiu podem receber ficheiros sem um novo convite.",
+        "pl": "Urządzenia, z którymi już przesyłano pliki, mogą je odbierać bez nowego zaproszenia.",
+        "nl": "Apparaten waarmee je al hebt overgedragen, kunnen bestanden ontvangen zonder nieuwe uitnodiging.",
+        "ru": "Устройства, с которыми вы уже обменивались файлами, могут получать их без нового приглашения."
+      }
+    },
+    "contacts_empty_title": {
+      "context": "Devices screen: empty-state title when no device has been remembered yet.",
+      "translations": {
+        "en": "No remembered devices",
+        "fr": "Aucun appareil enregistré",
+        "es": "Ningún dispositivo guardado",
+        "it": "Nessun dispositivo memorizzato",
+        "de": "Keine gespeicherten Geräte",
+        "pt": "Nenhum dispositivo guardado",
+        "pl": "Brak zapamiętanych urządzeń",
+        "nl": "Geen onthouden apparaten",
+        "ru": "Нет сохранённых устройств"
+      }
+    },
+    "contacts_empty_body": {
+      "context": "Devices screen: empty-state explanation of how a device gets remembered.",
+      "translations": {
+        "en": "After a transfer, both devices can choose to remember each other.",
+        "fr": "Après un transfert, les deux appareils peuvent choisir de se mémoriser mutuellement.",
+        "es": "Tras una transferencia, ambos dispositivos pueden elegir recordarse mutuamente.",
+        "it": "Dopo un trasferimento, entrambi i dispositivi possono scegliere di ricordarsi a vicenda.",
+        "de": "Nach einer Übertragung können beide Geräte einander speichern.",
+        "pt": "Após uma transferência, ambos os dispositivos podem optar por lembrar-se um do outro.",
+        "pl": "Po przesłaniu plików oba urządzenia mogą zapamiętać się nawzajem.",
+        "nl": "Na een overdracht kunnen beide apparaten elkaar onthouden.",
+        "ru": "После передачи оба устройства могут запомнить друг друга."
+      }
+    },
+    "contacts_unreachable": {
+      "context": "Devices screen: badge on a device that can no longer be sent to.",
+      "translations": {
+        "en": "Needs pairing again",
+        "fr": "Nouvel appairage nécessaire",
+        "es": "Requiere emparejar de nuevo",
+        "it": "Richiede un nuovo abbinamento",
+        "de": "Muss erneut gekoppelt werden",
+        "pt": "É preciso emparelhar novamente",
+        "pl": "Wymaga ponownego sparowania",
+        "nl": "Opnieuw koppelen vereist",
+        "ru": "Требуется повторное сопряжение"
+      }
+    },
+    "contacts_unreachable_body": {
+      "context": "Device detail: explains why a remembered device can no longer be reached.",
+      "translations": {
+        "en": "This device withdrew access, or reinstalled VniDrop. Transfer to it once more to remember it again.",
+        "fr": "Cet appareil a retiré l’accès ou a réinstallé VniDrop. Effectuez un nouveau transfert pour le mémoriser à nouveau.",
+        "es": "Este dispositivo retiró el acceso o reinstaló VniDrop. Realiza otra transferencia para volver a recordarlo.",
+        "it": "Questo dispositivo ha revocato l’accesso o ha reinstallato VniDrop. Effettua un altro trasferimento per memorizzarlo di nuovo.",
+        "de": "Dieses Gerät hat den Zugriff entzogen oder VniDrop neu installiert. Übertragen Sie erneut, um es wieder zu speichern.",
+        "pt": "Este dispositivo retirou o acesso ou reinstalou o VniDrop. Faça outra transferência para o voltar a guardar.",
+        "pl": "To urządzenie cofnęło dostęp lub ponownie zainstalowało VniDrop. Wykonaj kolejne przesłanie, aby zapamiętać je ponownie.",
+        "nl": "Dit apparaat heeft de toegang ingetrokken of VniDrop opnieuw geïnstalleerd. Draag opnieuw over om het weer te onthouden.",
+        "ru": "Это устройство отозвало доступ или переустановило VniDrop. Выполните новую передачу, чтобы снова его запомнить."
+      }
+    },
+    "contacts_name_field": {
+      "context": "Device detail: text field label for the name the local user gives a device.",
+      "translations": {
+        "en": "Name on this device",
+        "fr": "Nom sur cet appareil",
+        "es": "Nombre en este dispositivo",
+        "it": "Nome su questo dispositivo",
+        "de": "Name auf diesem Gerät",
+        "pt": "Nome neste dispositivo",
+        "pl": "Nazwa na tym urządzeniu",
+        "nl": "Naam op dit apparaat",
+        "ru": "Имя на этом устройстве"
+      }
+    },
+    "contacts_name_hint": {
+      "context": "Device detail: note that the local name is never changed by the other device.",
+      "translations": {
+        "en": "Only you see this name. The other device can never change it.",
+        "fr": "Vous seul voyez ce nom. L’autre appareil ne peut jamais le modifier.",
+        "es": "Solo tú ves este nombre. El otro dispositivo nunca puede cambiarlo.",
+        "it": "Solo tu vedi questo nome. L’altro dispositivo non può mai modificarlo.",
+        "de": "Nur Sie sehen diesen Namen. Das andere Gerät kann ihn nie ändern.",
+        "pt": "Só você vê este nome. O outro dispositivo nunca o pode alterar.",
+        "pl": "Tylko Ty widzisz tę nazwę. Drugie urządzenie nigdy jej nie zmieni.",
+        "nl": "Alleen jij ziet deze naam. Het andere apparaat kan die nooit wijzigen.",
+        "ru": "Это имя видите только вы. Другое устройство не может его изменить."
+      }
+    },
+    "contacts_forget": {
+      "context": "Device detail: button that removes a device and revokes its access.",
+      "translations": {
+        "en": "Forget device",
+        "fr": "Oublier l’appareil",
+        "es": "Olvidar dispositivo",
+        "it": "Dimentica dispositivo",
+        "de": "Gerät entfernen",
+        "pt": "Esquecer dispositivo",
+        "pl": "Zapomnij urządzenie",
+        "nl": "Apparaat vergeten",
+        "ru": "Забыть устройство"
+      }
+    },
+    "contacts_forget_body": {
+      "context": "Device detail: confirmation explaining what forgetting a device does.",
+      "translations": {
+        "en": "This device will no longer be able to send you files without a new invitation. Files already received are kept.",
+        "fr": "Cet appareil ne pourra plus vous envoyer de fichiers sans nouvelle invitation. Les fichiers déjà reçus sont conservés.",
+        "es": "Este dispositivo ya no podrá enviarte archivos sin una nueva invitación. Los archivos ya recibidos se conservan.",
+        "it": "Questo dispositivo non potrà più inviarti file senza un nuovo invito. I file già ricevuti vengono conservati.",
+        "de": "Dieses Gerät kann Ihnen ohne neue Einladung keine Dateien mehr senden. Bereits empfangene Dateien bleiben erhalten.",
+        "pt": "Este dispositivo deixará de lhe poder enviar ficheiros sem um novo convite. Os ficheiros já recebidos são mantidos.",
+        "pl": "To urządzenie nie będzie mogło wysyłać Ci plików bez nowego zaproszenia. Już odebrane pliki pozostaną.",
+        "nl": "Dit apparaat kan je zonder nieuwe uitnodiging geen bestanden meer sturen. Reeds ontvangen bestanden blijven behouden.",
+        "ru": "Это устройство больше не сможет отправлять вам файлы без нового приглашения. Уже полученные файлы сохранятся."
+      }
+    },
+    "contacts_forget_all": {
+      "context": "Devices screen: button that forgets every remembered device at once.",
+      "translations": {
+        "en": "Forget all devices",
+        "fr": "Oublier tous les appareils",
+        "es": "Olvidar todos los dispositivos",
+        "it": "Dimentica tutti i dispositivi",
+        "de": "Alle Geräte entfernen",
+        "pt": "Esquecer todos os dispositivos",
+        "pl": "Zapomnij wszystkie urządzenia",
+        "nl": "Alle apparaten vergeten",
+        "ru": "Забыть все устройства"
+      }
+    },
+    "contacts_block": {
+      "context": "Device detail: button that blocks a device outright.",
+      "translations": {
+        "en": "Block device",
+        "fr": "Bloquer l’appareil",
+        "es": "Bloquear dispositivo",
+        "it": "Blocca dispositivo",
+        "de": "Gerät blockieren",
+        "pt": "Bloquear dispositivo",
+        "pl": "Zablokuj urządzenie",
+        "nl": "Apparaat blokkeren",
+        "ru": "Заблокировать устройство"
+      }
+    },
+    "contacts_blocked_title": {
+      "context": "Devices screen: section listing blocked devices.",
+      "translations": {
+        "en": "Blocked devices",
+        "fr": "Appareils bloqués",
+        "es": "Dispositivos bloqueados",
+        "it": "Dispositivi bloccati",
+        "de": "Blockierte Geräte",
+        "pt": "Dispositivos bloqueados",
+        "pl": "Zablokowane urządzenia",
+        "nl": "Geblokkeerde apparaten",
+        "ru": "Заблокированные устройства"
+      }
+    },
+    "contacts_unblock": {
+      "context": "Devices screen: button that removes a device from the block list.",
+      "translations": {
+        "en": "Unblock",
+        "fr": "Débloquer",
+        "es": "Desbloquear",
+        "it": "Sblocca",
+        "de": "Freigeben",
+        "pt": "Desbloquear",
+        "pl": "Odblokuj",
+        "nl": "Deblokkeren",
+        "ru": "Разблокировать"
+      }
+    },
+    "contacts_unblock_hint": {
+      "context": "Devices screen: note that unblocking does not restore the previous access.",
+      "translations": {
+        "en": "Unblocking does not restore access. The device has to be paired again.",
+        "fr": "Le déblocage ne rétablit pas l’accès. L’appareil doit être appairé à nouveau.",
+        "es": "Desbloquear no restaura el acceso. Hay que emparejar el dispositivo de nuevo.",
+        "it": "Sbloccare non ripristina l’accesso. Il dispositivo deve essere abbinato di nuovo.",
+        "de": "Die Freigabe stellt den Zugriff nicht wieder her. Das Gerät muss erneut gekoppelt werden.",
+        "pt": "Desbloquear não restaura o acesso. O dispositivo tem de ser emparelhado novamente.",
+        "pl": "Odblokowanie nie przywraca dostępu. Urządzenie trzeba sparować ponownie.",
+        "nl": "Deblokkeren herstelt de toegang niet. Het apparaat moet opnieuw worden gekoppeld.",
+        "ru": "Разблокировка не восстанавливает доступ. Устройство нужно сопрячь заново."
+      }
+    },
+    "contacts_send_to": {
+      "context": "Device detail: button that starts choosing files to send to this device.",
+      "translations": {
+        "en": "Send files",
+        "fr": "Envoyer des fichiers",
+        "es": "Enviar archivos",
+        "it": "Invia file",
+        "de": "Dateien senden",
+        "pt": "Enviar ficheiros",
+        "pl": "Wyślij pliki",
+        "nl": "Bestanden sturen",
+        "ru": "Отправить файлы"
+      }
+    },
+    "contacts_last_transfer": {
+      "context": "Devices screen: subtitle showing when the last transfer with a device happened. {date} = formatted date.",
+      "args": [
+        {
+          "name": "date",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "Last transfer {date}",
+        "fr": "Dernier transfert {date}",
+        "es": "Última transferencia {date}",
+        "it": "Ultimo trasferimento {date}",
+        "de": "Letzte Übertragung {date}",
+        "pt": "Última transferência {date}",
+        "pl": "Ostatnie przesłanie {date}",
+        "nl": "Laatste overdracht {date}",
+        "ru": "Последняя передача {date}"
+      }
+    },
+    "pairing_request_title": {
+      "context": "Pairing prompt: title asking whether to remember a device that offered to be reachable.",
+      "translations": {
+        "en": "Remember this device?",
+        "fr": "Mémoriser cet appareil ?",
+        "es": "¿Recordar este dispositivo?",
+        "it": "Ricordare questo dispositivo?",
+        "de": "Dieses Gerät speichern?",
+        "pt": "Lembrar este dispositivo?",
+        "pl": "Zapamiętać to urządzenie?",
+        "nl": "Dit apparaat onthouden?",
+        "ru": "Запомнить это устройство?"
+      }
+    },
+    "pairing_request_body": {
+      "context": "Pairing prompt: explains what remembering a device allows. {device} = peer display name.",
+      "args": [
+        {
+          "name": "device",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "{device} offered to let you send it files without a new invitation.",
+        "fr": "{device} propose de recevoir vos fichiers sans nouvelle invitation.",
+        "es": "{device} te ofrece enviarle archivos sin una nueva invitación.",
+        "it": "{device} ti consente di inviargli file senza un nuovo invito.",
+        "de": "{device} bietet an, Dateien ohne neue Einladung von Ihnen zu empfangen.",
+        "pt": "{device} ofereceu-se para receber ficheiros seus sem um novo convite.",
+        "pl": "{device} umożliwia wysyłanie plików bez nowego zaproszenia.",
+        "nl": "{device} biedt aan bestanden van je te ontvangen zonder nieuwe uitnodiging.",
+        "ru": "{device} разрешает отправлять файлы без нового приглашения."
+      }
+    },
+    "pairing_accept": {
+      "context": "Pairing prompt: button that remembers the device.",
+      "translations": {
+        "en": "Remember",
+        "fr": "Mémoriser",
+        "es": "Recordar",
+        "it": "Ricorda",
+        "de": "Speichern",
+        "pt": "Lembrar",
+        "pl": "Zapamiętaj",
+        "nl": "Onthouden",
+        "ru": "Запомнить"
+      }
+    },
+    "pairing_decline": {
+      "context": "Pairing prompt: button that declines to remember the device.",
+      "translations": {
+        "en": "Not now",
+        "fr": "Pas maintenant",
+        "es": "Ahora no",
+        "it": "Non ora",
+        "de": "Jetzt nicht",
+        "pt": "Agora não",
+        "pl": "Nie teraz",
+        "nl": "Niet nu",
+        "ru": "Не сейчас"
+      }
+    },
+    "pairing_allow_title": {
+      "context": "Post-transfer prompt: asks whether the other device may send files later without an invitation.",
+      "translations": {
+        "en": "Let this device send to you?",
+        "fr": "Autoriser cet appareil à vous envoyer des fichiers ?",
+        "es": "¿Permitir que este dispositivo te envíe archivos?",
+        "it": "Consentire a questo dispositivo di inviarti file?",
+        "de": "Diesem Gerät erlauben, Ihnen Dateien zu senden?",
+        "pt": "Permitir que este dispositivo lhe envie ficheiros?",
+        "pl": "Zezwolić temu urządzeniu na wysyłanie plików?",
+        "nl": "Dit apparaat toestaan je bestanden te sturen?",
+        "ru": "Разрешить этому устройству отправлять вам файлы?"
+      }
+    },
+    "pairing_allow_body": {
+      "context": "Post-transfer prompt: explains that the permission is revocable at any time.",
+      "translations": {
+        "en": "You will still confirm every transfer, and you can withdraw this at any time.",
+        "fr": "Vous confirmerez toujours chaque transfert et pourrez révoquer cette autorisation à tout moment.",
+        "es": "Seguirás confirmando cada transferencia y podrás retirar este permiso cuando quieras.",
+        "it": "Confermerai comunque ogni trasferimento e potrai revocare questa autorizzazione in qualsiasi momento.",
+        "de": "Sie bestätigen weiterhin jede Übertragung und können dies jederzeit widerrufen.",
+        "pt": "Continuará a confirmar cada transferência e pode retirar esta permissão a qualquer momento.",
+        "pl": "Nadal będziesz potwierdzać każde przesłanie i możesz w każdej chwili cofnąć zgodę.",
+        "nl": "Je bevestigt nog steeds elke overdracht en kunt dit altijd intrekken.",
+        "ru": "Вы по-прежнему будете подтверждать каждую передачу и сможете отозвать разрешение в любой момент."
+      }
+    },
+    "pairing_allow_confirm": {
+      "context": "Post-transfer prompt: button granting the other device permission to send later.",
+      "translations": {
+        "en": "Allow",
+        "fr": "Autoriser",
+        "es": "Permitir",
+        "it": "Consenti",
+        "de": "Erlauben",
+        "pt": "Permitir",
+        "pl": "Zezwól",
+        "nl": "Toestaan",
+        "ru": "Разрешить"
+      }
+    },
+    "offer_title": {
+      "context": "Offer prompt: title when a remembered device wants to send files.",
+      "translations": {
+        "en": "Incoming transfer",
+        "fr": "Transfert entrant",
+        "es": "Transferencia entrante",
+        "it": "Trasferimento in arrivo",
+        "de": "Eingehende Übertragung",
+        "pt": "Transferência recebida",
+        "pl": "Przychodzące przesłanie",
+        "nl": "Inkomende overdracht",
+        "ru": "Входящая передача"
+      }
+    },
+    "offer_body": {
+      "context": "Offer prompt: names the sender and what they want to send. {device} = sender, {transferName} = transfer title.",
+      "args": [
+        {
+          "name": "device",
+          "type": "string"
+        },
+        {
+          "name": "transferName",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "{device} wants to send you “{transferName}”.",
+        "fr": "{device} souhaite vous envoyer « {transferName} ».",
+        "es": "{device} quiere enviarte «{transferName}».",
+        "it": "{device} vuole inviarti «{transferName}».",
+        "de": "{device} möchte Ihnen „{transferName}“ senden.",
+        "pt": "{device} quer enviar-lhe “{transferName}”.",
+        "pl": "{device} chce wysłać Ci „{transferName}”.",
+        "nl": "{device} wil je “{transferName}” sturen.",
+        "ru": "{device} хочет отправить вам «{transferName}»."
+      }
+    },
+    "offer_accept": {
+      "context": "Offer prompt: button that accepts the transfer and starts receiving.",
+      "translations": {
+        "en": "Receive",
+        "fr": "Recevoir",
+        "es": "Recibir",
+        "it": "Ricevi",
+        "de": "Empfangen",
+        "pt": "Receber",
+        "pl": "Odbierz",
+        "nl": "Ontvangen",
+        "ru": "Получить"
+      }
+    },
+    "offer_decline": {
+      "context": "Offer prompt: button that declines the incoming transfer.",
+      "translations": {
+        "en": "Decline",
+        "fr": "Refuser",
+        "es": "Rechazar",
+        "it": "Rifiuta",
+        "de": "Ablehnen",
+        "pt": "Recusar",
+        "pl": "Odrzuć",
+        "nl": "Weigeren",
+        "ru": "Отклонить"
+      }
+    },
+    "contacts_grant_lifetime_title": {
+      "context": "Devices settings: how long a remembered device stays reachable while unused.",
+      "translations": {
+        "en": "Forget unused devices after",
+        "fr": "Oublier les appareils inutilisés après",
+        "es": "Olvidar dispositivos sin usar tras",
+        "it": "Dimentica i dispositivi inutilizzati dopo",
+        "de": "Ungenutzte Geräte entfernen nach",
+        "pt": "Esquecer dispositivos não usados após",
+        "pl": "Zapomnij nieużywane urządzenia po",
+        "nl": "Ongebruikte apparaten vergeten na",
+        "ru": "Забывать неиспользуемые устройства через"
+      }
+    },
+    "contacts_grant_lifetime_hint": {
+      "context": "Devices settings: clarifies that the countdown restarts on each transfer.",
+      "translations": {
+        "en": "The countdown restarts every time you transfer with the device.",
+        "fr": "Le décompte redémarre à chaque transfert avec l’appareil.",
+        "es": "La cuenta atrás se reinicia cada vez que transfieres con el dispositivo.",
+        "it": "Il conteggio riparte a ogni trasferimento con il dispositivo.",
+        "de": "Die Frist beginnt bei jeder Übertragung mit dem Gerät neu.",
+        "pt": "A contagem reinicia sempre que transfere com o dispositivo.",
+        "pl": "Odliczanie zaczyna się od nowa przy każdym przesłaniu.",
+        "nl": "De teller start opnieuw bij elke overdracht met het apparaat.",
+        "ru": "Отсчёт начинается заново при каждой передаче с устройством."
+      }
+    },
+    "contacts_grant_lifetime_never": {
+      "context": "Devices settings: option to never forget an unused device.",
+      "translations": {
+        "en": "Never",
+        "fr": "Jamais",
+        "es": "Nunca",
+        "it": "Mai",
+        "de": "Nie",
+        "pt": "Nunca",
+        "pl": "Nigdy",
+        "nl": "Nooit",
+        "ru": "Никогда"
+      }
+    },
+    "contacts_grant_lifetime_days": {
+      "context": "Devices settings: option label for a number of days. {count} = days.",
+      "args": [
+        {
+          "name": "count",
+          "type": "int"
+        }
+      ],
+      "plural": {
+        "en": {
+          "one": "{count} day",
+          "other": "{count} days"
+        },
+        "fr": {
+          "one": "{count} jour",
+          "other": "{count} jours"
+        },
+        "es": {
+          "one": "{count} día",
+          "other": "{count} días"
+        },
+        "it": {
+          "one": "{count} giorno",
+          "other": "{count} giorni"
+        },
+        "de": {
+          "one": "{count} Tag",
+          "other": "{count} Tage"
+        },
+        "pt": {
+          "one": "{count} dia",
+          "other": "{count} dias"
+        },
+        "pl": {
+          "one": "{count} dzień",
+          "few": "{count} dni",
+          "many": "{count} dni",
+          "other": "{count} dnia"
+        },
+        "nl": {
+          "one": "{count} dag",
+          "other": "{count} dagen"
+        },
+        "ru": {
+          "one": "{count} день",
+          "few": "{count} дня",
+          "many": "{count} дней",
+          "other": "{count} дня"
+        }
+      }
     }
   }
 }

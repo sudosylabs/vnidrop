@@ -477,6 +477,21 @@ pub struct ContactSummary {
     pub can_send: bool,
 }
 
+/// A transfer a paired device is offering.
+///
+/// The ticket is deliberately absent: it is a capability, and it is handed over
+/// only when the user accepts.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct IncomingOffer {
+    pub offer_id: String,
+    pub from_endpoint_id: String,
+    pub sender_display_name: Option<String>,
+    pub transfer_name: String,
+    pub file_count: u64,
+    pub total_bytes: u64,
+    pub received_at: i64,
+}
+
 /// A device offering to be remembered, awaiting the local user's decision.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 pub struct PendingPairing {

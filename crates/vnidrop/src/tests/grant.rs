@@ -185,21 +185,6 @@ fn never_lifetime_produces_no_deadline() {
         .expect("proof accepted");
 
     assert_eq!(renewed, None);
-    assert!(grant.is_active(now + 10_000 * DAY_MS));
-}
-
-#[test]
-fn is_active_tracks_revocation_and_expiry() {
-    let now = 1_700_000_000_000;
-    let grant = issued(now);
-    assert!(grant.is_active(now));
-
-    let mut revoked = issued(now);
-    revoked.revoked_at = Some(now);
-    assert!(!revoked.is_active(now));
-
-    let expires_at = grant.expires_at.expect("default lifetime expires");
-    assert!(!grant.is_active(expires_at + 1));
 }
 
 #[test]

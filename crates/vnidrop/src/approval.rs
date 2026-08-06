@@ -6,7 +6,7 @@ use tokio::sync::{oneshot, Mutex};
 use uuid::Uuid;
 
 use crate::{
-    access_policy::{AccessPolicy, APPROVAL_SESSION_TTL_MS},
+    access_policy::{AccessDecision, AccessPolicy, APPROVAL_SESSION_TTL_MS},
     event_hub::EventHub,
     handshake::{
         DeliveryFailureReceipt, DeliveryReceipt, DeliveryReceiptResponse, HandshakeResponse,
@@ -198,10 +198,15 @@ impl ApprovalService {
             .await
         {
             Ok(true) => {
+                // An existing access session means this endpoint was already
+                // authorised: either the share is public, or the sender pushed
+                // this transfer to them. Prompting again would ask the sender
+                // to approve a transfer they themselves initiated.
                 if self
                     .access_policy
-                    .allows_without_approval(request.transfer_id)
+                    .decide(request.transfer_id, Some(&remote_endpoint_id))
                     .await
+                    == AccessDecision::Allow
                 {
                     self.allow_without_sender_decision(remote_endpoint_id, request)
                         .await

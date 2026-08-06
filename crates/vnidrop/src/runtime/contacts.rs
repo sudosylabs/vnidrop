@@ -12,10 +12,15 @@ use serde_json::json;
 
 use super::CoreInner;
 use crate::{
-    api::{ContactSummary, GrantLifetimeSetting, PendingPairing},
+    api::{
+        ContactSummary, GrantLifetimeSetting, IncomingOffer, PendingPairing, ShareMetadataInput,
+        ShareResult, ShareSource, TransferAccessMode,
+    },
     error::VnidropError,
-    grant::GrantId,
-    offer::{DeliverGrant, GrantDeliveryResponse, OfferService, RevokeGrant},
+    grant::{GrantId, HeldGrant},
+    offer::{
+        DeliverGrant, GrantDeliveryResponse, OfferResponse, OfferService, RevokeGrant, SubmitOffer,
+    },
     ticket::{encode_persisted_sender_address, parse_persisted_sender_address},
     util::now_ms,
 };
@@ -136,6 +141,150 @@ impl CoreInner {
         }
     }
 
+    /// Share content and push the ticket straight to a paired device.
+    ///
+    /// Two things make this one prompt rather than two: the share is created
+    /// with the ticket never leaving this device except over the authenticated
+    /// offer connection, and the target endpoint is pre-authorised so the
+    /// handshake it runs next does not ask us to approve a transfer we started.
+    pub(super) async fn send_to_contact(
+        self: &Arc<Self>,
+        endpoint_id: String,
+        sources: Vec<ShareSource>,
+        mut metadata: ShareMetadataInput,
+    ) -> Result<ShareResult> {
+        let store = self.repository.contacts();
+        let grant = store
+            .held_grant_for(&endpoint_id)
+            .await
+            .map_err(VnidropError::repository)?
+            .ok_or_else(|| {
+                VnidropError::permission(anyhow::anyhow!(
+                    "no live grant for this device; pair with it again"
+                ))
+            })?;
+
+        // Invariant: an offer-created share is never public. The recipient is a
+        // specific device, so serving it to anyone holding the ticket would
+        // widen access beyond what the user asked for.
+        metadata.access_mode = TransferAccessMode::ApprovalRequired;
+        let sender_name = metadata.sender_name.clone();
+        let share = self.share_files(sources, metadata).await?;
+
+        let outcome = self
+            .deliver_offer(&endpoint_id, &grant, &share, sender_name.as_deref())
+            .await
+            .inspect_err(|_| {
+                // Nothing to serve if the offer never landed.
+                let inner = self.clone();
+                let transfer_id = share.transfer_id;
+                tokio::spawn(async move {
+                    let _ = inner.cancel_idle_or_share(transfer_id).await;
+                });
+            })?;
+
+        match outcome {
+            OfferResponse::Accepted => {
+                store
+                    .touch_transfer(&endpoint_id, now_ms())
+                    .await
+                    .map_err(VnidropError::repository)?;
+                self.remember_addr(&endpoint_id).await;
+                self.emit_transfer(
+                    share.transfer_id,
+                    "send",
+                    "offer",
+                    "offer-accepted",
+                    json!({ "peer_endpoint_id": endpoint_id }),
+                );
+                Ok(share)
+            }
+            OfferResponse::Declined { reason } | OfferResponse::Refused { reason } => {
+                let _ = self.cancel_idle_or_share(share.transfer_id).await;
+                self.emit_transfer(
+                    share.transfer_id,
+                    "send",
+                    "offer",
+                    "offer-refused",
+                    json!({ "peer_endpoint_id": endpoint_id, "reason": reason }),
+                );
+                // A refusal naming a dead grant is the peer telling us to stop
+                // believing we can reach them.
+                if matches!(reason.as_str(), "revoked" | "unknown" | "expired") {
+                    let _ = store.delete_held_grant(grant.grant_id).await;
+                }
+                Err(VnidropError::permission(anyhow::anyhow!(
+                    "device did not accept the transfer: {reason}"
+                ))
+                .into())
+            }
+        }
+    }
+
+    async fn deliver_offer(
+        self: &Arc<Self>,
+        endpoint_id: &str,
+        grant: &HeldGrant,
+        share: &ShareResult,
+        sender_name: Option<&str>,
+    ) -> Result<OfferResponse> {
+        let addr = self.contact_addr(endpoint_id).await?;
+        let client = OfferService::client(self.endpoint.clone(), addr);
+        let challenge = client
+            .request_challenge()
+            .await
+            .context("device is not reachable")
+            .map_err(VnidropError::transfer)?;
+
+        // Authorise before offering: the receiver may dial back the instant it
+        // accepts, and an unauthorised endpoint would be refused by the
+        // provider.
+        self.access_policy
+            .approve_endpoint(share.transfer_id, endpoint_id.to_string())
+            .await;
+
+        client
+            .submit_offer(SubmitOffer {
+                proof: grant.prove(&challenge, &self.endpoint.id().to_string()),
+                ticket: share.ticket.clone(),
+                transfer_name: share.transfer_name.clone(),
+                sender_display_name: sender_name.map(ToOwned::to_owned),
+                file_count: share.file_count,
+                total_bytes: share.total_size,
+            })
+            .await
+            .context("failed to deliver the offer")
+            .map_err(VnidropError::transfer)
+            .map_err(Into::into)
+    }
+
+    pub(super) async fn list_pending_offers(&self) -> Vec<IncomingOffer> {
+        self.offers
+            .list()
+            .await
+            .into_iter()
+            .map(|offer| IncomingOffer {
+                offer_id: offer.offer_id,
+                from_endpoint_id: offer.from_endpoint_id,
+                sender_display_name: offer.sender_display_name,
+                transfer_name: offer.transfer_name,
+                file_count: offer.file_count,
+                total_bytes: offer.total_bytes,
+                received_at: offer.received_at,
+            })
+            .collect()
+    }
+
+    /// Answer an incoming offer. Returns the ticket when accepted, so the
+    /// platform layer can run the ordinary receive with its own destination.
+    pub(super) async fn respond_to_offer(
+        &self,
+        offer_id: String,
+        accepted: bool,
+    ) -> Option<String> {
+        self.offers.respond(&offer_id, accepted).await
+    }
+
     pub(super) async fn respond_to_pairing(
         &self,
         endpoint_id: String,
@@ -162,6 +311,9 @@ impl CoreInner {
             .delete_contact(&endpoint_id)
             .await
             .map_err(VnidropError::repository)?;
+        // A prompt on screen from a device we just forgot would be actionable
+        // with a grant that no longer exists.
+        self.offers.discard_from(&endpoint_id).await;
         self.emit_endpoint(
             "contacts",
             "contact-forgotten",
@@ -169,6 +321,33 @@ impl CoreInner {
         );
         self.notify_revoked(endpoint_id, revoked).await;
         Ok(())
+    }
+
+    /// Forget every device at once, alongside the existing history-clearing
+    /// actions. Every peer loses access; each is notified best effort.
+    pub(super) async fn forget_all_contacts(self: &Arc<Self>) -> Result<u64> {
+        let store = self.repository.contacts();
+        let contacts = store
+            .list_contacts()
+            .await
+            .map_err(VnidropError::repository)?;
+        let revoked = store
+            .delete_all_contacts()
+            .await
+            .map_err(VnidropError::repository)?;
+        for contact in &contacts {
+            self.offers.discard_from(&contact.endpoint_id).await;
+        }
+        self.emit_endpoint(
+            "contacts",
+            "contacts-cleared",
+            json!({ "contacts": contacts.len(), "revoked": revoked.len() }),
+        );
+        for contact in contacts.iter() {
+            self.notify_revoked(contact.endpoint_id.clone(), revoked.clone())
+                .await;
+        }
+        Ok(revoked.len() as u64)
     }
 
     pub(super) async fn block_contact(self: &Arc<Self>, endpoint_id: String) -> Result<()> {
@@ -185,6 +364,7 @@ impl CoreInner {
             .delete_contact(&endpoint_id)
             .await
             .map_err(VnidropError::repository)?;
+        self.offers.discard_from(&endpoint_id).await;
         self.emit_endpoint(
             "contacts",
             "contact-blocked",

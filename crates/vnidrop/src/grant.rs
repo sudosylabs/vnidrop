@@ -9,10 +9,6 @@
 //! This module is pure: no storage, no network, no clock of its own. Callers
 //! supply `now_ms` so expiry and renewal stay testable.
 
-// A few helpers are exercised only by unit tests until send-to-contact offers
-// consume them. Remove this once that lands.
-#![allow(dead_code)]
-
 use std::fmt;
 
 use anyhow::{bail, Context, Result};
@@ -229,10 +225,6 @@ impl IssuedGrant {
     pub(crate) fn is_expired(&self, now_ms: i64) -> bool {
         self.expires_at
             .is_some_and(|expires_at| expires_at < now_ms)
-    }
-
-    pub(crate) fn is_active(&self, now_ms: i64) -> bool {
-        self.revoked_at.is_none() && !self.is_expired(now_ms)
     }
 }
 

@@ -13,7 +13,9 @@ use tokio::sync::Mutex;
 use crate::{
     contacts::ContactStore,
     event_hub::EventHub,
-    grant::{GrantLifetime, GrantSecret, HeldGrant, IssuedGrant},
+    grant::{
+        Challenge, GrantLifetime, GrantProof, GrantRejection, GrantSecret, HeldGrant, IssuedGrant,
+    },
     offer::{DeliverGrant, GrantDeliveryResponse, RevocationResponse, RevokeGrant},
     util::now_ms,
 };
@@ -286,6 +288,55 @@ impl PairingService {
             json!({ "peer_endpoint_id": peer_endpoint_id }),
         );
         Ok(grant)
+    }
+
+    /// Validate a proof a peer presented, and push the idle deadline forward.
+    ///
+    /// The grant record is ours: we issued it, so we are the only party that
+    /// can decide it is still alive. A blocked endpoint is answered `Unknown`,
+    /// the same as one we never issued to.
+    pub(crate) async fn verify_and_renew(
+        &self,
+        proof: &GrantProof,
+        challenge: &Challenge,
+        issuer_endpoint_id: &str,
+        remote_endpoint_id: &str,
+    ) -> Result<(), GrantRejection> {
+        if self
+            .contacts
+            .is_blocked(remote_endpoint_id)
+            .await
+            .unwrap_or(false)
+        {
+            return Err(GrantRejection::Unknown);
+        }
+        let grant = self
+            .contacts
+            .find_issued_grant(proof.grant_id)
+            .await
+            .map_err(|_| GrantRejection::Unknown)?
+            .ok_or(GrantRejection::Unknown)?;
+
+        let now = now_ms();
+        let lifetime = self.grant_lifetime().await;
+        let renewed = grant.accept(
+            proof,
+            challenge,
+            issuer_endpoint_id,
+            remote_endpoint_id,
+            now,
+            lifetime,
+        )?;
+        // A failed renewal is not grounds to refuse a peer that just proved
+        // possession; the grant stays valid until its existing deadline.
+        if let Err(error) = self
+            .contacts
+            .renew_issued_grant(proof.grant_id, renewed)
+            .await
+        {
+            tracing::warn!(%error, "failed to renew grant deadline");
+        }
+        Ok(())
     }
 
     fn drop_expired(&self, pending: &mut HashMap<String, PendingGrant>, now_ms: i64) {

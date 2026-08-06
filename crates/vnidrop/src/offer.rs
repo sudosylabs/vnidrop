@@ -22,13 +22,18 @@ use irpc_iroh::{read_request, IrohLazyRemoteConnection};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    grant::{Challenge, GrantId},
+    grant::{Challenge, GrantId, GrantProof},
+    offer_inbox::OfferInbox,
     pairing::PairingService,
 };
 
 #[derive(Clone)]
 pub(crate) struct OfferService {
     pairing: PairingService,
+    inbox: OfferInbox,
+    /// This device's endpoint id. Grants we issued are bound to it, so proofs
+    /// must be verified against it rather than against whatever a peer claims.
+    self_endpoint_id: String,
 }
 
 impl fmt::Debug for OfferService {
@@ -40,8 +45,16 @@ impl fmt::Debug for OfferService {
 impl OfferService {
     pub(crate) const ALPN: &'static [u8] = b"/vnidrop/offer/1";
 
-    pub(crate) fn new(pairing: PairingService) -> Self {
-        Self { pairing }
+    pub(crate) fn new(
+        pairing: PairingService,
+        inbox: OfferInbox,
+        self_endpoint_id: String,
+    ) -> Self {
+        Self {
+            pairing,
+            inbox,
+            self_endpoint_id,
+        }
     }
 
     pub(crate) fn client(endpoint: Endpoint, addr: EndpointAddr) -> OfferClient {
@@ -52,6 +65,46 @@ impl OfferService {
                 Self::ALPN.to_vec(),
             )),
         }
+    }
+}
+
+impl OfferService {
+    /// Validate the grant, then hand the offer to the local user.
+    ///
+    /// A refusal names the grant failure so the peer can drop a dead entry;
+    /// `Unknown` covers both "never issued" and "blocked", which is what keeps
+    /// blocking undetectable.
+    async fn handle_offer(
+        &self,
+        remote_endpoint_id: &str,
+        challenge: &Challenge,
+        offer: SubmitOffer,
+    ) -> OfferResponse {
+        if let Err(rejection) = self
+            .pairing
+            .verify_and_renew(
+                &offer.proof,
+                challenge,
+                &self.self_endpoint_id,
+                remote_endpoint_id,
+            )
+            .await
+        {
+            return OfferResponse::Refused {
+                reason: rejection.as_str().to_string(),
+            };
+        }
+
+        self.inbox
+            .submit(
+                remote_endpoint_id.to_string(),
+                offer.transfer_name,
+                offer.sender_display_name,
+                offer.file_count,
+                offer.total_bytes,
+                offer.ticket,
+            )
+            .await
     }
 }
 
@@ -91,6 +144,13 @@ impl ProtocolHandler for OfferService {
                         .await;
                     let _ = tx.send(response).await;
                 }
+                OfferMessage::SubmitOffer(message) => {
+                    let WithChannels { inner, tx, .. } = message;
+                    let response = self
+                        .handle_offer(&remote_endpoint_id, &challenge, inner)
+                        .await;
+                    let _ = tx.send(response).await;
+                }
             }
         }
 
@@ -105,6 +165,17 @@ pub(crate) struct OfferClient {
 }
 
 impl OfferClient {
+    pub(crate) async fn request_challenge(&self) -> Result<Challenge, irpc::Error> {
+        Ok(self.inner.rpc(RequestChallenge).await?.challenge)
+    }
+
+    pub(crate) async fn submit_offer(
+        &self,
+        offer: SubmitOffer,
+    ) -> Result<OfferResponse, irpc::Error> {
+        self.inner.rpc(offer).await
+    }
+
     pub(crate) async fn deliver_grant(
         &self,
         grant: DeliverGrant,
@@ -180,6 +251,31 @@ pub(crate) enum RevocationResponse {
     Unknown,
 }
 
+/// Hand a paired device a ticket for content it may fetch.
+///
+/// The ticket is a capability, so this is sent only over a connection where the
+/// grant proof has already been presented.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct SubmitOffer {
+    pub(crate) proof: GrantProof,
+    pub(crate) ticket: String,
+    pub(crate) transfer_name: String,
+    pub(crate) sender_display_name: Option<String>,
+    pub(crate) file_count: u64,
+    pub(crate) total_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) enum OfferResponse {
+    /// The receiving user agreed. They fetch the content themselves next.
+    Accepted,
+    /// The receiving user said no, or never answered.
+    Declined { reason: String },
+    /// The grant did not validate. Names the reason so a peer holding a dead
+    /// grant can clear it.
+    Refused { reason: String },
+}
+
 #[rpc_requests(message = OfferMessage)]
 #[derive(Debug, Serialize, Deserialize)]
 enum OfferProtocol {
@@ -189,4 +285,6 @@ enum OfferProtocol {
     DeliverGrant(DeliverGrant),
     #[rpc(tx=oneshot::Sender<RevocationResponse>)]
     RevokeGrant(RevokeGrant),
+    #[rpc(tx=oneshot::Sender<OfferResponse>)]
+    SubmitOffer(SubmitOffer),
 }

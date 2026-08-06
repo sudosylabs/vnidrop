@@ -8,14 +8,17 @@
 //! tickets: never logged, never emitted in an event, never returned across the
 //! UniFFI boundary.
 
-// A few operations are exercised only by unit tests until send-to-contact
-// offers consume them. Remove this once that lands.
-#![allow(dead_code)]
-
 use anyhow::{Context, Result};
 use sqlx::{Row, SqlitePool};
 
 use crate::grant::{parse_secret, GrantId, HeldGrant, IssuedGrant};
+
+/// How long a dead grant is kept before being swept.
+///
+/// A revoked grant stays as a tombstone so a returning peer is told `Revoked`
+/// rather than `Unknown`; after this long, a peer that has not come back is
+/// unlikely to, and the row is noise.
+pub(crate) const DEAD_GRANT_RETENTION_MS: i64 = 30 * 24 * 60 * 60 * 1_000;
 
 /// A device the user has transferred with and chosen to remember.
 #[derive(Debug, Clone, PartialEq, Eq)]

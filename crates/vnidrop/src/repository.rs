@@ -326,8 +326,6 @@ impl Repository {
 
     /// Device history, grants, and the block list. Shares this pool so the
     /// tables migrate together with the rest of the schema.
-    // Reached from tests until the offer protocol lands.
-    #[allow(dead_code)]
     pub(crate) fn contacts(&self) -> ContactStore {
         ContactStore::new(self.pool.clone())
     }

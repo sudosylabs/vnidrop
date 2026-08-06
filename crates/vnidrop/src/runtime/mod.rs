@@ -58,6 +58,7 @@ use crate::{
     handshake::HandshakeService,
     logging::init_logging,
     offer::OfferService,
+    offer_inbox::OfferInbox,
     pairing::PairingService,
     repository::Repository,
     secret::load_or_create_secret,
@@ -95,6 +96,7 @@ pub(super) struct CoreInner {
     pub(super) event_hub: Arc<EventHub>,
     pub(super) approval: ApprovalService,
     pub(super) pairing: PairingService,
+    pub(super) offers: OfferInbox,
     pub(super) limits: CoreLimits,
     pub(super) relay_mode: CoreRelayMode,
     pub(super) custom_relay_urls: Vec<RelayUrl>,
@@ -332,10 +334,22 @@ impl CoreInner {
             limits.max_pending_offers as usize,
             limits.max_metadata_bytes,
         );
+        // Sweep grants dead long enough that no peer still needs the tombstone.
+        if let Err(error) = repository
+            .contacts()
+            .purge_dead_grants(crate::util::now_ms() - crate::contacts::DEAD_GRANT_RETENTION_MS)
+            .await
+        {
+            tracing::warn!(%error, "failed to sweep dead grants");
+        }
+        let offers = OfferInbox::new(event_hub.clone(), limits.max_pending_offers as usize);
         let router = Router::builder(endpoint.clone())
             .accept(iroh_blobs::ALPN, blobs)
             .accept(HandshakeService::ALPN, handshake)
-            .accept(OfferService::ALPN, OfferService::new(pairing.clone()))
+            .accept(
+                OfferService::ALPN,
+                OfferService::new(pairing.clone(), offers.clone(), endpoint.id().to_string()),
+            )
             .spawn();
 
         let inner = Arc::new(Self {
@@ -347,6 +361,7 @@ impl CoreInner {
             event_hub,
             approval,
             pairing,
+            offers,
             relay_mode,
             custom_relay_urls: relay_urls,
             transfer_slots: Semaphore::new(limits.max_concurrent_transfers as usize),

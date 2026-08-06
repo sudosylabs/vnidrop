@@ -7,9 +7,9 @@ use super::CoreInner;
 use crate::{
     api::{
         ContactSummary, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig, CoreStorageUsage,
-        GrantLifetimeSetting, PendingPairing, ReceiveOutputSink, ReceiveOutputSinkV2,
-        ReceivedArtifact, ReceiverRequest, RuntimeStatus, ShareMetadataInput, ShareResult,
-        ShareSource, StoredTransfer, TicketInspection, TransferAccessMode,
+        GrantLifetimeSetting, IncomingOffer, PendingPairing, ReceiveOutputSink,
+        ReceiveOutputSinkV2, ReceivedArtifact, ReceiverRequest, RuntimeStatus, ShareMetadataInput,
+        ShareResult, ShareSource, StoredTransfer, TicketInspection, TransferAccessMode,
     },
     error::VnidropError,
     filesystem::platform_path,
@@ -277,6 +277,34 @@ impl VnidropCore {
             .map_err(VnidropError::repository)
     }
 
+    /// Share content and push it straight to a paired device.
+    ///
+    /// Only the receiving user is prompted: this device authorised the target
+    /// when it created the offer.
+    pub fn send_to_contact(
+        &self,
+        endpoint_id: String,
+        sources: Vec<ShareSource>,
+        metadata: ShareMetadataInput,
+    ) -> Result<ShareResult, VnidropError> {
+        self.block_on(self.inner.send_to_contact(endpoint_id, sources, metadata))
+            .map_err(VnidropError::transfer)
+    }
+
+    /// Transfers paired devices are offering, awaiting this user's decision.
+    pub fn list_pending_offers(&self) -> Vec<IncomingOffer> {
+        self.block_on(self.inner.list_pending_offers())
+    }
+
+    /// Accept or decline an incoming offer.
+    ///
+    /// Returns the ticket when accepted, which the caller passes to `receive`
+    /// with its own destination. Declining returns none: a refused offer never
+    /// yields a capability.
+    pub fn respond_to_offer(&self, offer_id: String, accepted: bool) -> Option<String> {
+        self.block_on(self.inner.respond_to_offer(offer_id, accepted))
+    }
+
     /// Devices offering to be remembered, awaiting the local user's decision.
     pub fn list_pending_pairings(&self) -> Vec<PendingPairing> {
         self.block_on(self.inner.list_pending_pairings())
@@ -313,6 +341,12 @@ impl VnidropCore {
     /// peer is notified best effort.
     pub fn forget_contact(&self, endpoint_id: String) -> Result<(), VnidropError> {
         self.block_on(self.inner.forget_contact(endpoint_id))
+            .map_err(VnidropError::repository)
+    }
+
+    /// Forget every device at once. Returns how many grants were revoked.
+    pub fn forget_all_contacts(&self) -> Result<u64, VnidropError> {
+        self.block_on(self.inner.forget_all_contacts())
             .map_err(VnidropError::repository)
     }
 

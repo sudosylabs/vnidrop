@@ -47,4 +47,30 @@ protocol CoreGateway: AnyObject {
 	func receiverRequests(transferId: UInt64) async -> Result<[ReceiverRequestModel], Error>
 	func respondReceiverRequest(requestId: String, accepted: Bool, reason: String?) async -> Result<Void, Error>
 	func refresh() async -> Result<Void, Error>
+
+	// MARK: Device history
+
+	func contacts() async -> Result<[DeviceContact], Error>
+	func pendingPairings() async -> [PendingPairingModel]
+	func pendingOffers() async -> [IncomingOfferModel]
+	/// Hand a device a revocable capability to reach this one.
+	func allowDeviceToReachMe(endpointId: String, displayName: String?) async -> Result<Void, Error>
+	/// Accept or decline a device's offer to be remembered.
+	func respondToPairing(endpointId: String, accepted: Bool) async -> Result<Bool, Error>
+	/// Answer an incoming offer. Returns the ticket on acceptance, which the
+	/// caller passes to `receive` with a platform-appropriate destination.
+	func respondToOffer(offerId: String, accepted: Bool) async -> String?
+	func sendToContact(
+		endpointId: String,
+		sources: [ShareSource],
+		transferName: String,
+		senderName: String
+	) async -> Result<Share, Error>
+	func forgetContact(endpointId: String) async -> Result<Void, Error>
+	func forgetAllContacts() async -> Result<UInt64, Error>
+	func blockContact(endpointId: String) async -> Result<Void, Error>
+	func unblockContact(endpointId: String) async -> Result<Void, Error>
+	func blockedContacts() async -> Result<[String], Error>
+	func setContactLabel(endpointId: String, label: String?) async -> Result<Void, Error>
+	func setGrantLifetime(_ lifetime: GrantLifetimeOption) async
 }

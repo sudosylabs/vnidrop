@@ -81,6 +81,80 @@ final class FakeCoreGateway: CoreGateway {
 		return responseResult
 	}
 	func refresh() async -> Result<Void, Error> { .success(()) }
+
+	// MARK: Device history
+
+	var contactsResult: Result<[DeviceContact], Error> = .success([])
+	var pairings: [PendingPairingModel] = []
+	var offers: [IncomingOfferModel] = []
+	var respondToPairingResult: Result<Bool, Error> = .success(true)
+	/// Ticket handed back when an offer is accepted; nil models a declined one.
+	var offerTicket: String? = "vnd1:offered"
+	var sendToContactResult: Result<Share, Error> = .failure(TestError.unimplemented)
+	var forgetContactResult: Result<Void, Error> = .success(())
+	var blockedResult: Result<[String], Error> = .success([])
+
+	private(set) var allowedDevices: [(endpointId: String, displayName: String?)] = []
+	private(set) var pairingResponses: [(endpointId: String, accepted: Bool)] = []
+	private(set) var offerResponses: [(offerId: String, accepted: Bool)] = []
+	private(set) var forgottenContacts: [String] = []
+	private(set) var forgetAllCount = 0
+	private(set) var blockedContactIds: [String] = []
+	private(set) var unblockedContactIds: [String] = []
+	private(set) var contactLabels: [(endpointId: String, label: String?)] = []
+	private(set) var grantLifetimes: [GrantLifetimeOption] = []
+	private(set) var sentToContacts: [String] = []
+
+	func contacts() async -> Result<[DeviceContact], Error> { contactsResult }
+	func pendingPairings() async -> [PendingPairingModel] { pairings }
+	func pendingOffers() async -> [IncomingOfferModel] { offers }
+	func allowDeviceToReachMe(endpointId: String, displayName: String?) async -> Result<Void, Error> {
+		allowedDevices.append((endpointId, displayName))
+		return .success(())
+	}
+	func respondToPairing(endpointId: String, accepted: Bool) async -> Result<Bool, Error> {
+		pairingResponses.append((endpointId, accepted))
+		if case .success = respondToPairingResult {
+			pairings.removeAll { $0.endpointId == endpointId }
+		}
+		return respondToPairingResult
+	}
+	func respondToOffer(offerId: String, accepted: Bool) async -> String? {
+		offerResponses.append((offerId, accepted))
+		offers.removeAll { $0.offerId == offerId }
+		return accepted ? offerTicket : nil
+	}
+	func sendToContact(
+		endpointId: String,
+		sources: [ShareSource],
+		transferName: String,
+		senderName: String
+	) async -> Result<Share, Error> {
+		sentToContacts.append(endpointId)
+		return sendToContactResult
+	}
+	func forgetContact(endpointId: String) async -> Result<Void, Error> {
+		forgottenContacts.append(endpointId)
+		return forgetContactResult
+	}
+	func forgetAllContacts() async -> Result<UInt64, Error> {
+		forgetAllCount += 1
+		return .success(0)
+	}
+	func blockContact(endpointId: String) async -> Result<Void, Error> {
+		blockedContactIds.append(endpointId)
+		return .success(())
+	}
+	func unblockContact(endpointId: String) async -> Result<Void, Error> {
+		unblockedContactIds.append(endpointId)
+		return .success(())
+	}
+	func blockedContacts() async -> Result<[String], Error> { blockedResult }
+	func setContactLabel(endpointId: String, label: String?) async -> Result<Void, Error> {
+		contactLabels.append((endpointId, label))
+		return .success(())
+	}
+	func setGrantLifetime(_ lifetime: GrantLifetimeOption) async { grantLifetimes.append(lifetime) }
 }
 
 /// Minimal `FileSystemService` fake — a writable path receive folder, no reveal.

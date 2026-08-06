@@ -96,6 +96,8 @@ final class SendModel: ObservableObject {
 				case .receiverHistoryChanged(let id), .approvalChanged(let id):
 					if id == self.state.selectedTransferId { self.refreshReceivers(id) }
 					self.refreshReceiverStatuses(for: id)
+				case .contactsChanged, .offersChanged:
+					break
 				}
 			}
 			.store(in: &cancellables)

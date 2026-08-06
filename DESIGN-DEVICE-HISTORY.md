@@ -25,8 +25,9 @@ Local network discovery was considered and deliberately dropped. See
 ### Non-goals
 
 - No automatic acceptance of transfers, under any configuration.
-- No store-and-forward: an offer to an unreachable device fails; nothing is
-  queued and nothing is uploaded anywhere.
+- No server-side store-and-forward and no push infrastructure. An offer to an
+  unreachable device is held **on the sender's own device** or fails; nothing is
+  uploaded anywhere. See §11 for what this means in practice.
 - No presence or "who is online" indicator. Knowing it requires probing, and
   probing tells every contact when you opened your list. Reachability is
   resolved lazily, at send time.
@@ -237,7 +238,8 @@ plainly rather than presenting an opaque failure. Local-only users in particular
 should be told that contacts depend on a cached address.
 
 Reachability is never polled in the background. It is determined when the user
-actually sends.
+actually sends — and, for incoming offers, when the app next comes to the
+foreground (§11).
 
 ### 5.1 Identity lifetime
 
@@ -329,6 +331,9 @@ No new OS permissions, entitlements, or platform bridges are required.
   cleanly and reports an actionable error, rather than hanging.
 - **Persistence:** grants and contacts survive a core shutdown and reopen of the
   same data dir, following the existing recovery-test pattern.
+- **Sender-held offers (§11):** an offer to an unreachable contact is retained,
+  is cancellable, is collected on the receiver's next pull, and is not
+  double-delivered if the receiver pulls twice.
 - Per `AGENTS.md`, any bug found gets a regression test at the lowest layer.
 
 ---
@@ -349,6 +354,67 @@ with their rationale so the reasoning is not lost.
    never lapse; forgotten ones clean themselves up, which bounds the blast
    radius of a stale pairing and quietly disposes of entries orphaned by a
    reinstall.
+
+---
+
+## 11. Delivery when the recipient is not running
+
+An offer is a live connection to a running app. This section states plainly what
+that costs and how far it is mitigated.
+
+### 11.1 The constraint
+
+Notifying the user is not the problem — `LocalNotificationService` and the
+existing `ApprovalCoordinator` already turn an incoming approval request into a
+user-visible prompt, and an incoming offer reuses that path unchanged.
+
+*Receiving* the request is the problem. `BackgroundActivityController` holds an
+iOS background assertion only while there is active work and releases it as soon
+as that drains, so a suspended app has no listening socket: the sender's dial
+fails and there is nothing to notify about.
+
+Waking a suspended iOS app from the network requires a remote push through APNs,
+which means a server holding device tokens and observing who contacts whom. That
+is infrastructure plus a metadata leak, both of which contradict the product's
+no-cloud posture. **APNs is out of scope.** (This is also why AirDrop can do it
+and a third-party app cannot: AirDrop is an OS daemon, not an app.)
+
+### 11.2 Sender-held offers with a foreground pull
+
+When the target is unreachable, the sender holds the offer **locally** — the
+share stays on the sender's disk exactly as today, with no copy anywhere else —
+and the receiver collects it when its app next comes to the foreground, raising
+a local notification at that point.
+
+Resulting coverage:
+
+| Scenario | Result |
+|---|---|
+| Phone → always-on desktop | Immediate; the desktop is listening |
+| Desktop → phone, app closed | Delivered on the phone's next launch |
+| Phone → phone, both apps closed | **Not supported** |
+
+Desktop platforms are unaffected by any of this and are always reachable while
+the app runs.
+
+### 11.3 The presence cost of pulling
+
+Dialing contacts on launch tells them when the app was opened and reveals the
+device's address to them — precisely the leak §1 avoids by refusing background
+presence polling. The pull is therefore bounded rather than automatic:
+
+- It runs only for contacts the user has explicitly marked as allowed to be
+  checked, or on an explicit "check for incoming" action.
+- It never runs in the background, only on an actual foreground transition.
+- It is rate-limited per contact, so repeated app switching does not turn into a
+  presence beacon.
+
+### 11.4 Scope statement for the UI
+
+Mobile-to-mobile transfer with both apps closed is not supported and must not be
+implied. The contact list distinguishes "reachable now" from "will be delivered
+when they next open VniDrop", and an offer awaiting pickup is visible and
+cancellable on the sender's side.
 
 ---
 

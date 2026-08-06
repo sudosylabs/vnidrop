@@ -124,6 +124,9 @@ struct AppPreferences: Equatable {
 	var relayConfiguration: RelayConfiguration
 	/// Idle lifetime applied to grants this device issues from now on.
 	var grantLifetime: GrantLifetimeOption
+	/// Devices the user declined to remember. Persisted so a repeat transfer
+	/// with the same device does not re-ask forever.
+	var declinedPairingSuggestions: Set<String>
 }
 
 struct AppPreferencesDefaults {
@@ -148,6 +151,7 @@ final class AppPreferencesRepository: ObservableObject {
 		static let diagnosticsInstallId = "diagnostics_install_id"
 		static let relayConfiguration = "relay_configuration"
 		static let grantLifetime = "grant_lifetime"
+		static let declinedPairingSuggestions = "declined_pairing_suggestions"
 	}
 
 	init(defaults: UserDefaults = .standard, fallback: AppPreferencesDefaults) {
@@ -163,13 +167,15 @@ final class AppPreferencesRepository: ObservableObject {
 		let installId = defaults.string(forKey: Key.diagnosticsInstallId) ?? ""
 		let grantLifetime = defaults.string(forKey: Key.grantLifetime)
 			.flatMap(GrantLifetimeOption.init(rawValue:)) ?? .days90
+		let declined = Set(defaults.stringArray(forKey: Key.declinedPairingSuggestions) ?? [])
 		return AppPreferences(
 			username: username,
 			receiveFolder: folder,
 			themeMode: themeMode,
 			diagnosticsInstallId: installId,
 			relayConfiguration: resolveRelayConfiguration(defaults),
-			grantLifetime: grantLifetime
+			grantLifetime: grantLifetime,
+			declinedPairingSuggestions: declined
 		)
 	}
 
@@ -213,6 +219,22 @@ final class AppPreferencesRepository: ObservableObject {
 
 	func resetReceiveFolder() {
 		setReceiveFolder(fallback.receiveFolder)
+	}
+
+	func declinePairingSuggestion(_ endpointId: String) {
+		var declined = preferences.declinedPairingSuggestions
+		declined.insert(endpointId)
+		defaults.set(Array(declined), forKey: Key.declinedPairingSuggestions)
+		reload()
+	}
+
+	/// Clears the decline so the device can be suggested again, used when the
+	/// user pairs with it deliberately.
+	func clearDeclinedPairingSuggestion(_ endpointId: String) {
+		var declined = preferences.declinedPairingSuggestions
+		guard declined.remove(endpointId) != nil else { return }
+		defaults.set(Array(declined), forKey: Key.declinedPairingSuggestions)
+		reload()
 	}
 
 	func setGrantLifetime(_ lifetime: GrantLifetimeOption) {

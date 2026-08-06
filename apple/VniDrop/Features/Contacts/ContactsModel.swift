@@ -1,6 +1,25 @@
 import Combine
 import Foundation
 
+/// A device worth remembering after a completed transfer.
+///
+/// Only a suggestion: nothing is issued until the user agrees, because being
+/// reachable is a standing permission and a transfer is a one-off.
+struct PairingSuggestion: Equatable, Identifiable {
+	let endpointId: String
+	let displayName: String?
+	let transferName: String?
+
+	var id: String { endpointId }
+
+	var resolvedName: String {
+		guard let displayName, !displayName.isEmpty else {
+			return String(localized: L10n.Approval.nearbyDevice)
+		}
+		return displayName
+	}
+}
+
 struct ContactsState: Equatable {
 	var contacts: [DeviceContact] = []
 	var blocked: [String] = []
@@ -12,6 +31,7 @@ struct ContactsState: Equatable {
 	/// blocking the rest of the list.
 	var busyEndpoints: Set<String> = []
 	var busyOfferIds: Set<String> = []
+	var suggestions: [PairingSuggestion] = []
 	var selectedEndpointId: String?
 
 	var selected: DeviceContact? {
@@ -23,6 +43,7 @@ struct ContactsState: Equatable {
 	/// sheets on top of each other reads as a loop of dialogs.
 	var currentPairing: PendingPairingModel? { pendingPairings.first }
 	var currentOffer: IncomingOfferModel? { pendingOffers.first }
+	var currentSuggestion: PairingSuggestion? { suggestions.first }
 }
 
 /// Drives the device-history surfaces: the list, its detail, and the two
@@ -54,9 +75,19 @@ final class ContactsModel: ObservableObject {
 					Task { await self.refresh() }
 				case .offersChanged:
 					Task { await self.refreshOffers() }
-				case .approvalChanged, .receiverHistoryChanged, .transfersChanged:
+				case .receiverHistoryChanged(let transferId), .transfersChanged(let transferId):
+					// A completed delivery names the device that received from us.
+					Task { await self.considerSendPeers(transferId: transferId) }
+				case .approvalChanged:
 					break
 				}
+			}
+			.store(in: &cancellables)
+
+		repository.statePublisher
+			.sink { [weak self] core in
+				guard let self, core.isInitialized else { return }
+				self.considerReceivePeers(core.transfers)
 			}
 			.store(in: &cancellables)
 
@@ -96,6 +127,73 @@ final class ContactsModel: ObservableObject {
 
 	func refreshOffers() async {
 		state.pendingOffers = await repository.pendingOffers()
+	}
+
+	// MARK: - Post-transfer suggestions
+
+	/// A completed receive names its sender, so that device becomes a candidate.
+	private func considerReceivePeers(_ transfers: [Transfer]) {
+		let candidates = transfers
+			.filter { $0.direction == .receive && $0.status == .done }
+			.compactMap { transfer -> PairingSuggestion? in
+				guard let peerId = transfer.peerId else { return nil }
+				return PairingSuggestion(
+					endpointId: peerId,
+					displayName: nil,
+					transferName: transfer.transferName
+				)
+			}
+		add(suggestions: candidates)
+	}
+
+	/// A completed delivery names the device we sent to.
+	private func considerSendPeers(transferId: UInt64) async {
+		guard case .success(let requests) = await repository.receiverRequests(transferId: transferId) else {
+			return
+		}
+		let candidates = requests
+			.filter { $0.status == .completed }
+			.map { request in
+				PairingSuggestion(
+					endpointId: request.remoteEndpointId,
+					displayName: request.receiverName ?? request.receiverDeviceName,
+					transferName: request.transferName
+				)
+			}
+		add(suggestions: candidates)
+	}
+
+	/// Filters candidates down to devices actually worth asking about.
+	private func add(suggestions candidates: [PairingSuggestion]) {
+		let known = Set(state.contacts.map(\.endpointId))
+		let blocked = Set(state.blocked)
+		let declined = preferences.preferences.declinedPairingSuggestions
+		let pending = Set(state.suggestions.map(\.endpointId))
+
+		let fresh = candidates.filter { candidate in
+			!known.contains(candidate.endpointId)
+				&& !blocked.contains(candidate.endpointId)
+				&& !declined.contains(candidate.endpointId)
+				&& !pending.contains(candidate.endpointId)
+		}
+		guard !fresh.isEmpty else { return }
+		state.suggestions.append(contentsOf: fresh)
+	}
+
+	/// Agree to be reachable by a suggested device.
+	func acceptSuggestion(_ suggestion: PairingSuggestion) async {
+		state.suggestions.removeAll { $0.endpointId == suggestion.endpointId }
+		preferences.clearDeclinedPairingSuggestion(suggestion.endpointId)
+		await allowDeviceToReachMe(
+			endpointId: suggestion.endpointId,
+			displayName: preferences.preferences.username
+		)
+	}
+
+	/// Decline, and remember the decline so the next transfer does not re-ask.
+	func declineSuggestion(_ suggestion: PairingSuggestion) {
+		state.suggestions.removeAll { $0.endpointId == suggestion.endpointId }
+		preferences.declinePairingSuggestion(suggestion.endpointId)
 	}
 
 	// MARK: - Selection

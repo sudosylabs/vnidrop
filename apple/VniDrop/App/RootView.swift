@@ -319,6 +319,13 @@ private struct ContactPromptLayer: View {
 						receiveModel.receiveOffered(ticket: ticket)
 					}
 				}
+			},
+			onSuggestionResponse: { suggestion, accepted in
+				if accepted {
+					Task { await contacts.acceptSuggestion(suggestion) }
+				} else {
+					contacts.declineSuggestion(suggestion)
+				}
 			}
 		)
 		.onChange(of: promptKey) { _, key in
@@ -332,6 +339,7 @@ private struct ContactPromptLayer: View {
 		guard approvals.state.current == nil else { return nil }
 		if let offer = contacts.state.currentOffer { return "offer-\(offer.offerId)" }
 		if let pairing = contacts.state.currentPairing { return "pairing-\(pairing.endpointId)" }
+		if let suggestion = contacts.state.currentSuggestion { return "suggest-\(suggestion.endpointId)" }
 		return nil
 	}
 }

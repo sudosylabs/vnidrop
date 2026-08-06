@@ -14,12 +14,14 @@ struct ContactPromptHost: View {
 	let state: ContactsState
 	let onPairingResponse: (String, Bool) -> Void
 	let onOfferResponse: (String, Bool) -> Void
+	let onSuggestionResponse: (PairingSuggestion, Bool) -> Void
 
 	var body: some View {
 		Color.clear
 			.sheet(isPresented: $isPresented) {
-				// An incoming transfer is the more urgent of the two, and a
-				// pairing offer keeps until the consent window lapses.
+				// Ordered by who is waiting: a sender is blocked on an offer, a
+				// pairing request keeps until its consent window lapses, and a
+				// post-transfer suggestion has nobody waiting at all.
 				if let offer = state.currentOffer {
 					OfferSheet(
 						offer: offer,
@@ -33,6 +35,16 @@ struct ContactPromptHost: View {
 						pairing: pairing,
 						busy: state.busyEndpoints.contains(pairing.endpointId),
 						onRespond: onPairingResponse
+					)
+					.interactiveDismissDisabled(true)
+					.modifier(ContactPromptDetents())
+				} else if let suggestion = state.currentSuggestion {
+					// Lowest priority: nobody is waiting on this answer, it just
+					// follows a transfer that already finished.
+					SuggestionSheet(
+						suggestion: suggestion,
+						busy: state.busyEndpoints.contains(suggestion.endpointId),
+						onRespond: onSuggestionResponse
 					)
 					.interactiveDismissDisabled(true)
 					.modifier(ContactPromptDetents())
@@ -123,6 +135,46 @@ private struct PairingSheet: View {
 					onRespond(pairing.endpointId, true)
 				} label: {
 					Text(String(localized: L10n.Pairing.accept)).frame(maxWidth: .infinity)
+				}
+				.buttonStyle(.borderedProminent)
+			}
+			.disabled(busy)
+		}
+		.padding(20)
+	}
+}
+
+/// "You just transferred with this device. Let it reach you next time?"
+private struct SuggestionSheet: View {
+	let suggestion: PairingSuggestion
+	let busy: Bool
+	let onRespond: (PairingSuggestion, Bool) -> Void
+
+	var body: some View {
+		VStack(spacing: 16) {
+			Image(systemSymbol: .clockArrowCirclepath)
+				.font(.system(size: 44))
+				.foregroundStyle(.tint)
+				.padding(.top, 12)
+			Text(String(localized: L10n.Pairing.allowTitle))
+				.font(.title2).fontWeight(.semibold)
+			Text(L10n.Pairing.requestBody(device: suggestion.resolvedName))
+				.multilineTextAlignment(.center)
+			Text(String(localized: L10n.Pairing.allowBody))
+				.font(.caption)
+				.foregroundStyle(.secondary)
+				.multilineTextAlignment(.center)
+			Spacer(minLength: 0)
+			HStack(spacing: 12) {
+				Button(role: .cancel) {
+					onRespond(suggestion, false)
+				} label: {
+					Text(String(localized: L10n.Pairing.decline)).frame(maxWidth: .infinity)
+				}
+				Button {
+					onRespond(suggestion, true)
+				} label: {
+					Text(String(localized: L10n.Pairing.allowConfirm)).frame(maxWidth: .infinity)
 				}
 				.buttonStyle(.borderedProminent)
 			}

@@ -223,3 +223,187 @@ final class ContactsModelTests: XCTestCase {
 		XCTAssertEqual(model.state.contacts.first?.canSend, false)
 	}
 }
+
+// MARK: - Post-transfer suggestions
+
+@MainActor
+final class PairingSuggestionTests: XCTestCase {
+	private func makeModel(
+		_ gateway: FakeCoreGateway,
+		defaults: UserDefaults
+	) -> (ContactsModel, AppPreferencesRepository) {
+		let preferences = AppPreferencesRepository(
+			defaults: defaults,
+			fallback: AppPreferencesDefaults(
+				username: "tester",
+				receiveFolder: ReceiveFolder(
+					kind: .fileSystemPath,
+					value: "/tmp",
+					displayName: "Downloads"
+				),
+				themeMode: .system
+			)
+		)
+		let model = ContactsModel(
+			repository: gateway,
+			messages: UiMessageController(),
+			preferences: preferences
+		)
+		return (model, preferences)
+	}
+
+	private func newDefaults() -> UserDefaults {
+		UserDefaults(suiteName: "suggestion-tests-\(UUID().uuidString)")!
+	}
+
+	private func completedReceive(from peerId: String?) -> Transfer {
+		Transfer(
+			localId: "local-1",
+			transferId: 1,
+			direction: .receive,
+			status: .done,
+			peerId: peerId,
+			transferName: "photos",
+			contentHash: nil,
+			fileCount: 1,
+			totalSize: 10,
+			ticket: nil,
+			accessPolicy: .requireApproval,
+			createdAt: 0,
+			updatedAt: 0
+		)
+	}
+
+	private func state(with transfers: [Transfer]) -> CoreState {
+		var core = CoreState()
+		core.isInitialized = true
+		core.transfers = transfers
+		return core
+	}
+
+	func testCompletedReceiveSuggestsItsSender() async {
+		let gateway = FakeCoreGateway()
+		let (model, _) = makeModel(gateway, defaults: newDefaults())
+		await model.refresh()
+
+		gateway.setState(state(with: [completedReceive(from: "sender-endpoint")]))
+		await Task.yield()
+
+		XCTAssertEqual(model.state.currentSuggestion?.endpointId, "sender-endpoint")
+	}
+
+	/// A transfer that never recorded a peer cannot be turned into a suggestion.
+	func testReceiveWithoutAPeerIsNotSuggested() async {
+		let gateway = FakeCoreGateway()
+		let (model, _) = makeModel(gateway, defaults: newDefaults())
+		await model.refresh()
+
+		gateway.setState(state(with: [completedReceive(from: nil)]))
+		await Task.yield()
+
+		XCTAssertNil(model.state.currentSuggestion)
+	}
+
+	func testAlreadyRememberedDeviceIsNotSuggested() async {
+		let gateway = FakeCoreGateway()
+		gateway.contactsResult = .success([
+			DeviceContact(
+				endpointId: "sender-endpoint",
+				localLabel: nil,
+				remoteDisplayName: nil,
+				lastTransferAt: nil,
+				createdAt: 0,
+				canSend: true
+			)
+		])
+		let (model, _) = makeModel(gateway, defaults: newDefaults())
+		await model.refresh()
+
+		gateway.setState(state(with: [completedReceive(from: "sender-endpoint")]))
+		await Task.yield()
+
+		XCTAssertNil(model.state.currentSuggestion)
+	}
+
+	func testBlockedDeviceIsNotSuggested() async {
+		let gateway = FakeCoreGateway()
+		gateway.blockedResult = .success(["sender-endpoint"])
+		let (model, _) = makeModel(gateway, defaults: newDefaults())
+		await model.refresh()
+
+		gateway.setState(state(with: [completedReceive(from: "sender-endpoint")]))
+		await Task.yield()
+
+		XCTAssertNil(model.state.currentSuggestion)
+	}
+
+	/// Declining has to stick, or every later transfer with the same device
+	/// re-asks the question the user already answered.
+	func testDecliningIsRememberedAcrossLaterTransfers() async {
+		let defaults = newDefaults()
+		let gateway = FakeCoreGateway()
+		let (model, preferences) = makeModel(gateway, defaults: defaults)
+		await model.refresh()
+		gateway.setState(state(with: [completedReceive(from: "sender-endpoint")]))
+		await Task.yield()
+		let suggestion = try? XCTUnwrap(model.state.currentSuggestion)
+
+		model.declineSuggestion(suggestion!)
+
+		XCTAssertNil(model.state.currentSuggestion)
+		XCTAssertTrue(preferences.preferences.declinedPairingSuggestions.contains("sender-endpoint"))
+
+		// A second transfer with the same device must stay silent.
+		gateway.setState(CoreState())
+		gateway.setState(state(with: [completedReceive(from: "sender-endpoint")]))
+		await Task.yield()
+		XCTAssertNil(model.state.currentSuggestion)
+	}
+
+	func testAcceptingASuggestionIssuesAGrantUnderTheLocalUsername() async {
+		let gateway = FakeCoreGateway()
+		let (model, _) = makeModel(gateway, defaults: newDefaults())
+		await model.refresh()
+		gateway.setState(state(with: [completedReceive(from: "sender-endpoint")]))
+		await Task.yield()
+		let suggestion = try? XCTUnwrap(model.state.currentSuggestion)
+
+		await model.acceptSuggestion(suggestion!)
+
+		XCTAssertEqual(gateway.allowedDevices.map(\.endpointId), ["sender-endpoint"])
+		XCTAssertEqual(gateway.allowedDevices.first?.displayName, "tester")
+		XCTAssertNil(model.state.currentSuggestion)
+	}
+
+	/// Pairing deliberately after declining should work, so the decline is
+	/// cleared rather than blocking the device forever.
+	func testAcceptingClearsAnEarlierDecline() async {
+		let defaults = newDefaults()
+		let gateway = FakeCoreGateway()
+		let (model, preferences) = makeModel(gateway, defaults: defaults)
+		let suggestion = PairingSuggestion(
+			endpointId: "sender-endpoint",
+			displayName: nil,
+			transferName: nil
+		)
+		model.declineSuggestion(suggestion)
+		XCTAssertTrue(preferences.preferences.declinedPairingSuggestions.contains("sender-endpoint"))
+
+		await model.acceptSuggestion(suggestion)
+
+		XCTAssertFalse(preferences.preferences.declinedPairingSuggestions.contains("sender-endpoint"))
+	}
+
+	func testTheSameDeviceIsOnlySuggestedOnce() async {
+		let gateway = FakeCoreGateway()
+		let (model, _) = makeModel(gateway, defaults: newDefaults())
+		await model.refresh()
+
+		gateway.setState(state(with: [completedReceive(from: "sender-endpoint")]))
+		await Task.yield()
+		gateway.setState(state(with: [completedReceive(from: "sender-endpoint")]))
+		await Task.yield()
+
+		XCTAssertEqual(model.state.suggestions.count, 1)
+	}
+}

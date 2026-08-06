@@ -122,6 +122,8 @@ struct AppPreferences: Equatable {
 	var themeMode: ThemeMode
 	var diagnosticsInstallId: String
 	var relayConfiguration: RelayConfiguration
+	/// Idle lifetime applied to grants this device issues from now on.
+	var grantLifetime: GrantLifetimeOption
 }
 
 struct AppPreferencesDefaults {
@@ -145,6 +147,7 @@ final class AppPreferencesRepository: ObservableObject {
 		static let themeMode = "theme_mode"
 		static let diagnosticsInstallId = "diagnostics_install_id"
 		static let relayConfiguration = "relay_configuration"
+		static let grantLifetime = "grant_lifetime"
 	}
 
 	init(defaults: UserDefaults = .standard, fallback: AppPreferencesDefaults) {
@@ -158,12 +161,15 @@ final class AppPreferencesRepository: ObservableObject {
 		let folder = resolveReceiveFolder(defaults, fallback: fallback.receiveFolder)
 		let themeMode = defaults.string(forKey: Key.themeMode).flatMap(ThemeMode.init(rawValue:)) ?? fallback.themeMode
 		let installId = defaults.string(forKey: Key.diagnosticsInstallId) ?? ""
+		let grantLifetime = defaults.string(forKey: Key.grantLifetime)
+			.flatMap(GrantLifetimeOption.init(rawValue:)) ?? .days90
 		return AppPreferences(
 			username: username,
 			receiveFolder: folder,
 			themeMode: themeMode,
 			diagnosticsInstallId: installId,
-			relayConfiguration: resolveRelayConfiguration(defaults)
+			relayConfiguration: resolveRelayConfiguration(defaults),
+			grantLifetime: grantLifetime
 		)
 	}
 
@@ -207,6 +213,11 @@ final class AppPreferencesRepository: ObservableObject {
 
 	func resetReceiveFolder() {
 		setReceiveFolder(fallback.receiveFolder)
+	}
+
+	func setGrantLifetime(_ lifetime: GrantLifetimeOption) {
+		defaults.set(lifetime.rawValue, forKey: Key.grantLifetime)
+		reload()
 	}
 
 	func setThemeMode(_ mode: ThemeMode) {

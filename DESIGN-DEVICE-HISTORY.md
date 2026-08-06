@@ -1,6 +1,10 @@
 # Design — Device history and direct offers
 
-Status: **draft for review**. No code written.
+Status: **implemented** in the Rust core and the SwiftUI app. The KMP/Compose
+app has not been built yet; the UniFFI surface is additive, so `shared/` still
+compiles untouched and the Compose string resources are already generated.
+
+Where the build deviates from what was specified here, the section says so.
 
 Lets a user send to a device they have already transferred with, without
 creating and sharing a new invitation. Both sides opt in to being remembered,

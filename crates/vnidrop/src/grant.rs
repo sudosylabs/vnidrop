@@ -236,6 +236,35 @@ impl IssuedGrant {
     }
 }
 
+/// A grant as held by the party it was issued to: the capability used to reach
+/// the peer that minted it.
+///
+/// `expires_at` here is advisory only — a copy of what the issuer said at issue
+/// time, useful for showing "expires soon" in the UI. The issuer's record is
+/// authoritative and may have been renewed or revoked since.
+#[derive(Debug, Clone)]
+pub(crate) struct HeldGrant {
+    pub(crate) grant_id: GrantId,
+    pub(crate) secret: GrantSecret,
+    /// The peer that issued this grant, and therefore the only one it works on.
+    pub(crate) peer_endpoint_id: String,
+    pub(crate) created_at: i64,
+    pub(crate) expires_at: Option<i64>,
+}
+
+impl HeldGrant {
+    /// Build the proof to present to the issuing peer.
+    pub(crate) fn prove(&self, challenge: &Challenge, self_endpoint_id: &str) -> GrantProof {
+        prove(
+            self.grant_id,
+            &self.secret,
+            challenge,
+            &self.peer_endpoint_id,
+            self_endpoint_id,
+        )
+    }
+}
+
 /// How long a grant survives without use. Grants expire on idleness rather than
 /// age, so a relationship in regular use never lapses while a forgotten one
 /// cleans itself up.

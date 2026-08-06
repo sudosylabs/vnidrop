@@ -1,6 +1,7 @@
 mod access_policy;
 mod api;
 mod approval;
+mod contacts;
 mod error;
 mod event_hub;
 mod filesystem;

@@ -16,11 +16,12 @@ use uuid::Uuid;
 use crate::{
     access_policy::mode_from_storage,
     api::{CoreEvent, ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest, StoredTransfer},
+    contacts::ContactStore,
     transfer_state::{ReceiverRequestStatus, TransferDirection, TransferStatus},
     util::now_ms,
 };
 
-const SCHEMA_VERSION: i64 = 7;
+const SCHEMA_VERSION: i64 = 8;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Repository {
@@ -315,10 +316,20 @@ impl Repository {
                 .await?;
         }
 
+        crate::contacts::ensure_schema(&self.pool).await?;
+
         sqlx::query(&format!("PRAGMA user_version = {SCHEMA_VERSION}"))
             .execute(&self.pool)
             .await?;
         Ok(())
+    }
+
+    /// Device history, grants, and the block list. Shares this pool so the
+    /// tables migrate together with the rest of the schema.
+    // Reached from tests until the offer protocol lands.
+    #[allow(dead_code)]
+    pub(crate) fn contacts(&self) -> ContactStore {
+        ContactStore::new(self.pool.clone())
     }
 
     #[cfg(test)]

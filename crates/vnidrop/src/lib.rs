@@ -4,6 +4,7 @@ mod approval;
 mod error;
 mod event_hub;
 mod filesystem;
+mod grant;
 mod handshake;
 mod logging;
 mod repository;

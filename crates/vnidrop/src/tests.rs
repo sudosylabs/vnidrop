@@ -4,6 +4,8 @@ mod access_policy_tests;
 mod error_tests;
 #[path = "tests/filesystem.rs"]
 mod filesystem_tests;
+#[path = "tests/grant.rs"]
+mod grant_tests;
 #[path = "tests/handshake.rs"]
 mod handshake_tests;
 #[path = "tests/limits.rs"]

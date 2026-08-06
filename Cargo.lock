@@ -5227,6 +5227,7 @@ dependencies = [
  "data-encoding",
  "futures",
  "futures-lite",
+ "getrandom 0.3.4",
  "iroh",
  "iroh-blobs",
  "iroh-relay",

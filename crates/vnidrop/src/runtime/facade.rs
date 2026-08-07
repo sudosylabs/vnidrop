@@ -302,6 +302,22 @@ impl VnidropCore {
             .map_err(VnidropError::transfer)
     }
 
+    /// Offer an existing share to a remembered device.
+    ///
+    /// Another way to deliver the invitation already created for a transfer,
+    /// alongside the QR code — not a second share of the same files.
+    pub fn offer_transfer_to_contact(
+        &self,
+        transfer_id: u64,
+        endpoint_id: String,
+    ) -> Result<ContactSendResult, VnidropError> {
+        self.block_on(
+            self.inner
+                .offer_transfer_to_contact(transfer_id, endpoint_id),
+        )
+        .map_err(VnidropError::transfer)
+    }
+
     /// Transfers this device is holding for contacts that were not running.
     pub fn list_held_offers(&self) -> Result<Vec<HeldOfferSummary>, VnidropError> {
         self.block_on(self.inner.list_held_offers())

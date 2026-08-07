@@ -23,6 +23,7 @@ use crate::{
         DeliverGrant, GrantDeliveryResponse, OfferResponse, OfferService, RevokeGrant, SubmitOffer,
     },
     ticket::{encode_persisted_sender_address, parse_persisted_sender_address},
+    transfer_state::{TransferDirection, TransferStatus},
     util::now_ms,
 };
 
@@ -179,17 +180,87 @@ impl CoreInner {
         metadata.access_mode = TransferAccessMode::ApprovalRequired;
         let sender_name = metadata.sender_name.clone();
         let share = self.share_files(sources, metadata).await?;
+        self.offer_share(endpoint_id, grant, share, sender_name.as_deref())
+            .await
+    }
+
+    /// Offer a share that already exists, so a transfer created for an
+    /// invitation can also be pushed to a remembered device.
+    ///
+    /// The ticket is the one already stored for the transfer: this adds another
+    /// way to deliver it, it does not create a second share of the same files.
+    pub(super) async fn offer_transfer_to_contact(
+        self: &Arc<Self>,
+        transfer_id: u64,
+        endpoint_id: String,
+    ) -> Result<ContactSendResult> {
+        let grant = self
+            .repository
+            .contacts()
+            .held_grant_for(&endpoint_id)
+            .await
+            .map_err(VnidropError::repository)?
+            .ok_or_else(|| {
+                VnidropError::permission(anyhow::anyhow!(
+                    "no live grant for this device; pair with it again"
+                ))
+            })?;
+
+        let stored = self
+            .repository
+            .list_transfers()
+            .await
+            .map_err(VnidropError::repository)?
+            .into_iter()
+            .find(|transfer| transfer.transfer_id == transfer_id)
+            .ok_or_else(|| {
+                VnidropError::invalid_input(anyhow::anyhow!("unknown transfer {transfer_id}"))
+            })?;
+
+        // Only a live share can be offered: a stopped one no longer serves its
+        // content, so handing out its ticket would promise nothing.
+        if stored.direction != TransferDirection::Send.as_str()
+            || stored.status != TransferStatus::Sharing.as_str()
+        {
+            return Err(VnidropError::invalid_input(anyhow::anyhow!(
+                "transfer {transfer_id} is not an active share"
+            ))
+            .into());
+        }
+        let ticket = stored.ticket.clone().ok_or_else(|| {
+            VnidropError::invalid_input(anyhow::anyhow!("transfer {transfer_id} has no invitation"))
+        })?;
+
+        let share = ShareResult {
+            transfer_id,
+            ticket,
+            hash: stored.content_hash.unwrap_or_default(),
+            transfer_name: stored.transfer_name.unwrap_or_default(),
+            file_count: stored.file_count,
+            total_size: stored.total_size,
+        };
+        self.offer_share(endpoint_id, grant, share, None).await
+    }
+
+    /// Deliver an offer for `share`, holding it when the device is not running.
+    async fn offer_share(
+        self: &Arc<Self>,
+        endpoint_id: String,
+        grant: HeldGrant,
+        share: ShareResult,
+        sender_name: Option<&str>,
+    ) -> Result<ContactSendResult> {
+        let store = self.repository.contacts();
 
         // An unreachable device is the common case on mobile, not an error: the
         // share stays here and the ticket waits for the peer to come and get it.
         let outcome = match self
-            .deliver_offer(&endpoint_id, &grant, &share, sender_name.as_deref())
+            .deliver_offer(&endpoint_id, &grant, &share, sender_name)
             .await
         {
             Ok(outcome) => outcome,
             Err(error) => {
-                self.hold_offer(&endpoint_id, &share, sender_name.as_deref())
-                    .await?;
+                self.hold_offer(&endpoint_id, &share, sender_name).await?;
                 tracing::debug!(%error, "offer held for later pickup");
                 return Ok(ContactSendResult {
                     share,

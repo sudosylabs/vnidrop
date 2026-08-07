@@ -561,3 +561,91 @@ fn polling_a_device_that_holds_nothing_for_you_returns_nothing() {
     assert_eq!(receiver.core.poll_contacts_for_offers().unwrap(), 0);
     assert!(receiver.core.list_pending_offers().is_empty());
 }
+
+/// A transfer created for an invitation can also be pushed to a device: the
+/// same ticket, another way to deliver it.
+#[test]
+fn an_existing_share_can_be_offered_to_a_contact() {
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("shared.txt");
+    std::fs::write(&source_path, b"existing share").unwrap();
+    let output_dir = tempfile::tempdir().unwrap();
+
+    let sender = TestNode::new();
+    let receiver = TestNode::new();
+    pair(&receiver, &sender);
+
+    // An ordinary share, as if the user had created it for a QR code.
+    let share = sender
+        .core
+        .share_files(sources(&source_path), metadata(6_001))
+        .expect("shared");
+
+    let core = sender.core.arc();
+    let to = endpoint_id(&receiver);
+    let handle = std::thread::spawn(move || core.offer_transfer_to_contact(share.transfer_id, to));
+
+    let offer = wait_for_offer(&receiver.core);
+    let ticket = receiver
+        .core
+        .respond_to_offer(offer.offer_id, true)
+        .expect("accepting yields the ticket");
+    let outcome = handle.join().unwrap().expect("offer accepted");
+
+    assert!(outcome.delivered);
+    assert_eq!(
+        outcome.share.transfer_id, share.transfer_id,
+        "offering reuses the existing transfer rather than creating another"
+    );
+    assert_eq!(ticket, share.ticket, "the invitation is the stored one");
+
+    receiver
+        .core
+        .receive(
+            ticket,
+            output_dir.path().to_string_lossy().to_string(),
+            Some("Receiver".to_string()),
+        )
+        .expect("receive completes");
+    assert_eq!(
+        std::fs::read(output_dir.path().join("shared.txt")).unwrap(),
+        b"existing share"
+    );
+}
+
+/// A stopped share serves nothing, so its ticket must not be handed out.
+#[test]
+fn a_stopped_share_cannot_be_offered() {
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("shared.txt");
+    std::fs::write(&source_path, b"content").unwrap();
+
+    let sender = TestNode::new();
+    let receiver = TestNode::new();
+    pair(&receiver, &sender);
+    let share = sender
+        .core
+        .share_files(sources(&source_path), metadata(6_002))
+        .expect("shared");
+    sender.core.cancel_transfer(share.transfer_id).unwrap();
+
+    let outcome = sender
+        .core
+        .offer_transfer_to_contact(share.transfer_id, endpoint_id(&receiver));
+
+    assert!(outcome.is_err());
+    assert!(receiver.core.list_pending_offers().is_empty());
+}
+
+/// Offering an unknown transfer is rejected rather than silently doing nothing.
+#[test]
+fn offering_an_unknown_transfer_is_rejected() {
+    let sender = TestNode::new();
+    let receiver = TestNode::new();
+    pair(&receiver, &sender);
+
+    assert!(sender
+        .core
+        .offer_transfer_to_contact(9_999, endpoint_id(&receiver))
+        .is_err());
+}

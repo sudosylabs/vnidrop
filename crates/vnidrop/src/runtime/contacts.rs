@@ -4,7 +4,7 @@
 //! [`crate::pairing`]; this is where those meet the endpoint and the UniFFI
 //! surface.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
 use iroh::{EndpointAddr, EndpointId};
@@ -26,6 +26,12 @@ use crate::{
     transfer_state::{TransferDirection, TransferStatus},
     util::now_ms,
 };
+
+/// How long to wait for a device to answer before treating it as not running.
+///
+/// Without this an offline peer never fails, it just keeps being retried, and
+/// the offer is never handed to the hold-for-later path.
+const OFFER_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// Whether a device may be polled again yet.
 ///
@@ -419,9 +425,9 @@ impl CoreInner {
     ) -> Result<OfferResponse> {
         let addr = self.contact_addr(endpoint_id).await?;
         let client = OfferService::client(self.endpoint.clone(), addr);
-        let challenge = client
-            .request_challenge()
+        let challenge = tokio::time::timeout(OFFER_CONNECT_TIMEOUT, client.request_challenge())
             .await
+            .map_err(|_| VnidropError::transfer(anyhow::anyhow!("device did not answer in time")))?
             .context("device is not reachable")
             .map_err(VnidropError::transfer)?;
 

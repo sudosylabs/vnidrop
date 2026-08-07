@@ -414,6 +414,35 @@ final class ContactsModelTests: XCTestCase {
 		XCTAssertFalse(delivered)
 	}
 
+	/// A refusal by the person on the other device is information, not an error.
+	func testADeclinedOfferIsReportedWithoutAnErrorTone() async {
+		let gateway = FakeCoreGateway()
+		gateway.offerTransferResult = .failure(
+			InvitationError.raw("permission error: device did not accept the transfer: receiver-declined")
+		)
+		let defaults = UserDefaults(suiteName: "contacts-declined-\(UUID().uuidString)")!
+		let preferences = AppPreferencesRepository(
+			defaults: defaults,
+			fallback: AppPreferencesDefaults(
+				username: "tester",
+				receiveFolder: ReceiveFolder(kind: .fileSystemPath, value: "/tmp", displayName: "Downloads"),
+				themeMode: .system
+			)
+		)
+		let messages = UiMessageController()
+		let model = ContactsModel(
+			repository: gateway,
+			messages: messages,
+			preferences: preferences,
+			fileSystemService: FakeFileSystemService()
+		)
+
+		let delivered = await model.offerTransfer(transferId: 7, to: contact("peer"))
+
+		XCTAssertFalse(delivered)
+		XCTAssertEqual(messages.current?.tone, .info)
+	}
+
 	func testUnreachableContactIsSurfacedForRepairing() async {
 		let gateway = FakeCoreGateway()
 		gateway.contactsResult = .success([contact("peer", canSend: false)])

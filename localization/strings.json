@@ -5284,6 +5284,46 @@
         "nl": "{device} heeft de overdracht geaccepteerd",
         "ru": "{device} принял передачу"
       }
+    },
+    "contacts_declined_by_device": {
+      "context": "Shown when the person on the other device declined an offered transfer. {device} = device name.",
+      "args": [
+        {
+          "name": "device",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "{device} declined the transfer",
+        "fr": "{device} a refusé le transfert",
+        "es": "{device} rechazó la transferencia",
+        "it": "{device} ha rifiutato il trasferimento",
+        "de": "{device} hat die Übertragung abgelehnt",
+        "pt": "{device} recusou a transferência",
+        "pl": "{device} odrzuciło przesyłkę",
+        "nl": "{device} heeft de overdracht geweigerd",
+        "ru": "{device} отклонил передачу"
+      }
+    },
+    "contacts_no_answer": {
+      "context": "Shown when an offered transfer got no answer on the other device before timing out. {device} = device name.",
+      "args": [
+        {
+          "name": "device",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "{device} did not answer",
+        "fr": "{device} n’a pas répondu",
+        "es": "{device} no respondió",
+        "it": "{device} non ha risposto",
+        "de": "{device} hat nicht geantwortet",
+        "pt": "{device} não respondeu",
+        "pl": "{device} nie odpowiedziało",
+        "nl": "{device} heeft niet geantwoord",
+        "ru": "{device} не ответил"
+      }
     }
   }
 }

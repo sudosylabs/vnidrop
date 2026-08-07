@@ -3,6 +3,12 @@ import VnidropCore
 
 /// Maps technical failures to stable, user-facing catalog keys. Ported from
 /// `ui/feedback/UserFacingError.kt`. Never exposes raw `reason=` blobs.
+/// How an offered transfer ended without being accepted.
+enum OfferRefusal {
+	case declined
+	case noAnswer
+}
+
 extension Error {
 	func toUiText() -> UiText {
 		if let invitation = self as? InvitationError {
@@ -55,6 +61,19 @@ extension Error {
 			|| haystack.contains("canceled")
 			|| haystack.contains("user cancelled")
 			|| haystack.contains("user canceled")
+	}
+
+	/// The other device answered, and the answer was no.
+	///
+	/// Not a failure of this device: the offer was delivered and a person
+	/// declined it, so it is reported as information rather than an error.
+	var offerRefusal: OfferRefusal? {
+		let haystack = technicalDetail.lowercased()
+		if haystack.contains("receiver-declined") || haystack.contains("declined-recently") {
+			return .declined
+		}
+		if haystack.contains("no-response") { return .noAnswer }
+		return nil
 	}
 
 	/// Prefers a `VnidropError` reason; else the localized description.

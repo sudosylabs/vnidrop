@@ -345,6 +345,14 @@ final class ContactsModel: ObservableObject {
 		}
 	}
 
+	/// Fire-and-report variant of ``offerTransfer(transferId:to:)``.
+	///
+	/// Owned by the model rather than a view so the request survives the picker
+	/// being dismissed: the answer depends on a person at the other device.
+	func offerTransferInBackground(transferId: UInt64, to contact: DeviceContact) {
+		Task { await offerTransfer(transferId: transferId, to: contact) }
+	}
+
 	/// Push an existing transfer to a remembered device.
 	///
 	/// Returns whether it landed, so the caller can distinguish "accepted" from
@@ -365,6 +373,15 @@ final class ContactsModel: ObservableObject {
 			messages.tryShow(UiMessage(text: text, tone: outcome.delivered ? .success : .info))
 			await refresh()
 			return outcome.delivered
+		case .failure(let error) where error.offerRefusal != nil:
+			// The offer was delivered and a person said no, or nobody answered.
+			// Neither is a failure of this device, so neither is shown as one.
+			let text = error.offerRefusal == .declined
+				? L10n.Contacts.declinedByDevice(device: contact.displayName)
+				: L10n.Contacts.noAnswer(device: contact.displayName)
+			messages.tryShow(UiMessage(text: .dynamic(text), tone: .info))
+			await refresh()
+			return false
 		case .failure(let error):
 			messages.error(error)
 			return false

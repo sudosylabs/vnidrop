@@ -348,6 +348,8 @@
     <string name="contacts_pick_device_title">Выберите устройство</string>
     <string name="contacts_pick_device_empty">Сейчас ни одно устройство недоступно. Сохранённые устройства появятся здесь после передачи.</string>
     <string name="contacts_sent_to_device">%1$s принял передачу</string>
+    <string name="contacts_declined_by_device">%1$s отклонил передачу</string>
+    <string name="contacts_no_answer">%1$s не ответил</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d файл</item>
         <item quantity="few">%1$d файла</item>

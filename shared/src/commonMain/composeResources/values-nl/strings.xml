@@ -348,6 +348,8 @@
     <string name="contacts_pick_device_title">Kies een apparaat</string>
     <string name="contacts_pick_device_empty">Er is nu geen apparaat bereikbaar. Onthouden apparaten verschijnen hier na een overdracht.</string>
     <string name="contacts_sent_to_device">%1$s heeft de overdracht geaccepteerd</string>
+    <string name="contacts_declined_by_device">%1$s heeft de overdracht geweigerd</string>
+    <string name="contacts_no_answer">%1$s heeft niet geantwoord</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d bestand</item>
         <item quantity="other">%1$d bestanden</item>

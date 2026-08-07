@@ -31,10 +31,12 @@ struct DevicePickerSheet: View {
 				} else {
 					List(reachable) { contact in
 						Button {
-							Task {
-								await model.offerTransfer(transferId: transferId, to: contact)
-								dismiss()
-							}
+							// Close first. The other device's user has to accept,
+							// which can take as long as they take, and holding a
+							// modal open on someone else's decision reads as a
+							// hang. The outcome arrives as a message instead.
+							dismiss()
+							model.offerTransferInBackground(transferId: transferId, to: contact)
 						} label: {
 							HStack {
 								VStack(alignment: .leading, spacing: 2) {
@@ -49,7 +51,7 @@ struct DevicePickerSheet: View {
 								}
 							}
 						}
-						.disabled(!model.state.busyEndpoints.isEmpty)
+						.disabled(model.state.busyEndpoints.contains(contact.endpointId))
 					}
 				}
 			}

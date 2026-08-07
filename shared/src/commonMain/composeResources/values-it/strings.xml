@@ -348,6 +348,8 @@
     <string name="contacts_pick_device_title">Scegli un dispositivo</string>
     <string name="contacts_pick_device_empty">Nessun dispositivo è raggiungibile ora. I dispositivi memorizzati compaiono qui dopo un trasferimento.</string>
     <string name="contacts_sent_to_device">%1$s ha accettato il trasferimento</string>
+    <string name="contacts_declined_by_device">%1$s ha rifiutato il trasferimento</string>
+    <string name="contacts_no_answer">%1$s non ha risposto</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d file</item>
         <item quantity="other">%1$d file</item>

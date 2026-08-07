@@ -263,14 +263,11 @@ struct ContactDetailScreen: View {
 
 				Section {
 					// The endpoint id is the only real identity: two devices can
-					// claim the same name, but not the same key.
-					LabeledContent(String(localized: L10n.Approval.nearbyDevice)) {
-						Text(contact.shortFingerprint)
-							.font(.callout.monospaced())
-					}
-				} footer: {
+					// claim the same name, but not the same key. Shown in full
+					// and selectable so it can actually be compared.
 					Text(L10n.Approval.endpointId(deviceId: contact.endpointId))
-						.font(.caption2)
+						.font(.caption.monospaced())
+						.foregroundStyle(.secondary)
 						.textSelection(.enabled)
 				}
 

@@ -344,6 +344,10 @@
     <string name="contacts_offer_held">Ese dispositivo no está abierto. La transferencia se entregará la próxima vez que abra VniDrop.</string>
     <string name="contacts_waiting_title">Pendientes de entrega</string>
     <string name="contacts_waiting_hint">Cancela la transferencia para retirarla.</string>
+    <string name="contacts_send_to_device">Enviar a un dispositivo</string>
+    <string name="contacts_pick_device_title">Elegir un dispositivo</string>
+    <string name="contacts_pick_device_empty">Ningún dispositivo está disponible ahora. Los dispositivos guardados aparecen aquí tras una transferencia.</string>
+    <string name="contacts_sent_to_device">%1$s aceptó la transferencia</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d archivo</item>
         <item quantity="other">%1$d archivos</item>

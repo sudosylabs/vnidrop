@@ -63,22 +63,9 @@ struct ContactsScreen: View {
 				}
 			}
 
-			CollectOffersSection(
-				enabled: model.state.checkForOffersOnOpen,
-				isChecking: model.state.isCheckingForOffers,
-				onToggle: model.setCheckForOffersOnOpen,
-				onCheckNow: {
-					Task {
-						let collected = await model.collectWaitingOffers()
-						if collected == 0 { onNothingWaiting() }
-					}
-				}
-			)
+			CollectOffersSection(model: model, onNothingWaiting: onNothingWaiting)
 
-			GrantLifetimeSection(
-				selection: model.state.grantLifetime,
-				onSelect: model.setGrantLifetime
-			)
+			GrantLifetimeSection(model: model)
 
 			if !model.state.contacts.isEmpty {
 				Section {
@@ -98,7 +85,7 @@ struct ContactsScreen: View {
 private struct ContactsEmptyState: View {
 	var body: some View {
 		VStack(spacing: 8) {
-			Image(systemSymbol: .laptopcomputerAndIphone)
+			Image(systemSymbol: .macbookAndIphone)
 				.font(.system(size: 32))
 				.foregroundStyle(.tint)
 			Text(String(localized: L10n.Contacts.emptyTitle))
@@ -162,27 +149,33 @@ private struct BlockedRow: View {
 }
 
 private struct CollectOffersSection: View {
-	let enabled: Bool
-	let isChecking: Bool
-	let onToggle: (Bool) -> Void
-	let onCheckNow: () -> Void
+	@ObservedObject var model: ContactsModel
+	let onNothingWaiting: () -> Void
 
 	var body: some View {
 		Section {
 			Toggle(
 				String(localized: L10n.Contacts.checkOnOpen),
-				isOn: Binding(get: { enabled }, set: onToggle)
+				isOn: Binding(
+					get: { model.state.checkForOffersOnOpen },
+					set: { model.setCheckForOffersOnOpen($0) }
+				)
 			)
-			Button(action: onCheckNow) {
+			Button {
+				Task {
+					let collected = await model.collectWaitingOffers()
+					if collected == 0 { onNothingWaiting() }
+				}
+			} label: {
 				HStack {
 					Text(String(localized: L10n.Contacts.checkNow))
-					if isChecking {
+					if model.state.isCheckingForOffers {
 						Spacer()
 						ProgressView().controlSize(.small)
 					}
 				}
 			}
-			.disabled(isChecking)
+			.disabled(model.state.isCheckingForOffers)
 		} footer: {
 			// The privacy cost is the point of the setting, so it is stated
 			// where the switch is, not buried elsewhere.
@@ -192,14 +185,16 @@ private struct CollectOffersSection: View {
 }
 
 private struct GrantLifetimeSection: View {
-	let selection: GrantLifetimeOption
-	let onSelect: (GrantLifetimeOption) -> Void
+	@ObservedObject var model: ContactsModel
 
 	var body: some View {
 		Section {
 			Picker(
 				String(localized: L10n.Contacts.grantLifetimeTitle),
-				selection: Binding(get: { selection }, set: onSelect)
+				selection: Binding(
+					get: { model.state.grantLifetime },
+					set: { model.setGrantLifetime($0) }
+				)
 			) {
 				ForEach(GrantLifetimeOption.allCases) { option in
 					Text(Self.label(option)).tag(option)

@@ -344,6 +344,10 @@
     <string name="contacts_offer_held">To urządzenie nie jest otwarte. Przesyłka zostanie dostarczona przy następnym uruchomieniu VniDrop.</string>
     <string name="contacts_waiting_title">Oczekuje na dostarczenie</string>
     <string name="contacts_waiting_hint">Anuluj przesyłkę, aby ją wycofać.</string>
+    <string name="contacts_send_to_device">Wyślij do urządzenia</string>
+    <string name="contacts_pick_device_title">Wybierz urządzenie</string>
+    <string name="contacts_pick_device_empty">Żadne urządzenie nie jest teraz dostępne. Zapamiętane urządzenia pojawią się tu po przesłaniu.</string>
+    <string name="contacts_sent_to_device">%1$s zaakceptowało przesyłkę</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d plik</item>
         <item quantity="few">%1$d pliki</item>

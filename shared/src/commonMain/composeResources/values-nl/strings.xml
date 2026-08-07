@@ -344,6 +344,10 @@
     <string name="contacts_offer_held">Dat apparaat is niet geopend. De overdracht wordt bezorgd zodra het VniDrop weer opent.</string>
     <string name="contacts_waiting_title">Wacht op bezorging</string>
     <string name="contacts_waiting_hint">Annuleer de overdracht om die in te trekken.</string>
+    <string name="contacts_send_to_device">Naar een apparaat sturen</string>
+    <string name="contacts_pick_device_title">Kies een apparaat</string>
+    <string name="contacts_pick_device_empty">Er is nu geen apparaat bereikbaar. Onthouden apparaten verschijnen hier na een overdracht.</string>
+    <string name="contacts_sent_to_device">%1$s heeft de overdracht geaccepteerd</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d bestand</item>
         <item quantity="other">%1$d bestanden</item>

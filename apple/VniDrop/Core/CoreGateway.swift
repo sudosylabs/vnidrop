@@ -66,6 +66,11 @@ protocol CoreGateway: AnyObject {
 		transferName: String,
 		senderName: String
 	) async -> Result<ContactSendOutcome, Error>
+	/// Offer an existing share to a remembered device, alongside its QR code.
+	func offerTransferToContact(
+		transferId: UInt64,
+		endpointId: String
+	) async -> Result<ContactSendOutcome, Error>
 	/// Transfers this device is holding for contacts that were not running.
 	func heldOffers() async -> Result<[HeldOfferModel], Error>
 	/// Ask remembered devices whether they hold anything for this one.

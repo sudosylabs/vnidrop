@@ -345,6 +345,32 @@ final class ContactsModel: ObservableObject {
 		}
 	}
 
+	/// Push an existing transfer to a remembered device.
+	///
+	/// Returns whether it landed, so the caller can distinguish "accepted" from
+	/// "waiting for that device to open the app".
+	@discardableResult
+	func offerTransfer(transferId: UInt64, to contact: DeviceContact) async -> Bool {
+		state.busyEndpoints.insert(contact.endpointId)
+		defer { state.busyEndpoints.remove(contact.endpointId) }
+
+		switch await repository.offerTransferToContact(
+			transferId: transferId,
+			endpointId: contact.endpointId
+		) {
+		case .success(let outcome):
+			let text: UiText = outcome.delivered
+				? .dynamic(L10n.Contacts.sentToDevice(device: contact.displayName))
+				: .resource(L10n.Contacts.offerHeld)
+			messages.tryShow(UiMessage(text: text, tone: outcome.delivered ? .success : .info))
+			await refresh()
+			return outcome.delivered
+		case .failure(let error):
+			messages.error(error)
+			return false
+		}
+	}
+
 	// MARK: - Management
 
 	func setLabel(endpointId: String, label: String) async {

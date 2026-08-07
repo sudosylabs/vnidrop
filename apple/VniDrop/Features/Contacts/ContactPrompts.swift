@@ -110,7 +110,7 @@ private struct PairingSheet: View {
 
 	var body: some View {
 		VStack(spacing: 16) {
-			Image(systemSymbol: .laptopcomputerAndIphone)
+			Image(systemSymbol: .macbookAndIphone)
 				.font(.system(size: 44))
 				.foregroundStyle(.tint)
 				.padding(.top, 12)

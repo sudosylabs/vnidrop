@@ -5222,6 +5222,68 @@
         "nl": "Annuleer de overdracht om die in te trekken.",
         "ru": "Отмените передачу, чтобы отозвать её."
       }
+    },
+    "contacts_send_to_device": {
+      "context": "Transfer share panel: action that sends this transfer straight to a remembered device.",
+      "translations": {
+        "en": "Send to a device",
+        "fr": "Envoyer à un appareil",
+        "es": "Enviar a un dispositivo",
+        "it": "Invia a un dispositivo",
+        "de": "An ein Gerät senden",
+        "pt": "Enviar para um dispositivo",
+        "pl": "Wyślij do urządzenia",
+        "nl": "Naar een apparaat sturen",
+        "ru": "Отправить на устройство"
+      }
+    },
+    "contacts_pick_device_title": {
+      "context": "Device picker sheet: title when choosing which remembered device to send a transfer to.",
+      "translations": {
+        "en": "Choose a device",
+        "fr": "Choisir un appareil",
+        "es": "Elegir un dispositivo",
+        "it": "Scegli un dispositivo",
+        "de": "Gerät auswählen",
+        "pt": "Escolher um dispositivo",
+        "pl": "Wybierz urządzenie",
+        "nl": "Kies een apparaat",
+        "ru": "Выберите устройство"
+      }
+    },
+    "contacts_pick_device_empty": {
+      "context": "Device picker sheet: shown when no remembered device can currently be sent to.",
+      "translations": {
+        "en": "No device can be reached right now. Remembered devices appear here after a transfer.",
+        "fr": "Aucun appareil n’est joignable pour le moment. Les appareils enregistrés apparaissent ici après un transfert.",
+        "es": "Ningún dispositivo está disponible ahora. Los dispositivos guardados aparecen aquí tras una transferencia.",
+        "it": "Nessun dispositivo è raggiungibile ora. I dispositivi memorizzati compaiono qui dopo un trasferimento.",
+        "de": "Derzeit ist kein Gerät erreichbar. Gespeicherte Geräte erscheinen hier nach einer Übertragung.",
+        "pt": "Nenhum dispositivo está acessível agora. Os dispositivos guardados aparecem aqui após uma transferência.",
+        "pl": "Żadne urządzenie nie jest teraz dostępne. Zapamiętane urządzenia pojawią się tu po przesłaniu.",
+        "nl": "Er is nu geen apparaat bereikbaar. Onthouden apparaten verschijnen hier na een overdracht.",
+        "ru": "Сейчас ни одно устройство недоступно. Сохранённые устройства появятся здесь после передачи."
+      }
+    },
+    "contacts_sent_to_device": {
+      "context": "Confirmation after a transfer was accepted by the device it was sent to. {device} = device name.",
+      "args": [
+        {
+          "name": "device",
+          "type": "string"
+        }
+      ],
+      "translations": {
+        "en": "{device} accepted the transfer",
+        "fr": "{device} a accepté le transfert",
+        "es": "{device} aceptó la transferencia",
+        "it": "{device} ha accettato il trasferimento",
+        "de": "{device} hat die Übertragung angenommen",
+        "pt": "{device} aceitou a transferência",
+        "pl": "{device} zaakceptowało przesyłkę",
+        "nl": "{device} heeft de overdracht geaccepteerd",
+        "ru": "{device} принял передачу"
+      }
     }
   }
 }

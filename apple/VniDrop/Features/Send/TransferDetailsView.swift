@@ -6,6 +6,7 @@ import CoreImage.CIFilterBuiltins
 
 struct TransferDetailsView: View {
 	@ObservedObject var model: SendModel
+	@ObservedObject var contacts: ContactsModel
 	let transfer: Transfer
 	let events: [CoreEventModel]
 	@State private var showStopConfirmation = false
@@ -129,6 +130,7 @@ private struct DetailDestination: View {
 
 struct DetailPanelContent: View {
 	@ObservedObject var model: SendModel
+	@ObservedObject var contacts: ContactsModel
 	let transfer: Transfer
 	let panel: TransferDetailPanel
 
@@ -146,7 +148,7 @@ struct DetailPanelContent: View {
 				onAccept: model.acceptReceiver
 			)
 		case .share:
-			TransferSharePanel(model: model, transfer: transfer)
+			TransferSharePanel(model: model, contacts: contacts, transfer: transfer)
 		}
 	}
 }
@@ -296,6 +298,7 @@ private struct ReceiverRow: View {
 struct TransferSharePanel: View {
 	@Environment(\.vniColors) private var colors
 	@ObservedObject var model: SendModel
+	@ObservedObject var contacts: ContactsModel
 	let transfer: Transfer
 
 	var body: some View {
@@ -309,7 +312,7 @@ struct TransferSharePanel: View {
 						.font(VniType.bodySmall).foregroundStyle(colors.foregroundLighter)
 						.frame(maxWidth: .infinity)
 				}
-				ShareActionsView(model: model, transfer: transfer, ticket: ticket)
+				ShareActionsView(model: model, contacts: contacts, transfer: transfer, ticket: ticket)
 			case .preparing:
 				Text(String(localized: L10n.Transfer.eventPreparing)).foregroundStyle(colors.foregroundLighter)
 			case .unavailable:

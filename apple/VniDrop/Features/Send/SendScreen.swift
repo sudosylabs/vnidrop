@@ -5,6 +5,7 @@ import SFSafeSymbols
 /// with the composer and detail panels as native sheets and delete as an alert.
 struct SendScreen: View {
 	@ObservedObject var model: SendModel
+	@ObservedObject var contacts: ContactsModel
 	let windowClass: WindowClass
 
 	/// Transfer pending an inline (list-level) delete confirmation.
@@ -60,7 +61,7 @@ struct SendScreen: View {
 				onDismissed: model.shareSheetDidDismiss
 			) {
 				if let shareTarget {
-					TransferSharePanel(model: model, transfer: shareTarget)
+					TransferSharePanel(model: model, contacts: contacts, transfer: shareTarget)
 				}
 			}
 		}
@@ -93,7 +94,7 @@ struct SendScreen: View {
 	/// alert attached here so they present from the detail's own context (presenting
 	/// modals from the parent stack while a detail is pushed is unreliable on macOS).
 	private func detailView(for transfer: Transfer) -> some View {
-		TransferDetailsView(model: model, transfer: transfer, events: model.coreState.events)
+		TransferDetailsView(model: model, contacts: contacts, transfer: transfer, events: model.coreState.events)
 			.adaptiveDrawer(
 				isPresented: Binding(get: { model.state.detailPanel != nil }, set: { _ in }),
 				windowClass: windowClass,
@@ -101,7 +102,7 @@ struct SendScreen: View {
 				onDismissed: model.shareSheetDidDismiss
 			) {
 				if let panel = model.state.detailPanel {
-					DetailPanelContent(model: model, transfer: transfer, panel: panel)
+					DetailPanelContent(model: model, contacts: contacts, transfer: transfer, panel: panel)
 				}
 			}
 			.alert(

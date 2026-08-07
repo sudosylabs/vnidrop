@@ -57,7 +57,7 @@ struct SettingsScreen: View {
 					}
 					NavigationLink(value: SettingsSection.contacts) {
 						SettingsRow(
-							icon: .laptopcomputerAndIphone,
+							icon: .macbookAndIphone,
 							title: String(localized: L10n.Contacts.title),
 							value: contacts.state.contacts.isEmpty
 								? nil

@@ -359,6 +359,18 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		}
 	}
 
+	func offerTransferToContact(
+		transferId: UInt64,
+		endpointId: String
+	) async -> Result<ContactSendOutcome, Error> {
+		await runCore {
+			let result = try self.requireCore().offerTransferToContact(
+				transferId: transferId, endpointId: endpointId
+			)
+			return ContactSendOutcome(share: result.share.toModel(), delivered: result.delivered)
+		}
+	}
+
 	func heldOffers() async -> Result<[HeldOfferModel], Error> {
 		await runCore { try self.requireCore().listHeldOffers().map { $0.toModel() } }
 	}

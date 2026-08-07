@@ -344,6 +344,10 @@
     <string name="contacts_offer_held">Dieses Gerät ist nicht geöffnet. Die Übertragung wird beim nächsten Öffnen von VniDrop zugestellt.</string>
     <string name="contacts_waiting_title">Wartet auf Zustellung</string>
     <string name="contacts_waiting_hint">Brechen Sie die Übertragung ab, um sie zurückzuziehen.</string>
+    <string name="contacts_send_to_device">An ein Gerät senden</string>
+    <string name="contacts_pick_device_title">Gerät auswählen</string>
+    <string name="contacts_pick_device_empty">Derzeit ist kein Gerät erreichbar. Gespeicherte Geräte erscheinen hier nach einer Übertragung.</string>
+    <string name="contacts_sent_to_device">%1$s hat die Übertragung angenommen</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d Datei</item>
         <item quantity="other">%1$d Dateien</item>

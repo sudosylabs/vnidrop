@@ -344,6 +344,10 @@
     <string name="contacts_offer_held">Cet appareil n’est pas ouvert. Le transfert sera remis à sa prochaine ouverture de VniDrop.</string>
     <string name="contacts_waiting_title">En attente de remise</string>
     <string name="contacts_waiting_hint">Annulez le transfert pour le retirer.</string>
+    <string name="contacts_send_to_device">Envoyer à un appareil</string>
+    <string name="contacts_pick_device_title">Choisir un appareil</string>
+    <string name="contacts_pick_device_empty">Aucun appareil n’est joignable pour le moment. Les appareils enregistrés apparaissent ici après un transfert.</string>
+    <string name="contacts_sent_to_device">%1$s a accepté le transfert</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d fichier</item>
         <item quantity="other">%1$d fichiers</item>

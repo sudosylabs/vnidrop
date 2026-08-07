@@ -374,6 +374,46 @@ final class ContactsModelTests: XCTestCase {
 		XCTAssertEqual(model.state.heldOffers.map(\.offerId), ["held-1"])
 	}
 
+	/// Offering an existing transfer reuses it rather than creating another.
+	func testOfferingAnExistingTransferReportsAcceptance() async {
+		let gateway = FakeCoreGateway()
+		gateway.offerTransferResult = .success(
+			ContactSendOutcome(
+				share: Share(
+					transferId: 7, ticket: "vnd1:x", transferName: "doc",
+					contentHash: "h", fileCount: 1, totalSize: 2
+				),
+				delivered: true
+			)
+		)
+		let (model, _) = makeModel(gateway)
+
+		let delivered = await model.offerTransfer(transferId: 7, to: contact("peer"))
+
+		XCTAssertTrue(delivered)
+		XCTAssertEqual(gateway.offeredTransfers.map(\.transferId), [7])
+		XCTAssertEqual(gateway.offeredTransfers.map(\.endpointId), ["peer"])
+	}
+
+	/// An offer to a closed device is reported as waiting, not accepted.
+	func testOfferingToAClosedDeviceReportsItAsWaiting() async {
+		let gateway = FakeCoreGateway()
+		gateway.offerTransferResult = .success(
+			ContactSendOutcome(
+				share: Share(
+					transferId: 7, ticket: "vnd1:x", transferName: "doc",
+					contentHash: "h", fileCount: 1, totalSize: 2
+				),
+				delivered: false
+			)
+		)
+		let (model, _) = makeModel(gateway)
+
+		let delivered = await model.offerTransfer(transferId: 7, to: contact("peer"))
+
+		XCTAssertFalse(delivered)
+	}
+
 	func testUnreachableContactIsSurfacedForRepairing() async {
 		let gateway = FakeCoreGateway()
 		gateway.contactsResult = .success([contact("peer", canSend: false)])

@@ -173,7 +173,7 @@ struct RootView: View {
 	@ViewBuilder
 	private func screen(for destination: AppDestination, windowClass: WindowClass) -> some View {
 		switch destination {
-		case .send: SendScreen(model: sendModel, windowClass: windowClass)
+		case .send: SendScreen(model: sendModel, contacts: graph.contactsModel, windowClass: windowClass)
 		case .receive: ReceiveScreen(model: receiveModel, windowClass: windowClass)
 		case .settings:
 			SettingsScreen(model: settingsModel, contacts: graph.contactsModel, windowClass: windowClass)

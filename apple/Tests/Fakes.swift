@@ -136,6 +136,16 @@ final class FakeCoreGateway: CoreGateway {
 		sentToContacts.append(endpointId)
 		return sendToContactResult
 	}
+	private(set) var offeredTransfers: [(transferId: UInt64, endpointId: String)] = []
+	var offerTransferResult: Result<ContactSendOutcome, Error> = .failure(TestError.unimplemented)
+
+	func offerTransferToContact(
+		transferId: UInt64,
+		endpointId: String
+	) async -> Result<ContactSendOutcome, Error> {
+		offeredTransfers.append((transferId, endpointId))
+		return offerTransferResult
+	}
 	func heldOffers() async -> Result<[HeldOfferModel], Error> { heldOffersResult }
 	func pollContactsForOffers() async -> Result<UInt64, Error> {
 		pollCount += 1

@@ -15,6 +15,8 @@ struct SettingsScreen: View {
 				switch model.state.selectedSection {
 				case .overview: return []
 				case .bugReport: return [.about, .bugReport]
+				case .contactDetail(let endpointId):
+					return [.contacts, .contactDetail(endpointId: endpointId)]
 				case let section: return [section]
 				}
 			},
@@ -92,7 +94,9 @@ struct SettingsScreen: View {
 	private func sectionForm(_ section: SettingsSection) -> some View {
 		// Contacts brings its own Form and push destination, so it is not wrapped
 		// in the shared section chrome.
-		if section == .contacts {
+		if case .contactDetail(let endpointId) = section {
+			ContactDetailScreen(model: contacts, endpointId: endpointId)
+		} else if section == .contacts {
 			ContactsScreen(model: contacts) {
 				model.reportNothingWaiting()
 			}
@@ -153,7 +157,7 @@ private struct SettingsSectionContent: View {
 			NetworkSettings(model: model)
 		case .storage:
 			StorageSettings(model: model)
-		case .contacts:
+		case .contacts, .contactDetail:
 			// Rendered by SettingsScreen itself, which owns the contacts model.
 			EmptyView()
 		case .about:

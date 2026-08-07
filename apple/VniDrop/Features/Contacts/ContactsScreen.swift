@@ -25,7 +25,7 @@ struct ContactsScreen: View {
 			} else {
 				Section(String(localized: L10n.Contacts.title)) {
 					ForEach(model.state.contacts) { contact in
-						NavigationLink(value: contact.endpointId) {
+						NavigationLink(value: SettingsSection.contactDetail(endpointId: contact.endpointId)) {
 							ContactRow(contact: contact)
 						}
 					}
@@ -75,9 +75,6 @@ struct ContactsScreen: View {
 		}
 		.formStyle(.grouped)
 		.navigationTitle(Text(String(localized: L10n.Contacts.title)))
-		.navigationDestination(for: String.self) { endpointId in
-			ContactDetailScreen(model: model, endpointId: endpointId)
-		}
 		.task { await model.refresh() }
 	}
 }

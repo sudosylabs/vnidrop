@@ -2,6 +2,7 @@ package com.vnidrop.app
 
 import com.vnidrop.app.core.CoreGateway
 import com.vnidrop.app.core.CoreRepository
+import com.vnidrop.app.background.BackgroundSharingCoordinator
 import com.vnidrop.app.diagnostics.DiagnosticsCoordinator
 import com.vnidrop.app.diagnostics.createDiagnosticsTransport
 import com.vnidrop.app.feature.approvals.ApprovalCoordinator
@@ -66,6 +67,11 @@ class AppGraph(
 		messages = messages,
 		scope = applicationScope,
 	)
+	private val backgroundSharingCoordinator = BackgroundSharingCoordinator(
+		repository = coreRepository,
+		controller = dependencies.backgroundSharingController,
+		scope = applicationScope,
+	)
 
 	init {
 		AppLogger.initialize(dependencies.environment.defaultCoreDataDir)
@@ -73,6 +79,7 @@ class AppGraph(
 	}
 
 	fun close() {
+		backgroundSharingCoordinator.stop()
 		coreRepository.shutdown()
 		applicationScope.cancel()
 	}

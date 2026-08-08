@@ -116,6 +116,9 @@
     <string name="nav_settings">Настройки</string>
     <string name="network_title">Сеть</string>
     <string name="notifications_description">Получайте уведомления об активности передач, пока VniDrop работает в фоне.</string>
+    <string name="notifications_background_sharing_body">VniDrop готов отправлять ваши файлы в фоновом режиме.</string>
+    <string name="notifications_background_sharing_channel">Активные передачи</string>
+    <string name="notifications_background_sharing_title">Отправка в фоне</string>
     <string name="notifications_enabled_message">Уведомления включены.</string>
     <string name="notifications_local_title">Разрешить уведомления</string>
     <string name="notifications_permission_denied">Уведомления отключены для VniDrop. Вы можете включить их в Настройках.</string>

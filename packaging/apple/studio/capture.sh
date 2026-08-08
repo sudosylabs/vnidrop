@@ -19,8 +19,14 @@ DEVICE="${SCREENSHOT_DEVICE:-iPhone 17 Pro Max}"
 BUNDLE_ID="com.vnidrop.app"
 LOCALES=${LOCALES:-"en fr de es it nl pl pt ru"}
 
-# scenario (launch arg value) -> studio screen id (output filename stem)
-SCENARIOS="share:share-securely approval:choose-receivers transfer-details:send-anywhere"
+# scenario (launch arg value) -> studio screen id (output filename stem).
+# send-anywhere reuses the share screenshot (see ScreenSpec shotId), so it isn't
+# captured separately; stay-private uses black screens (no capture).
+SCENARIOS="share:share-securely approval:choose-receivers"
+
+# Screenshots are transient build output, regenerated per run — never committed. They
+# live under generated/ (git-ignored), not in assets/.
+SHOTS_DIR="${SHOTS_DIR:-generated/shots}"
 
 echo "==> Regenerating project"; (cd "$APPLE_DIR" && xcodegen generate >/dev/null)
 
@@ -46,7 +52,7 @@ xcrun simctl status_bar "$UDID" override --time "9:41" \
 xcrun simctl install "$UDID" "$APP"
 
 for loc in $LOCALES; do
-	mkdir -p "assets/shots/$loc"
+	mkdir -p "$SHOTS_DIR/$loc"
 	for pair in $SCENARIOS; do
 		scenario="${pair%%:*}"; screen="${pair##*:}"
 		xcrun simctl launch --terminate-running-process "$UDID" "$BUNDLE_ID" \
@@ -56,9 +62,9 @@ for loc in $LOCALES; do
 		# on external/again-protected volumes), so capture to a temp file and move it in.
 		tmp="$(mktemp -t vnishot).png"
 		xcrun simctl io "$UDID" screenshot "$tmp" >/dev/null 2>&1
-		mv "$tmp" "assets/shots/$loc/$screen.png"
-		echo "  📸 $loc/$screen.png"
+		mv "$tmp" "$SHOTS_DIR/$loc/$screen.png"
+		echo "  📸 $SHOTS_DIR/$loc/$screen.png"
 	done
 done
 echo ""
-echo "Done. Now run ./build.sh to composite."
+echo "Done. Now run 'swift run studio' to composite."

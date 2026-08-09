@@ -10,6 +10,15 @@ use uuid::Uuid;
 
 use crate::{error::VnidropError, util::now_ms};
 
+#[cfg(any(test, target_os = "android"))]
+mod android;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+mod apple;
+#[cfg(any(test, target_os = "linux"))]
+mod linux;
+#[cfg(target_os = "windows")]
+mod windows;
+
 const SECRET_BYTES: usize = 32;
 const HANDLE_NAMESPACE: &str = "vnidrop";
 const HANDLE_VERSION: &str = "v1";
@@ -118,6 +127,38 @@ pub(crate) trait SecureSecretStore: Send + Sync {
     fn get(&self, handle: &SecretHandle) -> Result<SecretMaterial, SecureSecretStoreError>;
     fn delete(&self, handle: &SecretHandle) -> Result<(), SecureSecretStoreError>;
     fn list_handles(&self) -> Result<Vec<SecretHandle>, SecureSecretStoreError>;
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub(crate) fn platform_secret_store(
+    _app_data_dir: &Path,
+) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
+    Ok(Arc::new(apple::AppleKeychainSecretStore::new()))
+}
+
+#[cfg(target_os = "android")]
+pub(crate) fn platform_secret_store(
+    _app_data_dir: &Path,
+) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
+    android::native::create_store_from_android_runtime().map_err(map_store_error)
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn platform_secret_store(
+    app_data_dir: &Path,
+) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
+    windows::WindowsDpapiSecretStore::new(app_data_dir.join("protected-secrets-v1"))
+        .map(|store| Arc::new(store) as Arc<dyn SecureSecretStore>)
+        .map_err(map_store_error)
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn platform_secret_store(
+    _app_data_dir: &Path,
+) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
+    linux::LinuxSecretServiceStore::connect()
+        .map(|store| Arc::new(store) as Arc<dyn SecureSecretStore>)
+        .map_err(map_store_error)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

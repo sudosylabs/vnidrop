@@ -116,6 +116,9 @@
     <string name="nav_settings">Instellingen</string>
     <string name="network_title">Netwerk</string>
     <string name="notifications_description">Ontvang meldingen over overdrachtsactiviteit terwijl VniDrop op de achtergrond draait.</string>
+    <string name="notifications_background_sharing_body">VniDrop is klaar om uw bestanden op de achtergrond te delen.</string>
+    <string name="notifications_background_sharing_channel">Actieve overdrachten</string>
+    <string name="notifications_background_sharing_title">Delen op de achtergrond</string>
     <string name="notifications_enabled_message">Meldingen ingeschakeld.</string>
     <string name="notifications_local_title">Meldingen toestaan</string>
     <string name="notifications_permission_denied">Meldingen zijn uitgeschakeld voor VniDrop. U kunt ze inschakelen in Instellingen.</string>

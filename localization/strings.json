@@ -1740,6 +1740,57 @@
         "ru": "Получайте уведомления об активности передач, пока VniDrop работает в фоне."
       }
     },
+    "notifications_background_sharing_body": {
+      "context": "Android foreground-service notification: explains why VniDrop stays active.",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "VniDrop is ready to share your files in the background.",
+        "fr": "VniDrop est prêt à partager vos fichiers en arrière-plan.",
+        "es": "VniDrop está listo para compartir sus archivos en segundo plano.",
+        "it": "VniDrop è pronto a condividere i tuoi file in background.",
+        "de": "VniDrop kann Ihre Dateien im Hintergrund freigeben.",
+        "pt": "O VniDrop está pronto para partilhar os seus ficheiros em segundo plano.",
+        "pl": "VniDrop jest gotowy do udostępniania plików w tle.",
+        "nl": "VniDrop is klaar om uw bestanden op de achtergrond te delen.",
+        "ru": "VniDrop готов отправлять ваши файлы в фоновом режиме."
+      }
+    },
+    "notifications_background_sharing_channel": {
+      "context": "Android system notification channel for an active outgoing share.",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Active transfers",
+        "fr": "Transferts actifs",
+        "es": "Transferencias activas",
+        "it": "Trasferimenti attivi",
+        "de": "Aktive Übertragungen",
+        "pt": "Transferências ativas",
+        "pl": "Aktywne transfery",
+        "nl": "Actieve overdrachten",
+        "ru": "Активные передачи"
+      }
+    },
+    "notifications_background_sharing_title": {
+      "context": "Android foreground-service notification title while an outgoing share is available.",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Sharing in the background",
+        "fr": "Partage en arrière-plan",
+        "es": "Compartiendo en segundo plano",
+        "it": "Condivisione in background",
+        "de": "Freigabe im Hintergrund",
+        "pt": "Partilha em segundo plano",
+        "pl": "Udostępnianie w tle",
+        "nl": "Delen op de achtergrond",
+        "ru": "Отправка в фоне"
+      }
+    },
     "notifications_enabled_message": {
       "context": "Settings > Notifications: confirmation when notifications are enabled.",
       "translations": {

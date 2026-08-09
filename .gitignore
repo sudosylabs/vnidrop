@@ -26,3 +26,6 @@ output/
 .screenshots
 apple/RELEASE-MACOS.md
 apple/Generated/*.xcconfig
+
+# Compliance material — kept locally, never committed
+compliance/

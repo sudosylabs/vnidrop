@@ -26,6 +26,8 @@ pub enum VnidropError {
     Cancelled { reason: String },
     #[error("invalid input: {reason}")]
     InvalidInput { reason: String },
+    #[error("invalid targeted transfer transition: {reason}")]
+    InvalidTransition { reason: String },
     #[error("internal error: {reason}")]
     Internal { reason: String },
 }
@@ -93,6 +95,7 @@ impl VnidropError {
             Self::Repository { .. } => "repository",
             Self::Cancelled { .. } => "cancelled",
             Self::InvalidInput { .. } => "invalid_input",
+            Self::InvalidTransition { .. } => "invalid_transition",
             Self::Internal { .. } => "internal",
         }
     }
@@ -111,6 +114,7 @@ impl VnidropError {
             | Self::Repository { reason }
             | Self::Cancelled { reason }
             | Self::InvalidInput { reason }
+            | Self::InvalidTransition { reason }
             | Self::Internal { reason } => reason,
         }
     }
@@ -163,6 +167,7 @@ impl VnidropError {
             Self::Repository { .. } => Self::Repository { reason },
             Self::Cancelled { .. } => Self::Cancelled { reason },
             Self::InvalidInput { .. } => Self::InvalidInput { reason },
+            Self::InvalidTransition { .. } => Self::InvalidTransition { reason },
             Self::Internal { .. } => Self::Internal { reason },
         }
     }

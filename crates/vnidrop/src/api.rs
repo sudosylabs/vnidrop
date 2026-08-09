@@ -10,6 +10,82 @@ use crate::util::{non_empty, now_ms};
 pub(crate) const MAX_CUSTOM_RELAYS: usize = 8;
 pub(crate) const MAX_RELAY_URL_BYTES: usize = 2_048;
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct ExperimentalSavedDeviceCapabilities {
+    pub api_version: u16,
+    pub relationship_protocol_version: u16,
+    pub targeted_transfer_protocol_version: u16,
+}
+
+#[uniffi::export]
+pub fn experimental_saved_device_capabilities() -> ExperimentalSavedDeviceCapabilities {
+    ExperimentalSavedDeviceCapabilities {
+        api_version: 1,
+        relationship_protocol_version: 1,
+        targeted_transfer_protocol_version: 1,
+    }
+}
+
+/// A remote VniDrop app-installation identity that completed mutual consent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct SavedDevice {
+    pub endpoint_id: String,
+    pub local_label: Option<String>,
+    pub remote_display_name: Option<String>,
+    pub created_at: i64,
+    pub last_authenticated_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum DeviceRelationshipState {
+    PendingOutgoing,
+    PendingIncoming,
+    Saved,
+    Revoked,
+    Blocked,
+}
+
+/// Public relationship state; directional grant material remains core-private.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct DeviceRelationship {
+    pub remote_endpoint_id: String,
+    pub state: DeviceRelationshipState,
+    pub generation: u64,
+    pub minimum_protocol_version: u16,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum TargetedTransferState {
+    Preparing,
+    Offering,
+    AwaitingApproval,
+    Approved,
+    Connecting,
+    Transferring,
+    Interrupted,
+    Completed,
+    Declined,
+    Cancelled,
+    Failed,
+    Deleted,
+}
+
+/// Immutable recipient-bound transfer snapshot, separate from an ordinary share.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct TargetedTransfer {
+    pub id: String,
+    pub sender_endpoint_id: String,
+    pub receiver_endpoint_id: String,
+    pub manifest_id: String,
+    pub file_count: u64,
+    pub total_size: u64,
+    pub state: TargetedTransferState,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
 pub enum CoreRelayMode {
     Automatic,

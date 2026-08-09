@@ -14,17 +14,20 @@ mod pairing;
 mod repository;
 mod runtime;
 mod secret;
+mod targeted_transfer;
 mod ticket;
 mod transfer_state;
 mod util;
 
 pub use api::{
     clear_inactive_transfer_cache, default_core_limits, default_core_network_config,
-    ContactSendResult, ContactSummary, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig,
-    CoreRelayMode, CoreStorageUsage, GrantLifetimeSetting, HeldOfferSummary, IncomingOffer,
-    PendingPairing, PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact,
-    ReceivedLocatorKind, ReceiverRequest, RuntimeStatus, ShareMetadataInput, ShareResult,
-    ShareSource, SourceKind, StoredTransfer, TicketInspection, TransferAccessMode,
+    experimental_saved_device_capabilities, ContactSendResult, ContactSummary, CoreEvent,
+    CoreEventSink, CoreLimits, CoreNetworkConfig, CoreRelayMode, CoreStorageUsage,
+    DeviceRelationship, DeviceRelationshipState, ExperimentalSavedDeviceCapabilities,
+    GrantLifetimeSetting, HeldOfferSummary, IncomingOffer, PendingPairing, PublishedOutput,
+    ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest,
+    RuntimeStatus, SavedDevice, ShareMetadataInput, ShareResult, ShareSource, SourceKind,
+    StoredTransfer, TargetedTransfer, TargetedTransferState, TicketInspection, TransferAccessMode,
     TransferMetadata,
 };
 pub use error::VnidropError;

@@ -14,6 +14,11 @@ mod pairing;
 mod repository;
 mod runtime;
 mod secret;
+#[allow(
+    dead_code,
+    reason = "the private custody seam is activated by platform credential adapters"
+)]
+mod secure_secret;
 mod targeted_transfer;
 mod ticket;
 mod transfer_state;

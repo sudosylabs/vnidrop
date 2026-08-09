@@ -21,7 +21,7 @@ use crate::{
     util::now_ms,
 };
 
-const SCHEMA_VERSION: i64 = 9;
+const SCHEMA_VERSION: i64 = 10;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Repository {
@@ -317,6 +317,7 @@ impl Repository {
         }
 
         crate::contacts::ensure_schema(&self.pool).await?;
+        crate::secure_secret::ensure_schema(&self.pool).await?;
 
         sqlx::query(&format!("PRAGMA user_version = {SCHEMA_VERSION}"))
             .execute(&self.pool)
@@ -328,6 +329,14 @@ impl Repository {
     /// tables migrate together with the rest of the schema.
     pub(crate) fn contacts(&self) -> ContactStore {
         ContactStore::new(self.pool.clone())
+    }
+
+    #[allow(
+        dead_code,
+        reason = "the private custody seam is activated by platform credential adapters"
+    )]
+    pub(crate) fn protected_secrets(&self) -> crate::secure_secret::SecretMetadataStore {
+        crate::secure_secret::SecretMetadataStore::new(self.pool.clone())
     }
 
     #[cfg(test)]

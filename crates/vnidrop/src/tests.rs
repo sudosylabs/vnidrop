@@ -22,6 +22,8 @@ mod repository_tests;
 mod runtime_tests;
 #[path = "tests/secret.rs"]
 mod secret_tests;
+#[path = "tests/secure_secret.rs"]
+mod secure_secret_tests;
 #[path = "tests/ticket.rs"]
 mod ticket_tests;
 #[path = "tests/transfer_state.rs"]

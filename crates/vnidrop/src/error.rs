@@ -28,6 +28,14 @@ pub enum VnidropError {
     InvalidInput { reason: String },
     #[error("invalid targeted transfer transition: {reason}")]
     InvalidTransition { reason: String },
+    #[error("secure storage is locked: {reason}")]
+    SecureStorageLocked { reason: String },
+    #[error("secure storage item is missing: {reason}")]
+    SecureStorageMissing { reason: String },
+    #[error("secure storage item is corrupted: {reason}")]
+    SecureStorageCorrupted { reason: String },
+    #[error("secure storage is unavailable: {reason}")]
+    SecureStorageUnavailable { reason: String },
     #[error("internal error: {reason}")]
     Internal { reason: String },
 }
@@ -96,6 +104,10 @@ impl VnidropError {
             Self::Cancelled { .. } => "cancelled",
             Self::InvalidInput { .. } => "invalid_input",
             Self::InvalidTransition { .. } => "invalid_transition",
+            Self::SecureStorageLocked { .. } => "secure_storage_locked",
+            Self::SecureStorageMissing { .. } => "secure_storage_missing",
+            Self::SecureStorageCorrupted { .. } => "secure_storage_corrupted",
+            Self::SecureStorageUnavailable { .. } => "secure_storage_unavailable",
             Self::Internal { .. } => "internal",
         }
     }
@@ -115,6 +127,10 @@ impl VnidropError {
             | Self::Cancelled { reason }
             | Self::InvalidInput { reason }
             | Self::InvalidTransition { reason }
+            | Self::SecureStorageLocked { reason }
+            | Self::SecureStorageMissing { reason }
+            | Self::SecureStorageCorrupted { reason }
+            | Self::SecureStorageUnavailable { reason }
             | Self::Internal { reason } => reason,
         }
     }
@@ -168,6 +184,10 @@ impl VnidropError {
             Self::Cancelled { .. } => Self::Cancelled { reason },
             Self::InvalidInput { .. } => Self::InvalidInput { reason },
             Self::InvalidTransition { .. } => Self::InvalidTransition { reason },
+            Self::SecureStorageLocked { .. } => Self::SecureStorageLocked { reason },
+            Self::SecureStorageMissing { .. } => Self::SecureStorageMissing { reason },
+            Self::SecureStorageCorrupted { .. } => Self::SecureStorageCorrupted { reason },
+            Self::SecureStorageUnavailable { .. } => Self::SecureStorageUnavailable { reason },
             Self::Internal { .. } => Self::Internal { reason },
         }
     }

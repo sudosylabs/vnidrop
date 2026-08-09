@@ -26,3 +26,4 @@ output/
 .screenshots
 apple/RELEASE-MACOS.md
 apple/Generated/*.xcconfig
+.scratch/

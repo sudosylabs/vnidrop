@@ -20,6 +20,7 @@ node_modules/
 target/
 .junie
 config.override.mk
+bin/
 
 # Local design export scratch
 output/

@@ -5,13 +5,12 @@ import SwiftUI
 // (dx, dy); captions are centered and pinned to the top or bottom edge.
 
 struct ScreenFrame: View {
-    static let canvas = CGSize(width: 1284, height: 2778)
-
     let spec: ScreenSpec
     let caption: Caption
     let globe: Image?
     let shot: NSImage?
     let device: DeviceRenderer?
+    var canvas: CGSize = CGSize(width: 1284, height: 2778)
 
     private var allDevices: [DeviceSpec] { spec.device.map { [$0] } ?? spec.devices }
 
@@ -19,14 +18,10 @@ struct ScreenFrame: View {
     private var subColor: Color { spec.captionTheme == .light ? Color(hex: "#f3ecfb") : Color(hex: "#2c2138") }
 
     var body: some View {
-        let cw = Self.canvas.width, ch = Self.canvas.height
+        let cw = canvas.width, ch = canvas.height
 
         ZStack(alignment: .topLeading) {
             spec.bg.gradient
-
-            if let o = spec.orbit { orbitLayer(o) }
-
-            if let r = spec.ribbon { ribbonLayer(r) }
 
             if let g = spec.globe, let globe {
                 globe.resizable().scaledToFit()
@@ -69,133 +64,6 @@ struct ScreenFrame: View {
         .clipped()
     }
 
-    // Glowing purple orbit ring: a soft blurred halo under a bright thin stroke.
-    private func orbitLayer(_ o: OrbitSpec) -> some View {
-        let purple = Color(hex: "#a855f7")
-        return ZStack {
-            Ellipse()
-                .stroke(purple.opacity(0.55), lineWidth: o.lineWidth * 2.4)
-                .blur(radius: 26)
-            Ellipse()
-                .stroke(
-                    LinearGradient(colors: [Color(hex: "#c98bff"), Color(hex: "#7c3aed"), Color(hex: "#c98bff")],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: o.lineWidth)
-            Ellipse()
-                .stroke(.white.opacity(0.85), lineWidth: o.lineWidth * 0.3)
-                .blur(radius: 1)
-        }
-        .frame(width: o.w, height: o.h)
-        .rotationEffect(.degrees(o.rotation))
-        .position(x: o.cx, y: o.cy)
-    }
-
-    // Encrypted data tunnel: a conduit of binary between the two phones. The digits run
-    // in longitudinal columns along the path; the columns are spaced by sin(θ) across the
-    // width so they bunch toward the edges, reading as the curved wall of a cylinder.
-    // Generated natively.
-    private func ribbonLayer(_ r: RibbonSpec) -> some View {
-        // Sample the centreline once (point + unit normal), running smoothly through the
-        // waypoints with rounded corners.
-        let pts = Self.smoothPath(r.waypoints, samplesPerSegment: 70)
-        return Canvas { ctx, _ in
-            let halfW = r.width / 2
-            func offsetPath(_ off: CGFloat) -> Path {
-                var path = Path()
-                for (i, s) in pts.enumerated() {
-                    let pt = CGPoint(x: s.p.x + s.n.dx * off, y: s.p.y + s.n.dy * off)
-                    i == 0 ? path.move(to: pt) : path.addLine(to: pt)
-                }
-                return path
-            }
-
-            // 1. Solid opaque tube body: stacked offset strokes across the width shaded
-            // like a cylinder — dark grey at the rim, light toward the centre — so it
-            // fills completely with no see-through gaps and reads as round.
-            let fillN = 60
-            for j in 0..<fillN {
-                let theta = (Double(j) / Double(fillN - 1) - 0.5) * Double.pi
-                let c = cos(theta)                                   // 1 centre → 0 rim
-                // Blue/indigo cylinder: deep at the rim, bright toward the centre.
-                ctx.stroke(offsetPath(CGFloat(sin(theta)) * halfW),
-                           with: .color(Color(.sRGB, red: 0.03 + 0.12 * c,
-                                              green: 0.06 + 0.34 * c, blue: 0.28 + 0.62 * c)),
-                           style: StrokeStyle(lineWidth: 13, lineCap: .round))
-            }
-
-            // 2. Bright cyan-white binary on top, in longitudinal columns bunched at the
-            // rim, rows spaced along the length so the digits read without cramping.
-            let lines = 26, rowStride = max(1, pts.count / 90)
-            for j in 0..<lines {
-                let theta = (Double(j) / Double(lines - 1) - 0.5) * Double.pi
-                let off = CGFloat(sin(theta)) * halfW
-                let wv = 0.85 + 0.15 * abs(sin(theta))
-                for rowI in stride(from: 0, to: pts.count, by: rowStride) {
-                    let s = pts[rowI]
-                    let bit = ((rowI + j * 13) % 5 < 2) ? "0" : "1"
-                    var res = ctx.resolve(Text(bit)
-                        .font(.system(size: 20, weight: .bold, design: .monospaced)))
-                    res.shading = .color(Color(.sRGB, red: wv * 0.62, green: wv * 0.8, blue: wv))
-                    ctx.draw(res, at: CGPoint(x: s.p.x + s.n.dx * off, y: s.p.y + s.n.dy * off))
-                }
-            }
-        }
-        .frame(width: Self.canvas.width, height: Self.canvas.height)
-        .shadow(color: Color(.sRGB, red: 0.28, green: 0.45, blue: 1.0).opacity(0.6), radius: 16)  // blue glow
-    }
-
-    // A centreline through `waypoints` as STRAIGHT segments joined by rounded corners
-    // (a pipe elbow): the runs stay straight, only the corners curve. Returns evenly
-    // spaced samples of position + unit normal. `samplesPerSegment` is unused (kept for
-    // the call site); density is driven by a fixed spacing.
-    static func smoothPath(_ waypoints: [CGPoint], samplesPerSegment: Int) -> [(p: CGPoint, n: CGVector)] {
-        guard waypoints.count >= 2 else { return waypoints.map { ($0, CGVector(dx: 1, dy: 0)) } }
-        let corner: CGFloat = 185      // corner radius (≥ tube half-width to avoid pinching)
-        let spacing: CGFloat = 8
-        var out: [(p: CGPoint, n: CGVector)] = []
-
-        func addLine(_ a: CGPoint, _ b: CGPoint) {
-            let dx = b.x - a.x, dy = b.y - a.y
-            let L = max(0.0001, hypot(dx, dy))
-            let n = CGVector(dx: -dy / L, dy: dx / L)
-            let count = max(1, Int(L / spacing))
-            for k in 0..<count {
-                let u = CGFloat(k) / CGFloat(count)
-                out.append((CGPoint(x: a.x + dx * u, y: a.y + dy * u), n))
-            }
-        }
-        // Quadratic corner: P0 → (control V) → P1.
-        func addCorner(_ p0: CGPoint, _ v: CGPoint, _ p1: CGPoint) {
-            let L = hypot(v.x - p0.x, v.y - p0.y) + hypot(p1.x - v.x, p1.y - v.y)
-            let count = max(2, Int(L / spacing))
-            for k in 0..<count {
-                let u = CGFloat(k) / CGFloat(count), w = 1 - u
-                let x = w * w * p0.x + 2 * w * u * v.x + u * u * p1.x
-                let y = w * w * p0.y + 2 * w * u * v.y + u * u * p1.y
-                let tx = 2 * w * (v.x - p0.x) + 2 * u * (p1.x - v.x)
-                let ty = 2 * w * (v.y - p0.y) + 2 * u * (p1.y - v.y)
-                let tl = max(0.0001, hypot(tx, ty))
-                out.append((CGPoint(x: x, y: y), CGVector(dx: -ty / tl, dy: tx / tl)))
-            }
-        }
-
-        var cursor = waypoints[0]
-        for i in 1..<(waypoints.count - 1) {
-            let prev = waypoints[i - 1], v = waypoints[i], next = waypoints[i + 1]
-            let ax = v.x - prev.x, ay = v.y - prev.y, al = max(0.0001, hypot(ax, ay))
-            let bx = next.x - v.x, by = next.y - v.y, bl = max(0.0001, hypot(bx, by))
-            let s = min(corner, al * 0.5, bl * 0.5)          // clamp to segment lengths
-            let pIn = CGPoint(x: v.x - ax / al * s, y: v.y - ay / al * s)
-            let pOut = CGPoint(x: v.x + bx / bl * s, y: v.y + by / bl * s)
-            addLine(cursor, pIn)
-            addCorner(pIn, v, pOut)
-            cursor = pOut
-        }
-        addLine(cursor, waypoints[waypoints.count - 1])
-        out.append((waypoints[waypoints.count - 1], out.last?.n ?? CGVector(dx: 1, dy: 0)))
-        return out
-    }
-
     static func bezier(_ t: Double, _ p0: CGPoint, _ c1: CGPoint, _ c2: CGPoint, _ p1: CGPoint) -> CGPoint {
         let u = 1 - t
         let a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t
@@ -229,7 +97,7 @@ struct ScreenFrame: View {
             marker(at: r.from, color)
             marker(at: r.to, color)
         }
-        .frame(width: Self.canvas.width, height: Self.canvas.height)
+        .frame(width: canvas.width, height: canvas.height)
     }
 
     private func marker(at pt: CGPoint, _ color: Color) -> some View {
@@ -257,7 +125,7 @@ struct ScreenFrame: View {
                            style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
             }
         }
-        .frame(width: Self.canvas.width, height: Self.canvas.height)
+        .frame(width: canvas.width, height: canvas.height)
         .blur(radius: 0.6)
         .shadow(color: color.opacity(0.7), radius: 10)
     }
@@ -280,7 +148,7 @@ struct ScreenFrame: View {
                 ctx.draw(res, at: CGPoint(x: s.cx, y: y))
             }
         }
-        .frame(width: Self.canvas.width, height: Self.canvas.height)
+        .frame(width: canvas.width, height: canvas.height)
         .shadow(color: color.opacity(0.6), radius: 8)
     }
 
@@ -317,7 +185,7 @@ struct ScreenFrame: View {
                 .foregroundStyle(subColor)
         }
         .multilineTextAlignment(.center)
-        .frame(width: Self.canvas.width - (spec.headerBackdrop ? 300 : 160))
+        .frame(width: canvas.width - (spec.headerBackdrop ? 300 : 160))
 
         if spec.headerBackdrop {
             // The panel is the caption's background, so it grows with the content — long
@@ -348,11 +216,11 @@ struct ScreenFrame: View {
             captionBlock(82, 48)
             captionBlock(72, 44)
         }
-        .frame(width: Self.canvas.width, height: region, alignment: top ? .top : .bottom)
+        .frame(width: canvas.width, height: region, alignment: top ? .top : .bottom)
 
         return fitted
             .padding(top ? .top : .bottom, top ? 96 : 110)
-            .frame(width: Self.canvas.width, height: Self.canvas.height,
+            .frame(width: canvas.width, height: canvas.height,
                    alignment: top ? .top : .bottom)
     }
 }

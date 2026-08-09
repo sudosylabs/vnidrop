@@ -7,9 +7,9 @@ import SwiftUI
 //   swift run studio --publish             # -> ../<Language>/<Name>.png (ships)
 //   LOCALES="fr de" SCREENS="share-securely" swift run studio
 //
-// Screenshots come from generated/shots/<locale>/<screen>.png (from ./capture.sh),
-// transient build output regenerated per run — never committed;
-// the straight mockup + globe come from assets/. Run from the studio directory.
+// Screenshots come from generated/shots/<platform>/<locale>/<screen>.png (from
+// ./capture.sh) — transient build output, regenerated per run, never committed. The 3D
+// device models + globe come from assets/. Run from the studio directory.
 
 // Screen id -> output file basename (matches the existing App Store filenames).
 let nameFor: [String: String] = [
@@ -60,43 +60,41 @@ func run() throws {
 
     let globe = loadNSImage(base.appendingPathComponent("assets/globe.png").path).map { Image(nsImage: $0.0) }
 
-    // Device layer: prefer the 3D iPhone model; fall back to the 2D mockup composite.
-    // DEVICE=2d forces the flat compositor; DEVICE=3d requires the .usdz.
-    let deviceMode = env("DEVICE", "auto")
-    let usdz = base.appendingPathComponent("assets/iphone-17-pro-max.usdz")
-    let hasModel = FileManager.default.fileExists(atPath: usdz.path)
-    let mockup = loadNSImage(base.appendingPathComponent("assets/mockup-straight.png").path)
-
-    let device: DeviceRenderer?
-    if deviceMode != "2d" && hasModel {
-        device = SceneKitDeviceRenderer(modelURL: usdz)
-    } else if let mockup {
-        device = ClipDeviceRenderer(mockup: mockup.0, mockupSize: mockup.1, geo: .straight)
-    } else {
-        device = nil
-        FileHandle.standardError.write(Data("warning: no device model or mockup — devices will be blank\n".utf8))
+    // Target platform: canvas size + 3D device model. PLATFORM=iphone|ipad (default iphone).
+    let platform = Platform(rawValue: env("PLATFORM", "iphone")) ?? .iphone
+    let canvas = platform.canvas
+    let model = platform.deviceModel(assets: base.appendingPathComponent("assets"))
+    let device: DeviceRenderer? = FileManager.default.fileExists(atPath: model.url.path)
+        ? SceneKitDeviceRenderer(model: model) : nil
+    if device == nil {
+        FileHandle.standardError.write(Data("warning: missing model \(model.url.lastPathComponent) — devices will be blank\n".utf8))
     }
+    let specs = ScreenSpec.all(for: platform)
 
     var count = 0
     for loc in locales {
         guard let ls = strings.locales[loc] else {
             FileHandle.standardError.write(Data("warning: no strings for locale \(loc)\n".utf8)); continue
         }
-        let outDir = publish
+        // iPhone -> <Language>/, iPad -> <Language>/iPad/ so the sets stay separate.
+        var outDir = publish
             ? base.appendingPathComponent("../\(ls.folder)").standardized
             : base.appendingPathComponent("generated/\(ls.folder)")
+        if !platform.outputSubfolder.isEmpty {
+            outDir = outDir.appendingPathComponent(platform.outputSubfolder)
+        }
 
         for scr in screens {
-            guard let spec = ScreenSpec.all[scr], let caption = ls[scr] else {
+            guard let spec = specs[scr], let caption = ls[scr] else {
                 FileHandle.standardError.write(Data("warning: skipping \(loc)/\(scr)\n".utf8)); continue
             }
 
             let shotId = spec.shotId ?? scr
-            let shotsDir = env("SHOTS_DIR", "generated/shots")
+            let shotsDir = env("SHOTS_DIR", "generated/shots/\(platform.rawValue)")
             let shot = loadNSImage(base.appendingPathComponent("\(shotsDir)/\(loc)/\(shotId).png").path)?.0
             let hasDevice = spec.device != nil || !spec.devices.isEmpty
             let frame = ScreenFrame(spec: spec, caption: caption, globe: globe, shot: shot,
-                                    device: hasDevice ? device : nil)
+                                    device: hasDevice ? device : nil, canvas: canvas)
             let out = outDir.appendingPathComponent("\(nameFor[scr] ?? scr).png")
             try writePNG(frame, to: out)
             print("  ✅ \(out.path)")

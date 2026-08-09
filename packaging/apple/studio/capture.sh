@@ -15,9 +15,15 @@ trap 'echo "capture.sh: failed (rc=$?) at line $LINENO" >&2' ERR
 cd "$(dirname "$0")"
 
 APPLE_DIR="$(cd ../../../apple && pwd)"
-DEVICE="${SCREENSHOT_DEVICE:-iPhone 17 Pro Max}"
 BUNDLE_ID="com.vnidrop.app"
 LOCALES=${LOCALES:-"en fr de es it nl pl pt ru"}
+
+# PLATFORM=iphone|ipad selects the simulator and the shots subdir (must match main.swift).
+PLATFORM="${PLATFORM:-iphone}"
+case "$PLATFORM" in
+	ipad) DEVICE="${SCREENSHOT_DEVICE:-iPad Pro 13-inch (M5)}";;
+	*)    DEVICE="${SCREENSHOT_DEVICE:-iPhone 17 Pro Max}";;
+esac
 
 # scenario (launch arg value) -> studio screen id (output filename stem).
 # send-anywhere reuses the share screenshot (see ScreenSpec shotId), so it isn't
@@ -26,7 +32,7 @@ SCENARIOS="share:share-securely approval:choose-receivers"
 
 # Screenshots are transient build output, regenerated per run — never committed. They
 # live under generated/ (git-ignored), not in assets/.
-SHOTS_DIR="${SHOTS_DIR:-generated/shots}"
+SHOTS_DIR="${SHOTS_DIR:-generated/shots/$PLATFORM}"
 
 echo "==> Regenerating project"; (cd "$APPLE_DIR" && xcodegen generate >/dev/null)
 

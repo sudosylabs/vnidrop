@@ -1,83 +1,62 @@
 # App Store screenshot studio
 
 Code-driven, fully local App Store screenshots — composed natively with **SwiftUI +
-`ImageRenderer`** (no Typst, no ImageMagick). Each frame is a SwiftUI view (gradient
-background + globe + device with the app screenshot + localized caption) rendered
-off-screen to an exact-size PNG. Captions come from `strings.json` (9 locales); app
-screenshots come from the real app (see capture, below).
-
-Why SwiftUI: the screen curvature is the real iOS squircle
-(`RoundedRectangle(style: .continuous)`), SF Pro resolves for free, and the hero tilt
-is a native `.rotation3DEffect` (real perspective) — no mask-guessing or warp math.
+`ImageRenderer`** and **SceneKit** (no Typst, no ImageMagick). Each marketing screen is a
+SwiftUI view (gradient + 3D device + captions + generated artwork) rendered off-screen to
+an exact-size PNG. Captions come from `strings.json` (9 locales); the app screenshots on
+the device screens are captured from the real app.
 
 ## Requirements
-- Xcode / Swift toolchain (macOS 14+). That's it.
+- Xcode / Swift toolchain (macOS 26+). That's it.
 
-## Render
+## Run
 ```sh
-swift run studio                         # all locales × screens -> generated/<Language>/
-swift run studio --publish               # -> ../<Language>/ (ships to App Store)
-LOCALES="fr de" SCREENS="share-securely" swift run studio   # subset
+swift run studio                      # all locales × screens -> generated/<Language>/
+swift run studio --publish            # -> ../<Language>/ (ships to App Store)
+LOCALES="fr de" SCREENS="share-securely" swift run studio        # subset
+PLATFORM=ipad swift run studio        # iPad set -> generated/<Language>/iPad/
 ```
-Default writes to `generated/` (safe). `--publish` overwrites the real language folders.
 Run from this directory (it reads `strings.json` and `assets/` relative to cwd).
 
 ## Full pipeline
 ```sh
-./capture.sh        # real localized app screens -> assets/shots/<locale>/<screen>.png
-swift run studio    # composite everything -> generated/<Language>/
-swift run studio --publish   # when happy -> ships to ../<Language>/
+./capture.sh        # real localized app screens -> generated/shots/<platform>/<locale>/
+swift run studio    # composite everything -> generated/<Language>/[iPad/]
+./generate.sh       # capture + composite in one shot (forwards PLATFORM / --publish)
 ```
 `capture.sh` drives the app into each screen via the DEBUG `-VniScreenshot` launch
 argument (see `apple/VniDrop/App/ScreenshotSupport.swift`), once per locale via
-`-AppleLanguages`, in dark mode with a 9:41 status bar.
+`-AppleLanguages`, in dark mode with a 9:41 status bar. Screenshots are transient
+(git-ignored, regenerated per run) — during layout iteration, capture once then re-run
+`swift run studio` on its own.
 
-## Device rendering (3D by default)
-The device is a real iPhone 17 Pro Max `.usdz` (`assets/iphone-17-pro-max.usdz`, CC BY
-4.0 — see `assets/ATTRIBUTION.md`). `SceneKitDeviceRenderer` textures the app screenshot
-onto the screen mesh and renders it off-screen with SceneKit. The screen curvature,
-bezel and Dynamic Island are the model's real geometry; the hero tilt is a real camera
-perspective (`spec.device.tilt`), not a warp.
+## Platforms
+`PLATFORM=iphone` (default) or `ipad`. Each `Platform` (`Sources/studio/Platform.swift`)
+carries its canvas size, capture simulator, output subfolder, and a `DeviceModel` — the
+`.usdz`, its screen material, the orientation fix (yaw so the screen faces the camera),
+optional front-glass mesh to hide, and whether to tint the body graphite. Adding a device
+(e.g. Mac) is a new `DeviceModel` + `Platform` case + a layout set.
 
-Model-specific quirks handled in `SceneKitDeviceRenderer.swift` (re-derive if the model
-changes — see the inspection scripts approach in git history):
-- **Warm-up render**: `SCNRenderer.snapshot` returns empty on its first call; we render
-  a throwaway 16×32 first, then the real frame.
-- **Bounding box**: use `rootNode.boundingBox` (the model is ~16 units tall via an
-  ancestor scale). `flattenedClone()` collapses this model to nothing — don't use it.
-- **Camera orientation**: front is −Z; `look(at:)` renders nothing, so the camera is
-  yawed 180° by hand (`eulerAngles`).
-- **Crisp screen**: the screen material has a wavy normal map and there's a front glass
-  mesh with its own waviness — both ripple the image. We clear the screen normal and
-  hide the glass mesh so the app content stays flat/crisp (App Store requirement).
+## Device rendering
+`SceneKitDeviceRenderer` textures the captured screenshot onto the model's screen mesh and
+renders it off-screen. Curvature, bezel and body are the model's real geometry; poses
+(pitch/yaw/roll) and a studio environment (IBL + bloom) are applied in the scene. It
+auto-generates planar UVs for screen meshes that ship without them.
 
-Set `DEVICE=2d` to fall back to the flat mockup compositor (`ClipDeviceRenderer` +
-`assets/mockup-straight.png`, `.continuous` clip) if you ever want the non-3D path.
-
-## Assets (git-ignored except the model — you supply the rest)
-- `assets/iphone-17-pro-max.usdz` — the 3D device (committed, with `ATTRIBUTION.md`).
-- `assets/globe.png` — transparent globe for the hero.
-- `assets/shots/<locale>/<screen>.png` — captured app screenshots (from `capture.sh`).
-- `assets/mockup-straight.png` — only needed for the `DEVICE=2d` fallback.
+## Assets (`assets/`)
+- `iphone-17-pro-max.usdz`, `ipad-pro.usdz` — the 3D devices (committed; CC BY 4.0, see
+  `ATTRIBUTION.md`).
+- `globe.png` — for the send-anywhere hero (committed).
+- `generated/shots/<platform>/<locale>/*.png` — captured app screens (transient).
 
 ## Layout & tuning
-- `Sources/studio/ScreenSpec.swift` — per-screen layout (gradient stops, caption
-  placement, globe + device position/size, hero tilt). Numbers are in pixels at scale 1.
-- `MockupGeometry.straight` in the same file — where the glass sits inside
-  `mockup-straight.png` (fractions of the mockup) + corner radius. **Measure once**
-  against your mockup export and set these; placeholders are approximate.
-- `Sources/studio/ScreenFrame.swift` — the composition (layer order, caption styling).
-- `Sources/studio/DeviceView.swift` — the device layer. `ClipDeviceRenderer` does the
-  2D `.continuous` clip today; a `SceneKitDeviceRenderer` (texture the shot onto a real
-  iPhone `.usdz`, render with `SCNRenderer.snapshot()`) can drop in behind the same
-  `DeviceRenderer` protocol for full 3D — nothing else changes.
+- `Sources/studio/ScreenSpec.swift` — per-platform layouts (`iphone` / `ipad`): gradient,
+  device pose/position/size, globe + route (send-anywhere), the encryption flow
+  (stay-private: `beams` → `lock` → `stream` + `banners`), caption placement.
+- `Sources/studio/ScreenFrame.swift` — the composition (layer order, caption fitting,
+  generated artwork).
 
-## Status
-1. ✅ SwiftUI compositor: gradient + caption + globe + device, exact 1284×2778, headless.
-2. ✅ Real 3D iPhone: screenshot textured onto the `.usdz` screen mesh (SceneKit), crisp.
-3. ✅ Real hero tilt via 3D camera perspective (replaces `warp.sh` + rotated mockup).
-4. ✅ Screenshot capture: `capture.sh` + the `#if DEBUG` fixture gateway, per locale.
-5. ⬜ Tune device position/size/tilt per screen in `ScreenSpec.swift` against the originals
-   (esp. `send-anywhere`: caption overlaps the phone; globe layer needs its asset).
-6. ⬜ Ribbon art layer for `stay-private`.
-7. ✅ 2D fallback (`DEVICE=2d`) retained for the flat mockup path.
+## Screens
+`share-securely`, `choose-receivers`, `send-anywhere` (globe + Paris→LA route arc,
+reuses the share screenshot), `stay-private` (two stacked phones + encryption beams →
+padlock → binary protection stream, with localized CHIFFREMENT/PROTECTION banners).

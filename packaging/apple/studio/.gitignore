@@ -2,7 +2,3 @@ generated/
 out-*.png
 .build/
 .swiftpm/
-# Only the DEVICE=2d fallback mockups are ignored; the globe + 3D model are committed
-# because the default pipeline needs them.
-assets/mockup-*.png
-assets/mask-*.png

@@ -8,10 +8,8 @@ import AppKit
 // scene (a real camera + perspective), not faked.
 
 struct SceneKitDeviceRenderer: DeviceRenderer {
-    let modelURL: URL
-    var screenMaterial = "_7ProMax_Screen"   // material on the screen mesh (from inspection)
-    var glassMaterial = "glass"               // front-glass material (substring match)
-    var heightFraction: CGFloat = 0.66        // upright phone height as fraction of the square render
+    let model: DeviceModel
+    var heightFraction: CGFloat = 0.66        // upright device height as fraction of the square render
     var supersample: CGFloat = 2              // render big, SwiftUI downscales for clean edges
 
     @MainActor
@@ -28,31 +26,41 @@ struct SceneKitDeviceRenderer: DeviceRenderer {
 
     @MainActor
     private func render(shot: NSImage?, spec: DeviceSpec, side: CGFloat) -> NSImage? {
-        guard let scene = try? SCNScene(url: modelURL),
+        guard let scene = try? SCNScene(url: model.url),
               let device = MTLCreateSystemDefaultDevice() else { return nil }
         let root = scene.rootNode
+        let d2r = Double.pi / 180
 
-        // The USDZ carries a big unit scale on its ancestor chain, so the real model is
-        // ~16 units tall. rootNode.boundingBox aggregates that correctly in world space
-        // (flattenedClone collapses this model to nothing — do not use it here).
-        let (bmin, bmax) = root.boundingBox
+        // Orient the model so its screen faces the camera (-Z). Some models (iPad) have
+        // the screen on ±X, so a per-model yaw fix is applied first.
+        let oriented = SCNNode()
+        for child in root.childNodes { oriented.addChildNode(child) }
+        oriented.eulerAngles = SCNVector3(0, model.bodyYaw * d2r, 0)
+
+        // Re-parent under a pivot so the pose rotates it about its own centre. Compute the
+        // (oriented) bounding box before applying the pose. rootNode.boundingBox aggregates
+        // the big ancestor unit-scale correctly (flattenedClone collapses these models).
+        let pivot = SCNNode()
+        pivot.addChildNode(oriented)
+        root.addChildNode(pivot)
+        let (bmin, bmax) = pivot.boundingBox
         let center = SCNVector3((bmin.x + bmax.x) / 2, (bmin.y + bmax.y) / 2, (bmin.z + bmax.z) / 2)
         let height = CGFloat(bmax.y - bmin.y)
-
-        // Re-parent the model under a pivot so the pose rotates it about its own center
-        // (children keep their own transforms; the pivot is identity + our rotation).
-        let pivot = SCNNode()
-        for child in root.childNodes { pivot.addChildNode(child) }
-        root.addChildNode(pivot)
         pivot.pivot = SCNMatrix4MakeTranslation(center.x, center.y, center.z)
         pivot.position = center
-        let d2r = Double.pi / 180
         pivot.eulerAngles = SCNVector3(spec.pose.pitch * d2r, spec.pose.yaw * d2r, spec.pose.roll * d2r)
 
         // Texture the screenshot onto the screen mesh, shown flat and full-brightness.
         // The model's screen carries a wavy normal map (a "screen protector" look) that
         // ripples the image — clear it so the app content stays crisp, as Apple requires.
-        if let mat = material(named: screenMaterial, in: pivot), spec.blackScreen || shot != nil {
+        // Some screen meshes ship with no UV coordinates (an image can't map onto them —
+        // it renders as a flat colour). Generate planar UVs from the vertex positions.
+        addPlanarUVsToScreen(in: pivot, material: model.screenMaterial)
+
+        // Texture EVERY material with the screen name (some models split the display into
+        // several meshes that share the material name); setting only the first leaves the
+        // rest white.
+        for mat in materials(named: model.screenMaterial, in: pivot) where spec.blackScreen || shot != nil {
             mat.diffuse.contents = spec.blackScreen ? NSColor.black : shot
             mat.lightingModel = .constant
             mat.normal.contents = nil
@@ -64,14 +72,12 @@ struct SceneKitDeviceRenderer: DeviceRenderer {
             mat.diffuse.wrapT = .clamp
         }
 
-        // Hide the front glass mesh — it has its own normal-mapped waviness that reflects
-        // as swirls over the screen. We keep the crisp display instead.
-        hideMeshes(withMaterial: glassMaterial, in: pivot)
+        // Hide the front glass mesh (if any) — it has its own normal-mapped waviness that
+        // reflects as swirls over the screen. We keep the crisp display instead.
+        if let glass = model.glassMaterial { hideMeshes(withMaterial: glass, in: pivot) }
 
-        // Recolor the silver body to graphite (like Hardware.png): tint every body
-        // material dark while keeping it metallic, so the rails still catch a sharp
-        // highlight but the body reads dark instead of "lit up".
-        recolorBody(in: pivot)
+        // Recolor a silver body to graphite (iPhone); models already dark (iPad) skip it.
+        if model.recolorBody { recolorBody(in: pivot) }
 
         // Camera on the screen side (front = -Z), oriented by hand: look(at:) renders
         // nothing here, but a straight 180° yaw does. Framed so an upright phone height
@@ -81,7 +87,9 @@ struct SceneKitDeviceRenderer: DeviceRenderer {
         cam.usesOrthographicProjection = false
         cam.fieldOfView = fovV
         cam.projectionDirection = .vertical
-        cam.zNear = 0.001; cam.zFar = 1000
+        // zFar must comfortably exceed the camera distance; models differ hugely in unit
+        // scale (iPhone ~16 units tall, iPad ~300), so keep this large.
+        cam.zNear = 0.01; cam.zFar = 100_000
         // HDR + subtle bloom so bright specular highlights on the metal/glass glow like a
         // real product shot instead of clipping flat.
         cam.wantsHDR = true
@@ -163,6 +171,9 @@ struct SceneKitDeviceRenderer: DeviceRenderer {
         func walk(_ n: SCNNode) {
             for m in n.geometry?.materials ?? [] {
                 let name = (m.name ?? "").lowercased()
+                // Never tint the screen — its material name may not contain "screen"
+                // (the iPad's is just "Material").
+                if m.name == model.screenMaterial { continue }
                 if skip.contains(where: { name.contains($0) }) { continue }
                 m.multiply.contents = graphite
                 // Sharper, brighter specular so the frame highlights "pop" like polished
@@ -182,11 +193,53 @@ struct SceneKitDeviceRenderer: DeviceRenderer {
         for c in node.childNodes { hideMeshes(withMaterial: substring, in: c) }
     }
 
-    private func material(named name: String, in node: SCNNode) -> SCNMaterial? {
-        if let m = node.geometry?.materials.first(where: {
+    // Give the screen mesh planar UVs (mapped over its two largest-extent axes) when it
+    // has none, so a screenshot texture maps across the display.
+    private func addPlanarUVsToScreen(in node: SCNNode, material name: String) {
+        guard let g = node.geometry,
+              g.materials.contains(where: { ($0.name ?? "").caseInsensitiveCompare(name) == .orderedSame }),
+              g.sources(for: .texcoord).isEmpty,
+              let vsrc = g.sources(for: .vertex).first else {
+            node.childNodes.forEach { addPlanarUVsToScreen(in: $0, material: name) }
+            return
+        }
+        // Read vertex positions.
+        var pos: [(Float, Float, Float)] = []
+        let stride = vsrc.dataStride, off = vsrc.dataOffset
+        vsrc.data.withUnsafeBytes { (p: UnsafeRawBufferPointer) in
+            for i in 0..<vsrc.vectorCount {
+                let b = off + i * stride
+                pos.append((p.load(fromByteOffset: b, as: Float.self),
+                            p.load(fromByteOffset: b + 4, as: Float.self),
+                            p.load(fromByteOffset: b + 8, as: Float.self)))
+            }
+        }
+        let xs = pos.map(\.0), ys = pos.map(\.1), zs = pos.map(\.2)
+        let ext = [xs.max()! - xs.min()!, ys.max()! - ys.min()!, zs.max()! - zs.min()!]
+        // Screen plane = the two axes with the largest extent (drop the thin normal axis).
+        let normalAxis = ext.firstIndex(of: ext.min()!)!
+        let planeAxes = [0, 1, 2].filter { $0 != normalAxis }        // [u-axis, v-axis]
+        func comp(_ p: (Float, Float, Float), _ a: Int) -> Float { a == 0 ? p.0 : (a == 1 ? p.1 : p.2) }
+        let ua = planeAxes[0], va = planeAxes[1]
+        let umin = [xs, ys, zs][ua].min()!, urange = max(1e-6, ext[ua])
+        let vmin = [xs, ys, zs][va].min()!, vrange = max(1e-6, ext[va])
+        let uvs: [CGPoint] = pos.map {
+            CGPoint(x: CGFloat((comp($0, ua) - umin) / urange),
+                    y: CGFloat(1 - (comp($0, va) - vmin) / vrange))    // flip V for top-left origin
+        }
+        let uvSource = SCNGeometrySource(textureCoordinates: uvs)
+        let newGeo = SCNGeometry(sources: g.sources(for: .vertex) + g.sources(for: .normal) + [uvSource],
+                                 elements: g.elements)
+        newGeo.materials = g.materials
+        node.geometry = newGeo
+        node.childNodes.forEach { addPlanarUVsToScreen(in: $0, material: name) }
+    }
+
+    private func materials(named name: String, in node: SCNNode) -> [SCNMaterial] {
+        var out = (node.geometry?.materials ?? []).filter {
             ($0.name ?? "").caseInsensitiveCompare(name) == .orderedSame
-        }) { return m }
-        for c in node.childNodes { if let m = material(named: name, in: c) { return m } }
-        return nil
+        }
+        for c in node.childNodes { out += materials(named: name, in: c) }
+        return out
     }
 }

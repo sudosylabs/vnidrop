@@ -55,16 +55,6 @@ struct GlobeSpec {
 	var dy: CGFloat
 }
 
-// An encrypted-data tunnel between two phones (stay-private). The tube passes THROUGH
-// each waypoint in order, with the corners auto-rounded (Catmull-Rom), so an "up, right,
-// up" routing is just: the bottom-phone point, a corner, a corner, the top-phone point.
-// Generated natively (no asset).
-struct RibbonSpec {
-	var waypoints: [CGPoint]  // the tube runs through these, in order
-	var width: CGFloat        // tube diameter
-	var color: String         // hex (glow tint)
-}
-
 // A transfer route: two city markers (departure + arrival) on the globe joined by a
 // glowing arc that swoops down and passes behind the phone — "send from Paris to LA,
 // through your phone". Generated natively.
@@ -80,10 +70,10 @@ struct RouteSpec {
 // Stay-private redesign: a vertical encryption flow between two stacked phones —
 // converging light beams (encryption) → a glowing padlock → a binary stream (protection).
 struct BeamsSpec {
-	var cx: CGFloat          // convergence x
-	var y0: CGFloat          // beams start at the top phone's bottom edge
-	var spread: CGFloat      // half-width the beams fan across at y0
-	var cy: CGFloat          // converge to this point
+	var cx: CGFloat  // convergence x
+	var y0: CGFloat  // beams start at the top phone's bottom edge
+	var spread: CGFloat  // half-width the beams fan across at y0
+	var cy: CGFloat  // converge to this point
 	var count: Int = 22
 	var color: String = "#9ec3ff"
 }
@@ -96,25 +86,18 @@ struct LockSpec {
 }
 
 struct StreamSpec {
-	var cx: CGFloat          // vertical binary stream centre
-	var y0: CGFloat          // from (below the lock)
-	var y1: CGFloat          // to (the bottom phone)
+	var cx: CGFloat  // vertical binary stream centre
+	var y0: CGFloat  // from (below the lock)
+	var y1: CGFloat  // to (the bottom phone)
 	var color: String = "#9ec3ff"
 }
 
 // Localized banner labels (CHIFFREMENT / PROTECTION), text taken from strings.json.
 enum BannerKind { case encryption, protection }
-struct Banner { var kind: BannerKind; var cx: CGFloat; var cy: CGFloat }
-
-// A glowing purple orbit ring, drawn behind the globe (which occludes its top) and
-// looping in front down toward the phone. Generated natively, no asset.
-struct OrbitSpec {
+struct Banner {
+	var kind: BannerKind
 	var cx: CGFloat
-	var cy: CGFloat  // ellipse center on the canvas
-	var w: CGFloat
-	var h: CGFloat  // ellipse size
-	var rotation: CGFloat = 0  // deg
-	var lineWidth: CGFloat = 16
+	var cy: CGFloat
 }
 
 struct ScreenSpec {
@@ -123,21 +106,26 @@ struct ScreenSpec {
 	let captionPlace: CaptionPlace
 	let captionTheme: CaptionTheme
 	var globe: GlobeSpec? = nil
-	var orbit: OrbitSpec? = nil
 	var route: RouteSpec? = nil
 	var device: DeviceSpec? = nil
 	var devices: [DeviceSpec] = []  // multiple phones (e.g. stay-private)
-	var ribbon: RibbonSpec? = nil
 	var beams: BeamsSpec? = nil
 	var lock: LockSpec? = nil
 	var stream: StreamSpec? = nil
 	var banners: [Banner] = []
-	var headerBackdrop: Bool = false   // dark scrim behind the top caption
+	var headerBackdrop: Bool = false  // dark scrim behind the top caption
 	// Which captured screenshot to texture (defaults to `id`). The hero reuses the
 	// approval modal shot, matching the original.
 	var shotId: String? = nil
 
-	static let all: [String: ScreenSpec] = [
+	static func all(for platform: Platform) -> [String: ScreenSpec] {
+		switch platform {
+		case .iphone: iphone
+		case .ipad: ipad
+		}
+	}
+
+	static let iphone: [String: ScreenSpec] = [
 		// Straight-on hero, large and centered, showing the Share/QR sheet.
 		"share-securely": ScreenSpec(
 			id: "share-securely",
@@ -184,10 +172,10 @@ struct ScreenSpec {
 			captionPlace: .top, captionTheme: .light,
 			devices: [
 				DeviceSpec(
-					height: 1500, cx: 642, cy: -20,     // top phone, only its lower part shows
+					height: 1500, cx: 642, cy: -20,  // top phone, only its lower part shows
 					pose: Pose(roll: 180), shadow: false, blackScreen: true),
 				DeviceSpec(
-					height: 1500, cx: 642, cy: 2820,    // bottom phone, only its upper part shows
+					height: 1500, cx: 642, cy: 2820,  // bottom phone, only its upper part shows
 					pose: Pose(), shadow: false, blackScreen: true),
 			],
 			beams: BeamsSpec(cx: 642, y0: 700, spread: 150, cy: 1120, count: 22),
@@ -200,22 +188,56 @@ struct ScreenSpec {
 			headerBackdrop: true
 		),
 	]
-}
 
-// Where the glass sits inside the STRAIGHT mockup image, as fractions of the mockup's
-// own pixel size, plus the screen corner radius as a fraction of screen width. Measure
-// once against assets/mockup-straight.png and set here.
-struct MockupGeometry {
-	var screenXFrac: CGFloat
-	var screenYFrac: CGFloat
-	var screenWFrac: CGFloat
-	var screenHFrac: CGFloat
-	var cornerFrac: CGFloat  // corner radius / screen width
-
-	// Placeholder — tune against the real mockup export.
-	static let straight = MockupGeometry(
-		screenXFrac: 0.036, screenYFrac: 0.028,
-		screenWFrac: 0.928, screenHFrac: 0.944,
-		cornerFrac: 0.075
-	)
+	// iPad Pro layouts (canvas 2048x2732, centre x = 1024). First pass — same
+	// compositions as iPhone, retuned for the squarer, larger canvas.
+	static let ipad: [String: ScreenSpec] = [
+		"share-securely": ScreenSpec(
+			id: "share-securely",
+			bg: GradientSpec(stops: ["#f3edfc", "#e7dbf7"], start: .top, end: .bottom),
+			captionPlace: .top, captionTheme: .dark,
+			device: DeviceSpec(height: 1950, cx: 1024, cy: 1520, pose: Pose())
+		),
+		"choose-receivers": ScreenSpec(
+			id: "choose-receivers",
+			bg: GradientSpec(stops: ["#f2ecfb", "#e6d9f6"], start: .top, end: .bottom),
+			captionPlace: .top, captionTheme: .dark,
+			device: DeviceSpec(
+				height: 1950, cx: 1000, cy: 1460, pose: Pose(pitch: -9, yaw: -14, roll: 7))
+		),
+		"send-anywhere": ScreenSpec(
+			id: "send-anywhere",
+			bg: GradientSpec(stops: ["#e9ddf9", "#e5d6f6"], start: .top, end: .bottom),
+			captionPlace: .bottom, captionTheme: .dark,
+			globe: GlobeSpec(width: 2000, dx: 24, dy: -240),
+			route: RouteSpec(
+				from: CGPoint(x: 1342, y: 323), to: CGPoint(x: 315, y: 423),
+				c1: CGPoint(x: 2100, y: 2000), c2: CGPoint(x: -100, y: 2000), lineWidth: 14),
+			device: DeviceSpec(
+				height: 1180, cx: 1000, cy: 1720, pose: Pose(pitch: 12, yaw: 18, roll: -11)),
+			shotId: "share-securely"
+		),
+		"stay-private": ScreenSpec(
+			id: "stay-private",
+			bg: GradientSpec(
+				stops: ["#241047", "#3a1e6b", "#7a5aa8", "#c9b6e6"], start: .top, end: .bottom),
+			captionPlace: .top, captionTheme: .light,
+			devices: [
+				DeviceSpec(
+					height: 1300, cx: 1024, cy: 120, pose: Pose(roll: 180), shadow: false,
+					blackScreen: true),
+				DeviceSpec(
+					height: 1300, cx: 1024, cy: 2760, pose: Pose(), shadow: false, blackScreen: true
+				),
+			],
+			beams: BeamsSpec(cx: 1024, y0: 820, spread: 200, cy: 1220, count: 24),
+			lock: LockSpec(cx: 1024, cy: 1400, size: 320),
+			stream: StreamSpec(cx: 1024, y0: 1600, y1: 2360),
+			banners: [
+				Banner(kind: .encryption, cx: 1024, cy: 1200),
+				Banner(kind: .protection, cx: 1024, cy: 1680),
+			],
+			headerBackdrop: true
+		),
+	]
 }

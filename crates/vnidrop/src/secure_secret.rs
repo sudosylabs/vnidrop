@@ -12,6 +12,7 @@ use crate::{error::VnidropError, util::now_ms};
 
 const SECRET_BYTES: usize = 32;
 const HANDLE_NAMESPACE: &str = "vnidrop";
+const HANDLE_VERSION: &str = "v1";
 
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct SecretMaterial(Vec<u8>);
@@ -44,13 +45,13 @@ pub(crate) struct SecretHandle(String);
 impl SecretHandle {
     fn generate(kind: SecretKind) -> Self {
         Self(format!(
-            "{HANDLE_NAMESPACE}/{}/{}",
+            "{HANDLE_NAMESPACE}/{HANDLE_VERSION}/{}/{}",
             kind.as_str(),
             Uuid::new_v4()
         ))
     }
 
-    fn as_str(&self) -> &str {
+    pub(crate) fn as_str(&self) -> &str {
         &self.0
     }
 }
@@ -419,10 +420,7 @@ impl SecretCustody {
 
         for entry in metadata {
             if entry.state == SecretMetadataState::Disabled {
-                match self.store.delete(&entry.handle) {
-                    Ok(()) | Err(SecureSecretStoreError::Missing) => {}
-                    Err(error) => return Err(map_store_error(error)),
-                }
+                self.delete_if_present(&entry.handle)?;
                 continue;
             }
             match self.store.get(&entry.handle) {
@@ -431,10 +429,7 @@ impl SecretCustody {
                         .is_err()
                     {
                         self.metadata.disable(&entry.handle).await?;
-                        match self.store.delete(&entry.handle) {
-                            Ok(()) | Err(SecureSecretStoreError::Missing) => {}
-                            Err(error) => return Err(map_store_error(error)),
-                        }
+                        self.delete_if_present(&entry.handle)?;
                         summary.disabled += 1;
                     } else if entry.state == SecretMetadataState::Staged {
                         self.metadata.activate(&entry.handle).await?;
@@ -443,10 +438,7 @@ impl SecretCustody {
                 }
                 Err(SecureSecretStoreError::Missing | SecureSecretStoreError::Corrupted) => {
                     self.metadata.disable(&entry.handle).await?;
-                    match self.store.delete(&entry.handle) {
-                        Ok(()) | Err(SecureSecretStoreError::Missing) => {}
-                        Err(error) => return Err(map_store_error(error)),
-                    }
+                    self.delete_if_present(&entry.handle)?;
                     summary.disabled += 1;
                 }
                 Err(error) => return Err(map_store_error(error)),
@@ -460,6 +452,13 @@ impl SecretCustody {
             }
         }
         Ok(summary)
+    }
+
+    fn delete_if_present(&self, handle: &SecretHandle) -> Result<(), VnidropError> {
+        match self.store.delete(handle) {
+            Ok(()) | Err(SecureSecretStoreError::Missing) => Ok(()),
+            Err(error) => Err(map_store_error(error)),
+        }
     }
 
     #[cfg(test)]

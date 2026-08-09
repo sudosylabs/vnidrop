@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    io::{self, Write},
+    sync::{Arc, Mutex},
+};
 
 use data_encoding::HEXLOWER;
 use iroh::SecretKey;
@@ -11,6 +14,22 @@ use crate::{
     },
     VnidropError,
 };
+
+#[derive(Clone, Default)]
+struct CapturedOutput(Arc<Mutex<Vec<u8>>>);
+
+struct CapturedWriter(CapturedOutput);
+
+impl Write for CapturedWriter {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0 .0.lock().unwrap().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
 
 #[tokio::test]
 async fn custody_maps_reference_store_failures_to_typed_core_errors() {
@@ -59,7 +78,7 @@ async fn custody_maps_reference_store_failures_to_typed_core_errors() {
 #[tokio::test]
 async fn reconciliation_repairs_staged_metadata_and_disables_unusable_secrets() {
     let temp = tempfile::tempdir().unwrap();
-    let repository = Repository::open(temp.path()).await.unwrap();
+    let mut repository = Repository::open(temp.path()).await.unwrap();
     let store = Arc::new(FaultInjectingSecretStore::default());
     let custody = SecretCustody::new(repository.protected_secrets(), store.clone());
 
@@ -73,6 +92,8 @@ async fn reconciliation_repairs_staged_metadata_and_disables_unusable_secrets() 
         .await
         .is_err());
     drop(custody);
+    drop(repository);
+    repository = Repository::open(temp.path()).await.unwrap();
     let (custody, summary) = SecretCustody::start(repository.protected_secrets(), store.clone())
         .await
         .unwrap();
@@ -90,6 +111,8 @@ async fn reconciliation_repairs_staged_metadata_and_disables_unusable_secrets() 
         .is_err());
     let staged_handle = store.only_handle_for_test();
     drop(custody);
+    drop(repository);
+    repository = Repository::open(temp.path()).await.unwrap();
     let (custody, summary) = SecretCustody::start(repository.protected_secrets(), store.clone())
         .await
         .unwrap();
@@ -100,7 +123,12 @@ async fn reconciliation_repairs_staged_metadata_and_disables_unusable_secrets() 
     );
 
     store.remove_for_test(&staged_handle);
-    let summary = custody.reconcile().await.unwrap();
+    drop(custody);
+    drop(repository);
+    repository = Repository::open(temp.path()).await.unwrap();
+    let (custody, summary) = SecretCustody::start(repository.protected_secrets(), store.clone())
+        .await
+        .unwrap();
     assert_eq!(summary.disabled, 1);
     assert!(matches!(
         custody.load(&staged_handle).await,
@@ -116,7 +144,12 @@ async fn reconciliation_repairs_staged_metadata_and_disables_unusable_secrets() 
         .await
         .unwrap();
     store.corrupt_for_test(&corrupted);
-    let summary = custody.reconcile().await.unwrap();
+    drop(custody);
+    drop(repository);
+    let repository = Repository::open(temp.path()).await.unwrap();
+    let (custody, summary) = SecretCustody::start(repository.protected_secrets(), store.clone())
+        .await
+        .unwrap();
     assert_eq!(summary.disabled, 1);
     assert!(matches!(
         custody.load(&corrupted).await,
@@ -144,7 +177,13 @@ async fn endpoint_migration_preserves_identity_across_crash_and_rejects_replacem
         "legacy key must survive before activation"
     );
 
-    assert_eq!(custody.reconcile().await.unwrap().staged_activated, 0);
+    drop(custody);
+    drop(repository);
+    let repository = Repository::open(temp.path()).await.unwrap();
+    let (custody, summary) = SecretCustody::start(repository.protected_secrets(), store.clone())
+        .await
+        .unwrap();
+    assert_eq!(summary.staged_activated, 0);
     let handle = custody
         .migrate_legacy_endpoint_identity(&legacy_path)
         .await
@@ -196,10 +235,26 @@ async fn protected_material_is_absent_from_database_and_diagnostics() {
         .await
         .unwrap();
 
+    assert!(handle
+        .as_str()
+        .starts_with("vnidrop/v1/relationship-grant/"));
     assert_eq!(format!("{material:?}"), "SecretMaterial(redacted)");
     store.corrupt_for_test(&handle);
     let error = custody.load(&handle).await.unwrap_err().to_string();
     assert!(!error.contains(&encoded));
+
+    let captured = CapturedOutput::default();
+    let writer_output = captured.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .without_time()
+        .with_writer(move || CapturedWriter(writer_output.clone()))
+        .finish();
+    let _subscriber = tracing::subscriber::set_default(subscriber);
+    tracing::info!(material = ?material, error, "custody diagnostic");
+    let diagnostics = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
+    assert!(!diagnostics.contains(&encoded));
+
+    assert!(repository.list_events(None, 500).await.unwrap().is_empty());
 
     let mut persisted = Vec::new();
     for entry in std::fs::read_dir(temp.path()).unwrap() {

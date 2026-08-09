@@ -23,6 +23,7 @@ config.override.mk
 
 # Local design export scratch
 output/
+.scratch/
 .screenshots
 apple/RELEASE-MACOS.md
 apple/Generated/*.xcconfig

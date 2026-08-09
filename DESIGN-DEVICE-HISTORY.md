@@ -1,487 +1,524 @@
-# Design — Device history and direct offers
+# Design — Saved devices and targeted transfers
 
-Status: **implemented** in the Rust core and the SwiftUI app. The KMP/Compose
-app has not been built yet; the UniFFI surface is additive, so `shared/` still
-compiles untouched and the Compose string resources are already generated.
+Status: **proposed for the experimental 0.3.x line**.
 
-Where the build deviates from what was specified here, the section says so.
+This document supersedes the previous device-history design. The implementation
+currently on `feat/device-history` is an unreleased prototype. Its database and
+wire formats are not compatibility commitments and may be replaced.
 
-Lets a user send to a device they have already transferred with, without
-creating and sharing a new invitation. Both sides opt in to being remembered,
-and either side can end the relationship later and have that actually take
-effect on the other device.
+The feature lets two VniDrop installations remember one another after a
+successful transfer, with explicit consent on both devices. A saved device can
+then request a new transfer without another invitation, QR scan, or NFC tap.
+The receiver must still approve every transfer.
 
-Local network discovery was considered and deliberately dropped. See
-[Appendix A](#appendix-a--deferred-local-network-discovery).
+The Rust core, protocol, persistence, credential-storage integration, and
+platform contracts are the first delivery scope. Product UI is intentionally
+deferred to a separate design and implementation session.
 
 ---
 
-## 1. Goals and non-goals
+## 1. Vocabulary and invariants
+
+### Saved device
+
+A `SavedDevice` is a remote VniDrop **app-installation identity**. It is not a
+person, account, address-book contact, or reliably identifiable piece of
+physical hardware.
+
+The identity is the remote iroh endpoint identity. A reinstall or unrecoverable
+endpoint-key loss creates a new identity and requires a new successful transfer
+and mutual consent. Display names, platform hints, IP addresses, and physical
+device properties must never merge identities.
+
+### Device relationship
+
+A `DeviceRelationship` is a mutually acknowledged relationship between two
+saved-device identities. It contains two directional grants: one issued in
+each direction. The relationship is usable only after both grants have been
+acknowledged.
+
+### Targeted transfer
+
+A `TargetedTransfer` is an immutable one-sender, one-receiver transfer. It is a
+separate domain from the existing invitation-based `Share`, which may serve
+multiple receivers.
+
+The following invariants are mandatory:
+
+- Saving a device requires a fully completed authenticated transfer and
+  explicit consent on both devices.
+- Remembering a device never authorizes automatic receipt. Every targeted
+  transfer requires explicit receiver approval.
+- A targeted transfer has exactly one sender identity, one receiver identity,
+  one transfer ID, and one immutable manifest.
+- Authorization is bound to the selected receiver. A leaked capability or
+  ticket must not authorize any other identity.
+- Relays may forward end-to-end encrypted traffic according to the active
+  network profile, but VniDrop has no intermediary file store, relationship
+  service, delivery queue, push service, or account system.
+- Existing invitation-based transfers retain their current behavior and domain
+  model.
+
+---
+
+## 2. Goals and non-goals
 
 ### Goals
 
-- Send to a previously used device with no new invitation, QR code, or NFC tap.
-- Let each side independently decide whether to be remembered after a transfer.
-- Let either side revoke that relationship unilaterally, with real effect.
-- Keep the receiving side's confirmation mandatory for every transfer that
-  arrives this way.
+- Send to a previously saved device without exchanging another invitation.
+- Make mutual consent cryptographically enforceable rather than a UI promise.
+- Keep receiver approval mandatory for each new transfer.
+- Give forget, revoke, block, cancellation, and deletion immediate local
+  security effect even when the peer is offline.
+- Persist accepted interrupted transfers so they can resume when both devices
+  are online again.
+- Protect endpoint identity keys and relationship secrets with platform-backed
+  credential storage.
+- Provide versioned, typed Rust and UniFFI contracts that every platform can
+  exercise before UI work begins.
 
 ### Non-goals
 
-- No automatic acceptance of transfers, under any configuration.
-- No server-side store-and-forward and no push infrastructure. An offer to an
-  unreachable device is held **on the sender's own device** or fails; nothing is
-  uploaded anywhere. See §11 for what this means in practice.
-- No presence or "who is online" indicator. Knowing it requires probing, and
-  probing tells every contact when you opened your list. Reachability is
-  resolved lazily, at send time.
-- No change to the invitation (QR / NFC / `.vnd`) flow, which remains how a
-  first contact is made and how an unpaired device is reached.
-
-### Relationship to the existing flow
-
-First contact is unchanged: an invitation, a transfer, a receiver confirmation.
-This feature only removes the invitation step from the *second* and subsequent
-transfers between the same two devices.
+- Automatic acceptance or unattended writes to a receiver's device.
+- Offline store-and-forward, automatic peer polling, background inboxes, or
+  push notifications.
+- Server-side device discovery, relationship storage, history synchronization,
+  backup, export, or restoration onto another installation.
+- Presence indicators or a promise that a suspended mobile application is
+  reachable.
+- Groups or a multi-recipient variant of `TargetedTransfer`.
+- Associating several saved devices with a person or account.
+- UI screens, navigation, wording, and presentation architecture in this phase.
 
 ---
 
-## 2. Threat model
+## 3. Network and privacy model
 
-Assume an attacker who can run a modified VniDrop client, choose any display
-name, and reach the target over the network.
+Saved-device operations use the same configured iroh network profile as
+ordinary transfers:
 
-| Property | Mechanism |
+- `Automatic` may use configured/default relays and direct paths.
+- Custom-relay modes remain restricted to their configured relays and fallback
+  policy.
+- `LocalOnly` must not silently enable public discovery or a relay.
+
+An endpoint ID authenticates a peer; it is not, by itself, a routable address.
+Address discovery and file transport may use a relay. VniDrop and the endpoints
+still provide end-to-end authentication and encryption, so the relay cannot
+decrypt content or authorize a recipient. A relay may observe transport
+metadata such as network addresses, timing, and volume. VniDrop must not claim
+that relayed traffic is anonymous, metadata-free, or relay-free.
+
+VniDrop does not upload a transfer for later delivery. The sender and receiver
+cores must both be reachable while an offer is negotiated. A relay cannot wake
+a terminated or suspended application. The first release therefore reports a
+typed unavailable or timeout result when the receiver's core cannot answer.
+
+Current direct address candidates may be exchanged over an authenticated
+connection and cached for the connection or a short local lifetime. The app
+must not accumulate a historical IP-address log.
+
+---
+
+## 4. Identity and credential custody
+
+The endpoint private key and all relationship capability secrets are protected
+by platform-backed credential storage:
+
+| Platform | Required protection |
 |---|---|
-| A stranger cannot send an unsolicited transfer prompt | The offer protocol requires a valid grant (§3) |
-| A stranger cannot impersonate a known device | Identity is the iroh endpoint key; display names are untrusted data |
-| Being remembered requires consent from the remembered party | Grants are minted by the party being remembered (§3.4) |
-| A user can end a relationship unilaterally | A grant is validated only by its issuer (§3.3) |
-| A revoked peer cannot quietly regain access | Revocation is local and immediate; no cooperation required |
+| Apple | Keychain with a non-synchronizing, device-appropriate accessibility class |
+| Android | Keystore-backed encryption; only ciphertext may live outside Keystore |
+| Windows | DPAPI scoped to the current user |
+| Linux | Secret Service/libsecret |
 
-Explicit non-property: we cannot erase data from a device we do not control. A
-revoked peer's app may still hold a name string on disk. What is guaranteed is
-that the entry stops **functioning** — see §3.3.
+There is no plaintext fallback.
 
-The app broadcasts nothing and advertises nothing. There is no passive network
-surface introduced by this feature at all.
+Rust owns identity use, cryptographic operations, relationship state, and
+authorization. Platforms provide a narrow secure-secret-store adapter. Public
+bindings exchange opaque handles and typed outcomes, never raw grants, pairing
+tokens, or private keys.
 
----
+If the endpoint identity key is temporarily unavailable, networking is
+temporarily unavailable because VniDrop cannot authenticate as the same
+endpoint. If the endpoint key is available but relationship grants are not,
+ordinary invitation transfers remain available while saved-device operations
+fail closed. Neither case may generate a replacement identity automatically.
 
-## 3. Grants: the core primitive
+### 4.1 Legacy endpoint-key migration
 
-A history entry is **not** "I remember this device's endpoint ID". It is "this
-device issued me a capability to reach it". This is what makes both consent and
-revocation real rather than promised, and it is the reason a grant-based design
-is worth the modest extra complexity over storing a public key.
+Migration of an existing endpoint key must be recoverable:
 
-### 3.1 Shape
+1. Read the legacy key.
+2. Write it to protected storage.
+3. Read it back and prove that it derives the same endpoint ID.
+4. Commit a storage-version marker.
+5. Only then remove the legacy copy.
 
-A grant is directional. If Alice wants Bob to be able to reach her, *Alice*
-mints the grant and gives it to Bob:
+A crash at any step must preserve at least one valid copy and must not change
+the endpoint identity. Confirmed unrecoverable loss or an explicit identity
+reset is required before replacement.
 
-- `grant_id` — 128-bit random, opaque.
-- `grant_secret` — 256-bit random.
-- Bound to Bob's endpoint ID at issue time.
-- `expires_at` — an **idle** expiry, renewed on use (§3.5).
-
-Alice keeps `(grant_id, grant_secret, bob_endpoint_id, expires_at, revoked_at)`
-in her **issued** table. Bob keeps `(grant_id, grant_secret, alice_endpoint_id,
-display_name, …)` in his **held** table, which is what his history UI lists.
-
-A mutual relationship is two independent grants. Either side can revoke its own
-without affecting the other direction, which is the correct semantics: "you may
-no longer reach me" is separable from "I may no longer reach you".
-
-### 3.2 Proving a grant
-
-iroh already provides a mutually authenticated, encrypted QUIC connection, so
-both endpoint IDs are known and trustworthy at the transport layer. On top of
-that, challenge–response proves possession of the grant without ever
-transmitting it:
-
-1. Alice (the accepting side) sends a 32-byte random `challenge`.
-2. Bob replies with `grant_id` and
-   `HMAC(grant_secret, "vnidrop-grant-v1" ‖ challenge ‖ alice_endpoint_id ‖ bob_endpoint_id)`.
-3. Alice looks up `grant_id`, checks it is neither revoked nor expired, checks
-   that the connection's remote endpoint ID equals the endpoint the grant was
-   issued to, and verifies the HMAC in constant time.
-
-Binding to the issued-to endpoint means Bob cannot lend his grant to a third
-party. Binding to the challenge means a captured proof cannot be replayed.
-
-### 3.3 Revocation
-
-Alice deletes (or tombstones) the grant in her issued table. That is the whole
-mechanism, and it is sufficient: hers is the **only** device that can validate
-it. Bob's next attempt presents an unknown `grant_id`, is refused, and his
-client deletes the dead entry.
-
-The refusal is **explicit**: ordinary revocation returns a distinct `Revoked`
-status so Bob's client can remove the entry immediately and tell him the device
-is no longer available. Silence would leave a zombie entry, and Bob can infer
-what happened regardless, so the deniability is not worth the worse behavior.
-
-The hard block list is the exception: a blocked endpoint receives a response
-indistinguishable from an expired or unknown grant, so blocking cannot be
-detected by probing.
-
-Additionally, when Alice revokes while Bob is reachable, she sends a best-effort
-`RevokeGrant { grant_id }` so his entry disappears promptly rather than at his
-next attempt. Best-effort only — correctness never depends on it arriving.
-
-Two things revocation deliberately is **not**:
-
-- **Not retroactive.** Files already sent stay sent. UI copy must say so.
-- **Not a block.** Bob can still reach Alice with a QR invitation like any
-  stranger. A separate hard block list refuses a given endpoint ID at the offer
-  and handshake layers.
-
-### 3.4 Consent to be remembered
-
-After a completed transfer, each side is asked independently whether to remember
-the other. If Alice declines, no grant is minted, so Bob has nothing functional
-to store and his UI must not offer to save the device. Bob cannot override
-Alice's choice, because the useful half of the entry is hers to issue.
-
-The prompt is per-transfer and must be dismissible without a choice, defaulting
-to "no". A user who never engages with it is never added to anyone's history.
-
-### 3.5 Grant lifetime
-
-Grants expire on **idleness, not age**. Each successful offer renews the
-issuer's `expires_at`, so a relationship in regular use never lapses, while one
-that is forgotten cleans itself up.
-
-Default idle lifetime: **90 days**, configurable per device in settings
-(30 / 90 / 365 days / never) and applied at issue time. Changing the setting
-affects newly minted grants; existing ones keep the lifetime they were issued
-with until renewed.
-
-Renewal is issuer-side only and needs no protocol message: Alice extends the
-grant when she validates a proof from Bob. An expired grant behaves exactly like
-a revoked one from Bob's side, except that the UI explains it as inactivity and
-offers to pair again rather than presenting it as a deliberate removal.
-
-This bounds the blast radius of a pairing the user has forgotten about, and it
-softens the reinstall problem in §5.1: dead entries pointing at a regenerated
-`iroh.secret` eventually disappear on their own.
+Secrets must not synchronize through platform cloud backup. Restored metadata
+without its device-bound secrets reconciles to disabled relationships, never a
+cloned identity.
 
 ---
 
-## 4. The offer protocol
+## 5. Pairing eligibility
 
-Today the protocol is strictly receiver-pull: the sender never initiates. An
-offer inverts only the *delivery of the ticket*, not the transfer itself.
+Only a **fully completed authenticated transfer** creates pairing eligibility.
+A handshake, partial download, failed export, cancellation, decline, or failed
+transfer does not qualify. Either the sender or receiver may initiate pairing
+after a qualifying transfer.
 
-New ALPN: `/vnidrop/offer/1`.
+During the qualifying transfer, the peers establish a cryptographic,
+single-use pairing eligibility capability bound to:
 
-1. Sender picks a contact from history.
-2. Sender creates the share exactly as today (`share_files`). The share is
-   `ApprovalRequired`; an offer-created share may **never** be `Public`
-   (invariant, enforced in `access_policy`).
-3. Sender pre-authorizes the target endpoint for that `transfer_id` via the
-   existing `AccessPolicy::approve_endpoint_until`, so the sender is not later
-   prompted to approve a transfer they themselves initiated.
-4. Sender dials the target's offer ALPN, completes the grant challenge–response
-   (§3.2), and sends
-   `Offer { ticket, sender_display_name, file_count, total_bytes }`.
-5. **The receiver is prompted.** This is the mandatory confirmation and it has
-   no bypass.
-6. On accept, the receiver calls the existing `receive(ticket, output_dir,
-   receiver_name)` — completely unchanged. It dials the sender's existing
-   `/vnidrop/handshake/2`, where the pre-authorization from step 3 is already in
-   place, so exactly one human is prompted for the whole flow.
-7. On decline, the sender receives `Declined` and stops the share.
+- Both endpoint identities.
+- The qualifying transfer/session.
+- The saved-device protocol version.
+- A 24-hour local expiry.
 
-The ticket must satisfy the receiver's relay profile, so the existing
-`ticket_matches_relay_profile` check applies unchanged: a contact on a
-strict-custom profile will refuse an offer whose ticket advertises public
-relays, and the UI must explain that rather than failing opaquely.
+The capability becomes usable only after the transfer reaches its durable
+completed state. It is stored locally in encrypted form without filenames or a
+transfer-history record. It is deleted when consumed, declined, expired,
+forgotten, blocked, or reset.
 
-### 4.1 Identity display
-
-Display names are attacker-chosen data — the existing handshake already treats
-`receiver_name` that way, and the same rule applies here. The endpoint ID is the
-only real identity. Therefore:
-
-- A contact's local label is set by the local user and is **never** silently
-  overwritten by a name the remote later claims. A changed remote name is shown
-  as a distinct, dismissible signal.
-- A short fingerprint derived from the endpoint ID is available in the contact
-  detail view, for out-of-band verification.
+Requests without valid eligibility are silently rejected. This prevents a
+modified stranger from generating unsolicited pairing prompts.
 
 ---
 
-## 5. Address resolution and reachability
+## 6. Mutual-consent protocol
 
-A contact stores an endpoint ID, but iroh needs an address to dial. Without
-local discovery, resolution depends on the relay profile:
+The protocol uses explicit pending states rather than exposing partial contacts
+as usable saved devices:
 
-| Relay mode | Resolution |
-|---|---|
-| `Automatic` | Public discovery resolves the endpoint ID anywhere |
-| `StrictCustom` / `CustomWithDirectFallback` | Reachable through the configured relay, whose URL is stable |
-| `LocalOnly` | Only while the cached direct address is still valid |
+- `PendingOutgoing`
+- `PendingIncoming`
+- `Saved`
 
-`presets::Minimal` deliberately leaves address lookup empty for the restricted
-modes (see the comment at `runtime/mod.rs:154`), so those modes cannot fall back
-to public resolution — by design.
+The normal exchange is:
 
-**Mitigation: cache the peer's last-known `EndpointAddr` on the contact and
-refresh it after every successful connection.** The repository already persists
-sender addresses this way for receive rows —
-`encode_persisted_sender_address` / `parse_persisted_sender_address` in
-`ticket.rs:72` — so this reuses an established pattern rather than inventing
-one.
+1. Alice locally chooses to remember Bob after a qualifying transfer.
+2. Alice sends a token-bound pairing request.
+3. Bob explicitly consents.
+4. Alice and Bob exchange fresh directional grants.
+5. Alice acknowledges Bob's grant.
+6. Both sides activate the relationship as `Saved` only after the mutual
+   exchange is acknowledged.
 
-This covers relay modes fully, and covers `LocalOnly` for as long as the peer's
-address is unchanged. When it is not, the send fails and the user falls back to
-a QR invitation: no regression against today's behavior, but the UI must say so
-plainly rather than presenting an opaque failure. Local-only users in particular
-should be told that contacts depend on a cached address.
+Failure before activation remains a bounded pending operation and cannot be
+used to initiate a transfer. Pending operations expire and are recoverable or
+cleaned after crashes.
 
-Reachability is never polled in the background. It is determined when the user
-actually sends — and, for incoming offers, when the app next comes to the
-foreground (§11).
+If both devices initiate simultaneously, the protocol deterministically merges
+the attempts using the endpoint identities and the transfer-bound eligibility
+capability. It creates one relationship and one active grant per direction,
+without duplicate prompts or rows.
 
-### 5.1 Identity lifetime
-
-Reinstalling the app regenerates `iroh.secret`, so every grant referencing the
-old endpoint dies. The UI needs an explicit "this device is no longer
-recognized, pair again" state rather than a silent failure.
+Declining consumes the eligibility for that qualifying transfer. It cannot
+prompt again. A later completed transfer may establish new eligibility, but
+another request still requires fresh local initiation.
 
 ---
 
-## 6. Data model
+## 7. Directional grants
 
-New tables in the existing SQLite repository, with a schema migration:
+Each direction has one active, high-entropy capability bound to:
 
-| Table | Columns (sketch) |
-|---|---|
-| `contacts` | `id`, `endpoint_id` (unique), `local_label`, `remote_display_name`, `last_known_addr`, `created_at`, `last_transfer_at` |
-| `grants_issued` | `grant_id`, `grant_secret`, `issued_to_endpoint_id`, `created_at`, `expires_at` (idle, renewed on use), `revoked_at` |
-| `grants_held` | `grant_id`, `grant_secret`, `peer_endpoint_id`, `created_at`, `expires_at` (advisory copy) |
-| `blocked_endpoints` | `endpoint_id`, `created_at` |
+- Issuer endpoint identity.
+- Holder endpoint identity.
+- Relationship generation.
+- Minimum negotiated protocol generation.
 
-`grant_secret` is **key material**. It follows the same rule as tickets: never
-in events, never in logs, never in bug reports, never in a UniFFI return value.
-The existing "tickets are capabilities" discipline extends verbatim.
+Proof uses the authenticated iroh channel plus established, domain-separated
+cryptographic primitives, challenge binding, and replay protection. Display
+names, addresses, and transfer IDs alone are never authentication. The protocol
+must have independent, reviewable test vectors.
 
-A contact list is itself a privacy artifact — it names the people someone
-exchanges files with. It must be deletable per-entry and wholesale, and the
-wholesale delete must be reachable from the same place as the existing
-transfer-history and cache clearing actions.
+Relationships do not expire merely through inactivity. They remain until
+forget, block, explicit revocation, identity loss, or reset. Long-unseen devices
+may later be represented as inactive by UI, but inactivity does not silently
+remove permission.
 
-Deleting a contact deletes both directions' grants for that peer and, for the
-issued side, triggers the best-effort revoke message.
+Activating a replacement grant first makes the prior relationship generation
+locally invalid. Exactly one generation is active per direction. Minimal
+non-secret revocation tombstones are retained for as long as an old generation
+could otherwise be replayed; tombstones contain no names, filenames, transfer
+history, or capability material.
 
----
-
-## 7. Abuse and resource limits
-
-Extend `CoreLimits` rather than inventing a parallel mechanism:
-
-- `max_contacts`.
-- `max_pending_offers`, mirroring the existing `max_pending_approvals`.
-- Per-endpoint offer rate limiting, with a cooldown after repeated declines.
-- Blocked endpoints are refused at the offer ALPN before any user-visible
-  prompt.
-
-Because an offer already requires a valid grant, the spam surface is limited to
-devices the user deliberately chose to be reachable by, and the remedy — revoke
-— is one tap.
+An established relationship records its minimum supported protocol generation
+and must never silently downgrade below it.
 
 ---
 
-## 8. Surfaces to build
+## 8. Forget, block, and identity replacement
 
-- **Rust core:** offer ALPN and handler, grant minting/proof/revocation,
-  contacts and grants repository with migration, address caching, new limits,
-  block list.
-- **UniFFI:** additive API — list/rename/delete contacts, send-to-contact,
-  revoke, block/unblock, respond to an incoming offer, plus the corresponding
-  events. Additive changes do not break existing Kotlin or Swift call sites, but
-  both must be updated to use them.
-- **Compose (`shared/`)** and **SwiftUI (`apple/`)**: a contacts list and detail
-  view, the post-transfer "remember this device?" prompt, the incoming-offer
-  confirmation, a send-to-contact entry point in the send flow, and settings for
-  the feature toggle, the grant idle lifetime (30 / 90 / 365 days / never,
-  default 90), and blocked devices.
-- **Localization:** all new strings go in `localization/strings.json` and are
-  generated; the platform catalogs are never hand-edited.
+### Forget
 
-No new OS permissions, entitlements, or platform bridges are required.
+Forget makes the local relationship and its grants unusable immediately,
+cancels active or resumable targeted transfers for that relationship, removes
+relationship secrets and metadata, and sends a signed/bound best-effort remote
+revocation when possible. Correctness never depends on remote delivery.
 
----
+An independently approved invitation transfer already in progress may continue
+because it belongs to the existing share domain.
 
-## 9. Testing
+### Block
 
-- **Grant crypto:** fixed vectors for the HMAC proof; expiry, revocation,
-  wrong-endpoint binding, and replay rejection.
-- **Grant lifetime:** a successful proof renews `expires_at`; an idle grant
-  lapses at the configured boundary; a renewed grant survives past its original
-  expiry. Assert the revoked and blocked responses are distinguishable from each
-  other and that blocked is indistinguishable from expired/unknown.
-- **Offer protocol:** two in-process nodes using the existing
-  `crates/vnidrop/tests/support` harness — accept, decline, revoked grant,
-  expired grant, blocked endpoint, relay-profile mismatch, and the invariant
-  that an offer-created share is never `Public`.
-- **Pre-authorization:** assert the sender is prompted exactly zero times and
-  the receiver exactly once, for a full offer → accept → transfer round trip.
-- **Consent:** assert that declining to be remembered leaves the peer with no
-  usable grant, and that a subsequent offer from that peer is refused.
-- **Address caching:** a contact whose cached address is stale falls back
-  cleanly and reports an actionable error, rather than hanging.
-- **Persistence:** grants and contacts survive a core shutdown and reopen of the
-  same data dir, following the existing recovery-test pattern.
-- **Sender-held offers (§11):** an offer to an unreachable contact is retained,
-  is cancellable, is collected on the receiver's next pull, and is not
-  double-delivered if the receiver pulls twice.
-- Per `AGENTS.md`, any bug found gets a regression test at the lowest layer.
+Block is identity-wide and immediate. It rejects or cancels current and future
+traffic from the blocked endpoint across:
+
+- Pairing and grant operations.
+- Targeted offers and transfers.
+- Ordinary invitation handshakes and transfers.
+- Revocation and probing endpoints, except for indistinguishable rejection
+  needed to avoid exposing block state.
+
+Blocking deletes active relationship grants but retains the minimal identity
+deny record and replay tombstones. Unblocking removes only the deny rule. It
+does not restore grants, relationships, or cancelled transfers. Saving the
+device again requires another qualifying transfer and fresh mutual consent.
+
+A peer reinstall produces a new endpoint identity. It is never linked to the
+old device by name, address, or platform. The old saved entry remains
+unavailable until forgotten; the new identity follows the complete first-
+transfer and consent flow.
 
 ---
 
-## 10. Settled decisions
+## 9. Targeted-transfer model
 
-Both previously open questions are decided and specified above; recorded here
-with their rationale so the reasoning is not lost.
+`TargetedTransfer` is not an access mode on an ordinary share. It has its own
+protocol types, repository records, authorization rules, and public APIs.
+Internal blob storage, import, hashing, streaming, and output-sink machinery may
+be reused.
 
-1. **Revocation is reported explicitly** (§3.3). A revoked peer's client
-   receives a distinct status and removes the dead entry immediately. The
-   alternative — silence — leaves a zombie entry, and the revocation is
-   inferable from the failure anyway, so the deniability is illusory.
-   Indistinguishable silence is reserved for the hard block list, where
-   undetectability is the point.
-2. **Grants expire on idleness, renewed on use, defaulting to 90 days** (§3.5),
-   configurable to 30 / 90 / 365 days or never. Relationships in regular use
-   never lapse; forgotten ones clean themselves up, which bounds the blast
-   radius of a stale pairing and quietly disposes of entries orphaned by a
-   reinstall.
+The following fields are immutable after creation:
 
----
+- Transfer ID.
+- Sender endpoint identity.
+- Receiver endpoint identity.
+- Manifest identity and content hashes.
+- File count and total size.
 
-## 11. Delivery when the recipient is not running
+Sending identical content to several saved devices creates independent
+targeted transfers. Internal blobs may be deduplicated, but approval, progress,
+cancellation, retry, authorization, and durable state remain independent.
 
-An offer is a live connection to a running app. This section states plainly what
-that costs and how far it is mitigated.
+The durable state machine is:
 
-### 11.1 The constraint
+```text
+Preparing -> Offering -> AwaitingApproval -> Approved -> Connecting
+          -> Transferring -> Completed
+                         \-> Interrupted -> Connecting
 
-Notifying the user is not the problem — `LocalNotificationService` and the
-existing `ApprovalCoordinator` already turn an incoming approval request into a
-user-visible prompt, and an incoming offer reuses that path unchanged.
+Terminal alternatives: Declined, Cancelled, Failed, Deleted
+```
 
-*Receiving* the request is the problem. `BackgroundActivityController` holds an
-iOS background assertion only while there is active work and releases it as soon
-as that drains, so a suspended app has no listening socket: the sender's dial
-fails and there is nothing to notify about.
-
-Waking a suspended iOS app from the network requires a remote push through APNs,
-which means a server holding device tokens and observing who contacts whom. That
-is infrastructure plus a metadata leak, both of which contradict the product's
-no-cloud posture. **APNs is out of scope.** (This is also why AirDrop can do it
-and a third-party app cannot: AirDrop is an OS daemon, not an app.)
-
-### 11.2 Sender-held offers with a foreground pull
-
-When the target is unreachable, the sender holds the offer **locally** — the
-share stays on the sender's disk exactly as today, with no copy anywhere else —
-and the receiver collects it when its app next comes to the foreground, raising
-a local notification at that point.
-
-Resulting coverage:
-
-| Scenario | Result |
-|---|---|
-| Phone → always-on desktop | Immediate; the desktop is listening |
-| Desktop → phone, app closed | Delivered on the phone's next launch |
-| Phone → phone, both apps closed | **Not supported** |
-
-Desktop platforms are unaffected by any of this and are always reachable while
-the app runs.
-
-### 11.3 The presence cost of pulling
-
-Dialing contacts on launch tells them when the app was opened and reveals the
-device's address to them — precisely the leak §1 avoids by refusing background
-presence polling. The pull is therefore bounded rather than automatic:
-
-- It is **off by default**, behind a single setting whose own footer states the
-  cost, plus an explicit "Check now" action that works regardless.
-- It never runs in the background, only on an actual foreground transition.
-- It is rate-limited per contact (5 minutes), so repeated app switching does not
-  turn into a presence beacon.
-
-**Deviation from the original draft, as built.** This specified a *per-contact*
-opt-in. What shipped is one global toggle, which is coarser: enabling it polls
-every contact rather than a chosen few. Per-contact control needs a schema
-column and a control on each device's detail screen, and the global switch with
-an honest footer covers the same threat — the user still decides whether their
-app-open times are revealed at all. Worth revisiting if anyone keeps contacts
-they would rather not signal to.
-
-### 11.4 What the sender sees
-
-A held offer is listed on the sender's device with its target, and withdrawing
-it is cancelling the transfer — stopping the share deletes the waiting ticket,
-so a cancelled transfer can never be collected afterwards.
-
-### 11.5 Scope statement for the UI
-
-Mobile-to-mobile transfer with both apps closed is not supported and must not be
-implied. The contact list distinguishes "reachable now" from "will be delivered
-when they next open VniDrop", and an offer awaiting pickup is visible and
-cancellable on the sender's side.
+Rust centrally validates transitions. Platform code invokes typed operations
+and consumes snapshots/events; it cannot fabricate states.
 
 ---
 
-## Appendix A — Deferred: local network discovery
+## 10. Offer and approval protocol
 
-An earlier draft specified AirDrop-style discovery: three visibility tiers
-(invisible / paired-only / a time-boxed pairing window), private per-grant mDNS
-beacons using rotating per-epoch AEAD entries so only grant holders could
-recognize a device, and a short-authentication-string pairing flow. It was
-dropped, because once first contact requires a completed transfer anyway,
-discovery adds far less than it costs.
+An offer is online-only and bounded:
 
-**What it would have added:** camera-free pairing (QR pairing already works),
-live presence (which requires probing, and probing leaks when a user opens their
-contact list), and address resolution on a network with no public discovery —
-the only substantive one, and largely handled by the address caching in §5.
+1. The sender creates an immutable targeted transfer for one saved-device
+   identity.
+2. The peers authenticate the saved relationship and negotiate the targeted-
+   transfer protocol version.
+3. The sender submits a bounded offer containing a stable transfer ID and an
+   authenticated manifest summary, but no reusable ordinary-share ticket.
+4. The receiver validates all framing, limits, identity bindings, relay-policy
+   compatibility, and manifest claims before surfacing approval.
+5. The receiver explicitly approves or declines.
+6. On approval, the sender issues authorization bound to the exact transfer,
+   manifest, and receiver endpoint.
+7. The receiver pulls the content through the existing safe streaming and
+   output-sink machinery.
 
-**What dropping it avoids:**
+The approved authorization covers the exact manifest, content hashes, sizes,
+sender, receiver, transfer ID, and protocol generation. Any mismatch or content
+mutation invalidates the transfer and requires a new transfer ID and approval.
+A leaked capability must fail when presented by another endpoint.
 
-- The `com.apple.developer.networking.multicast` entitlement risk. iroh's
-  local-network discovery uses raw multicast sockets rather than Bonjour, and
-  that entitlement requires a special request to Apple that is frequently
-  refused. This was the single largest threat to shipping.
-- Local network permission prompts on iOS/macOS, an Android multicast lock and
-  `NEARBY_WIFI_DEVICES`, a Windows firewall prompt, and avahi coexistence on UDP
-  5353.
-- A per-platform discovery bridge, including a native `NWBrowser`/`NWListener`
-  implementation in Swift.
-- Beacon crypto, epoch/clock-skew handling, and a hard cap of roughly 24–28
-  advertised contacts imposed by the mDNS packet budget.
-- A contradiction with the README's promise that the restricted relay modes
-  never use "public discovery".
-- Visibility-tier settings, which are difficult to explain and easy to
-  misconfigure.
+Every operation is idempotent. Replaying the same pairing request, offer,
+approval, acknowledgement, cancellation, or completion returns the existing
+result and cannot create duplicate prompts, grants, authorizations, or rows.
 
-It also *improves* the privacy posture: the app broadcasts nothing at all, which
-is a stronger and far more explainable claim than any beacon scheme, including
-in an App Store review.
+Declining rejects only that transfer. It neither forgets nor blocks the sender.
 
-**Network-trust detection was rejected separately and stays rejected.** Deciding
-what to expose based on whether a network looks "public" is unreliable — macOS
-has no such concept, Android needs `ACCESS_FINE_LOCATION` to read an SSID, and
-iOS cannot identify the current network at all without
-`com.apple.developer.networking.wifi-info` plus location permission. It is also
-spoofable, since an attacker can clone an SSID and choose a gateway MAC.
+---
 
-**If it is ever revisited**, the beacon scheme was deliberately keyed off grants,
-so it layers onto the tables in §6 with no change to the offer protocol or the
-data model. Nothing in this design forecloses it. One unrelated cleanup noted
-along the way: `apple/VniDrop/Resources/Info.plist:78` declares
-`NSBonjourServices` with a single empty-string entry, which is meaningless and
-should be removed or given a real service type.
+## 11. Online, interruption, and deletion semantics
+
+An unapproved offer exists only in a bounded live-session queue. Sender
+cancellation, decline, timeout, disconnect, or core restart removes it. There
+is no sender-held offline offer, receiver polling loop, background inbox, or
+automatic retry that can produce a later prompt.
+
+After approval, the transfer and its recipient-scoped authorization are
+durable. Interruption retains verified progress and may resume when both devices
+are online again. Resuming the same immutable transfer does not request another
+approval. Changed content or metadata requires a new transfer.
+
+Cancellation before approval withdraws the offer. Cancellation after approval
+stops authorization and active streaming synchronously before asynchronous
+cleanup. It affects only that transfer.
+
+Deletion must make authorization unusable, stop content service for that
+transfer, remove resumable state, and clean related secrets. Remote cleanup is
+best-effort; immediate durable local denial is mandatory.
+
+Several separately approved targeted transfers may run concurrently between
+the same devices under existing global stream and resource limits.
+
+---
+
+## 12. Local data and consistency
+
+The private application database may contain only the relationship and transfer
+metadata needed for the feature, including:
+
+- Endpoint identity/public identifier.
+- User-owned local label and untrusted platform/name hints.
+- Pending/saved/blocked/revoked state and state revision.
+- Opaque secure-store handles.
+- Protocol and relationship generation.
+- Last successful authenticated contact time.
+- Minimal replay and revocation tombstones.
+- Durable targeted-transfer state after approval.
+
+It must not become a transfer-history log. Pairing does not justify retaining
+filenames, previous IP addresses, or lists of past transfers.
+
+Credential-store and SQLite updates cannot share a native transaction. Use
+recoverable staged transitions:
+
+1. Write secret material under a versioned opaque handle.
+2. Verify the protected write.
+3. Commit metadata referencing that handle in a non-active state.
+4. Finalize activation.
+
+Startup reconciliation removes orphaned secrets and disables metadata whose
+required secrets are missing. Revocation becomes locally effective before any
+network notification. Relationship mutations are serialized per remote
+endpoint, while unrelated devices proceed concurrently. Database, relationship,
+and credential-store guards must never be held across network awaits.
+
+---
+
+## 13. Core and platform contract
+
+The Rust core exposes separate typed models and operations for:
+
+- Pairing eligibility and pending pairing requests.
+- Listing, renaming, forgetting, blocking, and unblocking saved devices.
+- Creating and submitting targeted transfers.
+- Approving, declining, cancelling, resuming, and deleting transfers.
+- Querying durable state and current capability availability.
+- Subscribing to typed events carrying stable IDs and monotonic state revisions.
+
+Bindings must not expose raw secrets or generic state mutation. Events are
+wake-up notifications, not authoritative storage. They may be delivered at
+least once; consumers deduplicate by stable ID and revision, then query current
+state after reconnect or restart.
+
+Failures remain typed where callers can act differently, including:
+
+- Device unavailable or offer timeout.
+- Protocol incompatibility or forbidden downgrade.
+- Revoked or blocked relationship.
+- Relay-policy incompatibility.
+- Secure storage locked, unavailable, missing, or corrupted.
+- Approval decline, cancellation, interruption, and invalid transition.
+
+Production errors and diagnostics must not expose endpoint IDs, direct
+addresses, tickets, grants, pairing capabilities, filenames, or secret-store
+payloads.
+
+---
+
+## 14. Limits and hostile-peer handling
+
+A saved relationship proves a remote app identity and permits it to request
+approval. It does not make remote metadata, filenames, paths, sizes, messages,
+or content trusted.
+
+The feature reuses all existing filesystem safety, output-sink, no-overwrite,
+ticket validation, and resource-limit invariants. Before approval it also
+enforces:
+
+- One unresolved offer per sender identity.
+- A bounded global pending-offer queue.
+- Strict request, manifest, metadata, file-count, and size limits.
+- Connection, pairing, offer, approval, and acknowledgement timeouts.
+- Per-identity cooldown after repeated malformed traffic or declines.
+- Silent rejection of unauthenticated, ineligible, blocked, or invalid traffic.
+- A configurable `CoreLimits.max_saved_devices`, defaulting to 256.
+
+These are control-plane and local-resource protections. They do not impose a
+quota on accepted transfers, files, bytes, or bandwidth.
+
+VniDrop cannot protect against a compromised or unlocked endpoint, malicious
+files the receiver knowingly accepts, operating-system credential compromise,
+network traffic analysis, or a reinstalled peer appearing under a new identity.
+
+---
+
+## 15. Compatibility and release policy
+
+Saved devices and targeted transfers use explicit, versioned protocol
+capabilities. A peer without compatible support cannot be paired or receive a
+targeted transfer and falls back to the existing invitation flow. A targeted
+transfer must never be reinterpreted as an ordinary share for compatibility.
+
+The feature is gated as experimental in the 0.3.x line. The wire protocol is
+versioned from its first merge. Removing the experimental gate requires:
+
+- Stable migrations from every released database version.
+- Compatible Apple, Android, Windows, and Linux credential-store adapters.
+- Rust and platform contract coverage.
+- Stable downgrade, revocation, recovery, and lifecycle behavior.
+- No regression in invitation-based multi-recipient transfers.
+
+The unreleased `feat/device-history` schema, held offers, polling behavior,
+expiring grants, `Contact` terminology, Apple-only feature UI, and ordinary-
+share offer authorization are prototype artifacts. They may be removed without
+a migration. Useful low-level cryptographic, repository, protocol, and test
+patterns may be retained only after they are checked against this design.
+
+---
+
+## 16. Verification requirements
+
+Rust tests must deterministically cover:
+
+- Mutual consent, decline, simultaneous initiation, timeouts, and lost
+  acknowledgements.
+- Pairing eligibility after completion and rejection after every non-completed
+  outcome.
+- Replay, malformed input, spoofed identity, blocking, revocation, grant
+  rotation, and protocol downgrade.
+- Recipient-bound authorization and rejection of leaked capabilities.
+- Direct, relay, custom-relay, local-only, and incompatible-profile behavior.
+- Restart and recovery at every durable state.
+- Cancellation, deletion, forget, and block during active streaming.
+- Credential-store failure and crash-point reconciliation.
+- Concurrent independent targeted transfers.
+- Existing invitation-based multi-recipient behavior remaining unchanged.
+
+Each platform secure-storage adapter requires contract coverage for create,
+read, update, delete, locked/unavailable behavior, migration, device-bound
+persistence, orphan cleanup, and redaction. Platform harnesses must prove that
+secrets do not appear in generated bindings, logs, diagnostics, or ordinary
+database columns.
+
+The core/platform foundation is complete only when these contracts are
+implemented, documented, exposed through typed UniFFI APIs, and pass the
+relevant Rust and platform checks. UI polish is not part of that completion
+boundary.

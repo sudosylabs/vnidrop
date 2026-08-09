@@ -34,6 +34,50 @@ SCENARIOS="share:share-securely approval:choose-receivers"
 # live under generated/ (git-ignored), not in assets/.
 SHOTS_DIR="${SHOTS_DIR:-generated/shots/$PLATFORM}"
 
+# ---- macOS: no simulator. Build the native app, drive it with the fixture args, size its
+# window to 16:10 and grab it with screencapture. Needs Accessibility + Screen Recording
+# permission granted to the terminal (you'll be prompted the first time).
+if [ "$PLATFORM" = "mac" ]; then
+	WIN_X=60; WIN_Y=80; WIN_W=1440; WIN_H=900   # 16:10, matches the MacBook screen aspect
+	echo "==> Regenerating project"; (cd "$APPLE_DIR" && xcodegen generate >/dev/null)
+	echo "==> Building VniDrop (Debug) for macOS"
+	xcodebuild build -project "$APPLE_DIR/VniDrop.xcodeproj" -scheme VniDrop \
+		-destination 'platform=macOS' -configuration Debug CODE_SIGNING_ALLOWED=NO >/dev/null
+	APP="$(xcodebuild -project "$APPLE_DIR/VniDrop.xcodeproj" -scheme VniDrop \
+		-destination 'platform=macOS' -configuration Debug -showBuildSettings 2>/dev/null \
+		| awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')/VniDrop.app"
+	EXE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist" 2>/dev/null || echo VniDrop)"
+	EXE="$APP/Contents/MacOS/$EXE_NAME"
+	echo "    app: $APP  (exe: $EXE_NAME)"
+	echo "    (grant Accessibility + Screen Recording to your terminal if prompted)"
+	for loc in $LOCALES; do
+		mkdir -p "$SHOTS_DIR/$loc"
+		for pair in $SCENARIOS; do
+			scenario="${pair%%:*}"; screen="${pair##*:}"
+			pkill -x "$EXE_NAME" 2>/dev/null || true; sleep 1
+			# Launch the binary directly (avoids LaunchServices -1712 for DerivedData apps).
+			"$EXE" -VniScreenshot "$scenario" \
+				-AppleLanguages "($loc)" -AppleLocale "$loc" -AppleInterfaceStyle Dark &
+			sleep 4
+			osascript >/dev/null 2>&1 <<-OSA || true
+			tell application "System Events" to tell process "$EXE_NAME"
+				set frontmost to true
+				set position of front window to {$WIN_X, $WIN_Y}
+				set size of front window to {$WIN_W, $WIN_H}
+			end tell
+			OSA
+			sleep 1
+			tmp="$(mktemp -t vnishot).png"
+			screencapture -x -R${WIN_X},${WIN_Y},${WIN_W},${WIN_H} "$tmp"
+			mv "$tmp" "$SHOTS_DIR/$loc/$screen.png"
+			echo "  🖥️  $SHOTS_DIR/$loc/$screen.png"
+		done
+	done
+	pkill -x "$EXE_NAME" 2>/dev/null || true
+	echo ""; echo "Done. Now run 'PLATFORM=mac swift run studio' to composite."
+	exit 0
+fi
+
 echo "==> Regenerating project"; (cd "$APPLE_DIR" && xcodegen generate >/dev/null)
 
 echo "==> Building VniDrop (Debug) for $DEVICE"

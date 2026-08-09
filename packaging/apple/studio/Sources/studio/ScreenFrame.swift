@@ -116,9 +116,12 @@ struct ScreenFrame: View {
         return Canvas { ctx, _ in
             for i in 0..<b.count {
                 let f = b.count == 1 ? 0 : Double(i) / Double(b.count - 1) - 0.5   // -0.5…0.5
-                let x0 = b.cx + CGFloat(f) * 2 * b.spread
+                // Fan across the cross axis from the start line, converging on (cx, cy).
+                let start = b.horizontal
+                    ? CGPoint(x: b.y0, y: b.cy + CGFloat(f) * 2 * b.spread)
+                    : CGPoint(x: b.cx + CGFloat(f) * 2 * b.spread, y: b.y0)
                 var path = Path()
-                path.move(to: CGPoint(x: x0, y: b.y0))
+                path.move(to: start)
                 path.addLine(to: CGPoint(x: b.cx, y: b.cy))
                 let op = 0.25 + 0.35 * (1 - abs(f) * 2)   // brighter toward the centre beam
                 ctx.stroke(path, with: .color(color.opacity(op)),
@@ -138,14 +141,15 @@ struct ScreenFrame: View {
             let count = max(1, Int((s.y1 - s.y0) / spacing))
             for i in 0...count {
                 let t = Double(i) / Double(count)
-                let y = s.y0 + (s.y1 - s.y0) * t
+                let along = s.y0 + (s.y1 - s.y0) * t
+                let at = s.horizontal ? CGPoint(x: along, y: s.cx) : CGPoint(x: s.cx, y: along)
                 let bit = (i % 3 == 0) ? "0" : "1"
-                // fade in near the lock and out near the phone
+                // fade in near the lock and out near the receiving device
                 let op = 0.5 + 0.5 * sin(Double.pi * t)
                 var res = ctx.resolve(Text(bit)
                     .font(.system(size: 30, weight: .semibold, design: .monospaced)))
                 res.shading = .color(color.opacity(op))
-                ctx.draw(res, at: CGPoint(x: s.cx, y: y))
+                ctx.draw(res, at: at)
             }
         }
         .frame(width: canvas.width, height: canvas.height)

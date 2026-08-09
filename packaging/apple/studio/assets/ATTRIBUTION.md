@@ -11,6 +11,11 @@
 - **Author:** lazercar (Sketchfab)
 - **License:** Creative Commons Attribution 4.0 (CC BY 4.0) — https://creativecommons.org/licenses/by/4.0/
 
+## macbook-air.usdz
+- **Title:** MacBook Air
+- **Author:** Jakob (Sketchfab — https://sketchfab.com/jakob3dlindblom)
+- **License:** Creative Commons Attribution 4.0 (CC BY 4.0) — https://creativecommons.org/licenses/by/4.0/
+
 CC BY 4.0 requires visible credit wherever these models (or renders derived from them)
 are published. The App Store screenshots produced by this studio are derivatives, so
 keep this attribution with the project. If a suitable place exists (e.g. the app's

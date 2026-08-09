@@ -9,14 +9,14 @@ import AppKit
 
 struct SceneKitDeviceRenderer: DeviceRenderer {
     let model: DeviceModel
-    var heightFraction: CGFloat = 0.66        // upright device height as fraction of the square render
+
     var supersample: CGFloat = 2              // render big, SwiftUI downscales for clean edges
 
     @MainActor
     func view(shot: NSImage?, spec: DeviceSpec) -> AnyView {
         // Render into a square (so any pose fits without clipping); the upright phone
         // occupies `heightFraction` of it, so displaySide maps that to spec.height.
-        let displaySide = spec.height / heightFraction
+        let displaySide = spec.height / model.fillFraction
         let renderSide = min(displaySide * supersample, 3200)
         guard let img = render(shot: shot, spec: spec, side: renderSide) else {
             return AnyView(Color.clear.frame(width: displaySide, height: displaySide))
@@ -60,8 +60,12 @@ struct SceneKitDeviceRenderer: DeviceRenderer {
         // Texture EVERY material with the screen name (some models split the display into
         // several meshes that share the material name); setting only the first leaves the
         // rest white.
+        // A thin black margin baked around the shot so the window's own corners clear the
+        // display's rounded edge — done in the image (not via UV overscan) so the clamped
+        // border samples black instead of smearing the capture's rounded-corner pixels.
+        let screenShot = (shot != nil && model.screenPad > 0) ? matted(shot!, pad: model.screenPad) : shot
         for mat in materials(named: model.screenMaterial, in: pivot) where spec.blackScreen || shot != nil {
-            mat.diffuse.contents = spec.blackScreen ? NSColor.black : shot
+            mat.diffuse.contents = spec.blackScreen ? NSColor.black : screenShot
             mat.lightingModel = .constant
             mat.normal.contents = nil
             mat.emission.contents = nil
@@ -98,7 +102,7 @@ struct SceneKitDeviceRenderer: DeviceRenderer {
         cam.bloomIntensity = 0.25
         cam.bloomBlurRadius = 6
         let camNode = SCNNode(); camNode.camera = cam
-        let dist = Double(height) / (2 * Double(heightFraction) * tan(fovV / 2 * .pi / 180))
+        let dist = Double(height) / (2 * Double(model.fillFraction) * tan(fovV / 2 * .pi / 180))
         camNode.position = SCNVector3(center.x, center.y, center.z - SCNFloat(dist))
         camNode.eulerAngles = SCNVector3(0, Double.pi, 0)
         root.addChildNode(camNode)
@@ -223,9 +227,12 @@ struct SceneKitDeviceRenderer: DeviceRenderer {
         let ua = planeAxes[0], va = planeAxes[1]
         let umin = [xs, ys, zs][ua].min()!, urange = max(1e-6, ext[ua])
         let vmin = [xs, ys, zs][va].min()!, vrange = max(1e-6, ext[va])
+        // Plain [0,1] planar mapping — the screenshot fills the mesh exactly. Any margin the
+        // display needs is baked into the image (see `matted`), not added here, so the clamped
+        // edge stays black instead of smearing the capture's corner pixels.
         let uvs: [CGPoint] = pos.map {
             CGPoint(x: CGFloat((comp($0, ua) - umin) / urange),
-                    y: CGFloat(1 - (comp($0, va) - vmin) / vrange))    // flip V for top-left origin
+                    y: CGFloat(1 - (comp($0, va) - vmin) / vrange))   // flip V for top-left origin
         }
         let uvSource = SCNGeometrySource(textureCoordinates: uvs)
         let newGeo = SCNGeometry(sources: g.sources(for: .vertex) + g.sources(for: .normal) + [uvSource],
@@ -233,6 +240,20 @@ struct SceneKitDeviceRenderer: DeviceRenderer {
         newGeo.materials = g.materials
         node.geometry = newGeo
         node.childNodes.forEach { addPlanarUVsToScreen(in: $0, material: name) }
+    }
+
+    // Return the shot centred on a black canvas `pad` larger on each side, so texturing it
+    // leaves a thin black border around the window inside the display's rounded corners.
+    private func matted(_ shot: NSImage, pad: CGFloat) -> NSImage {
+        let s = shot.size
+        let canvas = NSSize(width: s.width * (1 + 2 * pad), height: s.height * (1 + 2 * pad))
+        let out = NSImage(size: canvas)
+        out.lockFocus()
+        NSColor.black.setFill()
+        NSRect(origin: .zero, size: canvas).fill()
+        shot.draw(in: NSRect(x: s.width * pad, y: s.height * pad, width: s.width, height: s.height))
+        out.unlockFocus()
+        return out
     }
 
     private func materials(named name: String, in node: SCNNode) -> [SCNMaterial] {

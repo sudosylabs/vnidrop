@@ -71,11 +71,14 @@ struct RouteSpec {
 // converging light beams (encryption) → a glowing padlock → a binary stream (protection).
 struct BeamsSpec {
 	var cx: CGFloat  // convergence x
-	var y0: CGFloat  // beams start at the top phone's bottom edge
-	var spread: CGFloat  // half-width the beams fan across at y0
+	var y0: CGFloat  // start-line coordinate: the y the beams fan from (x when horizontal)
+	var spread: CGFloat  // half-extent the beams fan across at the start line
 	var cy: CGFloat  // converge to this point
 	var count: Int = 22
 	var color: String = "#9ec3ff"
+	// Horizontal: beams fan across y from a vertical start line and converge left→right
+	// (for side-by-side devices) instead of fanning across x from a horizontal line.
+	var horizontal: Bool = false
 }
 
 struct LockSpec {
@@ -86,10 +89,11 @@ struct LockSpec {
 }
 
 struct StreamSpec {
-	var cx: CGFloat  // vertical binary stream centre
-	var y0: CGFloat  // from (below the lock)
-	var y1: CGFloat  // to (the bottom phone)
+	var cx: CGFloat  // cross-axis centre (x for a vertical stream, y for a horizontal one)
+	var y0: CGFloat  // along-axis start (below the lock; right of the lock when horizontal)
+	var y1: CGFloat  // along-axis end (the receiving device)
 	var color: String = "#9ec3ff"
+	var horizontal: Bool = false  // flow left→right instead of top→bottom
 }
 
 // Localized banner labels (CHIFFREMENT / PROTECTION), text taken from strings.json.
@@ -122,6 +126,7 @@ struct ScreenSpec {
 		switch platform {
 		case .iphone: iphone
 		case .ipad: ipad
+		case .mac: mac
 		}
 	}
 
@@ -230,7 +235,7 @@ struct ScreenSpec {
 					height: 1300, cx: 1024, cy: 2760, pose: Pose(), shadow: false, blackScreen: true
 				),
 			],
-			beams: BeamsSpec(cx: 1024, y0: 820, spread: 200, cy: 1220, count: 24),
+			beams: BeamsSpec(cx: 1024, y0: 720, spread: 200, cy: 1220, count: 24),
 			lock: LockSpec(cx: 1024, cy: 1400, size: 320),
 			stream: StreamSpec(cx: 1024, y0: 1600, y1: 2360),
 			banners: [
@@ -238,6 +243,60 @@ struct ScreenSpec {
 				Banner(kind: .protection, cx: 1024, cy: 1680),
 			],
 			headerBackdrop: true
+		),
+	]
+
+	// MacBook layouts (canvas 2880x1800, landscape, centre x = 1440). First pass.
+	static let mac: [String: ScreenSpec] = [
+		"share-securely": ScreenSpec(
+			id: "share-securely",
+			bg: GradientSpec(stops: ["#f3edfc", "#e7dbf7"], start: .top, end: .bottom),
+			captionPlace: .top, captionTheme: .dark,
+			device: DeviceSpec(height: 1500, cx: 1440, cy: 1110, pose: Pose())
+		),
+		"choose-receivers": ScreenSpec(
+			id: "choose-receivers",
+			bg: GradientSpec(stops: ["#f2ecfb", "#e6d9f6"], start: .top, end: .bottom),
+			captionPlace: .top, captionTheme: .dark,
+			device: DeviceSpec(height: 1500, cx: 1440, cy: 1110, pose: Pose())
+		),
+		// Globe backdrop in the upper half, route arcing through a centred laptop, caption
+		// at the bottom. Reuses the share capture (matches the other platforms).
+		"send-anywhere": ScreenSpec(
+			id: "send-anywhere",
+			bg: GradientSpec(stops: ["#e9ddf9", "#e5d6f6"], start: .top, end: .bottom),
+			captionPlace: .bottom, captionTheme: .light,
+			globe: GlobeSpec(width: 1320, dx: 780, dy: -150),
+			route: RouteSpec(
+				from: CGPoint(x: 1650, y: 222), to: CGPoint(x: 976, y: 274),
+				c1: CGPoint(x: 5200, y: 1150), c2: CGPoint(x: -2000, y: 1150), lineWidth: 13),
+			device: DeviceSpec(height: 1300, cx: 1440, cy: 960, pose: Pose()),
+			headerBackdrop: true,
+			shotId: "share-securely"
+		),
+		// Vertical encryption flow between two stacked laptops (same structure as the phone
+		// layouts, retuned for the landscape canvas).
+		"stay-private": ScreenSpec(
+			id: "stay-private",
+			bg: GradientSpec(
+				stops: ["#241047", "#3a1e6b", "#7a5aa8", "#c9b6e6"], start: .top, end: .bottom),
+			captionPlace: .top, captionTheme: .light,
+			// Two laptops on the left and right; encryption flows horizontally between them:
+			// beams converge left→lock, a binary stream runs lock→right.
+			devices: [
+				DeviceSpec(
+					height: 1040, cx: 120, cy: 1000, pose: Pose(), shadow: false, blackScreen: true),
+				DeviceSpec(
+					height: 1040, cx: 2760, cy: 1000, pose: Pose(), shadow: false, blackScreen: true
+				),
+			],
+			beams: BeamsSpec(cx: 1290, y0: 760, spread: 300, cy: 1000, count: 26, horizontal: true),
+			lock: LockSpec(cx: 1440, cy: 1000, size: 300),
+			stream: StreamSpec(cx: 1000, y0: 1600, y1: 2140, horizontal: true),
+			banners: [
+				Banner(kind: .encryption, cx: 940, cy: 1360),
+				Banner(kind: .protection, cx: 1960, cy: 1360),
+			]
 		),
 	]
 }

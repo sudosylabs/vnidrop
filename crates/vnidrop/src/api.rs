@@ -10,9 +10,10 @@ use crate::util::{non_empty, now_ms};
 pub(crate) const MAX_CUSTOM_RELAYS: usize = 8;
 pub(crate) const MAX_RELAY_URL_BYTES: usize = 2_048;
 
+/// Versions the additive public domain seam and its two experimental wire protocols.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
 pub struct ExperimentalSavedDeviceCapabilities {
-    pub api_version: u16,
+    pub domain_contract_version: u16,
     pub relationship_protocol_version: u16,
     pub targeted_transfer_protocol_version: u16,
 }
@@ -20,7 +21,7 @@ pub struct ExperimentalSavedDeviceCapabilities {
 #[uniffi::export]
 pub fn experimental_saved_device_capabilities() -> ExperimentalSavedDeviceCapabilities {
     ExperimentalSavedDeviceCapabilities {
-        api_version: 1,
+        domain_contract_version: 1,
         relationship_protocol_version: 1,
         targeted_transfer_protocol_version: 1,
     }
@@ -36,6 +37,7 @@ pub struct SavedDevice {
     pub last_authenticated_at: Option<i64>,
 }
 
+/// Durable consent lifecycle for one remote app-installation identity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
 pub enum DeviceRelationshipState {
     PendingOutgoing,
@@ -56,6 +58,7 @@ pub struct DeviceRelationship {
     pub updated_at: i64,
 }
 
+/// Rust-owned lifecycle for an immutable one-sender, one-receiver transfer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
 pub enum TargetedTransferState {
     Preparing,

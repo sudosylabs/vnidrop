@@ -12,7 +12,7 @@ fn saved_device_protocols_are_explicitly_experimental_and_versioned() {
     assert_eq!(
         experimental_saved_device_capabilities(),
         ExperimentalSavedDeviceCapabilities {
-            api_version: 1,
+            domain_contract_version: 1,
             relationship_protocol_version: 1,
             targeted_transfer_protocol_version: 1,
         }

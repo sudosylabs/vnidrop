@@ -3,7 +3,7 @@ use std::{future::Future, path::PathBuf, sync::Arc};
 use anyhow::Context;
 use serde_json::json;
 
-use super::CoreInner;
+use super::{CoreInner, IdentityMode};
 use crate::{
     api::{
         ContactSendResult, ContactSummary, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig,
@@ -14,6 +14,7 @@ use crate::{
     },
     error::VnidropError,
     filesystem::platform_path,
+    secure_secret::{lock_profile, platform_secret_store},
     ticket::parse_transfer_ticket_with_limits,
     transfer_state::{TransferDirection, TransferStatus},
 };
@@ -34,6 +35,34 @@ impl VnidropCore {
     /// thread while cancel/approve arrive from the UI or test harness thread.
     fn block_on<F: Future>(&self, future: F) -> F::Output {
         self.runtime.handle().block_on(future)
+    }
+
+    fn initialize_with_identity_mode(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        limits: CoreLimits,
+        network_config: CoreNetworkConfig,
+        identity_mode: IdentityMode,
+    ) -> Result<Arc<Self>, VnidropError> {
+        limits.validate().map_err(VnidropError::initialization)?;
+        let relay_urls = network_config
+            .validated_relay_urls()
+            .map_err(VnidropError::initialization)?;
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .thread_name("vnidrop")
+            .build()?;
+        let inner = runtime
+            .block_on(CoreInner::start(
+                PathBuf::from(app_data_dir),
+                event_sink,
+                limits,
+                network_config.mode,
+                relay_urls,
+                identity_mode,
+            ))
+            .map_err(VnidropError::initialization)?;
+        Ok(Arc::new(Self { runtime, inner }))
     }
 }
 
@@ -87,25 +116,39 @@ impl VnidropCore {
         limits: CoreLimits,
         network_config: CoreNetworkConfig,
     ) -> Result<Arc<Self>, VnidropError> {
-        limits.validate().map_err(VnidropError::initialization)?;
-        let relay_urls = network_config
-            .validated_relay_urls()
-            .map_err(VnidropError::initialization)?;
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .thread_name("vnidrop")
-            .build()?;
-        let app_data_dir = PathBuf::from(app_data_dir);
-        let inner = runtime
-            .block_on(CoreInner::start(
-                app_data_dir,
-                event_sink,
-                limits,
-                network_config.mode,
-                relay_urls,
-            ))
-            .map_err(VnidropError::initialization)?;
-        Ok(Arc::new(Self { runtime, inner }))
+        Self::initialize_with_identity_mode(
+            app_data_dir,
+            event_sink,
+            limits,
+            network_config,
+            IdentityMode::Legacy,
+        )
+    }
+
+    /// Starts the experimental saved-device core with a platform-protected identity.
+    #[uniffi::constructor]
+    pub fn initialize_with_experimental_saved_devices(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        limits: CoreLimits,
+        network_config: CoreNetworkConfig,
+    ) -> Result<Arc<Self>, VnidropError> {
+        let app_data_path = PathBuf::from(app_data_dir);
+        std::fs::create_dir_all(&app_data_path).map_err(VnidropError::filesystem)?;
+        let app_data_path =
+            std::fs::canonicalize(app_data_path).map_err(VnidropError::filesystem)?;
+        let profile_lock = lock_profile(&app_data_path)?;
+        let store = platform_secret_store(&app_data_path)?;
+        Self::initialize_with_identity_mode(
+            app_data_path.to_string_lossy().into_owned(),
+            event_sink,
+            limits,
+            network_config,
+            IdentityMode::Protected {
+                store,
+                profile_lock,
+            },
+        )
     }
 
     pub fn status(&self) -> RuntimeStatus {

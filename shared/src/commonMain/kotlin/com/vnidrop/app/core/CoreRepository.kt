@@ -31,10 +31,12 @@ import uniffi.vnidrop.TransferMetadata
 import uniffi.vnidrop.TransferAccessMode
 import uniffi.vnidrop.VnidropCore
 import uniffi.vnidrop.clearInactiveTransferCache
+import uniffi.vnidrop.defaultCoreLimits
 import uniffi.vnidrop.defaultCoreNetworkConfig
 
-class CoreRepository(
+class CoreRepository internal constructor(
 	private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
+	private val coreFactory: CoreFactory = ProtectedCoreFactory,
 ) : CoreGateway {
 	private val _state = MutableStateFlow(CoreState())
 	override val state: StateFlow<CoreState> = _state.asStateFlow()
@@ -79,7 +81,7 @@ class CoreRepository(
 			_state.update { it.copy(isInitialized = false, status = null) }
 			core = null
 			disposeCore(previousCore)
-			core = VnidropCore.initializeWithNetworkConfig(appDataDir, sink, relaySettings.toNative())
+			core = createCore(appDataDir, relaySettings)
 			currentAppDataDir = appDataDir
 			currentRelaySettings = relaySettings
 			refreshSnapshot(requireCore())
@@ -190,7 +192,7 @@ class CoreRepository(
 		try {
 			reclaimed = clearInactiveTransferCache(appDataDir)
 		} finally {
-			core = VnidropCore.initializeWithNetworkConfig(appDataDir, sink, relaySettings.toNative())
+			core = createCore(appDataDir, relaySettings)
 			refreshSnapshot(requireCore())
 			_state.update { it.copy(isInitialized = true) }
 		}
@@ -206,6 +208,9 @@ class CoreRepository(
 			activeCore.close()
 		}
 	}
+
+	private fun createCore(appDataDir: String, relaySettings: RelaySettings): VnidropCore =
+		coreFactory.create(appDataDir, sink, relaySettings)
 
 	override suspend fun receivedArtifacts(): Result<List<ReceivedArtifactModel>> = runCore { activeCore ->
 		activeCore.listReceivedArtifacts().map { artifact ->
@@ -328,6 +333,23 @@ class CoreRepository(
 	private companion object {
 		const val MaxEvents = 200
 	}
+}
+
+internal fun interface CoreFactory {
+	fun create(appDataDir: String, eventSink: CoreEventSink, relaySettings: RelaySettings): VnidropCore
+}
+
+private object ProtectedCoreFactory : CoreFactory {
+	override fun create(
+		appDataDir: String,
+		eventSink: CoreEventSink,
+		relaySettings: RelaySettings,
+	): VnidropCore = VnidropCore.initializeWithExperimentalSavedDevices(
+		appDataDir,
+		eventSink,
+		defaultCoreLimits(),
+		relaySettings.toNative(),
+	)
 }
 
 private fun RelaySettings.toNative(): CoreNetworkConfig = when (mode) {

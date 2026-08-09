@@ -186,7 +186,7 @@ impl CoreInner {
         Ok(())
     }
 
-    pub(super) async fn shutdown(&self) {
+    pub(crate) async fn shutdown(&self) {
         if self.shutdown_started.swap(true, Ordering::SeqCst) {
             return;
         }

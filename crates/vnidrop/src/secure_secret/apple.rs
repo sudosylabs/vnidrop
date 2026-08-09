@@ -25,7 +25,7 @@ enum AppleAccessibility {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct AppleKeychainPolicy {
+pub(crate) struct AppleKeychainPolicy {
     accessibility: AppleAccessibility,
     synchronizable: bool,
     data_protection_keychain: bool,
@@ -41,7 +41,7 @@ impl Default for AppleKeychainPolicy {
     }
 }
 
-trait AppleKeychainApi: Send + Sync {
+pub(crate) trait AppleKeychainApi: Send + Sync {
     fn put(
         &self,
         service: &str,
@@ -136,7 +136,7 @@ impl AppleKeychainSecretStore {
     }
 
     #[cfg(test)]
-    fn with_api(api: impl AppleKeychainApi + 'static) -> Self {
+    pub(crate) fn with_api(api: impl AppleKeychainApi + 'static) -> Self {
         Self { api: Arc::new(api) }
     }
 }
@@ -187,186 +187,21 @@ fn map_status(status: i32) -> SecureSecretStoreError {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::{collections::HashMap, sync::Mutex};
+pub(crate) fn expected_policy_for_test() -> AppleKeychainPolicy {
+    AppleKeychainPolicy::default()
+}
 
-    use super::*;
+#[cfg(test)]
+pub(crate) fn service_for_test() -> &'static str {
+    SERVICE
+}
 
-    #[derive(Clone, Default)]
-    struct RecordingKeychain {
-        state: Arc<Mutex<RecordingState>>,
-    }
+#[cfg(test)]
+pub(crate) fn handle_for_test(value: &str) -> SecretHandle {
+    SecretHandle(value.to_string())
+}
 
-    #[derive(Default)]
-    struct RecordingState {
-        entries: HashMap<(String, String), Vec<u8>>,
-        last_policy: Option<AppleKeychainPolicy>,
-    }
-
-    impl AppleKeychainApi for RecordingKeychain {
-        fn put(
-            &self,
-            service: &str,
-            account: &str,
-            material: &[u8],
-            policy: AppleKeychainPolicy,
-        ) -> Result<(), i32> {
-            let mut state = self.state.lock().unwrap();
-            state.last_policy = Some(policy);
-            state.entries.insert(
-                (service.to_string(), account.to_string()),
-                material.to_vec(),
-            );
-            Ok(())
-        }
-
-        fn get(&self, service: &str, account: &str) -> Result<Vec<u8>, i32> {
-            self.state
-                .lock()
-                .unwrap()
-                .entries
-                .get(&(service.to_string(), account.to_string()))
-                .cloned()
-                .ok_or(ERR_SEC_ITEM_NOT_FOUND)
-        }
-
-        fn delete(&self, service: &str, account: &str) -> Result<(), i32> {
-            self.state
-                .lock()
-                .unwrap()
-                .entries
-                .remove(&(service.to_string(), account.to_string()))
-                .map(|_| ())
-                .ok_or(ERR_SEC_ITEM_NOT_FOUND)
-        }
-
-        fn list_accounts(&self, service: &str) -> Result<Vec<String>, i32> {
-            Ok(self
-                .state
-                .lock()
-                .unwrap()
-                .entries
-                .keys()
-                .filter(|(entry_service, _)| entry_service == service)
-                .map(|(_, account)| account.clone())
-                .collect())
-        }
-    }
-
-    fn handle(value: &str) -> SecretHandle {
-        SecretHandle(value.to_string())
-    }
-
-    #[test]
-    fn adapter_creates_replaces_reads_lists_and_deletes_only_its_service() {
-        let api = RecordingKeychain::default();
-        api.state.lock().unwrap().entries.insert(
-            ("com.example.unrelated".to_string(), "leave-me".to_string()),
-            vec![0x77; 32],
-        );
-        let store = AppleKeychainSecretStore::with_api(api.clone());
-        let owned = handle("vnidrop/v1/endpoint-identity/apple-test");
-
-        store
-            .put(&owned, SecretMaterial::new(vec![0x31; 32]).unwrap())
-            .unwrap();
-        drop(store);
-
-        let reopened_store = AppleKeychainSecretStore::with_api(api.clone());
-        assert_eq!(
-            reopened_store.get(&owned).unwrap(),
-            SecretMaterial::new(vec![0x31; 32]).unwrap()
-        );
-        reopened_store
-            .put(&owned, SecretMaterial::new(vec![0x42; 32]).unwrap())
-            .unwrap();
-
-        assert_eq!(
-            reopened_store.get(&owned).unwrap(),
-            SecretMaterial::new(vec![0x42; 32]).unwrap()
-        );
-        assert_eq!(reopened_store.list_handles().unwrap(), vec![owned.clone()]);
-        reopened_store.delete(&owned).unwrap();
-        assert!(matches!(
-            reopened_store.get(&owned),
-            Err(SecureSecretStoreError::Missing)
-        ));
-        assert!(api
-            .state
-            .lock()
-            .unwrap()
-            .entries
-            .contains_key(&("com.example.unrelated".to_string(), "leave-me".to_string())));
-    }
-
-    #[test]
-    fn adapter_always_requests_device_local_non_synchronizing_protection() {
-        let api = RecordingKeychain::default();
-        let store = AppleKeychainSecretStore::with_api(api.clone());
-
-        store
-            .put(
-                &handle("vnidrop/v1/relationship-grant/apple-policy"),
-                SecretMaterial::new(vec![0x51; 32]).unwrap(),
-            )
-            .unwrap();
-
-        assert_eq!(
-            api.state.lock().unwrap().last_policy,
-            Some(AppleKeychainPolicy {
-                accessibility: AppleAccessibility::AfterFirstUnlockThisDeviceOnly,
-                synchronizable: false,
-                data_protection_keychain: true,
-            })
-        );
-    }
-
-    #[test]
-    fn apple_statuses_map_to_fail_closed_contract_outcomes() {
-        assert!(matches!(
-            map_status(ERR_SEC_INTERACTION_NOT_ALLOWED),
-            SecureSecretStoreError::Locked
-        ));
-        assert!(matches!(
-            map_status(ERR_SEC_AUTH_FAILED),
-            SecureSecretStoreError::Locked
-        ));
-        assert!(matches!(
-            map_status(ERR_SEC_ITEM_NOT_FOUND),
-            SecureSecretStoreError::Missing
-        ));
-        assert!(matches!(
-            map_status(ERR_SEC_DECODE),
-            SecureSecretStoreError::Corrupted
-        ));
-        assert!(matches!(
-            map_status(ERR_SEC_NOT_AVAILABLE),
-            SecureSecretStoreError::Unavailable
-        ));
-        assert!(matches!(
-            map_status(-1),
-            SecureSecretStoreError::Unavailable
-        ));
-    }
-
-    #[test]
-    fn malformed_keychain_values_are_corrupted_without_diagnostic_disclosure() {
-        let api = RecordingKeychain::default();
-        let secret = vec![0x6d; 31];
-        api.state.lock().unwrap().entries.insert(
-            (
-                SERVICE.to_string(),
-                "vnidrop/v1/pairing-eligibility/corrupt".to_string(),
-            ),
-            secret.clone(),
-        );
-        let store = AppleKeychainSecretStore::with_api(api);
-
-        let error = store
-            .get(&handle("vnidrop/v1/pairing-eligibility/corrupt"))
-            .unwrap_err();
-
-        assert!(matches!(&error, SecureSecretStoreError::Corrupted));
-        assert!(!format!("{error:?}").contains(&data_encoding::HEXLOWER.encode(&secret)));
-    }
+#[cfg(test)]
+pub(crate) fn map_status_for_test(status: i32) -> SecureSecretStoreError {
+    map_status(status)
 }

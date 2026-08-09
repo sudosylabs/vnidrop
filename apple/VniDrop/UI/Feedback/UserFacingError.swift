@@ -38,6 +38,12 @@ extension Error {
 				return .resource(L10n.Error.generic)
 			case .InvalidInput:
 				return .resource(L10n.Error.invalidInput)
+			case .InvalidTransition:
+				return .resource(L10n.Error.invalidInput)
+			case .SecureStorageLocked, .SecureStorageUnavailable:
+				return .resource(L10n.Error.startingUp)
+			case .SecureStorageMissing, .SecureStorageCorrupted:
+				return .resource(L10n.Error.generic)
 			case .Initialization(let reason):
 				return initializationUiText(reason)
 			case .Internal(let reason):
@@ -83,7 +89,9 @@ extension Error {
 			case .Initialization(let r), .Ticket(let r), .Filesystem(let r), .FilesystemPermission(let r),
 				 .DestinationExists(let r), .StorageFull(let r), .Network(let r),
 				 .Transfer(let r), .Permission(let r), .Repository(let r), .Cancelled(let r),
-				 .InvalidInput(let r), .Internal(let r):
+				 .InvalidInput(let r), .InvalidTransition(let r), .SecureStorageLocked(let r),
+				 .SecureStorageMissing(let r), .SecureStorageCorrupted(let r),
+				 .SecureStorageUnavailable(let r), .Internal(let r):
 				return r
 			}
 		}

@@ -2,7 +2,7 @@ use std::{
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use data_encoding::HEXLOWER;
@@ -48,6 +48,7 @@ pub(crate) trait AndroidKeystore: Send + Sync {
 pub(crate) struct AndroidSecureSecretStore {
     records_dir: PathBuf,
     keystore: Arc<dyn AndroidKeystore>,
+    mutation_lock: Mutex<()>,
 }
 
 impl AndroidSecureSecretStore {
@@ -64,6 +65,7 @@ impl AndroidSecureSecretStore {
         Ok(Self {
             records_dir,
             keystore,
+            mutation_lock: Mutex::new(()),
         })
     }
 
@@ -112,6 +114,24 @@ impl AndroidSecureSecretStore {
             .map_err(map_io_error)?;
         decode_record(&bytes, handle)
     }
+
+    #[cfg(test)]
+    pub(crate) fn record_path_for_test(&self, handle: &SecretHandle) -> PathBuf {
+        self.record_path(handle)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn stage_for_test(
+        &self,
+        handle: &SecretHandle,
+    ) -> Result<(), SecureSecretStoreError> {
+        self.write_record(handle, RECORD_STAGED, None)
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn secret_handle_for_test(value: &str) -> SecretHandle {
+    SecretHandle(value.to_string())
 }
 
 impl SecureSecretStore for AndroidSecureSecretStore {
@@ -120,7 +140,18 @@ impl SecureSecretStore for AndroidSecureSecretStore {
         handle: &SecretHandle,
         material: SecretMaterial,
     ) -> Result<(), SecureSecretStoreError> {
-        self.write_record(handle, RECORD_STAGED, None)?;
+        let _mutation = self
+            .mutation_lock
+            .lock()
+            .map_err(|_| SecureSecretStoreError::Unavailable)?;
+        let record_exists = match fs::metadata(self.record_path(handle)) {
+            Ok(_) => true,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+            Err(error) => return Err(map_io_error(error)),
+        };
+        if !record_exists {
+            self.write_record(handle, RECORD_STAGED, None)?;
+        }
         let alias = Self::alias(handle);
         let sealed = self.keystore.seal(&alias, &material.0)?;
         if sealed.nonce.is_empty() || sealed.ciphertext.is_empty() {
@@ -136,6 +167,10 @@ impl SecureSecretStore for AndroidSecureSecretStore {
     }
 
     fn delete(&self, handle: &SecretHandle) -> Result<(), SecureSecretStoreError> {
+        let _mutation = self
+            .mutation_lock
+            .lock()
+            .map_err(|_| SecureSecretStoreError::Unavailable)?;
         match self.keystore.delete(&Self::alias(handle)) {
             Ok(()) | Err(SecureSecretStoreError::Missing) => {}
             Err(error) => return Err(error),
@@ -281,150 +316,3 @@ fn set_private_file_permissions(_path: &Path) -> Result<(), SecureSecretStoreErr
 #[cfg(target_os = "android")]
 #[path = "android_native.rs"]
 pub(crate) mod native;
-
-#[cfg(test)]
-mod tests {
-    use std::{collections::HashMap, sync::Mutex};
-
-    use tempfile::TempDir;
-
-    use super::*;
-    use crate::secure_secret::SECRET_BYTES;
-
-    #[derive(Default)]
-    struct FakeKeystore {
-        keys: Mutex<HashMap<String, u8>>,
-        delete_failure: Mutex<Option<SecureSecretStoreError>>,
-    }
-
-    impl AndroidKeystore for FakeKeystore {
-        fn seal(
-            &self,
-            alias: &str,
-            plaintext: &[u8],
-        ) -> Result<AndroidSealedValue, SecureSecretStoreError> {
-            let mask = 0xa7;
-            self.keys.lock().unwrap().insert(alias.to_string(), mask);
-            Ok(AndroidSealedValue {
-                nonce: vec![4; 12],
-                ciphertext: plaintext.iter().map(|byte| byte ^ mask).collect(),
-            })
-        }
-
-        fn open(
-            &self,
-            alias: &str,
-            sealed: &AndroidSealedValue,
-        ) -> Result<Vec<u8>, SecureSecretStoreError> {
-            let mask = *self
-                .keys
-                .lock()
-                .unwrap()
-                .get(alias)
-                .ok_or(SecureSecretStoreError::Missing)?;
-            Ok(sealed.ciphertext.iter().map(|byte| byte ^ mask).collect())
-        }
-
-        fn delete(&self, alias: &str) -> Result<(), SecureSecretStoreError> {
-            if let Some(error) = self.delete_failure.lock().unwrap().take() {
-                return Err(error);
-            }
-            self.keys.lock().unwrap().remove(alias);
-            Ok(())
-        }
-    }
-
-    fn fixture() -> (TempDir, AndroidSecureSecretStore, Arc<FakeKeystore>) {
-        let directory = TempDir::new().unwrap();
-        let keystore = Arc::new(FakeKeystore::default());
-        let store = AndroidSecureSecretStore::new(directory.path(), keystore.clone()).unwrap();
-        (directory, store, keystore)
-    }
-
-    fn handle() -> SecretHandle {
-        SecretHandle("vnidrop/v1/endpoint-identity/test".to_string())
-    }
-
-    #[test]
-    fn adapter_round_trips_lists_and_deletes_without_plaintext_persistence() {
-        let (directory, store, keystore) = fixture();
-        let handle = handle();
-        let plaintext = vec![0x5a; SECRET_BYTES];
-
-        store
-            .put(&handle, SecretMaterial::new(plaintext.clone()).unwrap())
-            .unwrap();
-
-        let persisted = fs::read(store.record_path(&handle)).unwrap();
-        assert!(!persisted
-            .windows(plaintext.len())
-            .any(|window| window == plaintext));
-
-        drop(store);
-        let restarted = AndroidSecureSecretStore::new(directory.path(), keystore).unwrap();
-        assert_eq!(restarted.list_handles().unwrap(), vec![handle.clone()]);
-        assert_eq!(restarted.get(&handle).unwrap().0, plaintext);
-
-        restarted.delete(&handle).unwrap();
-        assert!(restarted.list_handles().unwrap().is_empty());
-        assert!(matches!(
-            restarted.get(&handle),
-            Err(SecureSecretStoreError::Missing)
-        ));
-    }
-
-    #[test]
-    fn staged_crash_record_remains_discoverable_and_fails_closed() {
-        let (_directory, store, _keystore) = fixture();
-        let handle = handle();
-        store.write_record(&handle, RECORD_STAGED, None).unwrap();
-
-        assert_eq!(store.list_handles().unwrap(), vec![handle.clone()]);
-        assert!(matches!(
-            store.get(&handle),
-            Err(SecureSecretStoreError::Corrupted)
-        ));
-        store.delete(&handle).unwrap();
-        assert!(store.list_handles().unwrap().is_empty());
-    }
-
-    #[test]
-    fn tampering_and_missing_keystore_keys_are_distinct_failures() {
-        let (_directory, store, keystore) = fixture();
-        let handle = handle();
-        store
-            .put(&handle, SecretMaterial::new(vec![9; SECRET_BYTES]).unwrap())
-            .unwrap();
-
-        keystore.keys.lock().unwrap().clear();
-        assert!(matches!(
-            store.get(&handle),
-            Err(SecureSecretStoreError::Missing)
-        ));
-
-        fs::write(store.record_path(&handle), b"tampered").unwrap();
-        assert!(matches!(
-            store.get(&handle),
-            Err(SecureSecretStoreError::Corrupted)
-        ));
-    }
-
-    #[test]
-    fn failed_key_deletion_retains_the_record_for_safe_retry() {
-        let (_directory, store, keystore) = fixture();
-        let handle = handle();
-        store
-            .put(&handle, SecretMaterial::new(vec![7; SECRET_BYTES]).unwrap())
-            .unwrap();
-        *keystore.delete_failure.lock().unwrap() = Some(SecureSecretStoreError::Locked);
-
-        assert!(matches!(
-            store.delete(&handle),
-            Err(SecureSecretStoreError::Locked)
-        ));
-        assert_eq!(store.list_handles().unwrap(), vec![handle.clone()]);
-
-        store.delete(&handle).unwrap();
-        assert!(store.list_handles().unwrap().is_empty());
-    }
-}

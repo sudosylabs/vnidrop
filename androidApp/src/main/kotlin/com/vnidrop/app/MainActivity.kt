@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
+import com.vnidrop.app.core.initializeAndroidCoreRuntime
 import com.vnidrop.app.feature.receive.ExternalInvitationController
 import com.vnidrop.app.feature.receive.MaxVniDropInvitationBytes
 import com.vnidrop.app.feature.receive.VniDropInvitationExtension
@@ -22,6 +23,7 @@ class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		enableEdgeToEdge()
 		super.onCreate(savedInstanceState)
+		initializeAndroidCoreRuntime(applicationContext)
 		setContent {
 			App(rememberAndroidAppDependencies(this, externalInvitations))
 		}

@@ -3,18 +3,17 @@ use std::{fs, sync::Arc};
 use data_encoding::HEXLOWER;
 use iroh::SecretKey;
 
-use super::{DpapiProtector, WindowsDpapiSecretStore};
 use crate::{
     repository::Repository,
     secure_secret::{
-        CustodyCrashPoint, SecretCustody, SecretHandle, SecretKind, SecretMaterial,
+        windows::WindowsDpapiSecretStore, CustodyCrashPoint, SecretCustody, SecretMaterial,
         SecureSecretStore, SecureSecretStoreError,
     },
     VnidropError,
 };
 
-fn handle(suffix: &str) -> SecretHandle {
-    SecretHandle(format!("vnidrop/v1/relationship-grant/{suffix}"))
+fn handle() -> crate::secure_secret::SecretHandle {
+    WindowsDpapiSecretStore::relationship_handle_for_test()
 }
 
 fn material(seed: u8) -> SecretMaterial {
@@ -24,7 +23,7 @@ fn material(seed: u8) -> SecretMaterial {
 #[test]
 fn round_trip_survives_adapter_restart_and_never_persists_plaintext() {
     let directory = tempfile::tempdir().unwrap();
-    let handle = handle("restart");
+    let handle = handle();
     let secret = material(0xa7);
 
     WindowsDpapiSecretStore::new(directory.path())
@@ -46,8 +45,8 @@ fn round_trip_survives_adapter_restart_and_never_persists_plaintext() {
 fn delete_removes_only_the_selected_protected_value() {
     let directory = tempfile::tempdir().unwrap();
     let store = WindowsDpapiSecretStore::new(directory.path()).unwrap();
-    let retained = handle("retained");
-    let removed = handle("removed");
+    let retained = handle();
+    let removed = handle();
     store.put(&retained, material(1)).unwrap();
     store.put(&removed, material(2)).unwrap();
 
@@ -62,25 +61,28 @@ fn delete_removes_only_the_selected_protected_value() {
 }
 
 #[test]
-fn repeated_put_is_idempotent_but_cannot_replace_secret_material() {
+fn repeated_put_is_idempotent_and_atomically_updates_changed_material() {
     let directory = tempfile::tempdir().unwrap();
     let store = WindowsDpapiSecretStore::new(directory.path()).unwrap();
-    let handle = handle("immutable");
+    let handle = handle();
 
     store.put(&handle, material(6)).unwrap();
+    let first_blob = fs::read(store.path_for_test(&handle)).unwrap();
     store.put(&handle, material(6)).unwrap();
+    assert_eq!(fs::read(store.path_for_test(&handle)).unwrap(), first_blob);
 
-    assert!(matches!(
-        store.put(&handle, material(7)),
-        Err(SecureSecretStoreError::Corrupted)
-    ));
-    assert_eq!(store.get(&handle).unwrap(), material(6));
+    store.put(&handle, material(7)).unwrap();
+    assert_eq!(store.get(&handle).unwrap(), material(7));
+    assert!(!fs::read(store.path_for_test(&handle))
+        .unwrap()
+        .windows(32)
+        .any(|window| window == [7; 32]));
 }
 
 #[test]
 fn missing_corrupt_and_wrong_context_values_fail_closed() {
     let directory = tempfile::tempdir().unwrap();
-    let handle = handle("failure-mapping");
+    let handle = handle();
     let store = WindowsDpapiSecretStore::new(directory.path()).unwrap();
     assert!(matches!(
         store.get(&handle),
@@ -95,17 +97,11 @@ fn missing_corrupt_and_wrong_context_values_fail_closed() {
     ));
 
     let isolated = tempfile::tempdir().unwrap();
-    let original = WindowsDpapiSecretStore::with_protector_for_test(
-        isolated.path(),
-        Arc::new(DpapiProtector::with_context_for_test(b"first-context")),
-    )
-    .unwrap();
+    let original =
+        WindowsDpapiSecretStore::with_context_for_test(isolated.path(), b"first-context").unwrap();
     original.put(&handle, material(4)).unwrap();
-    let wrong_context = WindowsDpapiSecretStore::with_protector_for_test(
-        isolated.path(),
-        Arc::new(DpapiProtector::with_context_for_test(b"second-context")),
-    )
-    .unwrap();
+    let wrong_context =
+        WindowsDpapiSecretStore::with_context_for_test(isolated.path(), b"second-context").unwrap();
     assert!(matches!(
         wrong_context.get(&handle),
         Err(SecureSecretStoreError::Corrupted)
@@ -113,15 +109,18 @@ fn missing_corrupt_and_wrong_context_values_fail_closed() {
 }
 
 #[test]
-fn incomplete_temporary_writes_are_removed_on_restart() {
+fn interrupted_replacement_preserves_the_previous_value() {
     let directory = tempfile::tempdir().unwrap();
-    let temporary = directory.path().join("interrupted.tmp-123");
-    fs::write(&temporary, material(5).0).unwrap();
-
+    let handle = handle();
     let store = WindowsDpapiSecretStore::new(directory.path()).unwrap();
+    store.put(&handle, material(5)).unwrap();
+    let temporary = directory.path().join("interrupted.tmp-123");
+    fs::write(&temporary, b"incomplete protected replacement").unwrap();
+
+    let restarted = WindowsDpapiSecretStore::new(directory.path()).unwrap();
 
     assert!(!temporary.exists());
-    assert!(store.list_handles().unwrap().is_empty());
+    assert_eq!(restarted.get(&handle).unwrap(), material(5));
 }
 
 #[test]

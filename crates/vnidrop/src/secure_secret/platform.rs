@@ -1,0 +1,138 @@
+use std::{
+    fs::{File, OpenOptions},
+    path::Path,
+    sync::Arc,
+};
+
+#[cfg(any(target_os = "android", target_os = "windows", target_os = "linux"))]
+use super::map_store_error;
+use super::{
+    SecretHandle, SecretMaterial, SecureSecretStore, SecureSecretStoreError, HANDLE_NAMESPACE,
+    HANDLE_VERSION,
+};
+use crate::error::VnidropError;
+
+struct ScopedSecretStore {
+    inner: Arc<dyn SecureSecretStore>,
+    physical_prefix: String,
+}
+
+pub(crate) struct ProfileLock {
+    _file: File,
+}
+
+pub(crate) fn lock_profile(app_data_dir: &Path) -> Result<ProfileLock, VnidropError> {
+    let file = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(app_data_dir.join("protected-secrets.lock"))
+        .map_err(VnidropError::filesystem)?;
+    file.try_lock()
+        .map_err(|_| VnidropError::SecureStorageUnavailable {
+            reason: "another protected core is already using this profile".to_string(),
+        })?;
+    Ok(ProfileLock { _file: file })
+}
+
+impl ScopedSecretStore {
+    fn new(app_data_dir: &Path, inner: Arc<dyn SecureSecretStore>) -> Self {
+        let profile = blake3::hash(app_data_dir.to_string_lossy().as_bytes()).to_hex();
+        Self {
+            inner,
+            physical_prefix: format!("{HANDLE_NAMESPACE}/{HANDLE_VERSION}/scope-{profile}/"),
+        }
+    }
+
+    fn physical_handle(
+        &self,
+        handle: &SecretHandle,
+    ) -> Result<SecretHandle, SecureSecretStoreError> {
+        let logical_prefix = format!("{HANDLE_NAMESPACE}/{HANDLE_VERSION}/");
+        let suffix = handle
+            .as_str()
+            .strip_prefix(&logical_prefix)
+            .ok_or(SecureSecretStoreError::Corrupted)?;
+        Ok(SecretHandle(format!("{}{suffix}", self.physical_prefix)))
+    }
+}
+
+impl SecureSecretStore for ScopedSecretStore {
+    fn put(
+        &self,
+        handle: &SecretHandle,
+        material: SecretMaterial,
+    ) -> Result<(), SecureSecretStoreError> {
+        self.inner.put(&self.physical_handle(handle)?, material)
+    }
+
+    fn get(&self, handle: &SecretHandle) -> Result<SecretMaterial, SecureSecretStoreError> {
+        self.inner.get(&self.physical_handle(handle)?)
+    }
+
+    fn delete(&self, handle: &SecretHandle) -> Result<(), SecureSecretStoreError> {
+        self.inner.delete(&self.physical_handle(handle)?)
+    }
+
+    fn list_handles(&self) -> Result<Vec<SecretHandle>, SecureSecretStoreError> {
+        let handles = self
+            .inner
+            .list_handles()?
+            .into_iter()
+            .filter_map(|handle| {
+                handle
+                    .as_str()
+                    .strip_prefix(&self.physical_prefix)
+                    .map(|suffix| {
+                        SecretHandle(format!("{HANDLE_NAMESPACE}/{HANDLE_VERSION}/{suffix}"))
+                    })
+            })
+            .collect();
+        Ok(handles)
+    }
+}
+
+pub(crate) fn scope_store(
+    app_data_dir: &Path,
+    store: Arc<dyn SecureSecretStore>,
+) -> Arc<dyn SecureSecretStore> {
+    Arc::new(ScopedSecretStore::new(app_data_dir, store))
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub(crate) fn platform_secret_store(
+    app_data_dir: &Path,
+) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
+    Ok(scope_store(
+        app_data_dir,
+        Arc::new(super::apple::AppleKeychainSecretStore::new()),
+    ))
+}
+
+#[cfg(target_os = "android")]
+pub(crate) fn platform_secret_store(
+    app_data_dir: &Path,
+) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
+    super::android::native::create_store_from_android_runtime()
+        .map(|store| scope_store(app_data_dir, store))
+        .map_err(map_store_error)
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn platform_secret_store(
+    app_data_dir: &Path,
+) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
+    super::windows::WindowsDpapiSecretStore::new(app_data_dir.join("protected-secrets-v1"))
+        .map(|store| scope_store(app_data_dir, Arc::new(store)))
+        .map_err(map_store_error)
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn platform_secret_store(
+    app_data_dir: &Path,
+) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
+    super::linux::LinuxSecretServiceStore::connect()
+        .map(|store| scope_store(app_data_dir, Arc::new(store)))
+        .map_err(map_store_error)
+}

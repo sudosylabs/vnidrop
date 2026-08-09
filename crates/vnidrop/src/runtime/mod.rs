@@ -64,6 +64,7 @@ use crate::{
     pairing::PairingService,
     repository::Repository,
     secret::load_or_create_secret,
+    secure_secret::{start_endpoint_identity, ProfileLock, SecretCustody, SecureSecretStore},
     ticket::ticket_matches_relay_profile,
     transfer_state::{TransferDirection, TransferStatus},
 };
@@ -99,6 +100,8 @@ pub(super) struct CoreInner {
     pub(super) router: Router,
     pub(super) store: FsStore,
     pub(super) repository: Repository,
+    _secret_custody: Option<SecretCustody>,
+    _profile_lock: Option<ProfileLock>,
     pub(super) event_hub: Arc<EventHub>,
     pub(super) approval: ApprovalService,
     pub(super) pairing: PairingService,
@@ -130,6 +133,14 @@ pub(super) struct ActiveTransfer {
     pub(super) cancel: oneshot::Sender<()>,
 }
 
+pub(super) enum IdentityMode {
+    Legacy,
+    Protected {
+        store: Arc<dyn SecureSecretStore>,
+        profile_lock: ProfileLock,
+    },
+}
+
 impl CoreInner {
     pub(super) async fn start(
         app_data_dir: PathBuf,
@@ -137,11 +148,26 @@ impl CoreInner {
         limits: CoreLimits,
         relay_mode: CoreRelayMode,
         relay_urls: Vec<RelayUrl>,
+        identity_mode: IdentityMode,
     ) -> Result<Arc<Self>> {
         tokio::fs::create_dir_all(&app_data_dir).await?;
         init_logging(&app_data_dir)?;
-        let secret_key = load_or_create_secret(&app_data_dir).await?;
         let repository = Repository::open(&app_data_dir).await?;
+        let (secret_key, secret_custody, profile_lock) = match identity_mode {
+            IdentityMode::Legacy => (load_or_create_secret(&app_data_dir).await?, None, None),
+            IdentityMode::Protected {
+                store,
+                profile_lock,
+            } => {
+                let (secret_key, custody) = start_endpoint_identity(
+                    repository.protected_secrets(),
+                    store,
+                    &app_data_dir.join("iroh.secret"),
+                )
+                .await?;
+                (secret_key, Some(custody), Some(profile_lock))
+            }
+        };
         let store_root = app_data_dir.join("blobs");
         let mut store_options = FsStoreOptions::new(&store_root);
         store_options.gc = Some(GcConfig {
@@ -366,6 +392,8 @@ impl CoreInner {
             router,
             store,
             repository,
+            _secret_custody: secret_custody,
+            _profile_lock: profile_lock,
             event_hub,
             approval,
             pairing,

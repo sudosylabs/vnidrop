@@ -45,6 +45,22 @@ fn transfer_boundary_preserves_typed_errors_through_context() {
 }
 
 #[test]
+fn initialization_boundary_preserves_secure_storage_failures() {
+    let error = anyhow::Error::new(VnidropError::SecureStorageLocked {
+        reason: "credential store is locked".to_string(),
+    })
+    .context("endpoint identity could not be loaded");
+
+    let classified = VnidropError::initialization(error);
+
+    assert!(matches!(
+        classified,
+        VnidropError::SecureStorageLocked { ref reason }
+            if reason == "endpoint identity could not be loaded"
+    ));
+}
+
+#[test]
 fn transfer_boundary_classifies_database_failures() {
     let transfer = VnidropError::transfer(sqlx::Error::RowNotFound);
     let approval = VnidropError::permission(sqlx::Error::RowNotFound);

@@ -6,13 +6,24 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import uniffi.vnidrop.CoreNetworkConfig
+import uniffi.vnidrop.CoreRelayMode
+import uniffi.vnidrop.VnidropCore
 
 class CoreRepositoryStorageTest {
 	@Test
 	fun cacheClearWaitsForActiveSharesThenRestartsWithTheSameIdentity() = runTest {
 		val appData = createTempDirectory("vnidrop-cache-clear")
 		val source = Files.write(appData.resolve("source.bin"), ByteArray(64 * 1024) { 5 })
-		val repository = CoreRepository()
+		val repository = CoreRepository(
+			coreFactory = CoreFactory { appDataDir, eventSink, _ ->
+				VnidropCore.initializeWithNetworkConfig(
+					appDataDir,
+					eventSink,
+					CoreNetworkConfig(CoreRelayMode.LOCAL_ONLY, emptyList()),
+				)
+			},
+		)
 		try {
 			assertTrue(
 				repository.initialize(

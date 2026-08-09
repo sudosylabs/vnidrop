@@ -42,9 +42,7 @@ pub enum VnidropError {
 
 impl VnidropError {
     pub(crate) fn initialization(error: impl Into<anyhow::Error>) -> Self {
-        Self::Initialization {
-            reason: error.into().to_string(),
-        }
+        Self::from_error(error.into(), |reason| Self::Initialization { reason })
     }
 
     pub(crate) fn ticket(error: impl Into<anyhow::Error>) -> Self {

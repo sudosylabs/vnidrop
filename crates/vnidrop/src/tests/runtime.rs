@@ -10,9 +10,10 @@ use iroh_blobs::{
 
 use crate::{
     repository::{PendingDeliveryReceiptInsert, Repository, TransferUpsert},
-    runtime::{consume_request_updates, RequestStreamOutcome},
+    runtime::{consume_request_updates, CoreInner, IdentityMode, RequestStreamOutcome},
+    secure_secret::{lock_profile, FaultInjectingSecretStore},
     transfer_state::{TransferDirection, TransferStatus},
-    CoreEvent, CoreEventSink, VnidropCore, VnidropError,
+    CoreEvent, CoreEventSink, CoreLimits, CoreRelayMode, VnidropCore, VnidropError,
 };
 
 struct TestSink;
@@ -63,6 +64,46 @@ fn initializes_and_reports_endpoint() {
 
     assert!(!core.status().endpoint_id.is_empty());
     core.shutdown();
+}
+
+#[tokio::test]
+async fn protected_runtime_restart_preserves_identity_without_plaintext_fallback() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = Arc::new(FaultInjectingSecretStore::default());
+    let first = CoreInner::start(
+        temp.path().to_path_buf(),
+        Arc::new(TestSink),
+        CoreLimits::default(),
+        CoreRelayMode::LocalOnly,
+        Vec::new(),
+        IdentityMode::Protected {
+            store: store.clone(),
+            profile_lock: lock_profile(temp.path()).unwrap(),
+        },
+    )
+    .await
+    .unwrap();
+    let endpoint_id = first.endpoint.id();
+    first.shutdown().await;
+    drop(first);
+
+    let restarted = CoreInner::start(
+        temp.path().to_path_buf(),
+        Arc::new(TestSink),
+        CoreLimits::default(),
+        CoreRelayMode::LocalOnly,
+        Vec::new(),
+        IdentityMode::Protected {
+            store,
+            profile_lock: lock_profile(temp.path()).unwrap(),
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(restarted.endpoint.id(), endpoint_id);
+    assert!(!temp.path().join("iroh.secret").exists());
+    restarted.shutdown().await;
 }
 
 #[test]

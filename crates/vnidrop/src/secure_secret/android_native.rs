@@ -1,14 +1,58 @@
 use jni::{
     errors::Error as JniError,
-    objects::{JByteArray, JObject, JString, JValue},
+    objects::{GlobalRef, JByteArray, JObject, JString, JValue},
+    sys::jboolean,
     JNIEnv, JavaVM,
 };
+use std::{panic::AssertUnwindSafe, sync::Mutex};
 
 use super::*;
 
 const ANDROID_KEYSTORE: &str = "AndroidKeyStore";
 const AES: &str = "AES";
 const TRANSFORMATION: &str = "AES/GCM/NoPadding";
+
+static ANDROID_APPLICATION_CONTEXT: Mutex<Option<GlobalRef>> = Mutex::new(None);
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_vnidrop_app_core_AndroidCoreRuntime_initialize(
+    mut env: JNIEnv<'_>,
+    _receiver: JObject<'_>,
+    context: JObject<'_>,
+) -> jboolean {
+    std::panic::catch_unwind(AssertUnwindSafe(|| {
+        initialize_android_context(&mut env, context)
+    }))
+    .ok()
+    .and_then(Result::ok)
+    .map_or(0, |()| 1)
+}
+
+fn initialize_android_context(
+    env: &mut JNIEnv<'_>,
+    context: JObject<'_>,
+) -> Result<(), SecureSecretStoreError> {
+    let mut stored = ANDROID_APPLICATION_CONTEXT
+        .lock()
+        .map_err(|_| SecureSecretStoreError::Unavailable)?;
+    if stored.is_some() {
+        return Ok(());
+    }
+    let vm = env
+        .get_java_vm()
+        .map_err(|_| SecureSecretStoreError::Unavailable)?;
+    let context = env
+        .new_global_ref(context)
+        .map_err(|_| SecureSecretStoreError::Unavailable)?;
+    unsafe {
+        ndk_context::initialize_android_context(
+            vm.get_java_vm_pointer().cast(),
+            context.as_obj().as_raw().cast(),
+        );
+    }
+    *stored = Some(context);
+    Ok(())
+}
 
 /// JNI-backed Android Keystore engine. The VM pointer comes from the Android
 /// runtime; no Context or secret bytes are exposed through UniFFI.
@@ -51,8 +95,7 @@ impl AndroidJniKeystore {
             if context.is_null() {
                 return Err(SecureSecretStoreError::Unavailable);
             }
-            // ndk-context retains this process Context for the Android runtime lifetime.
-            let context = unsafe { JObject::from_raw(context.cast()) };
+            let context = local_ref_from_process_context(env, context.cast())?;
             let directory = env
                 .call_method(&context, "getNoBackupFilesDir", "()Ljava/io/File;", &[])
                 .map_err(|error| map_jni_error(env, error))?
@@ -428,4 +471,24 @@ fn map_jni_error(env: &mut JNIEnv<'_>, _error: JniError) -> SecureSecretStoreErr
 
 fn is_instance_of(env: &mut JNIEnv<'_>, object: &JObject<'_>, class: &str) -> bool {
     env.is_instance_of(object, class).unwrap_or(false)
+}
+
+fn local_ref_from_process_context<'local>(
+    env: &mut JNIEnv<'local>,
+    context: jni::sys::jobject,
+) -> Result<JObject<'local>, SecureSecretStoreError> {
+    let interface = env.get_native_interface();
+    // ndk-context retains a process-wide global Context reference. JNI NewLocalRef
+    // is required before representing it as a frame-bound JObject.
+    let context = unsafe {
+        let new_local_ref = (**interface)
+            .NewLocalRef
+            .ok_or(SecureSecretStoreError::Unavailable)?;
+        new_local_ref(interface, context)
+    };
+    if context.is_null() {
+        return Err(SecureSecretStoreError::Unavailable);
+    }
+    // NewLocalRef created this reference in the currently attached JNI frame.
+    Ok(unsafe { JObject::from_raw(context) })
 }

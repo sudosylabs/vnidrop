@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fmt, io, path::Path, sync::Arc};
+use std::{collections::HashSet, fmt, io, path::Path, sync::Arc, time::Duration};
 
 #[cfg(test)]
 use std::{collections::HashMap, sync::Mutex};
@@ -11,13 +11,18 @@ use uuid::Uuid;
 use crate::{error::VnidropError, util::now_ms};
 
 #[cfg(any(test, target_os = "android"))]
-mod android;
+pub(crate) mod android;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-mod apple;
+pub(crate) mod apple;
 #[cfg(any(test, target_os = "linux"))]
-mod linux;
+pub(crate) mod linux;
+mod platform;
 #[cfg(target_os = "windows")]
-mod windows;
+pub(crate) mod windows;
+
+#[cfg(test)]
+pub(crate) use platform::scope_store;
+pub(crate) use platform::{lock_profile, platform_secret_store, ProfileLock};
 
 const SECRET_BYTES: usize = 32;
 const HANDLE_NAMESPACE: &str = "vnidrop";
@@ -39,6 +44,11 @@ impl SecretMaterial {
     fn endpoint_id(&self) -> String {
         let bytes: [u8; SECRET_BYTES] = self.0.as_slice().try_into().expect("validated length");
         SecretKey::from_bytes(&bytes).public().to_string()
+    }
+
+    fn into_secret_key(self) -> SecretKey {
+        let bytes: [u8; SECRET_BYTES] = self.0.try_into().expect("validated length");
+        SecretKey::from_bytes(&bytes)
     }
 }
 
@@ -72,6 +82,11 @@ impl fmt::Debug for SecretHandle {
             .field(&self.0)
             .finish()
     }
+}
+
+#[cfg(test)]
+pub(crate) fn secret_handle_for_test(value: String) -> SecretHandle {
+    SecretHandle(value)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -129,38 +144,6 @@ pub(crate) trait SecureSecretStore: Send + Sync {
     fn list_handles(&self) -> Result<Vec<SecretHandle>, SecureSecretStoreError>;
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
-pub(crate) fn platform_secret_store(
-    _app_data_dir: &Path,
-) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
-    Ok(Arc::new(apple::AppleKeychainSecretStore::new()))
-}
-
-#[cfg(target_os = "android")]
-pub(crate) fn platform_secret_store(
-    _app_data_dir: &Path,
-) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
-    android::native::create_store_from_android_runtime().map_err(map_store_error)
-}
-
-#[cfg(target_os = "windows")]
-pub(crate) fn platform_secret_store(
-    app_data_dir: &Path,
-) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
-    windows::WindowsDpapiSecretStore::new(app_data_dir.join("protected-secrets-v1"))
-        .map(|store| Arc::new(store) as Arc<dyn SecureSecretStore>)
-        .map_err(map_store_error)
-}
-
-#[cfg(target_os = "linux")]
-pub(crate) fn platform_secret_store(
-    _app_data_dir: &Path,
-) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
-    linux::LinuxSecretServiceStore::connect()
-        .map(|store| Arc::new(store) as Arc<dyn SecureSecretStore>)
-        .map_err(map_store_error)
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SecretMetadataState {
     Staged,
@@ -208,6 +191,15 @@ pub(crate) async fn ensure_schema(pool: &SqlitePool) -> anyhow::Result<()> {
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
         );
+        "#,
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        r#"
+        CREATE UNIQUE INDEX IF NOT EXISTS protected_secret_one_endpoint_identity
+            ON protected_secret_refs(kind)
+            WHERE kind = 'endpoint-identity' AND state != 'disabled'
         "#,
     )
     .execute(pool)
@@ -314,6 +306,15 @@ impl SecretMetadataStore {
         .map_err(VnidropError::repository)?;
         row.map(row_to_metadata).transpose()
     }
+
+    async fn contains_kind(&self, kind: SecretKind) -> Result<bool, VnidropError> {
+        let row = sqlx::query("SELECT 1 FROM protected_secret_refs WHERE kind = ?1 LIMIT 1")
+            .bind(kind.as_str())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(VnidropError::repository)?;
+        Ok(row.is_some())
+    }
 }
 
 fn row_to_metadata(row: sqlx::sqlite::SqliteRow) -> Result<SecretMetadata, VnidropError> {
@@ -330,6 +331,19 @@ pub(crate) struct SecretCustody {
     store: Arc<dyn SecureSecretStore>,
     #[cfg(test)]
     crash_point: Mutex<Option<CustodyCrashPoint>>,
+}
+
+pub(crate) async fn start_endpoint_identity(
+    metadata: SecretMetadataStore,
+    store: Arc<dyn SecureSecretStore>,
+    legacy_path: &Path,
+) -> Result<(SecretKey, SecretCustody), VnidropError> {
+    let (custody, _) = SecretCustody::start(metadata, store).await?;
+    let secret_key = custody
+        .initialize_endpoint_identity(legacy_path)
+        .await?
+        .into_secret_key();
+    Ok((secret_key, custody))
 }
 
 impl SecretCustody {
@@ -376,9 +390,10 @@ impl SecretCustody {
             });
         }
         validate_material(kind, &stored, expected_identity)?;
-        self.metadata
-            .stage(&handle, kind, expected_identity)
-            .await?;
+        if let Err(error) = self.metadata.stage(&handle, kind, expected_identity).await {
+            self.delete_if_present(&handle)?;
+            return Err(error);
+        }
         #[cfg(test)]
         self.maybe_crash(CustodyCrashPoint::MetadataStage)?;
         self.metadata.activate(&handle).await?;
@@ -448,6 +463,71 @@ impl SecretCustody {
             .await
             .map_err(VnidropError::filesystem)?;
         Ok(handle)
+    }
+
+    pub(crate) async fn initialize_endpoint_identity(
+        &self,
+        legacy_path: &Path,
+    ) -> Result<SecretMaterial, VnidropError> {
+        if self
+            .metadata
+            .find_active_kind(SecretKind::EndpointIdentity)
+            .await?
+            .is_some()
+        {
+            let handle = self.migrate_legacy_endpoint_identity(legacy_path).await?;
+            return self.load(&handle).await;
+        }
+        if self
+            .metadata
+            .contains_kind(SecretKind::EndpointIdentity)
+            .await?
+        {
+            return Err(VnidropError::SecureStorageUnavailable {
+                reason: "protected endpoint identity is disabled".to_string(),
+            });
+        }
+        match tokio::fs::try_exists(legacy_path).await {
+            Ok(true) => {
+                let handle = self.migrate_legacy_endpoint_identity(legacy_path).await?;
+                self.load(&handle).await
+            }
+            Ok(false) => {
+                let secret = SecretKey::generate();
+                let material = SecretMaterial::new(secret.to_bytes().to_vec())?;
+                let endpoint_id = material.endpoint_id();
+                match self
+                    .protect(
+                        SecretKind::EndpointIdentity,
+                        material,
+                        Some(endpoint_id.as_str()),
+                    )
+                    .await
+                {
+                    Ok(handle) => self.load(&handle).await,
+                    Err(error) => {
+                        let winner = tokio::time::timeout(Duration::from_secs(1), async {
+                            loop {
+                                if let Some(active) = self
+                                    .metadata
+                                    .find_active_kind(SecretKind::EndpointIdentity)
+                                    .await?
+                                {
+                                    return self.load(&active.handle).await;
+                                }
+                                tokio::time::sleep(Duration::from_millis(10)).await;
+                            }
+                        })
+                        .await;
+                        match winner {
+                            Ok(result) => result,
+                            Err(_) => Err(error),
+                        }
+                    }
+                }
+            }
+            Err(error) => Err(VnidropError::filesystem(error)),
+        }
     }
 
     pub(crate) async fn reconcile(&self) -> Result<ReconciliationSummary, VnidropError> {

@@ -19,10 +19,13 @@ use windows_sys::Win32::{
     Security::Cryptography::{
         CryptProtectData, CryptUnprotectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
     },
-    Storage::FileSystem::{MoveFileExW, MOVEFILE_WRITE_THROUGH},
+    Storage::FileSystem::{MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH},
 };
 
 use super::{SecretHandle, SecretMaterial, SecureSecretStore, SecureSecretStoreError};
+
+#[cfg(test)]
+use super::SecretKind;
 
 const ENVELOPE_MAGIC: &[u8; 8] = b"VNIDPAPI";
 const ENVELOPE_VERSION: u8 = 1;
@@ -65,16 +68,24 @@ impl WindowsDpapiSecretStore {
     }
 
     #[cfg(test)]
-    fn with_protector_for_test(
+    pub(crate) fn with_context_for_test(
         directory: impl AsRef<Path>,
-        protector: Arc<DpapiProtector>,
+        context: &[u8],
     ) -> Result<Self, SecureSecretStoreError> {
-        Self::with_protector(directory, protector)
+        Self::with_protector(
+            directory,
+            Arc::new(DpapiProtector::with_context_for_test(context)),
+        )
     }
 
     #[cfg(test)]
-    fn path_for_test(&self, handle: &SecretHandle) -> PathBuf {
+    pub(crate) fn path_for_test(&self, handle: &SecretHandle) -> PathBuf {
         self.path_for(handle)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn relationship_handle_for_test() -> SecretHandle {
+        SecretHandle::generate(SecretKind::RelationshipGrant)
     }
 }
 
@@ -85,9 +96,12 @@ impl SecureSecretStore for WindowsDpapiSecretStore {
         material: SecretMaterial,
     ) -> Result<(), SecureSecretStoreError> {
         let destination = self.path_for(handle);
-        if destination.exists() {
-            return ensure_same_value(self, handle, &material);
-        }
+        let replace_existing = match self.get(handle) {
+            Ok(existing) if existing == material => return Ok(()),
+            Ok(_) => true,
+            Err(SecureSecretStoreError::Missing) => false,
+            Err(error) => return Err(error),
+        };
 
         let ciphertext = self.protector.protect(handle, &material.0)?;
         let envelope = encode_envelope(handle, &ciphertext)?;
@@ -109,7 +123,7 @@ impl SecureSecretStore for WindowsDpapiSecretStore {
         file.sync_all().map_err(map_io_error)?;
         drop(file);
 
-        match move_write_through(temporary_guard.path(), &destination) {
+        match move_write_through(temporary_guard.path(), &destination, replace_existing) {
             Ok(()) => {
                 temporary_guard.disarm();
                 Ok(())
@@ -120,7 +134,16 @@ impl SecureSecretStore for WindowsDpapiSecretStore {
                     Some(ERROR_ALREADY_EXISTS) | Some(ERROR_FILE_EXISTS)
                 ) =>
             {
-                ensure_same_value(self, handle, &material)
+                match self.get(handle) {
+                    Ok(existing) if existing == material => Ok(()),
+                    Ok(_) => {
+                        move_write_through(temporary_guard.path(), &destination, true)
+                            .map_err(map_io_error)?;
+                        temporary_guard.disarm();
+                        Ok(())
+                    }
+                    Err(error) => Err(error),
+                }
             }
             Err(error) => Err(map_io_error(error)),
         }
@@ -147,7 +170,7 @@ impl SecureSecretStore for WindowsDpapiSecretStore {
                 continue;
             }
             let envelope = fs::read(&path).map_err(map_io_error)?;
-            let handle = decode_handle(&envelope)?;
+            let (handle, _) = decode_envelope_parts(&envelope)?;
             if self.path_for(&handle) != path || !unique.insert(handle.clone()) {
                 return Err(SecureSecretStoreError::Corrupted);
             }
@@ -155,18 +178,6 @@ impl SecureSecretStore for WindowsDpapiSecretStore {
         }
         handles.sort_by(|left, right| left.as_str().cmp(right.as_str()));
         Ok(handles)
-    }
-}
-
-fn ensure_same_value(
-    store: &WindowsDpapiSecretStore,
-    handle: &SecretHandle,
-    expected: &SecretMaterial,
-) -> Result<(), SecureSecretStoreError> {
-    if store.get(handle)? == *expected {
-        Ok(())
-    } else {
-        Err(SecureSecretStoreError::Corrupted)
     }
 }
 
@@ -191,11 +202,6 @@ fn encode_envelope(
     envelope.extend_from_slice(handle_bytes);
     envelope.extend_from_slice(ciphertext);
     Ok(envelope)
-}
-
-fn decode_handle(envelope: &[u8]) -> Result<SecretHandle, SecureSecretStoreError> {
-    let (handle, _) = decode_envelope_parts(envelope)?;
-    Ok(handle)
 }
 
 fn decode_envelope<'a>(
@@ -276,17 +282,16 @@ impl Drop for TemporaryFile {
     }
 }
 
-fn move_write_through(source: &Path, destination: &Path) -> io::Result<()> {
+fn move_write_through(source: &Path, destination: &Path, replace_existing: bool) -> io::Result<()> {
     let source = wide_path(source);
     let destination = wide_path(destination);
     // The files share a directory, so MoveFileEx publishes the fully flushed blob as one rename.
-    let moved = unsafe {
-        MoveFileExW(
-            source.as_ptr(),
-            destination.as_ptr(),
-            MOVEFILE_WRITE_THROUGH,
-        )
+    let flags = if replace_existing {
+        MOVEFILE_WRITE_THROUGH | MOVEFILE_REPLACE_EXISTING
+    } else {
+        MOVEFILE_WRITE_THROUGH
     };
+    let moved = unsafe { MoveFileExW(source.as_ptr(), destination.as_ptr(), flags) };
     if moved == 0 {
         Err(io::Error::last_os_error())
     } else {
@@ -466,7 +471,3 @@ fn map_io_error(error: io::Error) -> SecureSecretStoreError {
         _ => SecureSecretStoreError::Unavailable,
     }
 }
-
-#[cfg(test)]
-#[path = "windows_tests.rs"]
-mod tests;

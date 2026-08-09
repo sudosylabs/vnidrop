@@ -53,9 +53,10 @@ struct NativeCoreBindingFactory: CoreBindingFactory {
 		case .localOnly:
 			nativeConfiguration = CoreNetworkConfig(mode: .localOnly, relayUrls: [])
 		}
-		return try VnidropCore.initializeWithNetworkConfig(
+		return try VnidropCore.initializeWithExperimentalSavedDevices(
 			appDataDir: appDataDir,
 			eventSink: eventSink,
+			limits: defaultCoreLimits(),
 			networkConfig: nativeConfiguration
 		)
 	}

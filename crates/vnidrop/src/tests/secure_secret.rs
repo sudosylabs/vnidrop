@@ -9,8 +9,8 @@ use iroh::SecretKey;
 use crate::{
     repository::Repository,
     secure_secret::{
-        CustodyCrashPoint, FaultInjectingSecretStore, ReferenceStoreFailure, SecretCustody,
-        SecretKind, SecretMaterial,
+        lock_profile, scope_store, CustodyCrashPoint, FaultInjectingSecretStore,
+        ReferenceStoreFailure, SecretCustody, SecretKind, SecretMaterial, SecureSecretStore,
     },
     VnidropError,
 };
@@ -29,6 +29,68 @@ impl Write for CapturedWriter {
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
+}
+
+#[test]
+fn a_profile_allows_only_one_protected_core_mutator() {
+    let temp = tempfile::tempdir().unwrap();
+    let first = lock_profile(temp.path()).unwrap();
+
+    assert!(matches!(
+        lock_profile(temp.path()),
+        Err(VnidropError::SecureStorageUnavailable { .. })
+    ));
+
+    drop(first);
+    assert!(lock_profile(temp.path()).is_ok());
+}
+
+#[tokio::test]
+async fn reconciliation_is_scoped_to_one_application_profile() {
+    let root = tempfile::tempdir().unwrap();
+    let first_dir = root.path().join("first");
+    let second_dir = root.path().join("second");
+    std::fs::create_dir_all(&first_dir).unwrap();
+    std::fs::create_dir_all(&second_dir).unwrap();
+    let shared_platform_store = Arc::new(FaultInjectingSecretStore::default());
+    let first_store = scope_store(&first_dir, shared_platform_store.clone());
+    let second_store = scope_store(&second_dir, shared_platform_store);
+    let first_repository = Repository::open(&first_dir).await.unwrap();
+    let second_repository = Repository::open(&second_dir).await.unwrap();
+    let first = SecretCustody::new(first_repository.protected_secrets(), first_store.clone());
+    let second = SecretCustody::new(second_repository.protected_secrets(), second_store.clone());
+    let first_handle = first
+        .protect(
+            SecretKind::RelationshipGrant,
+            SecretMaterial::new(vec![0x31; 32]).unwrap(),
+            None,
+        )
+        .await
+        .unwrap();
+    let second_handle = second
+        .protect(
+            SecretKind::RelationshipGrant,
+            SecretMaterial::new(vec![0x42; 32]).unwrap(),
+            None,
+        )
+        .await
+        .unwrap();
+
+    drop(first);
+    let (restarted, summary) =
+        SecretCustody::start(first_repository.protected_secrets(), first_store)
+            .await
+            .unwrap();
+
+    assert_eq!(summary.orphans_deleted, 0);
+    assert_eq!(
+        restarted.load(&first_handle).await.unwrap(),
+        SecretMaterial::new(vec![0x31; 32]).unwrap()
+    );
+    assert_eq!(
+        second.load(&second_handle).await.unwrap(),
+        SecretMaterial::new(vec![0x42; 32]).unwrap()
+    );
 }
 
 #[tokio::test]
@@ -218,6 +280,70 @@ async fn endpoint_migration_preserves_identity_across_crash_and_rejects_replacem
             .await,
         Err(VnidropError::SecureStorageMissing { .. })
     ));
+}
+
+#[tokio::test]
+async fn first_install_identity_is_protected_once_and_never_silently_replaced() {
+    let temp = tempfile::tempdir().unwrap();
+    let legacy_path = temp.path().join("iroh.secret");
+    let repository = Repository::open(temp.path()).await.unwrap();
+    let store = Arc::new(FaultInjectingSecretStore::default());
+    let (custody, _) = SecretCustody::start(repository.protected_secrets(), store.clone())
+        .await
+        .unwrap();
+
+    let original = custody
+        .initialize_endpoint_identity(&legacy_path)
+        .await
+        .unwrap();
+    assert!(!legacy_path.exists());
+    let handle = store.only_handle_for_test();
+    drop(custody);
+    drop(repository);
+
+    let repository = Repository::open(temp.path()).await.unwrap();
+    let (custody, _) = SecretCustody::start(repository.protected_secrets(), store.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        custody
+            .initialize_endpoint_identity(&legacy_path)
+            .await
+            .unwrap(),
+        original
+    );
+
+    store.remove_for_test(&handle);
+    drop(custody);
+    drop(repository);
+    let repository = Repository::open(temp.path()).await.unwrap();
+    let (custody, summary) = SecretCustody::start(repository.protected_secrets(), store.clone())
+        .await
+        .unwrap();
+    assert_eq!(summary.disabled, 1);
+    assert!(matches!(
+        custody.initialize_endpoint_identity(&legacy_path).await,
+        Err(VnidropError::SecureStorageUnavailable { .. })
+    ));
+    assert!(store.list_handles().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn concurrent_first_starts_converge_on_one_protected_endpoint_identity() {
+    let temp = tempfile::tempdir().unwrap();
+    let legacy_path = temp.path().join("iroh.secret");
+    let repository = Repository::open(temp.path()).await.unwrap();
+    let store = Arc::new(FaultInjectingSecretStore::default());
+    let first = SecretCustody::new(repository.protected_secrets(), store.clone());
+    let second = SecretCustody::new(repository.protected_secrets(), store.clone());
+
+    let (first_identity, second_identity) = tokio::join!(
+        first.initialize_endpoint_identity(&legacy_path),
+        second.initialize_endpoint_identity(&legacy_path),
+    );
+
+    assert_eq!(first_identity.unwrap(), second_identity.unwrap());
+    assert_eq!(store.list_handles().unwrap().len(), 1);
 }
 
 #[tokio::test]

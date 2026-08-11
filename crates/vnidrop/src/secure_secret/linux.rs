@@ -119,7 +119,7 @@ pub(crate) struct LinuxSecretServiceStore {
 }
 
 impl LinuxSecretServiceStore {
-    pub(super) fn connect() -> Result<Self, SecureSecretStoreError> {
+    pub(crate) fn connect() -> Result<Self, SecureSecretStoreError> {
         Ok(Self {
             api: Arc::new(SystemLinuxSecretService::connect()?),
         })

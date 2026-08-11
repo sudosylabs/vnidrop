@@ -22,6 +22,8 @@ mod limits_tests;
 mod network_config_tests;
 #[path = "tests/pairing_eligibility.rs"]
 mod pairing_eligibility_tests;
+#[path = "tests/platform_contract_linux.rs"]
+mod platform_contract_linux_tests;
 #[path = "tests/repository.rs"]
 mod repository_tests;
 #[path = "tests/runtime.rs"]

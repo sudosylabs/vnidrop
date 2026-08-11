@@ -324,6 +324,7 @@ impl Repository {
         crate::contacts::ensure_schema(&self.pool).await?;
         crate::secure_secret::ensure_schema(&self.pool).await?;
         crate::device_relationship::DeviceRelationshipService::ensure_schema(&self.pool).await?;
+        crate::targeted_transfer::ensure_schema(&self.pool).await?;
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS pairing_eligibilities (

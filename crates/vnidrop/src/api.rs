@@ -101,6 +101,21 @@ pub struct TargetedTransfer {
     pub updated_at: i64,
 }
 
+/// Pre-approval offer summary. Deliberately omits any reusable share ticket.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct PendingTargetedOffer {
+    pub transfer_id: String,
+    pub sender_endpoint_id: String,
+    pub receiver_endpoint_id: String,
+    pub manifest_id: String,
+    pub content_hash: String,
+    pub transfer_name: String,
+    pub file_count: u64,
+    pub total_size: u64,
+    pub protocol_version: u16,
+    pub received_at: i64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
 pub enum CoreRelayMode {
     Automatic,

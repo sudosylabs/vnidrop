@@ -805,6 +805,75 @@ impl DeviceRelationshipService {
         Ok(())
     }
 
+    /// Prove possession of the held grant for a Saved peer (targeted offers).
+    pub(crate) async fn prove_saved_possession(
+        &self,
+        peer_endpoint_id: &str,
+        challenge: &Challenge,
+    ) -> Result<(WireProof, u64, u16), VnidropError> {
+        let row = self.find_row(peer_endpoint_id).await?.ok_or_else(|| {
+            VnidropError::permission(anyhow::anyhow!("no saved relationship with peer"))
+        })?;
+        if row.state != DeviceRelationshipState::Saved {
+            return Err(VnidropError::permission(anyhow::anyhow!(
+                "peer is not a saved device"
+            )));
+        }
+        let proof = self
+            .prove_held_possession(
+                peer_endpoint_id,
+                challenge,
+                row.generation,
+                row.minimum_protocol_version,
+            )
+            .await?;
+        Ok((proof, row.generation, row.minimum_protocol_version))
+    }
+
+    /// Verify a Saved peer's held-grant proof against our issued grant.
+    pub(crate) async fn verify_saved_possession(
+        &self,
+        peer_endpoint_id: &str,
+        challenge: &Challenge,
+        proof: &WireProof,
+        generation: u64,
+        protocol_version: u16,
+    ) -> Result<(), VnidropError> {
+        let row = self.find_row(peer_endpoint_id).await?.ok_or_else(|| {
+            VnidropError::permission(anyhow::anyhow!("no saved relationship with peer"))
+        })?;
+        if row.state != DeviceRelationshipState::Saved {
+            return Err(VnidropError::permission(anyhow::anyhow!(
+                "peer is not a saved device"
+            )));
+        }
+        if row.generation != generation {
+            return Err(VnidropError::permission(anyhow::anyhow!(
+                "relationship generation mismatch"
+            )));
+        }
+        self.verify_issued_possession(
+            peer_endpoint_id,
+            challenge,
+            proof,
+            generation,
+            protocol_version,
+        )
+        .await
+    }
+
+    pub(crate) async fn require_saved(&self, peer_endpoint_id: &str) -> Result<(), VnidropError> {
+        let row = self.find_row(peer_endpoint_id).await?.ok_or_else(|| {
+            VnidropError::permission(anyhow::anyhow!("no saved relationship with peer"))
+        })?;
+        if row.state != DeviceRelationshipState::Saved {
+            return Err(VnidropError::permission(anyhow::anyhow!(
+                "peer is not a saved device"
+            )));
+        }
+        Ok(())
+    }
+
     async fn prove_held_possession(
         &self,
         peer_endpoint_id: &str,
@@ -1029,7 +1098,10 @@ impl DeviceRelationshipService {
         Ok(())
     }
 
-    async fn peer_addr(&self, peer_endpoint_id: &str) -> Result<EndpointAddr, VnidropError> {
+    pub(crate) async fn peer_addr(
+        &self,
+        peer_endpoint_id: &str,
+    ) -> Result<EndpointAddr, VnidropError> {
         let parsed: EndpointId = peer_endpoint_id
             .parse()
             .context("unusable peer endpoint id")
@@ -1206,10 +1278,10 @@ struct WireGrant {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct WireProof {
-    grant_id: String,
-    mac: String,
-    challenge: String,
+pub(crate) struct WireProof {
+    pub(crate) grant_id: String,
+    pub(crate) mac: String,
+    pub(crate) challenge: String,
 }
 
 #[rpc_requests(message = RelationshipMessage)]

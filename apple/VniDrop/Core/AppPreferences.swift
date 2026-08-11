@@ -122,14 +122,6 @@ struct AppPreferences: Equatable {
 	var themeMode: ThemeMode
 	var diagnosticsInstallId: String
 	var relayConfiguration: RelayConfiguration
-	/// Idle lifetime applied to grants this device issues from now on.
-	var grantLifetime: GrantLifetimeOption
-	/// Devices the user declined to remember. Persisted so a repeat transfer
-	/// with the same device does not re-ask forever.
-	var declinedPairingSuggestions: Set<String>
-	/// Whether opening the app asks remembered devices for waiting transfers.
-	/// Off by default: it reveals app-open times to every contact.
-	var checkForOffersOnOpen: Bool
 }
 
 struct AppPreferencesDefaults {
@@ -153,10 +145,7 @@ final class AppPreferencesRepository: ObservableObject {
 		static let themeMode = "theme_mode"
 		static let diagnosticsInstallId = "diagnostics_install_id"
 		static let relayConfiguration = "relay_configuration"
-		static let grantLifetime = "grant_lifetime"
-		static let declinedPairingSuggestions = "declined_pairing_suggestions"
-		static let checkForOffersOnOpen = "check_for_offers_on_open"
-	}
+			}
 
 	init(defaults: UserDefaults = .standard, fallback: AppPreferencesDefaults) {
 		self.defaults = defaults
@@ -169,18 +158,12 @@ final class AppPreferencesRepository: ObservableObject {
 		let folder = resolveReceiveFolder(defaults, fallback: fallback.receiveFolder)
 		let themeMode = defaults.string(forKey: Key.themeMode).flatMap(ThemeMode.init(rawValue:)) ?? fallback.themeMode
 		let installId = defaults.string(forKey: Key.diagnosticsInstallId) ?? ""
-		let grantLifetime = defaults.string(forKey: Key.grantLifetime)
-			.flatMap(GrantLifetimeOption.init(rawValue:)) ?? .days90
-		let declined = Set(defaults.stringArray(forKey: Key.declinedPairingSuggestions) ?? [])
 		return AppPreferences(
 			username: username,
 			receiveFolder: folder,
 			themeMode: themeMode,
 			diagnosticsInstallId: installId,
-			relayConfiguration: resolveRelayConfiguration(defaults),
-			grantLifetime: grantLifetime,
-			declinedPairingSuggestions: declined,
-			checkForOffersOnOpen: defaults.bool(forKey: Key.checkForOffersOnOpen)
+			relayConfiguration: resolveRelayConfiguration(defaults)
 		)
 	}
 
@@ -224,32 +207,6 @@ final class AppPreferencesRepository: ObservableObject {
 
 	func resetReceiveFolder() {
 		setReceiveFolder(fallback.receiveFolder)
-	}
-
-	func declinePairingSuggestion(_ endpointId: String) {
-		var declined = preferences.declinedPairingSuggestions
-		declined.insert(endpointId)
-		defaults.set(Array(declined), forKey: Key.declinedPairingSuggestions)
-		reload()
-	}
-
-	/// Clears the decline so the device can be suggested again, used when the
-	/// user pairs with it deliberately.
-	func clearDeclinedPairingSuggestion(_ endpointId: String) {
-		var declined = preferences.declinedPairingSuggestions
-		guard declined.remove(endpointId) != nil else { return }
-		defaults.set(Array(declined), forKey: Key.declinedPairingSuggestions)
-		reload()
-	}
-
-	func setCheckForOffersOnOpen(_ enabled: Bool) {
-		defaults.set(enabled, forKey: Key.checkForOffersOnOpen)
-		reload()
-	}
-
-	func setGrantLifetime(_ lifetime: GrantLifetimeOption) {
-		defaults.set(lifetime.rawValue, forKey: Key.grantLifetime)
-		reload()
 	}
 
 	func setThemeMode(_ mode: ThemeMode) {

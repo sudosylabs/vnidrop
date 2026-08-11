@@ -6,11 +6,10 @@ use serde_json::json;
 use super::{CoreInner, IdentityMode};
 use crate::{
     api::{
-        ContactSendResult, ContactSummary, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig,
-        CoreStorageUsage, GrantLifetimeSetting, HeldOfferSummary, IncomingOffer,
-        PairingEligibilitySummary, PendingPairing, ReceiveOutputSink, ReceiveOutputSinkV2,
-        ReceivedArtifact, ReceiverRequest, RuntimeStatus, ShareMetadataInput, ShareResult,
-        ShareSource, StoredTransfer, TicketInspection, TransferAccessMode,
+        CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig, CoreStorageUsage,
+        PairingEligibilitySummary, ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact,
+        ReceiverRequest, RuntimeStatus, ShareMetadataInput, ShareResult, ShareSource,
+        StoredTransfer, TicketInspection, TransferAccessMode,
     },
     error::VnidropError,
     filesystem::platform_path,
@@ -632,148 +631,6 @@ impl VnidropCore {
         output_dir: String,
     ) -> Result<(), VnidropError> {
         self.block_on(self.inner.resume_targeted_transfer(id, output_dir))
-    }
-
-    /// Devices the user has chosen to remember.
-    pub fn list_contacts(&self) -> Result<Vec<ContactSummary>, VnidropError> {
-        self.block_on(self.inner.list_contacts())
-            .map_err(VnidropError::repository)
-    }
-
-    /// Share content and push it straight to a paired device.
-    ///
-    /// Only the receiving user is prompted: this device authorised the target
-    /// when it created the offer.
-    pub fn send_to_contact(
-        &self,
-        endpoint_id: String,
-        sources: Vec<ShareSource>,
-        metadata: ShareMetadataInput,
-    ) -> Result<ContactSendResult, VnidropError> {
-        self.block_on(self.inner.send_to_contact(endpoint_id, sources, metadata))
-            .map_err(VnidropError::transfer)
-    }
-
-    /// Ask remembered devices whether they are holding transfers for this one.
-    ///
-    /// Call only from a foreground transition or an explicit user action: it
-    /// tells every contact that this device is awake. Returns how many offers
-    /// were collected.
-    pub fn poll_contacts_for_offers(&self) -> Result<u64, VnidropError> {
-        self.block_on(self.inner.poll_contacts_for_offers())
-            .map_err(VnidropError::transfer)
-    }
-
-    /// Offer an existing share to a remembered device.
-    ///
-    /// Another way to deliver the invitation already created for a transfer,
-    /// alongside the QR code — not a second share of the same files.
-    pub fn offer_transfer_to_contact(
-        &self,
-        transfer_id: u64,
-        endpoint_id: String,
-    ) -> Result<ContactSendResult, VnidropError> {
-        self.block_on(
-            self.inner
-                .offer_transfer_to_contact(transfer_id, endpoint_id),
-        )
-        .map_err(VnidropError::transfer)
-    }
-
-    /// Transfers this device is holding for contacts that were not running.
-    pub fn list_held_offers(&self) -> Result<Vec<HeldOfferSummary>, VnidropError> {
-        self.block_on(self.inner.list_held_offers())
-            .map_err(VnidropError::repository)
-    }
-
-    /// Transfers paired devices are offering, awaiting this user's decision.
-    pub fn list_pending_offers(&self) -> Vec<IncomingOffer> {
-        self.block_on(self.inner.list_pending_offers())
-    }
-
-    /// Accept or decline an incoming offer.
-    ///
-    /// Returns the ticket when accepted, which the caller passes to `receive`
-    /// with its own destination. Declining returns none: a refused offer never
-    /// yields a capability.
-    pub fn respond_to_offer(&self, offer_id: String, accepted: bool) -> Option<String> {
-        self.block_on(self.inner.respond_to_offer(offer_id, accepted))
-    }
-
-    /// Devices offering to be remembered, awaiting the local user's decision.
-    pub fn list_pending_pairings(&self) -> Vec<PendingPairing> {
-        self.block_on(self.inner.list_pending_pairings())
-    }
-
-    /// Agree to be reachable by a device, handing it a revocable capability.
-    ///
-    /// Independent of whether that device agrees to be reachable by us: each
-    /// direction is a separate decision.
-    pub fn allow_device_to_reach_me(
-        &self,
-        endpoint_id: String,
-        display_name: Option<String>,
-    ) -> Result<(), VnidropError> {
-        self.block_on(
-            self.inner
-                .allow_device_to_reach_me(endpoint_id, display_name),
-        )
-        .map_err(VnidropError::transfer)
-    }
-
-    /// Accept or decline a device's offer to be remembered. Returns false when
-    /// the offer already lapsed.
-    pub fn respond_to_pairing(
-        &self,
-        endpoint_id: String,
-        accepted: bool,
-    ) -> Result<bool, VnidropError> {
-        self.block_on(self.inner.respond_to_pairing(endpoint_id, accepted))
-            .map_err(VnidropError::repository)
-    }
-
-    /// Forget a device and revoke its access. Takes effect locally at once; the
-    /// peer is notified best effort.
-    pub fn forget_contact(&self, endpoint_id: String) -> Result<(), VnidropError> {
-        self.block_on(self.inner.forget_contact(endpoint_id))
-            .map_err(VnidropError::repository)
-    }
-
-    /// Forget every device at once. Returns how many grants were revoked.
-    pub fn forget_all_contacts(&self) -> Result<u64, VnidropError> {
-        self.block_on(self.inner.forget_all_contacts())
-            .map_err(VnidropError::repository)
-    }
-
-    /// Refuse a device outright. Unlike forgetting, the peer is told nothing.
-    pub fn block_contact(&self, endpoint_id: String) -> Result<(), VnidropError> {
-        self.block_on(self.inner.block_contact(endpoint_id))
-            .map_err(VnidropError::repository)
-    }
-
-    pub fn unblock_contact(&self, endpoint_id: String) -> Result<(), VnidropError> {
-        self.block_on(self.inner.unblock_contact(endpoint_id))
-            .map_err(VnidropError::repository)
-    }
-
-    pub fn list_blocked_contacts(&self) -> Result<Vec<String>, VnidropError> {
-        self.block_on(self.inner.list_blocked_contacts())
-            .map_err(VnidropError::repository)
-    }
-
-    pub fn set_contact_label(
-        &self,
-        endpoint_id: String,
-        label: Option<String>,
-    ) -> Result<(), VnidropError> {
-        self.block_on(self.inner.set_contact_label(endpoint_id, label))
-            .map_err(VnidropError::repository)
-    }
-
-    /// Idle lifetime applied to grants issued from now on. Existing grants keep
-    /// the lifetime they were issued with until they next renew.
-    pub fn set_grant_lifetime(&self, lifetime: GrantLifetimeSetting) {
-        self.block_on(self.inner.set_grant_lifetime(lifetime));
     }
 
     pub fn list_transfers(&self) -> Result<Vec<StoredTransfer>, VnidropError> {

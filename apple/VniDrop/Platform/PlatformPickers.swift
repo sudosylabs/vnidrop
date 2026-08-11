@@ -72,30 +72,6 @@ struct SendPickers: ViewModifier {
 
 /// File picker for "send to this device", reusing the share picker's selection
 /// handling so security-scoped bookmarks are captured the same way.
-struct ContactSendPickers: ViewModifier {
-	@ObservedObject var model: ContactsModel
-
-	func body(content: Content) -> some View {
-		content
-			.fileImporter(
-				isPresented: $model.pendingFilePick,
-				allowedContentTypes: [.item],
-				allowsMultipleSelection: true
-			) { result in
-				switch result {
-				case .success(let urls):
-					let files = urls.compactMap { PickerSupport.pickedFile(from: $0, isDirectory: false) }
-					if files.isEmpty {
-						model.onFilePickFailed("The selected document could not be opened")
-					} else {
-						Task { await model.onFilesPicked(files) }
-					}
-				case .failure(let error):
-					if !error.isUserCancellation { model.onFilePickFailed(error.technicalDetail) }
-				}
-			}
-	}
-}
 
 enum PickerSupport {
 	static func receiveFolder(from url: URL) -> ReceiveFolder {
@@ -157,7 +133,4 @@ extension View {
 		modifier(SendPickers(model: model))
 	}
 
-	func contactSendPickers(model: ContactsModel) -> some View {
-		modifier(ContactSendPickers(model: model))
-	}
 }

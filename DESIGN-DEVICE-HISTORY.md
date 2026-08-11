@@ -1,10 +1,11 @@
 # Design — Saved devices and targeted transfers
 
-Status: **proposed for the experimental 0.3.x line**.
+Status: **experimental foundation for the 0.3.x line**.
 
-This document supersedes the previous device-history design. The implementation
-currently on `feat/device-history` is an unreleased prototype. Its database and
-wire formats are not compatibility commitments and may be replaced.
+The unreleased contact/held-offer/polling prototype has been removed. The
+implementation on this branch is the versioned saved-device, device-relationship,
+and targeted-transfer foundation described below. Its wire protocol is
+experimental and versioned; product UI remains deferred.
 
 The feature lets two VniDrop installations remember one another after a
 successful transfer, with explicit consent on both devices. A saved device can
@@ -486,11 +487,12 @@ versioned from its first merge. Removing the experimental gate requires:
 - Stable downgrade, revocation, recovery, and lifecycle behavior.
 - No regression in invitation-based multi-recipient transfers.
 
-The unreleased `feat/device-history` schema, held offers, polling behavior,
-expiring grants, `Contact` terminology, Apple-only feature UI, and ordinary-
-share offer authorization are prototype artifacts. They may be removed without
-a migration. Useful low-level cryptographic, repository, protocol, and test
-patterns may be retained only after they are checked against this design.
+The unreleased `feat/device-history` contact schema, held offers, polling
+behavior, expiring grants, `Contact` terminology, Apple-only feature UI, and
+ordinary-share offer authorization were prototype artifacts and have been
+removed without a compatibility migration. Useful low-level cryptographic,
+repository, protocol, and test patterns were retained only after they were
+checked against this design.
 
 ---
 

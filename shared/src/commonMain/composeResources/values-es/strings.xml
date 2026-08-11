@@ -306,23 +306,6 @@
     <string name="transfer_share_title">Compartir</string>
     <string name="value_unavailable">No disponible</string>
     <string name="version_title">Versión de la app</string>
-    <string name="contacts_title">Dispositivos</string>
-    <string name="contacts_subtitle">Los dispositivos con los que ya has compartido pueden recibir archivos sin una nueva invitación.</string>
-    <string name="contacts_empty_title">Ningún dispositivo guardado</string>
-    <string name="contacts_empty_body">Tras una transferencia, ambos dispositivos pueden elegir recordarse mutuamente.</string>
-    <string name="contacts_unreachable">Requiere emparejar de nuevo</string>
-    <string name="contacts_unreachable_body">Este dispositivo retiró el acceso o reinstaló VniDrop. Realiza otra transferencia para volver a recordarlo.</string>
-    <string name="contacts_name_field">Nombre en este dispositivo</string>
-    <string name="contacts_name_hint">Solo tú ves este nombre. El otro dispositivo nunca puede cambiarlo.</string>
-    <string name="contacts_forget">Olvidar dispositivo</string>
-    <string name="contacts_forget_body">Este dispositivo ya no podrá enviarte archivos sin una nueva invitación. Los archivos ya recibidos se conservan.</string>
-    <string name="contacts_forget_all">Olvidar todos los dispositivos</string>
-    <string name="contacts_block">Bloquear dispositivo</string>
-    <string name="contacts_blocked_title">Dispositivos bloqueados</string>
-    <string name="contacts_unblock">Desbloquear</string>
-    <string name="contacts_unblock_hint">Desbloquear no restaura el acceso. Hay que emparejar el dispositivo de nuevo.</string>
-    <string name="contacts_send_to">Enviar archivos</string>
-    <string name="contacts_last_transfer">Última transferencia %1$s</string>
     <string name="pairing_request_title">¿Recordar este dispositivo?</string>
     <string name="pairing_request_body">%1$s te ofrece enviarle archivos sin una nueva invitación.</string>
     <string name="pairing_accept">Recordar</string>
@@ -334,28 +317,8 @@
     <string name="offer_body">%1$s quiere enviarte «%2$s».</string>
     <string name="offer_accept">Recibir</string>
     <string name="offer_decline">Rechazar</string>
-    <string name="contacts_grant_lifetime_title">Olvidar dispositivos sin usar tras</string>
-    <string name="contacts_grant_lifetime_hint">La cuenta atrás se reinicia cada vez que transfieres con el dispositivo.</string>
-    <string name="contacts_grant_lifetime_never">Nunca</string>
-    <string name="contacts_check_on_open">Buscar transferencias en espera</string>
-    <string name="contacts_check_on_open_hint">Al abrir VniDrop, se pregunta a tus dispositivos guardados si tienen algo para ti. Esto les indica cuándo abriste la aplicación.</string>
-    <string name="contacts_check_now">Comprobar ahora</string>
-    <string name="contacts_check_none">Nada en espera</string>
-    <string name="contacts_offer_held">Ese dispositivo no está abierto. La transferencia se entregará la próxima vez que abra VniDrop.</string>
-    <string name="contacts_waiting_title">Pendientes de entrega</string>
-    <string name="contacts_waiting_hint">Cancela la transferencia para retirarla.</string>
-    <string name="contacts_send_to_device">Enviar a un dispositivo</string>
-    <string name="contacts_pick_device_title">Elegir un dispositivo</string>
-    <string name="contacts_pick_device_empty">Ningún dispositivo está disponible ahora. Los dispositivos guardados aparecen aquí tras una transferencia.</string>
-    <string name="contacts_sent_to_device">%1$s aceptó la transferencia</string>
-    <string name="contacts_declined_by_device">%1$s rechazó la transferencia</string>
-    <string name="contacts_no_answer">%1$s no respondió</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d archivo</item>
         <item quantity="other">%1$d archivos</item>
-    </plurals>
-    <plurals name="contacts_grant_lifetime_days">
-        <item quantity="one">%1$d día</item>
-        <item quantity="other">%1$d días</item>
     </plurals>
 </resources>

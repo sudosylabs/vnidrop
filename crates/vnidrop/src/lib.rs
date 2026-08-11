@@ -1,7 +1,7 @@
 mod access_policy;
 mod api;
 mod approval;
-mod contacts;
+mod blocked_devices;
 mod control_plane;
 mod device_relationship;
 mod error;
@@ -10,9 +10,6 @@ mod filesystem;
 mod grant;
 mod handshake;
 mod logging;
-mod offer;
-mod offer_inbox;
-mod pairing;
 mod pairing_eligibility;
 mod repository;
 mod runtime;
@@ -29,11 +26,10 @@ mod util;
 
 pub use api::{
     clear_inactive_transfer_cache, default_core_limits, default_core_network_config,
-    experimental_saved_device_capabilities, ContactSendResult, ContactSummary, CoreEvent,
-    CoreEventSink, CoreLimits, CoreNetworkConfig, CoreRelayMode, CoreStorageUsage,
-    DeviceRelationship, DeviceRelationshipState, ExperimentalSavedDeviceCapabilities,
-    GrantLifetimeSetting, HeldOfferSummary, IncomingOffer, PairingEligibilitySummary,
-    PendingPairing, PendingTargetedOffer, PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2,
+    experimental_saved_device_capabilities, CoreEvent, CoreEventSink, CoreLimits,
+    CoreNetworkConfig, CoreRelayMode, CoreStorageUsage, DeviceRelationship,
+    DeviceRelationshipState, ExperimentalSavedDeviceCapabilities, PairingEligibilitySummary,
+    PendingTargetedOffer, PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2,
     ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest, RuntimeStatus, SavedDevice,
     ShareMetadataInput, ShareResult, ShareSource, SourceKind, StoredTransfer, TargetedTransfer,
     TargetedTransferState, TicketInspection, TransferAccessMode, TransferMetadata,

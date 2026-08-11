@@ -20,25 +20,14 @@ protocol TransferShareActions: AnyObject {
 struct ShareActionsView: View {
 	@Environment(\.vniColors) private var colors
 	@ObservedObject var model: SendModel
-	@ObservedObject var contacts: ContactsModel
 	let transfer: Transfer
 	let ticket: String
 
 	@State private var actions: TransferShareActions = makePlatformShareActions()
 	@State private var writingNfc = false
-	@State private var choosingDevice = false
 
 	var body: some View {
 		VStack(spacing: 12) {
-			// Sending straight to a remembered device is another way to deliver
-			// this same invitation, so it belongs with the other delivery
-			// methods rather than in a separate flow.
-			if contacts.state.contacts.contains(where: \.canSend) {
-				SecondaryButton(
-					title: String(localized: L10n.Contacts.sendToDevice),
-					action: { choosingDevice = true }
-				)
-			}
 			if actions.nfcAvailability != .hidden {
 				SecondaryButton(
 					title: writingNfc ? String(localized: L10n.Transfer.nfcWaiting) : String(localized: L10n.Button.writeNfc),
@@ -68,8 +57,5 @@ struct ShareActionsView: View {
 			}, enabled: actions.canUseNativeShare)
 		}
 		.onDisappear { actions.cancelNfcWrite() }
-		.sheet(isPresented: $choosingDevice) {
-			DevicePickerSheet(model: contacts, transferId: transfer.transferId)
-		}
 	}
 }

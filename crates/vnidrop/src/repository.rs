@@ -19,7 +19,7 @@ use crate::{
         CoreEvent, PairingEligibilitySummary, ReceivedArtifact, ReceivedLocatorKind,
         ReceiverRequest, StoredTransfer,
     },
-    contacts::ContactStore,
+    blocked_devices::BlockStore,
     error::VnidropError,
     pairing_eligibility::{PairingEligibilityInsert, PairingEligibilityRecord},
     transfer_state::{ReceiverRequestStatus, TransferDirection, TransferStatus},
@@ -336,7 +336,7 @@ impl Repository {
                 .await?;
         }
 
-        crate::contacts::ensure_schema(&self.pool).await?;
+        crate::blocked_devices::ensure_schema(&self.pool).await?;
         crate::secure_secret::ensure_schema(&self.pool).await?;
         crate::device_relationship::DeviceRelationshipService::ensure_schema(&self.pool).await?;
         crate::targeted_transfer::ensure_schema(&self.pool).await?;
@@ -369,10 +369,9 @@ impl Repository {
         Ok(())
     }
 
-    /// Device history, grants, and the block list. Shares this pool so the
-    /// tables migrate together with the rest of the schema.
-    pub(crate) fn contacts(&self) -> ContactStore {
-        ContactStore::new(self.pool.clone())
+    /// Identity-wide deny list for saved-device and invitation traffic.
+    pub(crate) fn blocked_devices(&self) -> BlockStore {
+        BlockStore::new(self.pool.clone())
     }
 
     pub(crate) fn sqlite_pool(&self) -> SqlitePool {

@@ -252,14 +252,6 @@ impl PairingEligibilityService {
         Ok(())
     }
 
-    pub(crate) async fn remove_all(&self) -> Result<(), VnidropError> {
-        let entries = self.repository.list_pairing_eligibility_records().await?;
-        for entry in entries {
-            self.delete_entry(&entry).await?;
-        }
-        Ok(())
-    }
-
     /// Returns the matching record when the capability is valid; otherwise `None`
     /// without emitting prompts or eligibility-removed events for the reject path.
     #[allow(

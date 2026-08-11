@@ -54,13 +54,6 @@ impl CoreInner {
             drop(active_shares);
             self.unregister_transfer_hashes(transfer_id).await;
             self.access_policy.remove_transfer(transfer_id).await;
-            // An offer waiting for pickup would hand out a ticket for content
-            // this device no longer serves.
-            let _ = self
-                .repository
-                .contacts()
-                .delete_held_offers_for_transfer(transfer_id)
-                .await;
             self.store.tags().delete(share_tag_name(&local_id)).await?;
             self.emit_transfer(transfer_id, "send", "lifecycle", "share-stopped", json!({}));
             return Ok(());

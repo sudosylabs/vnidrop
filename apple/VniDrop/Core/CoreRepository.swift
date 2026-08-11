@@ -293,123 +293,6 @@ final class CoreRepository: ObservableObject, CoreGateway {
 			if let snapshot { self.applySnapshot(snapshot) }
 		}
 	}
-
-	// MARK: - Device history
-
-	func contacts() async -> Result<[DeviceContact], Error> {
-		await runCore {
-			try self.requireCore().listContacts().map { $0.toModel() }
-		}
-	}
-
-	func pendingPairings() async -> [PendingPairingModel] {
-		let result = await runCore { try self.requireCore().listPendingPairings().map { $0.toModel() } }
-		return (try? result.get()) ?? []
-	}
-
-	func pendingOffers() async -> [IncomingOfferModel] {
-		let result = await runCore { try self.requireCore().listPendingOffers().map { $0.toModel() } }
-		return (try? result.get()) ?? []
-	}
-
-	func allowDeviceToReachMe(endpointId: String, displayName: String?) async -> Result<Void, Error> {
-		await runCore {
-			try self.requireCore().allowDeviceToReachMe(endpointId: endpointId, displayName: displayName)
-		}
-	}
-
-	func respondToPairing(endpointId: String, accepted: Bool) async -> Result<Bool, Error> {
-		await runCore {
-			try self.requireCore().respondToPairing(endpointId: endpointId, accepted: accepted)
-		}
-	}
-
-	func respondToOffer(offerId: String, accepted: Bool) async -> String? {
-		let result = await runCore {
-			try self.requireCore().respondToOffer(offerId: offerId, accepted: accepted)
-		}
-		return (try? result.get()) ?? nil
-	}
-
-	func sendToContact(
-		endpointId: String,
-		sources: [ShareSource],
-		transferName: String,
-		senderName: String
-	) async -> Result<ContactSendOutcome, Error> {
-		guard !isNetworkTransitionInProgress else {
-			return .failure(CoreNetworkLifecycleError.transitionInProgress)
-		}
-		guard !sources.isEmpty else {
-			return .failure(InvitationError.shareEmpty)
-		}
-		return await runCore {
-			// The access mode is forced to approval-required by the core for
-			// offers; passing it here only keeps the metadata well-formed.
-			let result = try self.requireCore().sendToContact(
-				endpointId: endpointId,
-				sources: sources,
-				metadata: ShareMetadataInput(
-					transferId: Self.nextTransferId(),
-					transferName: transferName.isEmpty ? nil : transferName,
-					senderName: senderName.isEmpty ? nil : senderName,
-					accessMode: .approvalRequired
-				)
-			)
-			return ContactSendOutcome(share: result.share.toModel(), delivered: result.delivered)
-		}
-	}
-
-	func offerTransferToContact(
-		transferId: UInt64,
-		endpointId: String
-	) async -> Result<ContactSendOutcome, Error> {
-		await runCore {
-			let result = try self.requireCore().offerTransferToContact(
-				transferId: transferId, endpointId: endpointId
-			)
-			return ContactSendOutcome(share: result.share.toModel(), delivered: result.delivered)
-		}
-	}
-
-	func heldOffers() async -> Result<[HeldOfferModel], Error> {
-		await runCore { try self.requireCore().listHeldOffers().map { $0.toModel() } }
-	}
-
-	func pollContactsForOffers() async -> Result<UInt64, Error> {
-		await runCore { try self.requireCore().pollContactsForOffers() }
-	}
-
-	func forgetContact(endpointId: String) async -> Result<Void, Error> {
-		await runCore { try self.requireCore().forgetContact(endpointId: endpointId) }
-	}
-
-	func forgetAllContacts() async -> Result<UInt64, Error> {
-		await runCore { try self.requireCore().forgetAllContacts() }
-	}
-
-	func blockContact(endpointId: String) async -> Result<Void, Error> {
-		await runCore { try self.requireCore().blockContact(endpointId: endpointId) }
-	}
-
-	func unblockContact(endpointId: String) async -> Result<Void, Error> {
-		await runCore { try self.requireCore().unblockContact(endpointId: endpointId) }
-	}
-
-	func blockedContacts() async -> Result<[String], Error> {
-		await runCore { try self.requireCore().listBlockedContacts() }
-	}
-
-	func setContactLabel(endpointId: String, label: String?) async -> Result<Void, Error> {
-		await runCore {
-			try self.requireCore().setContactLabel(endpointId: endpointId, label: label)
-		}
-	}
-
-	func setGrantLifetime(_ lifetime: GrantLifetimeOption) async {
-		_ = await runCore { try self.requireCore().setGrantLifetime(lifetime: lifetime.toNative()) }
-	}
-
 	// MARK: - Event sink handling (ported from CoreRepository.sink)
 
 	private func handle(event: CoreEvent) {
@@ -418,14 +301,6 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		events.insert(model, at: 0)
 		if events.count > Self.maxEvents { events = Array(events.prefix(Self.maxEvents)) }
 		state.events = events
-
-		// Contacts and offers are endpoint-scoped: they carry no transfer id, so
-		// they are dispatched before the transfer-scoped handling below.
-		switch model.phase {
-		case "contacts": signalsSubject.send(.contactsChanged)
-		case "offer": signalsSubject.send(.offersChanged)
-		default: break
-		}
 
 		guard let transferId = model.transferId else { return }
 		switch model.phase {
@@ -645,60 +520,7 @@ private extension ReceiverRequest {
 	}
 }
 
-extension ContactSummary {
-	func toModel() -> DeviceContact {
-		DeviceContact(
-			endpointId: endpointId,
-			localLabel: localLabel,
-			remoteDisplayName: remoteDisplayName,
-			lastTransferAt: lastTransferAt,
-			createdAt: createdAt,
-			canSend: canSend
-		)
-	}
-}
 
-extension PendingPairing {
-	func toModel() -> PendingPairingModel {
-		PendingPairingModel(endpointId: endpointId, displayName: displayName, receivedAt: receivedAt)
-	}
-}
 
-extension IncomingOffer {
-	func toModel() -> IncomingOfferModel {
-		IncomingOfferModel(
-			offerId: offerId,
-			fromEndpointId: fromEndpointId,
-			senderDisplayName: senderDisplayName,
-			transferName: transferName,
-			fileCount: fileCount,
-			totalBytes: totalBytes,
-			receivedAt: receivedAt
-		)
-	}
-}
 
-extension HeldOfferSummary {
-	func toModel() -> HeldOfferModel {
-		HeldOfferModel(
-			offerId: offerId,
-			endpointId: endpointId,
-			transferId: transferId,
-			transferName: transferName,
-			fileCount: fileCount,
-			totalBytes: totalBytes,
-			createdAt: createdAt
-		)
-	}
-}
 
-extension GrantLifetimeOption {
-	func toNative() -> GrantLifetimeSetting {
-		switch self {
-		case .days30: return .days30
-		case .days90: return .days90
-		case .days365: return .days365
-		case .never: return .never
-		}
-	}
-}

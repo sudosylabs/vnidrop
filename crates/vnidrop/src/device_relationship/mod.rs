@@ -39,7 +39,7 @@ mod lifecycle;
 #[cfg(test)]
 pub(crate) use lifecycle::GenerationTombstone;
 
-use crate::contacts::ContactStore;
+use crate::blocked_devices::BlockStore;
 use crypto::{
     encode_relationship_grant_secret, prove_relationship_grant, secret_from_material,
     verify_relationship_grant,
@@ -171,13 +171,13 @@ impl DeviceRelationshipService {
         Ok(())
     }
 
-    pub(super) fn contacts(&self) -> ContactStore {
-        ContactStore::new(self.pool.clone())
+    pub(super) fn blocked_devices(&self) -> BlockStore {
+        BlockStore::new(self.pool.clone())
     }
 
     pub(super) async fn is_blocked(&self, endpoint_id: &str) -> bool {
         // Fail closed: a store error must not admit blocked traffic.
-        self.contacts()
+        self.blocked_devices()
             .is_blocked(endpoint_id)
             .await
             .unwrap_or(true)

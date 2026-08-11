@@ -306,23 +306,6 @@
     <string name="transfer_share_title">Teilen</string>
     <string name="value_unavailable">Nicht verfügbar</string>
     <string name="version_title">App-Version</string>
-    <string name="contacts_title">Geräte</string>
-    <string name="contacts_subtitle">Geräte, mit denen Sie bereits Dateien ausgetauscht haben, können ohne neue Einladung Dateien empfangen.</string>
-    <string name="contacts_empty_title">Keine gespeicherten Geräte</string>
-    <string name="contacts_empty_body">Nach einer Übertragung können beide Geräte einander speichern.</string>
-    <string name="contacts_unreachable">Muss erneut gekoppelt werden</string>
-    <string name="contacts_unreachable_body">Dieses Gerät hat den Zugriff entzogen oder VniDrop neu installiert. Übertragen Sie erneut, um es wieder zu speichern.</string>
-    <string name="contacts_name_field">Name auf diesem Gerät</string>
-    <string name="contacts_name_hint">Nur Sie sehen diesen Namen. Das andere Gerät kann ihn nie ändern.</string>
-    <string name="contacts_forget">Gerät entfernen</string>
-    <string name="contacts_forget_body">Dieses Gerät kann Ihnen ohne neue Einladung keine Dateien mehr senden. Bereits empfangene Dateien bleiben erhalten.</string>
-    <string name="contacts_forget_all">Alle Geräte entfernen</string>
-    <string name="contacts_block">Gerät blockieren</string>
-    <string name="contacts_blocked_title">Blockierte Geräte</string>
-    <string name="contacts_unblock">Freigeben</string>
-    <string name="contacts_unblock_hint">Die Freigabe stellt den Zugriff nicht wieder her. Das Gerät muss erneut gekoppelt werden.</string>
-    <string name="contacts_send_to">Dateien senden</string>
-    <string name="contacts_last_transfer">Letzte Übertragung %1$s</string>
     <string name="pairing_request_title">Dieses Gerät speichern?</string>
     <string name="pairing_request_body">%1$s bietet an, Dateien ohne neue Einladung von Ihnen zu empfangen.</string>
     <string name="pairing_accept">Speichern</string>
@@ -334,28 +317,8 @@
     <string name="offer_body">%1$s möchte Ihnen „%2$s“ senden.</string>
     <string name="offer_accept">Empfangen</string>
     <string name="offer_decline">Ablehnen</string>
-    <string name="contacts_grant_lifetime_title">Ungenutzte Geräte entfernen nach</string>
-    <string name="contacts_grant_lifetime_hint">Die Frist beginnt bei jeder Übertragung mit dem Gerät neu.</string>
-    <string name="contacts_grant_lifetime_never">Nie</string>
-    <string name="contacts_check_on_open">Nach wartenden Übertragungen suchen</string>
-    <string name="contacts_check_on_open_hint">Beim Öffnen von VniDrop werden Ihre gespeicherten Geräte gefragt, ob sie etwas für Sie haben. Dadurch erfahren sie, wann Sie die App geöffnet haben.</string>
-    <string name="contacts_check_now">Jetzt prüfen</string>
-    <string name="contacts_check_none">Nichts wartet</string>
-    <string name="contacts_offer_held">Dieses Gerät ist nicht geöffnet. Die Übertragung wird beim nächsten Öffnen von VniDrop zugestellt.</string>
-    <string name="contacts_waiting_title">Wartet auf Zustellung</string>
-    <string name="contacts_waiting_hint">Brechen Sie die Übertragung ab, um sie zurückzuziehen.</string>
-    <string name="contacts_send_to_device">An ein Gerät senden</string>
-    <string name="contacts_pick_device_title">Gerät auswählen</string>
-    <string name="contacts_pick_device_empty">Derzeit ist kein Gerät erreichbar. Gespeicherte Geräte erscheinen hier nach einer Übertragung.</string>
-    <string name="contacts_sent_to_device">%1$s hat die Übertragung angenommen</string>
-    <string name="contacts_declined_by_device">%1$s hat die Übertragung abgelehnt</string>
-    <string name="contacts_no_answer">%1$s hat nicht geantwortet</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d Datei</item>
         <item quantity="other">%1$d Dateien</item>
-    </plurals>
-    <plurals name="contacts_grant_lifetime_days">
-        <item quantity="one">%1$d Tag</item>
-        <item quantity="other">%1$d Tage</item>
     </plurals>
 </resources>

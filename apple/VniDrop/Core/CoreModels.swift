@@ -74,13 +74,8 @@ enum ShareAccessPolicy: Equatable, Sendable {
 }
 
 /// Where a picked selection is going.
-///
-/// A contact destination deliberately carries no access policy: the core forces
-/// approval-required for offers, so exposing the choice here would imply a
-/// setting that does not exist.
 enum ShareDestination: Equatable, Sendable {
 	case invitation(accessPolicy: ShareAccessPolicy)
-	case contact(endpointId: String)
 }
 
 enum TransferDirection: Equatable, Sendable {
@@ -179,10 +174,6 @@ enum CoreSignal: Equatable, Sendable {
 	case receiverHistoryChanged(transferId: UInt64)
 	/// Transfer status/history changed enough to re-read the durable snapshot.
 	case transfersChanged(transferId: UInt64)
-	/// Device history changed: a contact was added, forgotten, or blocked.
-	case contactsChanged
-	/// An incoming offer arrived or was answered.
-	case offersChanged
 }
 
 // MARK: - Transfer helpers (ported from AppUiModels.kt)
@@ -199,114 +190,5 @@ extension TransferStatus {
 	/// Terminal receive-history states eligible for deletion.
 	var isTerminalReceiveHistory: Bool {
 		self == .done || self == .failed || self == .cancelled
-	}
-}
-
-// MARK: - Device history
-
-/// A device the user has chosen to remember.
-///
-/// `localLabel` is the user's own name for the device and is authoritative for
-/// display; `remoteDisplayName` is whatever the device last called itself and is
-/// untrusted. The endpoint id is the only real identity.
-struct DeviceContact: Equatable, Identifiable, Sendable {
-	let endpointId: String
-	let localLabel: String?
-	let remoteDisplayName: String?
-	let lastTransferAt: Int64?
-	let createdAt: Int64
-	/// Whether a live grant is held. False once the peer revoked, the grant
-	/// lapsed, or the peer reinstalled and lost its identity.
-	let canSend: Bool
-
-	var id: String { endpointId }
-
-	/// Name to show, preferring the local label the peer cannot influence.
-	var displayName: String {
-		if let localLabel, !localLabel.isEmpty { return localLabel }
-		if let remoteDisplayName, !remoteDisplayName.isEmpty { return remoteDisplayName }
-		return String(localized: L10n.Approval.nearbyDevice)
-	}
-
-	/// Short prefix of the endpoint id, for telling apart devices claiming the
-	/// same name.
-	var shortFingerprint: String { String(endpointId.prefix(8)) }
-}
-
-/// A device offering to be remembered, awaiting this user's decision.
-struct PendingPairingModel: Equatable, Identifiable, Sendable {
-	let endpointId: String
-	let displayName: String?
-	let receivedAt: Int64
-
-	var id: String { endpointId }
-
-	var resolvedName: String {
-		guard let displayName, !displayName.isEmpty else {
-			return String(localized: L10n.Approval.nearbyDevice)
-		}
-		return displayName
-	}
-}
-
-/// A transfer a remembered device is offering. Carries no ticket: that is a
-/// capability and the core releases it only once the user accepts.
-struct IncomingOfferModel: Equatable, Identifiable, Sendable {
-	let offerId: String
-	let fromEndpointId: String
-	let senderDisplayName: String?
-	let transferName: String
-	let fileCount: UInt64
-	let totalBytes: UInt64
-	let receivedAt: Int64
-
-	var id: String { offerId }
-
-	var resolvedSenderName: String {
-		guard let senderDisplayName, !senderDisplayName.isEmpty else {
-			return String(localized: L10n.Approval.nearbyDevice)
-		}
-		return senderDisplayName
-	}
-}
-
-/// A transfer waiting for its target device to come back online.
-struct HeldOfferModel: Equatable, Identifiable, Sendable {
-	let offerId: String
-	let endpointId: String
-	let transferId: UInt64
-	let transferName: String
-	let fileCount: UInt64
-	let totalBytes: UInt64
-	let createdAt: Int64
-
-	var id: String { offerId }
-}
-
-/// Outcome of sending straight to a remembered device.
-struct ContactSendOutcome: Equatable, Sendable {
-	let share: Share
-	/// False when the device was not running: the transfer is held locally and
-	/// collected the next time that device opens the app.
-	let delivered: Bool
-}
-
-/// How long a remembered device stays reachable while unused. The countdown
-/// restarts on every transfer.
-enum GrantLifetimeOption: String, CaseIterable, Identifiable, Sendable {
-	case days30
-	case days90
-	case days365
-	case never
-
-	var id: String { rawValue }
-
-	var days: Int? {
-		switch self {
-		case .days30: return 30
-		case .days90: return 90
-		case .days365: return 365
-		case .never: return nil
-		}
 	}
 }

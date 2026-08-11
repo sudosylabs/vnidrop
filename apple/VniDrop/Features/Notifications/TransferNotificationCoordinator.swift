@@ -111,7 +111,7 @@ final class TransferNotificationCoordinator: ObservableObject {
 				switch signal {
 				case .receiverHistoryChanged(let transferId), .transfersChanged(let transferId):
 					Task { await self.syncReceivers(transferId: transferId) }
-				case .approvalChanged, .contactsChanged, .offersChanged:
+				case .approvalChanged, .transfersChanged:
 					break
 				}
 			}

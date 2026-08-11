@@ -399,7 +399,7 @@ fn decline_forget_block_and_replay_remove_eligibility_idempotently() {
     wait_for_eligibility(&receiver.core, &sender2.core.status().endpoint_id);
     receiver
         .core
-        .forget_contact(sender2.core.status().endpoint_id.clone())
+        .forget_saved_device(sender2.core.status().endpoint_id.clone())
         .unwrap();
     assert!(receiver
         .core
@@ -423,7 +423,7 @@ fn decline_forget_block_and_replay_remove_eligibility_idempotently() {
     wait_for_eligibility(&receiver.core, &sender3.core.status().endpoint_id);
     receiver
         .core
-        .block_contact(sender3.core.status().endpoint_id.clone())
+        .block_device(sender3.core.status().endpoint_id.clone())
         .unwrap();
     assert!(receiver
         .core
@@ -445,12 +445,16 @@ fn missing_expired_replayed_and_fabricated_eligibility_are_silently_rejected() {
     let receiver_id = receiver.core.status().endpoint_id.clone();
     let events_before = receiver.sink.events().len();
 
-    // Missing eligibility: request produces no pending pairing prompt/event.
+    // Missing eligibility: request produces no pending relationship prompt/event.
     assert!(!receiver
         .core
         .request_saved_device_pairing(sender.core.status().endpoint_id.clone())
         .unwrap());
-    assert!(receiver.core.list_pending_pairings().is_empty());
+    assert!(receiver
+        .core
+        .list_device_relationships()
+        .unwrap()
+        .is_empty());
     assert_eq!(
         receiver
             .sink
@@ -483,8 +487,22 @@ fn missing_expired_replayed_and_fabricated_eligibility_are_silently_rejected() {
         .core
         .request_saved_device_pairing(receiver_id)
         .unwrap());
-    assert!(sender.core.list_pending_pairings().is_empty());
-    assert!(receiver.core.list_pending_pairings().is_empty());
+    assert_eq!(
+        sender
+            .core
+            .list_device_relationships()
+            .unwrap()
+            .iter()
+            .filter(|row| row.state == crate::DeviceRelationshipState::PendingOutgoing)
+            .count(),
+        1
+    );
+    assert!(receiver
+        .core
+        .list_device_relationships()
+        .unwrap()
+        .iter()
+        .any(|row| row.state == crate::DeviceRelationshipState::PendingIncoming));
 
     // Fabricated peer identity is rejected without growing pairing events.
     let pairing_events_before = receiver
@@ -501,7 +519,12 @@ fn missing_expired_replayed_and_fabricated_eligibility_are_silently_rejected() {
             vec![7u8; 32],
         )
         .unwrap());
-    assert!(receiver.core.list_pending_pairings().is_empty());
+    assert!(receiver
+        .core
+        .list_device_relationships()
+        .unwrap()
+        .iter()
+        .all(|row| row.remote_endpoint_id != "fabricated-endpoint"));
     let pairing_events_after = receiver
         .sink
         .events()

@@ -524,13 +524,13 @@ fn reinstalled_peer_is_never_merged_by_name_or_metadata() {
     // Same display-facing label on a different endpoint identity must not merge.
     alice
         .core
-        .set_contact_label(bob_id.clone(), Some("Kitchen Tablet".to_string()))
-        .ok();
+        .set_saved_device_label(bob_id.clone(), Some("Kitchen Tablet".to_string()))
+        .unwrap();
     reach_saved(&alice, &charlie, 90_041);
     alice
         .core
-        .set_contact_label(charlie_id.clone(), Some("Kitchen Tablet".to_string()))
-        .ok();
+        .set_saved_device_label(charlie_id.clone(), Some("Kitchen Tablet".to_string()))
+        .unwrap();
 
     let saved = alice.core.list_saved_devices().unwrap();
     assert_eq!(saved.len(), 2);

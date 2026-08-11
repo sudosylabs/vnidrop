@@ -60,6 +60,7 @@ impl DeviceRelationshipService {
         let _guard = peer_lock.lock().await;
 
         let Some(row) = self.find_row(&peer_endpoint_id).await? else {
+            self.eligibility.remove_for_peer(&peer_endpoint_id).await?;
             return Ok(ForgetOutcome {
                 had_relationship: false,
                 generation: None,

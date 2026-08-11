@@ -5,7 +5,6 @@ import SFSafeSymbols
 /// navigation. The model stays the source of truth via a derived path binding.
 struct SettingsScreen: View {
 	@ObservedObject var model: SettingsModel
-	@ObservedObject var contacts: ContactsModel
 	let windowClass: WindowClass
 	@State private var showBugReport = false
 
@@ -15,8 +14,6 @@ struct SettingsScreen: View {
 				switch model.state.selectedSection {
 				case .overview: return []
 				case .bugReport: return [.about, .bugReport]
-				case .contactDetail(let endpointId):
-					return [.contacts, .contactDetail(endpointId: endpointId)]
 				case let section: return [section]
 				}
 			},
@@ -57,15 +54,6 @@ struct SettingsScreen: View {
 					NavigationLink(value: SettingsSection.storage) {
 						SettingsRow(icon: .internaldrive, title: String(localized: L10n.Storage.title), value: nil)
 					}
-					NavigationLink(value: SettingsSection.contacts) {
-						SettingsRow(
-							icon: .macbookAndIphone,
-							title: String(localized: L10n.Contacts.title),
-							value: contacts.state.contacts.isEmpty
-								? nil
-								: String(contacts.state.contacts.count)
-						)
-					}
 				}
 				Section(String(localized: L10n.Settings.advancedTitle)) {
 					NavigationLink(value: SettingsSection.network) {
@@ -92,17 +80,7 @@ struct SettingsScreen: View {
 
 	@ViewBuilder
 	private func sectionForm(_ section: SettingsSection) -> some View {
-		// Contacts brings its own Form and push destination, so it is not wrapped
-		// in the shared section chrome.
-		if case .contactDetail(let endpointId) = section {
-			ContactDetailScreen(model: contacts, endpointId: endpointId)
-		} else if section == .contacts {
-			ContactsScreen(model: contacts) {
-				model.reportNothingWaiting()
-			}
-		} else {
-			settingsSectionForm(section)
-		}
+		settingsSectionForm(section)
 	}
 
 	@ViewBuilder
@@ -157,9 +135,6 @@ private struct SettingsSectionContent: View {
 			NetworkSettings(model: model)
 		case .storage:
 			StorageSettings(model: model)
-		case .contacts, .contactDetail:
-			// Rendered by SettingsScreen itself, which owns the contacts model.
-			EmptyView()
 		case .about:
 			AboutSettings(model: model)
 		case .bugReport:

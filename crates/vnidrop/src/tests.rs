@@ -1,9 +1,9 @@
 #[path = "tests/access_policy.rs"]
 mod access_policy_tests;
-#[path = "tests/contact_polling.rs"]
-mod contact_polling_tests;
-#[path = "tests/contacts.rs"]
-mod contacts_tests;
+#[path = "tests/api_surface.rs"]
+mod api_surface_tests;
+#[path = "tests/blocked_devices.rs"]
+mod blocked_devices_tests;
 #[path = "tests/control_plane.rs"]
 mod control_plane_tests;
 #[path = "tests/device_relationship.rs"]

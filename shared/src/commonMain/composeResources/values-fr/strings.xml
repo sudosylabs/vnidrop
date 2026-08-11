@@ -306,23 +306,6 @@
     <string name="transfer_share_title">Partager</string>
     <string name="value_unavailable">Non disponible</string>
     <string name="version_title">Version de l’app</string>
-    <string name="contacts_title">Appareils</string>
-    <string name="contacts_subtitle">Les appareils avec lesquels vous avez déjà échangé peuvent recevoir des fichiers sans nouvelle invitation.</string>
-    <string name="contacts_empty_title">Aucun appareil enregistré</string>
-    <string name="contacts_empty_body">Après un transfert, les deux appareils peuvent choisir de se mémoriser mutuellement.</string>
-    <string name="contacts_unreachable">Nouvel appairage nécessaire</string>
-    <string name="contacts_unreachable_body">Cet appareil a retiré l’accès ou a réinstallé VniDrop. Effectuez un nouveau transfert pour le mémoriser à nouveau.</string>
-    <string name="contacts_name_field">Nom sur cet appareil</string>
-    <string name="contacts_name_hint">Vous seul voyez ce nom. L’autre appareil ne peut jamais le modifier.</string>
-    <string name="contacts_forget">Oublier l’appareil</string>
-    <string name="contacts_forget_body">Cet appareil ne pourra plus vous envoyer de fichiers sans nouvelle invitation. Les fichiers déjà reçus sont conservés.</string>
-    <string name="contacts_forget_all">Oublier tous les appareils</string>
-    <string name="contacts_block">Bloquer l’appareil</string>
-    <string name="contacts_blocked_title">Appareils bloqués</string>
-    <string name="contacts_unblock">Débloquer</string>
-    <string name="contacts_unblock_hint">Le déblocage ne rétablit pas l’accès. L’appareil doit être appairé à nouveau.</string>
-    <string name="contacts_send_to">Envoyer des fichiers</string>
-    <string name="contacts_last_transfer">Dernier transfert %1$s</string>
     <string name="pairing_request_title">Mémoriser cet appareil ?</string>
     <string name="pairing_request_body">%1$s propose de recevoir vos fichiers sans nouvelle invitation.</string>
     <string name="pairing_accept">Mémoriser</string>
@@ -334,28 +317,8 @@
     <string name="offer_body">%1$s souhaite vous envoyer « %2$s ».</string>
     <string name="offer_accept">Recevoir</string>
     <string name="offer_decline">Refuser</string>
-    <string name="contacts_grant_lifetime_title">Oublier les appareils inutilisés après</string>
-    <string name="contacts_grant_lifetime_hint">Le décompte redémarre à chaque transfert avec l’appareil.</string>
-    <string name="contacts_grant_lifetime_never">Jamais</string>
-    <string name="contacts_check_on_open">Rechercher les transferts en attente</string>
-    <string name="contacts_check_on_open_hint">À l’ouverture de VniDrop, vos appareils enregistrés sont interrogés pour savoir s’ils ont quelque chose pour vous. Cela leur indique quand vous ouvrez l’application.</string>
-    <string name="contacts_check_now">Vérifier maintenant</string>
-    <string name="contacts_check_none">Rien en attente</string>
-    <string name="contacts_offer_held">Cet appareil n’est pas ouvert. Le transfert sera remis à sa prochaine ouverture de VniDrop.</string>
-    <string name="contacts_waiting_title">En attente de remise</string>
-    <string name="contacts_waiting_hint">Annulez le transfert pour le retirer.</string>
-    <string name="contacts_send_to_device">Envoyer à un appareil</string>
-    <string name="contacts_pick_device_title">Choisir un appareil</string>
-    <string name="contacts_pick_device_empty">Aucun appareil n’est joignable pour le moment. Les appareils enregistrés apparaissent ici après un transfert.</string>
-    <string name="contacts_sent_to_device">%1$s a accepté le transfert</string>
-    <string name="contacts_declined_by_device">%1$s a refusé le transfert</string>
-    <string name="contacts_no_answer">%1$s n’a pas répondu</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d fichier</item>
         <item quantity="other">%1$d fichiers</item>
-    </plurals>
-    <plurals name="contacts_grant_lifetime_days">
-        <item quantity="one">%1$d jour</item>
-        <item quantity="other">%1$d jours</item>
     </plurals>
 </resources>

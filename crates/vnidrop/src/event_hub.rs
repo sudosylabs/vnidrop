@@ -50,10 +50,6 @@ enum EventPhase {
     Delivery,
     /// Saved-device pairing eligibility and consent prompts.
     Pairing,
-    /// Prototype contact lifecycle notifications.
-    Contacts,
-    /// Prototype contact offer prompts.
-    Offer,
     /// Saved-device targeted-transfer pre-approval prompts.
     TargetedTransfer,
 }
@@ -78,8 +74,6 @@ impl EventPhase {
             "transfer" => Some(Self::Transfer),
             "delivery" => Some(Self::Delivery),
             "pairing" => Some(Self::Pairing),
-            "contacts" => Some(Self::Contacts),
-            "offer" => Some(Self::Offer),
             "targeted_transfer" => Some(Self::TargetedTransfer),
             _ => None,
         }
@@ -104,8 +98,6 @@ impl EventPhase {
             Self::Transfer => "transfer",
             Self::Delivery => "delivery",
             Self::Pairing => "pairing",
-            Self::Contacts => "contacts",
-            Self::Offer => "offer",
             Self::TargetedTransfer => "targeted_transfer",
         }
     }

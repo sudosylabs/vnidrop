@@ -180,7 +180,7 @@ impl ApprovalService {
     ) -> HandshakeResponse {
         if self
             .repository
-            .contacts()
+            .blocked_devices()
             .is_blocked(&remote_endpoint_id)
             .await
             .unwrap_or(true)

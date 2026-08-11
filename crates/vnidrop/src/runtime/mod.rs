@@ -6,21 +6,19 @@
 //! - [`receive`] — ticket receive, download, export
 //! - [`lifecycle`] — cancel/delete/shutdown/status/access
 //! - [`provider`] — blob provider events and per-connection send progress
-//! - [`contacts`] — device history: pairing, forgetting, blocking
+//! - [`saved_devices`] — experimental saved-device pairing, forget, block
 //! - [`targeted`] — saved-device targeted transfers
 
-mod contacts;
 mod delivery;
 mod facade;
 mod lifecycle;
 mod provider;
 mod receive;
+mod saved_devices;
 mod share;
 mod storage;
 mod targeted;
 
-#[cfg(test)]
-pub(crate) use self::contacts::should_poll;
 pub use facade::VnidropCore;
 #[cfg(test)]
 pub(crate) use provider::{consume_request_updates, RequestStreamOutcome};
@@ -62,9 +60,6 @@ use crate::{
     event_hub::EventHub,
     handshake::HandshakeService,
     logging::init_logging,
-    offer::OfferService,
-    offer_inbox::OfferInbox,
-    pairing::PairingService,
     pairing_eligibility::PairingEligibilityService,
     repository::Repository,
     secret::load_or_create_secret,
@@ -75,10 +70,6 @@ use crate::{
 };
 
 const RELAY_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-
-/// Minimum gap between polls of the same device, so switching in and out of the
-/// app does not announce presence to every contact repeatedly.
-pub(super) const POLL_MIN_INTERVAL_MS: i64 = 5 * 60 * 1_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RelayStatus {
@@ -109,13 +100,9 @@ pub(super) struct CoreInner {
     pub(super) secret_custody: Option<Arc<crate::secure_secret::SecretCustody>>,
     pub(super) event_hub: Arc<EventHub>,
     pub(super) approval: ApprovalService,
-    pub(super) pairing: PairingService,
     pub(super) pairing_eligibility: PairingEligibilityService,
     pub(super) device_relationships: Arc<DeviceRelationshipService>,
-    pub(super) offers: OfferInbox,
     pub(super) targeted_offers: TargetedOfferInbox,
-    /// Endpoint → last poll time, for the rate limit above.
-    pub(super) last_polled: TokioMutex<HashMap<String, i64>>,
     pub(super) limits: CoreLimits,
     pub(super) relay_mode: CoreRelayMode,
     pub(super) custom_relay_urls: Vec<RelayUrl>,
@@ -380,25 +367,6 @@ impl CoreInner {
             Some(pairing_eligibility.clone()),
         );
         let handshake = HandshakeService::new(approval.clone());
-        let pairing = PairingService::new(
-            repository.contacts(),
-            event_hub.clone(),
-            limits.max_pending_offers as usize,
-            limits.max_metadata_bytes,
-        );
-        // Sweep grants dead long enough that no peer still needs the tombstone.
-        if let Err(error) = repository
-            .contacts()
-            .purge_dead_grants(crate::util::now_ms() - crate::contacts::DEAD_GRANT_RETENTION_MS)
-            .await
-        {
-            tracing::warn!(%error, "failed to sweep dead grants");
-        }
-        let offers = OfferInbox::new(
-            event_hub.clone(),
-            limits.max_pending_offers as usize,
-            limits.identity_cooldown_ms,
-        );
         let identity_cooldown = crate::control_plane::IdentityCooldown::new(
             limits.identity_cooldown_ms,
             limits.malformed_strike_limit,
@@ -424,10 +392,6 @@ impl CoreInner {
         let router = Router::builder(endpoint.clone())
             .accept(iroh_blobs::ALPN, blobs)
             .accept(HandshakeService::ALPN, handshake)
-            .accept(
-                OfferService::ALPN,
-                OfferService::new(pairing.clone(), offers.clone(), endpoint.id().to_string()),
-            )
             .accept(
                 RelationshipProtocol::ALPN,
                 RelationshipProtocol::new(device_relationships.clone()),
@@ -456,12 +420,9 @@ impl CoreInner {
             secret_custody: secret_custody.clone(),
             event_hub,
             approval,
-            pairing,
             pairing_eligibility,
             device_relationships,
-            offers,
             targeted_offers,
-            last_polled: TokioMutex::new(HashMap::new()),
             relay_mode,
             custom_relay_urls: relay_urls,
             transfer_slots: Semaphore::new(limits.max_concurrent_transfers as usize),

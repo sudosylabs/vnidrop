@@ -306,23 +306,6 @@
     <string name="transfer_share_title">Delen</string>
     <string name="value_unavailable">Niet beschikbaar</string>
     <string name="version_title">App-versie</string>
-    <string name="contacts_title">Apparaten</string>
-    <string name="contacts_subtitle">Apparaten waarmee je al hebt overgedragen, kunnen bestanden ontvangen zonder nieuwe uitnodiging.</string>
-    <string name="contacts_empty_title">Geen onthouden apparaten</string>
-    <string name="contacts_empty_body">Na een overdracht kunnen beide apparaten elkaar onthouden.</string>
-    <string name="contacts_unreachable">Opnieuw koppelen vereist</string>
-    <string name="contacts_unreachable_body">Dit apparaat heeft de toegang ingetrokken of VniDrop opnieuw geïnstalleerd. Draag opnieuw over om het weer te onthouden.</string>
-    <string name="contacts_name_field">Naam op dit apparaat</string>
-    <string name="contacts_name_hint">Alleen jij ziet deze naam. Het andere apparaat kan die nooit wijzigen.</string>
-    <string name="contacts_forget">Apparaat vergeten</string>
-    <string name="contacts_forget_body">Dit apparaat kan je zonder nieuwe uitnodiging geen bestanden meer sturen. Reeds ontvangen bestanden blijven behouden.</string>
-    <string name="contacts_forget_all">Alle apparaten vergeten</string>
-    <string name="contacts_block">Apparaat blokkeren</string>
-    <string name="contacts_blocked_title">Geblokkeerde apparaten</string>
-    <string name="contacts_unblock">Deblokkeren</string>
-    <string name="contacts_unblock_hint">Deblokkeren herstelt de toegang niet. Het apparaat moet opnieuw worden gekoppeld.</string>
-    <string name="contacts_send_to">Bestanden sturen</string>
-    <string name="contacts_last_transfer">Laatste overdracht %1$s</string>
     <string name="pairing_request_title">Dit apparaat onthouden?</string>
     <string name="pairing_request_body">%1$s biedt aan bestanden van je te ontvangen zonder nieuwe uitnodiging.</string>
     <string name="pairing_accept">Onthouden</string>
@@ -334,28 +317,8 @@
     <string name="offer_body">%1$s wil je “%2$s” sturen.</string>
     <string name="offer_accept">Ontvangen</string>
     <string name="offer_decline">Weigeren</string>
-    <string name="contacts_grant_lifetime_title">Ongebruikte apparaten vergeten na</string>
-    <string name="contacts_grant_lifetime_hint">De teller start opnieuw bij elke overdracht met het apparaat.</string>
-    <string name="contacts_grant_lifetime_never">Nooit</string>
-    <string name="contacts_check_on_open">Controleren op wachtende overdrachten</string>
-    <string name="contacts_check_on_open_hint">Bij het openen van VniDrop wordt aan je onthouden apparaten gevraagd of ze iets voor je hebben. Zij weten daardoor wanneer je de app opende.</string>
-    <string name="contacts_check_now">Nu controleren</string>
-    <string name="contacts_check_none">Niets in de wacht</string>
-    <string name="contacts_offer_held">Dat apparaat is niet geopend. De overdracht wordt bezorgd zodra het VniDrop weer opent.</string>
-    <string name="contacts_waiting_title">Wacht op bezorging</string>
-    <string name="contacts_waiting_hint">Annuleer de overdracht om die in te trekken.</string>
-    <string name="contacts_send_to_device">Naar een apparaat sturen</string>
-    <string name="contacts_pick_device_title">Kies een apparaat</string>
-    <string name="contacts_pick_device_empty">Er is nu geen apparaat bereikbaar. Onthouden apparaten verschijnen hier na een overdracht.</string>
-    <string name="contacts_sent_to_device">%1$s heeft de overdracht geaccepteerd</string>
-    <string name="contacts_declined_by_device">%1$s heeft de overdracht geweigerd</string>
-    <string name="contacts_no_answer">%1$s heeft niet geantwoord</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d bestand</item>
         <item quantity="other">%1$d bestanden</item>
-    </plurals>
-    <plurals name="contacts_grant_lifetime_days">
-        <item quantity="one">%1$d dag</item>
-        <item quantity="other">%1$d dagen</item>
     </plurals>
 </resources>

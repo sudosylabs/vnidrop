@@ -306,23 +306,6 @@
     <string name="transfer_share_title">Share</string>
     <string name="value_unavailable">Not available</string>
     <string name="version_title">App version</string>
-    <string name="contacts_title">Devices</string>
-    <string name="contacts_subtitle">Devices you have transferred with can receive files without a new invitation.</string>
-    <string name="contacts_empty_title">No remembered devices</string>
-    <string name="contacts_empty_body">After a transfer, both devices can choose to remember each other.</string>
-    <string name="contacts_unreachable">Needs pairing again</string>
-    <string name="contacts_unreachable_body">This device withdrew access, or reinstalled VniDrop. Transfer to it once more to remember it again.</string>
-    <string name="contacts_name_field">Name on this device</string>
-    <string name="contacts_name_hint">Only you see this name. The other device can never change it.</string>
-    <string name="contacts_forget">Forget device</string>
-    <string name="contacts_forget_body">This device will no longer be able to send you files without a new invitation. Files already received are kept.</string>
-    <string name="contacts_forget_all">Forget all devices</string>
-    <string name="contacts_block">Block device</string>
-    <string name="contacts_blocked_title">Blocked devices</string>
-    <string name="contacts_unblock">Unblock</string>
-    <string name="contacts_unblock_hint">Unblocking does not restore access. The device has to be paired again.</string>
-    <string name="contacts_send_to">Send files</string>
-    <string name="contacts_last_transfer">Last transfer %1$s</string>
     <string name="pairing_request_title">Remember this device?</string>
     <string name="pairing_request_body">%1$s offered to let you send it files without a new invitation.</string>
     <string name="pairing_accept">Remember</string>
@@ -334,28 +317,8 @@
     <string name="offer_body">%1$s wants to send you “%2$s”.</string>
     <string name="offer_accept">Receive</string>
     <string name="offer_decline">Decline</string>
-    <string name="contacts_grant_lifetime_title">Forget unused devices after</string>
-    <string name="contacts_grant_lifetime_hint">The countdown restarts every time you transfer with the device.</string>
-    <string name="contacts_grant_lifetime_never">Never</string>
-    <string name="contacts_check_on_open">Check for waiting transfers</string>
-    <string name="contacts_check_on_open_hint">When you open VniDrop, your remembered devices are asked whether they have anything for you. This tells them when you opened the app.</string>
-    <string name="contacts_check_now">Check now</string>
-    <string name="contacts_check_none">Nothing waiting</string>
-    <string name="contacts_offer_held">That device is not open. The transfer will be delivered the next time it opens VniDrop.</string>
-    <string name="contacts_waiting_title">Waiting to be delivered</string>
-    <string name="contacts_waiting_hint">Cancel the transfer to withdraw it.</string>
-    <string name="contacts_send_to_device">Send to a device</string>
-    <string name="contacts_pick_device_title">Choose a device</string>
-    <string name="contacts_pick_device_empty">No device can be reached right now. Remembered devices appear here after a transfer.</string>
-    <string name="contacts_sent_to_device">%1$s accepted the transfer</string>
-    <string name="contacts_declined_by_device">%1$s declined the transfer</string>
-    <string name="contacts_no_answer">%1$s did not answer</string>
     <plurals name="transfer_file_count">
         <item quantity="other">%1$d files</item>
         <item quantity="one">%1$d file</item>
-    </plurals>
-    <plurals name="contacts_grant_lifetime_days">
-        <item quantity="one">%1$d day</item>
-        <item quantity="other">%1$d days</item>
     </plurals>
 </resources>

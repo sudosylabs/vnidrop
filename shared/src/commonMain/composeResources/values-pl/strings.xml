@@ -306,23 +306,6 @@
     <string name="transfer_share_title">Udostępnij</string>
     <string name="value_unavailable">Niedostępne</string>
     <string name="version_title">Wersja aplikacji</string>
-    <string name="contacts_title">Urządzenia</string>
-    <string name="contacts_subtitle">Urządzenia, z którymi już przesyłano pliki, mogą je odbierać bez nowego zaproszenia.</string>
-    <string name="contacts_empty_title">Brak zapamiętanych urządzeń</string>
-    <string name="contacts_empty_body">Po przesłaniu plików oba urządzenia mogą zapamiętać się nawzajem.</string>
-    <string name="contacts_unreachable">Wymaga ponownego sparowania</string>
-    <string name="contacts_unreachable_body">To urządzenie cofnęło dostęp lub ponownie zainstalowało VniDrop. Wykonaj kolejne przesłanie, aby zapamiętać je ponownie.</string>
-    <string name="contacts_name_field">Nazwa na tym urządzeniu</string>
-    <string name="contacts_name_hint">Tylko Ty widzisz tę nazwę. Drugie urządzenie nigdy jej nie zmieni.</string>
-    <string name="contacts_forget">Zapomnij urządzenie</string>
-    <string name="contacts_forget_body">To urządzenie nie będzie mogło wysyłać Ci plików bez nowego zaproszenia. Już odebrane pliki pozostaną.</string>
-    <string name="contacts_forget_all">Zapomnij wszystkie urządzenia</string>
-    <string name="contacts_block">Zablokuj urządzenie</string>
-    <string name="contacts_blocked_title">Zablokowane urządzenia</string>
-    <string name="contacts_unblock">Odblokuj</string>
-    <string name="contacts_unblock_hint">Odblokowanie nie przywraca dostępu. Urządzenie trzeba sparować ponownie.</string>
-    <string name="contacts_send_to">Wyślij pliki</string>
-    <string name="contacts_last_transfer">Ostatnie przesłanie %1$s</string>
     <string name="pairing_request_title">Zapamiętać to urządzenie?</string>
     <string name="pairing_request_body">%1$s umożliwia wysyłanie plików bez nowego zaproszenia.</string>
     <string name="pairing_accept">Zapamiętaj</string>
@@ -334,32 +317,10 @@
     <string name="offer_body">%1$s chce wysłać Ci „%2$s”.</string>
     <string name="offer_accept">Odbierz</string>
     <string name="offer_decline">Odrzuć</string>
-    <string name="contacts_grant_lifetime_title">Zapomnij nieużywane urządzenia po</string>
-    <string name="contacts_grant_lifetime_hint">Odliczanie zaczyna się od nowa przy każdym przesłaniu.</string>
-    <string name="contacts_grant_lifetime_never">Nigdy</string>
-    <string name="contacts_check_on_open">Sprawdzaj oczekujące przesyłki</string>
-    <string name="contacts_check_on_open_hint">Po otwarciu VniDrop zapamiętane urządzenia są pytane, czy mają coś dla Ciebie. Dzięki temu wiedzą, kiedy otwierasz aplikację.</string>
-    <string name="contacts_check_now">Sprawdź teraz</string>
-    <string name="contacts_check_none">Nic nie czeka</string>
-    <string name="contacts_offer_held">To urządzenie nie jest otwarte. Przesyłka zostanie dostarczona przy następnym uruchomieniu VniDrop.</string>
-    <string name="contacts_waiting_title">Oczekuje na dostarczenie</string>
-    <string name="contacts_waiting_hint">Anuluj przesyłkę, aby ją wycofać.</string>
-    <string name="contacts_send_to_device">Wyślij do urządzenia</string>
-    <string name="contacts_pick_device_title">Wybierz urządzenie</string>
-    <string name="contacts_pick_device_empty">Żadne urządzenie nie jest teraz dostępne. Zapamiętane urządzenia pojawią się tu po przesłaniu.</string>
-    <string name="contacts_sent_to_device">%1$s zaakceptowało przesyłkę</string>
-    <string name="contacts_declined_by_device">%1$s odrzuciło przesyłkę</string>
-    <string name="contacts_no_answer">%1$s nie odpowiedziało</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d plik</item>
         <item quantity="few">%1$d pliki</item>
         <item quantity="many">%1$d plików</item>
         <item quantity="other">%1$d pliku</item>
-    </plurals>
-    <plurals name="contacts_grant_lifetime_days">
-        <item quantity="one">%1$d dzień</item>
-        <item quantity="few">%1$d dni</item>
-        <item quantity="many">%1$d dni</item>
-        <item quantity="other">%1$d dnia</item>
     </plurals>
 </resources>

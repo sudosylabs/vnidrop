@@ -8,10 +8,6 @@ enum SettingsSection: Hashable {
 	case appearance
 	case notifications
 	case network
-	case contacts
-	/// One device's detail. Part of this enum because the Settings stack has a
-	/// typed path: a link carrying any other value type cannot push onto it.
-	case contactDetail(endpointId: String)
 	case storage
 	case about
 	case bugReport
@@ -23,7 +19,6 @@ enum SettingsSection: Hashable {
 		case .appearance: return L10n.Appearance.title
 		case .notifications: return L10n.Notifications.title
 		case .network: return L10n.Settings.networkTitle
-		case .contacts, .contactDetail: return L10n.Contacts.title
 		case .storage: return L10n.Storage.title
 		case .about: return L10n.About.title
 		case .bugReport: return L10n.About.bugReport
@@ -179,11 +174,6 @@ final class SettingsModel: ObservableObject {
 		loadDeviceInfo()
 	}
 
-	/// Surfaces "nothing waiting" from the contacts screen, which has no
-	/// message controller of its own.
-	func reportNothingWaiting() {
-		messages.tryShow(UiMessage(text: .resource(L10n.Contacts.checkNone), tone: .info))
-	}
 
 	func selectSection(_ section: SettingsSection) {
 		state.selectedSection = section

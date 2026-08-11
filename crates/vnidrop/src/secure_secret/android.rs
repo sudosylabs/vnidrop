@@ -70,7 +70,11 @@ impl AndroidSecureSecretStore {
     }
 
     fn record_path(&self, handle: &SecretHandle) -> PathBuf {
-        let encoded = HEXLOWER.encode(handle.as_str().as_bytes());
+        // Hash the handle for the on-disk name. Scoped handles are longer than
+        // Linux/Android NAME_MAX when hex-encoded, and the handle is already
+        // authenticated inside the record body.
+        let digest = blake3::hash(handle.as_str().as_bytes());
+        let encoded = HEXLOWER.encode(digest.as_bytes());
         self.records_dir
             .join(format!("{encoded}.{RECORD_EXTENSION}"))
     }
@@ -192,16 +196,12 @@ impl SecureSecretStore for AndroidSecureSecretStore {
             if path.extension().and_then(|value| value.to_str()) != Some(RECORD_EXTENSION) {
                 continue;
             }
-            let stem = path
-                .file_stem()
-                .and_then(|value| value.to_str())
-                .ok_or(SecureSecretStoreError::Corrupted)?;
-            let decoded = HEXLOWER
-                .decode(stem.as_bytes())
-                .map_err(|_| SecureSecretStoreError::Corrupted)?;
-            let handle =
-                String::from_utf8(decoded).map_err(|_| SecureSecretStoreError::Corrupted)?;
-            handles.push(SecretHandle(handle));
+            let mut bytes = Vec::new();
+            File::open(&path)
+                .map_err(map_io_error)?
+                .read_to_end(&mut bytes)
+                .map_err(map_io_error)?;
+            handles.push(decode_handle_from_record(&bytes)?);
         }
         handles.sort_by(|left, right| left.as_str().cmp(right.as_str()));
         Ok(handles)
@@ -242,11 +242,32 @@ fn decode_record(
     bytes: &[u8],
     expected_handle: &SecretHandle,
 ) -> Result<AndroidSealedValue, SecureSecretStoreError> {
+    let (handle, state, nonce, ciphertext) = parse_record(bytes)?;
+    if handle.as_str() != expected_handle.as_str() || state != RECORD_SEALED {
+        return Err(SecureSecretStoreError::Corrupted);
+    }
+    if nonce.is_empty() || ciphertext.is_empty() {
+        return Err(SecureSecretStoreError::Corrupted);
+    }
+    Ok(AndroidSealedValue { nonce, ciphertext })
+}
+
+fn decode_handle_from_record(bytes: &[u8]) -> Result<SecretHandle, SecureSecretStoreError> {
+    let (handle, _state, _nonce, _ciphertext) = parse_record(bytes)?;
+    Ok(handle)
+}
+
+fn parse_record(
+    bytes: &[u8],
+) -> Result<(SecretHandle, u8, Vec<u8>, Vec<u8>), SecureSecretStoreError> {
     const HEADER_LEN: usize = 8 + 1 + 2 + 2 + 4;
     if bytes.len() < HEADER_LEN || &bytes[..8] != RECORD_MAGIC {
         return Err(SecureSecretStoreError::Corrupted);
     }
     let state = bytes[8];
+    if state != RECORD_STAGED && state != RECORD_SEALED {
+        return Err(SecureSecretStoreError::Corrupted);
+    }
     let handle_len = usize::from(u16::from_be_bytes([bytes[9], bytes[10]]));
     let nonce_len = usize::from(u16::from_be_bytes([bytes[11], bytes[12]]));
     let ciphertext_len = usize::try_from(u32::from_be_bytes([
@@ -258,23 +279,19 @@ fn decode_record(
         .and_then(|value| value.checked_add(nonce_len))
         .and_then(|value| value.checked_add(ciphertext_len))
         .ok_or(SecureSecretStoreError::Corrupted)?;
-    if bytes.len() != expected_len || state != RECORD_SEALED {
+    if bytes.len() != expected_len {
         return Err(SecureSecretStoreError::Corrupted);
     }
     let handle_end = HEADER_LEN + handle_len;
     let handle = std::str::from_utf8(&bytes[HEADER_LEN..handle_end])
         .map_err(|_| SecureSecretStoreError::Corrupted)?;
-    if handle != expected_handle.as_str() {
-        return Err(SecureSecretStoreError::Corrupted);
-    }
     let nonce_end = handle_end + nonce_len;
-    if nonce_len == 0 || ciphertext_len == 0 {
-        return Err(SecureSecretStoreError::Corrupted);
-    }
-    Ok(AndroidSealedValue {
-        nonce: bytes[handle_end..nonce_end].to_vec(),
-        ciphertext: bytes[nonce_end..].to_vec(),
-    })
+    Ok((
+        SecretHandle(handle.to_string()),
+        state,
+        bytes[handle_end..nonce_end].to_vec(),
+        bytes[nonce_end..].to_vec(),
+    ))
 }
 
 fn map_io_error(error: std::io::Error) -> SecureSecretStoreError {

@@ -80,6 +80,7 @@ class ViewModelsTest {
 		val viewModel = AppViewModel(environment(), core, preferences(), UiMessageController())
 		advanceUntilIdle()
 		assertTrue(core.state.value.isInitialized)
+		assertTrue(viewModel.state.value.startupSettled)
 		assertEquals(listOf(RelaySettings()), core.initializedRelaySettings)
 		viewModel.selectDestination(AppDestination.Settings)
 		assertEquals(AppDestination.Settings, viewModel.state.value.destination)

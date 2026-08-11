@@ -178,3 +178,27 @@ fn failed_replacement_keeps_the_previous_secret_readable() {
     ));
     assert_eq!(store.get(&handle).unwrap(), original);
 }
+
+#[test]
+fn scoped_handle_record_names_fit_linux_name_max() {
+    let (_directory, store, _keystore) = fixture();
+    // Mirrors ScopedSecretStore physical handles used on Android profiles.
+    let handle = secret_handle_for_test(&format!(
+        "vnidrop/v1/scope-{}/endpoint-identity/{}",
+        "a".repeat(64),
+        "b".repeat(36),
+    ));
+    assert!(handle.as_str().len() > 100);
+    let path = store.record_path_for_test(&handle);
+    let file_name = path.file_name().and_then(|value| value.to_str()).unwrap();
+    assert!(
+        file_name.len() <= 255,
+        "record file name exceeds NAME_MAX: {} bytes ({file_name})",
+        file_name.len()
+    );
+
+    let material = SecretMaterial::new(vec![0x5a; TEST_SECRET_BYTES]).unwrap();
+    store.put(&handle, material.clone()).unwrap();
+    assert_eq!(store.list_handles().unwrap(), vec![handle.clone()]);
+    assert_eq!(store.get(&handle).unwrap(), material);
+}

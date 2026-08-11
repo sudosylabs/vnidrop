@@ -255,7 +255,7 @@ fun App(
 				windowChrome?.invoke()
 				val startingLabel = stringResource(Res.string.app_starting)
 				AnimatedVisibility(
-					visible = !sendCoreState.isInitialized,
+					visible = !sendCoreState.isInitialized && !appState.startupSettled,
 					enter = fadeIn(),
 					exit = fadeOut(),
 				) {

@@ -1,5 +1,6 @@
 use std::{
     fs::{File, OpenOptions},
+    io,
     path::Path,
     sync::Arc,
 };
@@ -29,11 +30,49 @@ pub(crate) fn lock_profile(app_data_dir: &Path) -> Result<ProfileLock, VnidropEr
         .write(true)
         .open(app_data_dir.join("protected-secrets.lock"))
         .map_err(VnidropError::filesystem)?;
-    file.try_lock()
-        .map_err(|_| VnidropError::SecureStorageUnavailable {
-            reason: "another protected core is already using this profile".to_string(),
-        })?;
+    lock_exclusive_nonblocking(&file)?;
     Ok(ProfileLock { _file: file })
+}
+
+/// Acquire an exclusive advisory lock without blocking.
+///
+/// Prefer `libc::flock` on Unix: Rust's `File::try_lock` still returns
+/// `ErrorKind::Unsupported` on Android even though the kernel supports flock.
+fn lock_exclusive_nonblocking(file: &File) -> Result<(), VnidropError> {
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsRawFd;
+        let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+        if rc == 0 {
+            return Ok(());
+        }
+        let err = io::Error::last_os_error();
+        return Err(match err.kind() {
+            io::ErrorKind::WouldBlock => VnidropError::SecureStorageUnavailable {
+                reason: "another protected core is already using this profile".to_string(),
+            },
+            _ => VnidropError::filesystem(err),
+        });
+    }
+    #[cfg(windows)]
+    {
+        match file.try_lock() {
+            Ok(()) => Ok(()),
+            Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
+                Err(VnidropError::SecureStorageUnavailable {
+                    reason: "another protected core is already using this profile".to_string(),
+                })
+            }
+            Err(err) => Err(VnidropError::filesystem(err)),
+        }
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = file;
+        Err(VnidropError::SecureStorageUnavailable {
+            reason: "profile locking is unsupported on this platform".to_string(),
+        })
+    }
 }
 
 /// Opens the profile marker without locking so in-process restart tests can

@@ -38,11 +38,31 @@ fn a_profile_allows_only_one_protected_core_mutator() {
 
     assert!(matches!(
         lock_profile(temp.path()),
-        Err(VnidropError::SecureStorageUnavailable { .. })
+        Err(VnidropError::SecureStorageUnavailable { reason })
+            if reason.contains("already using this profile")
     ));
 
     drop(first);
     assert!(lock_profile(temp.path()).is_ok());
+}
+
+#[test]
+fn profile_lock_maps_contention_not_generic_io_failures() {
+    // Regression: Android's std File::try_lock returns Unsupported; lock_profile
+    // must use flock and only treat WouldBlock as "already using this profile".
+    let temp = tempfile::tempdir().unwrap();
+    let held = lock_profile(temp.path()).unwrap();
+    match lock_profile(temp.path()) {
+        Err(VnidropError::SecureStorageUnavailable { reason }) => {
+            assert!(
+                reason.contains("already using this profile"),
+                "unexpected reason: {reason}"
+            );
+        }
+        Ok(_) => panic!("expected contended lock to fail"),
+        Err(other) => panic!("expected SecureStorageUnavailable, got {other:?}"),
+    }
+    drop(held);
 }
 
 #[tokio::test]

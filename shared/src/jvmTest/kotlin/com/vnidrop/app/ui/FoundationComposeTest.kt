@@ -84,6 +84,7 @@ import vnidrop.shared.generated.resources.button_create_new_transfer
 import vnidrop.shared.generated.resources.button_download_invitation
 import vnidrop.shared.generated.resources.button_open_settings
 import vnidrop.shared.generated.resources.button_receive_files
+import vnidrop.shared.generated.resources.experimental_settings_title
 import vnidrop.shared.generated.resources.nav_receive
 import vnidrop.shared.generated.resources.nav_send
 import vnidrop.shared.generated.resources.notifications_description
@@ -395,6 +396,60 @@ class FoundationComposeTest {
 		}
 		onNodeWithText(Res.string.button_open_settings.value).performClick()
 		runOnIdle { assertTrue(opened) }
+	}
+
+	@Test
+	fun desktopSettingsShowsExperimentalWhenGateEnabled() = runComposeUiTest {
+		setContent {
+			VniDropTheme(isDarkTheme = false) {
+				SettingsScreen(
+					state = SettingsState(),
+					windowClass = WindowClass.Desktop,
+					showExperimental = true,
+					onSectionSelected = {},
+					onUsernameChanged = {},
+					onThemeModeChanged = {},
+					onChooseFolder = {},
+					onResetFolder = {},
+					onNotificationsChanged = {},
+					onOpenNotificationSettings = {},
+					onBugWhatChanged = {},
+					onBugExpectedChanged = {},
+					onBugStepsChanged = {},
+					onBugContactChanged = {},
+					onBugIncludeLogsChanged = {},
+					onSubmitBugReport = {},
+				)
+			}
+		}
+		onNodeWithText(Res.string.experimental_settings_title.value).assertIsDisplayed()
+	}
+
+	@Test
+	fun unsupportedDesktopHostHidesExperimentalSection() = runComposeUiTest {
+		setContent {
+			VniDropTheme(isDarkTheme = false) {
+				SettingsScreen(
+					state = SettingsState(),
+					windowClass = WindowClass.Desktop,
+					showExperimental = false,
+					onSectionSelected = {},
+					onUsernameChanged = {},
+					onThemeModeChanged = {},
+					onChooseFolder = {},
+					onResetFolder = {},
+					onNotificationsChanged = {},
+					onOpenNotificationSettings = {},
+					onBugWhatChanged = {},
+					onBugExpectedChanged = {},
+					onBugStepsChanged = {},
+					onBugContactChanged = {},
+					onBugIncludeLogsChanged = {},
+					onSubmitBugReport = {},
+				)
+			}
+		}
+		onAllNodesWithText(Res.string.experimental_settings_title.value).assertCountEquals(0)
 	}
 
 	@Test

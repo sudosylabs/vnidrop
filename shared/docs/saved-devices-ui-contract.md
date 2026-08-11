@@ -10,8 +10,8 @@ Use **saved device**, **device relationship**, **targeted transfer**, **invitati
 
 ## Experimental gate
 
-- KMP Android: Settings → Experimental → Saved devices, preference default **off**, persisted.
-- KMP desktop: experimental UI **hidden**.
+- KMP Android / Windows / Linux: Settings → Experimental → Saved devices, preference default **off**, persisted.
+- KMP generic desktop host (`UiPlatform.Desktop`, e.g. macOS JVM): experimental UI **hidden**.
 - Apple: gate shape is platform-owned; semantics below still apply when the feature is enabled.
 
 ## Events are wake-ups
@@ -35,7 +35,9 @@ After a completed invitation transfer, eligibility may exist. The user may accep
    - `Declined`
    - `AlreadySettled { transfer_id }`
 3. Never accept or display authorization/grant strings across the public binding.
-4. Pull / resume with **transfer id + destination** (path or output sink). Android KMP reuses the invitation MediaStore Downloads sink for the experimental MVP receive.
+4. Pull / resume with **transfer id + destination** (path or output sink).
+   - Android KMP: invitation MediaStore Downloads sink for the experimental MVP receive.
+   - Windows / Linux KMP: configured filesystem receive folder path when no output sink is provided.
 
 ## Out of this contract’s MVP chrome
 

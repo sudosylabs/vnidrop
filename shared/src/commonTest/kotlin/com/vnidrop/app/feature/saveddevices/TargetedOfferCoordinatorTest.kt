@@ -14,6 +14,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import uniffi.vnidrop.ReceiveOutputSinkV2
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -43,6 +44,40 @@ class TargetedOfferCoordinatorTest {
 		advanceUntilIdle()
 		assertEquals(listOf("transfer-1" to true), core.respondedTargetedOffers)
 		assertEquals(listOf("transfer-1"), core.receivedTargetedTransferIds)
+		assertEquals(listOf("transfer-1" to "/tmp"), core.receivedTargetedPathDirs)
+		assertTrue(core.receivedTargetedViaSinkIds.isEmpty())
+	}
+
+	@Test
+	fun acceptUsesOutputSinkWhenPlatformProvidesOne() = runTest {
+		val sink = object : ReceiveOutputSinkV2 {
+			override fun startFile(relativePath: String) = error("unused")
+			override fun writeChunk(relativePath: String, bytes: ByteArray) = error("unused")
+			override fun finishFile(relativePath: String) = error("unused")
+			override fun abortFile(relativePath: String, reason: String) = error("unused")
+		}
+		val core = FakeCoreGateway().apply {
+			pendingTargetedOffers = listOf(offer("transfer-sink"))
+			respondTargetedResult = Result.success(TargetedOfferResponseModel.Approved("transfer-sink"))
+			receiveResult = Result.success(Unit)
+		}
+		val coordinator = TargetedOfferCoordinator(
+			core,
+			FakeFileSystemService(
+				ReceiveFolder(ReceiveFolderKind.AndroidPublicDownloads, "downloads", "Downloads"),
+				receiveOutputSink = sink,
+			),
+			preferences(enabled = true),
+			UiMessageController(),
+			backgroundScope,
+		)
+		runCurrent()
+		advanceUntilIdle()
+		coordinator.accept("transfer-sink")
+		runCurrent()
+		advanceUntilIdle()
+		assertEquals(listOf("transfer-sink"), core.receivedTargetedViaSinkIds)
+		assertTrue(core.receivedTargetedPathDirs.isEmpty())
 	}
 
 	@Test

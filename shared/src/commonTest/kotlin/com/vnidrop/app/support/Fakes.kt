@@ -228,6 +228,8 @@ class FakeCoreGateway : CoreGateway {
 	var respondPairingResult: Result<Boolean> = Result.success(true)
 	val createdTargetedTransfers = mutableListOf<Triple<String, List<uniffi.vnidrop.ShareSource>, String?>>()
 	val receivedTargetedTransferIds = mutableListOf<String>()
+	val receivedTargetedPathDirs = mutableListOf<Pair<String, String>>()
+	val receivedTargetedViaSinkIds = mutableListOf<String>()
 	val respondedTargetedOffers = mutableListOf<Pair<String, Boolean>>()
 
 	override suspend fun requestSavedDevicePairing(peerEndpointId: String): Result<Boolean> {
@@ -280,6 +282,7 @@ class FakeCoreGateway : CoreGateway {
 	override suspend fun listTargetedTransfers() = Result.success(targetedTransfers)
 	override suspend fun receiveTargetedTransfer(transferId: String, outputDir: String): Result<Unit> {
 		receivedTargetedTransferIds += transferId
+		receivedTargetedPathDirs += transferId to outputDir
 		return receiveResult
 	}
 	override suspend fun receiveTargetedTransferWithOutputSink(
@@ -287,6 +290,7 @@ class FakeCoreGateway : CoreGateway {
 		outputSink: ReceiveOutputSink,
 	): Result<Unit> {
 		receivedTargetedTransferIds += transferId
+		receivedTargetedViaSinkIds += transferId
 		return receiveResult
 	}
 	override suspend fun receiveTargetedTransferWithOutputSinkV2(
@@ -294,6 +298,7 @@ class FakeCoreGateway : CoreGateway {
 		outputSink: ReceiveOutputSinkV2,
 	): Result<Unit> {
 		receivedTargetedTransferIds += transferId
+		receivedTargetedViaSinkIds += transferId
 		return receiveResult
 	}
 	override suspend fun resumeTargetedTransfer(id: String, outputDir: String) = receiveResult
@@ -348,6 +353,7 @@ class FakeNotificationService(
 
 class FakeFileSystemService(
 	private val folder: ReceiveFolder,
+	private val receiveOutputSink: ReceiveOutputSinkV2? = null,
 ) : FileSystemService {
 	var supportsCustomFolders = true
 	var effectiveFolder: ReceiveFolder? = null
@@ -369,7 +375,7 @@ class FakeFileSystemService(
 		reclaimTemporaryStorageCount += 1
 		return reclaimedTemporaryBytes
 	}
-	override fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2? = null
+	override fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2? = receiveOutputSink
 	override fun canRevealReceiveFolder(folder: ReceiveFolder) = canRevealFolder
 	override suspend fun revealReceiveFolder(folder: ReceiveFolder): Result<Unit> {
 		revealedFolders += folder

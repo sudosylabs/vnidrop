@@ -32,7 +32,8 @@ data class TargetedOfferState(
 
 /**
  * Foreground interrupt for pending targeted offers. Approve pulls by transfer id
- * through the configured receive sink (MediaStore Downloads on Android).
+ * through the platform receive destination (MediaStore Downloads sink on Android,
+ * filesystem path on desktop when no sink is available).
  */
 class TargetedOfferCoordinator(
 	private val repository: CoreGateway,

@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vnidrop.app.UiPlatform
+import com.vnidrop.app.showsExperimentalSavedDevices
 import com.vnidrop.app.core.rememberReceiveFolderPicker
 import com.vnidrop.app.core.rememberShareFilePicker
 import com.vnidrop.app.feature.saveddevices.SavedDevicesEffect
@@ -20,7 +20,7 @@ fun SettingsRoute(
 ) {
 	val state by viewModel.state.collectAsStateWithLifecycle()
 	val savedDevicesState by savedDevicesViewModel.state.collectAsStateWithLifecycle()
-	val showExperimental = LocalUiPlatform.current == UiPlatform.Android
+	val showExperimental = showsExperimentalSavedDevices(LocalUiPlatform.current)
 	val folderPicker = rememberReceiveFolderPicker(viewModel::onReceiveFolderPicked, viewModel::onReceiveFolderPickFailed)
 	val sharePicker = rememberShareFilePicker(
 		savedDevicesViewModel::onFilesPicked,

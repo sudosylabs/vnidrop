@@ -159,10 +159,6 @@ impl TargetedTransferStore {
         rows.into_iter().map(row_to_transfer).collect()
     }
 
-    #[allow(
-        dead_code,
-        reason = "called via cancel_targeted_transfers_for_peer for ticket 09"
-    )]
     pub(crate) async fn cancel_by_peer(&self, peer_endpoint_id: &str) -> Result<u64, VnidropError> {
         let now = now_ms();
         let result = sqlx::query(
@@ -179,6 +175,26 @@ impl TargetedTransferStore {
         .await
         .map_err(VnidropError::repository)?;
         Ok(result.rows_affected())
+    }
+
+    pub(crate) async fn protocol_ids_for_peer(
+        &self,
+        peer_endpoint_id: &str,
+    ) -> Result<Vec<u64>, VnidropError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT protocol_transfer_id FROM targeted_transfers
+            WHERE sender_endpoint_id = ?1 OR receiver_endpoint_id = ?1
+            "#,
+        )
+        .bind(peer_endpoint_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(rows
+            .into_iter()
+            .map(|row| row.get::<i64, _>(0) as u64)
+            .collect())
     }
 }
 

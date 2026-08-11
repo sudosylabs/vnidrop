@@ -183,7 +183,7 @@ impl ApprovalService {
             .contacts()
             .is_blocked(&remote_endpoint_id)
             .await
-            .unwrap_or(false)
+            .unwrap_or(true)
         {
             // Indistinguishable from other refusals so probing cannot detect blocks.
             return self

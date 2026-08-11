@@ -129,10 +129,11 @@ impl DeviceRelationshipService {
     }
 
     pub(super) async fn is_blocked(&self, endpoint_id: &str) -> bool {
+        // Fail closed: a store error must not admit blocked traffic.
         self.contacts()
             .is_blocked(endpoint_id)
             .await
-            .unwrap_or(false)
+            .unwrap_or(true)
     }
 
     /// Drop orphaned relationship grant secrets and disable rows whose secrets are gone.

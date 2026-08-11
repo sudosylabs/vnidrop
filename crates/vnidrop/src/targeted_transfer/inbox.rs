@@ -187,10 +187,6 @@ impl TargetedOfferInbox {
         }
     }
 
-    #[allow(
-        dead_code,
-        reason = "called via cancel_targeted_transfers_for_peer for ticket 09"
-    )]
     pub(crate) async fn discard_from(&self, endpoint_id: &str) {
         let ids: Vec<String> = {
             let pending = self.pending.lock().await;

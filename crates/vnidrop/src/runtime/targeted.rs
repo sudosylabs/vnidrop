@@ -62,6 +62,17 @@ impl CoreInner {
                 .push(peer_endpoint_id.to_string());
         }
         self.targeted_offers.discard_from(peer_endpoint_id).await;
+        let protocol_ids = self
+            .targeted_store()
+            .protocol_ids_for_peer(peer_endpoint_id)
+            .await?;
+        // Signal active transfers synchronously before awaiting share teardown.
+        for protocol_transfer_id in &protocol_ids {
+            let _ = self.take_active_transfer(*protocol_transfer_id);
+        }
+        for protocol_transfer_id in &protocol_ids {
+            let _ = self.cancel_idle_or_share(*protocol_transfer_id).await;
+        }
         self.targeted_store().cancel_by_peer(peer_endpoint_id).await
     }
 

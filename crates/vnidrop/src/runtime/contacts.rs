@@ -86,7 +86,7 @@ impl CoreInner {
             .contacts()
             .is_blocked(&peer_endpoint_id)
             .await
-            .unwrap_or(false)
+            .unwrap_or(true)
         {
             return Ok(false);
         }
@@ -103,7 +103,7 @@ impl CoreInner {
             .device_relationships
             .forget(peer_endpoint_id.clone())
             .await?;
-        // Targeted transfers for this relationship only (ticket 10 fills in).
+        // Targeted transfers for this relationship only.
         // Invitation-domain shares are deliberately not cancelled here.
         self.cancel_targeted_transfers_for_peer(&peer_endpoint_id)
             .await?;

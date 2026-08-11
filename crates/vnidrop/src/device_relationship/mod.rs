@@ -10,7 +10,7 @@ use data_encoding::HEXLOWER;
 use iroh::{
     endpoint::Connection,
     protocol::{AcceptError, ProtocolHandler},
-    Endpoint, EndpointAddr, EndpointId,
+    Endpoint, EndpointAddr, EndpointId, RelayUrl,
 };
 use irpc::{channel::oneshot, rpc_requests, Client, WithChannels};
 use irpc_iroh::{read_request, IrohLazyRemoteConnection};
@@ -20,13 +20,16 @@ use sqlx::{Row, SqlitePool};
 use tokio::sync::Mutex as TokioMutex;
 
 use crate::{
-    api::{DeviceRelationship, DeviceRelationshipState, SavedDevice},
+    api::{
+        experimental_saved_device_capabilities, CoreRelayMode, DeviceRelationship,
+        DeviceRelationshipState, SavedDevice,
+    },
     error::VnidropError,
     event_hub::EventHub,
     grant::{Challenge, GrantId, GrantProof, GrantSecret},
     pairing_eligibility::PairingEligibilityService,
     secure_secret::{SecretCustody, SecretHandle, SecretKind, SecretMaterial},
-    ticket::encode_persisted_sender_address,
+    ticket::{encode_persisted_sender_address, filter_peer_addr_for_relay_mode},
     util::now_ms,
 };
 
@@ -53,10 +56,16 @@ pub(crate) struct DeviceRelationshipService {
     event_hub: Arc<EventHub>,
     local_endpoint_id: String,
     endpoint: Endpoint,
+    relay_mode: CoreRelayMode,
+    custom_relay_urls: Vec<RelayUrl>,
     peer_locks: Arc<TokioMutex<HashMap<String, Arc<TokioMutex<()>>>>>,
 }
 
 impl DeviceRelationshipService {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "constructor wires custody, eligibility, endpoint, and network profile once"
+    )]
     pub(crate) fn new(
         pool: SqlitePool,
         custody: Option<Arc<SecretCustody>>,
@@ -64,6 +73,8 @@ impl DeviceRelationshipService {
         event_hub: Arc<EventHub>,
         local_endpoint_id: String,
         endpoint: Endpoint,
+        relay_mode: CoreRelayMode,
+        custom_relay_urls: Vec<RelayUrl>,
     ) -> Self {
         Self {
             pool,
@@ -72,6 +83,8 @@ impl DeviceRelationshipService {
             event_hub,
             local_endpoint_id,
             endpoint,
+            relay_mode,
+            custom_relay_urls,
             peer_locks: Arc::new(TokioMutex::new(HashMap::new())),
         }
     }
@@ -511,6 +524,12 @@ impl DeviceRelationshipService {
             Ok(capability) => capability,
             Err(_) => return PairingRequestResponse::Rejected,
         };
+        let local_protocol = experimental_saved_device_capabilities().relationship_protocol_version;
+        // Peers without a compatible saved-device protocol cannot pair; they
+        // retain ordinary invitation flow outside this ALPN.
+        if request.protocol_version != local_protocol {
+            return PairingRequestResponse::Rejected;
+        }
         let accepted = match self
             .eligibility
             .validate_presented_capability(&remote_endpoint_id, &request.session_id, &capability)
@@ -567,6 +586,11 @@ impl DeviceRelationshipService {
             return PairingConsentResponse::AlreadySaved;
         }
         if row.state != DeviceRelationshipState::PendingOutgoing {
+            return PairingConsentResponse::Rejected;
+        }
+        if consent.protocol_version < row.minimum_protocol_version
+            || consent.generation != row.generation
+        {
             return PairingConsentResponse::Rejected;
         }
         if !consent.accepted {
@@ -895,6 +919,13 @@ impl DeviceRelationshipService {
                 "relationship generation mismatch"
             )));
         }
+        // Established relationships record a protocol floor and reject silent
+        // downgrade attempts (design §7 / §15).
+        if protocol_version < row.minimum_protocol_version {
+            return Err(VnidropError::protocol_incompatible(anyhow::anyhow!(
+                "relationship protocol downgrade is forbidden"
+            )));
+        }
         self.verify_issued_possession(
             peer_endpoint_id,
             challenge,
@@ -914,6 +945,24 @@ impl DeviceRelationshipService {
                 "peer is not a saved device"
             )));
         }
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn force_minimum_protocol_version_for_test(
+        &self,
+        peer_endpoint_id: &str,
+        minimum_protocol_version: u16,
+    ) -> Result<(), VnidropError> {
+        sqlx::query(
+            "UPDATE device_relationships SET minimum_protocol_version = ?2, updated_at = ?3 WHERE remote_endpoint_id = ?1",
+        )
+        .bind(peer_endpoint_id)
+        .bind(i64::from(minimum_protocol_version))
+        .bind(now_ms())
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
         Ok(())
     }
 
@@ -1158,13 +1207,21 @@ impl DeviceRelationshipService {
             .parse()
             .context("unusable peer endpoint id")
             .map_err(VnidropError::invalid_input)?;
-        if let Some(info) = self.endpoint.remote_info(parsed).await {
+        let raw = if let Some(info) = self.endpoint.remote_info(parsed).await {
             let mut addr = EndpointAddr::from(parsed);
             addr.addrs = info.addrs().map(|entry| entry.addr().clone()).collect();
             let _ = encode_persisted_sender_address(&addr);
-            return Ok(addr);
-        }
-        Ok(EndpointAddr::from(parsed))
+            addr
+        } else {
+            EndpointAddr::from(parsed)
+        };
+        filter_peer_addr_for_relay_mode(&raw, self.relay_mode, &self.custom_relay_urls).map_err(
+            |error| {
+                VnidropError::relay_policy_incompatible(anyhow::anyhow!(
+                    "peer address is unusable under the active network profile: {error}"
+                ))
+            },
+        )
     }
 
     fn emit_changed(&self, peer_endpoint_id: &str, state: DeviceRelationshipState) {

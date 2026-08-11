@@ -68,3 +68,29 @@ fn transfer_boundary_classifies_database_failures() {
     assert!(matches!(transfer, VnidropError::Repository { .. }));
     assert!(matches!(approval, VnidropError::Repository { .. }));
 }
+
+#[test]
+fn saved_device_failures_remain_distinguishable() {
+    let unavailable = VnidropError::device_unavailable(anyhow::anyhow!("offline"));
+    let timeout = VnidropError::offer_timeout(anyhow::anyhow!("no answer"));
+    let relay = VnidropError::relay_policy_incompatible(anyhow::anyhow!("profiles differ"));
+    let protocol = VnidropError::protocol_incompatible(anyhow::anyhow!("downgrade"));
+
+    assert_eq!(unavailable.code(), "device_unavailable");
+    assert_eq!(timeout.code(), "offer_timeout");
+    assert_eq!(relay.code(), "relay_policy_incompatible");
+    assert_eq!(protocol.code(), "protocol_incompatible");
+    assert!(matches!(
+        unavailable,
+        VnidropError::DeviceUnavailable { .. }
+    ));
+    assert!(matches!(timeout, VnidropError::OfferTimeout { .. }));
+    assert!(matches!(
+        relay,
+        VnidropError::RelayPolicyIncompatible { .. }
+    ));
+    assert!(matches!(
+        protocol,
+        VnidropError::ProtocolIncompatible { .. }
+    ));
+}

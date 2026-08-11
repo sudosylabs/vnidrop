@@ -77,6 +77,20 @@ impl VnidropCore {
         event_sink: Arc<dyn CoreEventSink>,
         store: Arc<dyn crate::secure_secret::SecureSecretStore>,
     ) -> Result<Arc<Self>, VnidropError> {
+        Self::initialize_with_test_secret_store_and_network(
+            app_data_dir,
+            event_sink,
+            store,
+            CoreNetworkConfig::default(),
+        )
+    }
+
+    pub(crate) fn initialize_with_test_secret_store_and_network(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        store: Arc<dyn crate::secure_secret::SecureSecretStore>,
+        network_config: CoreNetworkConfig,
+    ) -> Result<Arc<Self>, VnidropError> {
         let app_data_path = PathBuf::from(&app_data_dir);
         std::fs::create_dir_all(&app_data_path).map_err(VnidropError::filesystem)?;
         // In-process restart tests reopen the same directory immediately after
@@ -86,7 +100,7 @@ impl VnidropCore {
             app_data_dir,
             event_sink,
             CoreLimits::default(),
-            CoreNetworkConfig::default(),
+            network_config,
             IdentityMode::Protected {
                 store,
                 profile_lock,
@@ -158,6 +172,21 @@ impl VnidropCore {
 
     pub(crate) fn targeted_cancel_log_for_test(&self) -> Vec<String> {
         self.inner.targeted_cancel_log_for_test()
+    }
+
+    pub(crate) fn force_relationship_protocol_floor_for_test(
+        &self,
+        peer_endpoint_id: String,
+        minimum_protocol_version: u16,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .force_minimum_protocol_version_for_test(
+                    &peer_endpoint_id,
+                    minimum_protocol_version,
+                ),
+        )
     }
 }
 

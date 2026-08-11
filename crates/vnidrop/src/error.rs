@@ -16,6 +16,14 @@ pub enum VnidropError {
     StorageFull { reason: String },
     #[error("network error: {reason}")]
     Network { reason: String },
+    #[error("device unavailable: {reason}")]
+    DeviceUnavailable { reason: String },
+    #[error("offer timed out: {reason}")]
+    OfferTimeout { reason: String },
+    #[error("relay policy incompatible: {reason}")]
+    RelayPolicyIncompatible { reason: String },
+    #[error("protocol incompatible: {reason}")]
+    ProtocolIncompatible { reason: String },
     #[error("transfer error: {reason}")]
     Transfer { reason: String },
     #[error("permission error: {reason}")]
@@ -60,6 +68,24 @@ impl VnidropError {
         Self::from_error(error.into(), |reason| Self::Network { reason })
     }
 
+    pub(crate) fn device_unavailable(error: impl Into<anyhow::Error>) -> Self {
+        Self::from_error(error.into(), |reason| Self::DeviceUnavailable { reason })
+    }
+
+    pub(crate) fn offer_timeout(error: impl Into<anyhow::Error>) -> Self {
+        Self::from_error(error.into(), |reason| Self::OfferTimeout { reason })
+    }
+
+    pub(crate) fn relay_policy_incompatible(error: impl Into<anyhow::Error>) -> Self {
+        Self::from_error(error.into(), |reason| Self::RelayPolicyIncompatible {
+            reason,
+        })
+    }
+
+    pub(crate) fn protocol_incompatible(error: impl Into<anyhow::Error>) -> Self {
+        Self::from_error(error.into(), |reason| Self::ProtocolIncompatible { reason })
+    }
+
     pub(crate) fn transfer(error: impl Into<anyhow::Error>) -> Self {
         let error = error.into();
         Self::classify(error, |reason| Self::Transfer { reason })
@@ -96,6 +122,10 @@ impl VnidropError {
             Self::DestinationExists { .. } => "destination_exists",
             Self::StorageFull { .. } => "storage_full",
             Self::Network { .. } => "network",
+            Self::DeviceUnavailable { .. } => "device_unavailable",
+            Self::OfferTimeout { .. } => "offer_timeout",
+            Self::RelayPolicyIncompatible { .. } => "relay_policy_incompatible",
+            Self::ProtocolIncompatible { .. } => "protocol_incompatible",
             Self::Transfer { .. } => "transfer",
             Self::Permission { .. } => "permission_denied",
             Self::Repository { .. } => "repository",
@@ -119,6 +149,10 @@ impl VnidropError {
             | Self::DestinationExists { reason }
             | Self::StorageFull { reason }
             | Self::Network { reason }
+            | Self::DeviceUnavailable { reason }
+            | Self::OfferTimeout { reason }
+            | Self::RelayPolicyIncompatible { reason }
+            | Self::ProtocolIncompatible { reason }
             | Self::Transfer { reason }
             | Self::Permission { reason }
             | Self::Repository { reason }
@@ -176,6 +210,10 @@ impl VnidropError {
             Self::DestinationExists { .. } => Self::DestinationExists { reason },
             Self::StorageFull { .. } => Self::StorageFull { reason },
             Self::Network { .. } => Self::Network { reason },
+            Self::DeviceUnavailable { .. } => Self::DeviceUnavailable { reason },
+            Self::OfferTimeout { .. } => Self::OfferTimeout { reason },
+            Self::RelayPolicyIncompatible { .. } => Self::RelayPolicyIncompatible { reason },
+            Self::ProtocolIncompatible { .. } => Self::ProtocolIncompatible { reason },
             Self::Transfer { .. } => Self::Transfer { reason },
             Self::Permission { .. } => Self::Permission { reason },
             Self::Repository { .. } => Self::Repository { reason },

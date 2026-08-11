@@ -17,8 +17,8 @@ use crate::{
     targeted_transfer::{
         auth_secret_material,
         protocol::{
-            CancelTargetedOffer, DeliverTargetedAuthorization, SubmitTargetedOffer,
-            TargetedOfferResponse, TargetedTransferProtocol,
+            map_offer_refuse_reason, CancelTargetedOffer, DeliverTargetedAuthorization,
+            SubmitTargetedOffer, TargetedOfferResponse, TargetedTransferProtocol,
         },
         reconstruct_authorization, TargetedAuthorization, TargetedAuthorizationDraft,
         TargetedTransferRole, TargetedTransferRow, TargetedTransferStore,
@@ -212,12 +212,16 @@ impl CoreInner {
             Err(crate::targeted_transfer::RespondError::Unknown) => Err(
                 VnidropError::invalid_input(anyhow::anyhow!("unknown targeted offer")),
             ),
-            Err(crate::targeted_transfer::RespondError::SenderGone) => Err(VnidropError::network(
-                anyhow::anyhow!("sender disconnected before approval completed"),
-            )),
-            Err(crate::targeted_transfer::RespondError::AuthorizationTimeout) => Err(
-                VnidropError::network(anyhow::anyhow!("authorization was not delivered in time")),
-            ),
+            Err(crate::targeted_transfer::RespondError::SenderGone) => {
+                Err(VnidropError::device_unavailable(anyhow::anyhow!(
+                    "sender disconnected before approval completed"
+                )))
+            }
+            Err(crate::targeted_transfer::RespondError::AuthorizationTimeout) => {
+                Err(VnidropError::offer_timeout(anyhow::anyhow!(
+                    "authorization was not delivered in time"
+                )))
+            }
         }
     }
 
@@ -282,11 +286,34 @@ impl CoreInner {
             .peer_addr(&receiver_endpoint_id)
             .await?;
         let client = TargetedTransferProtocol::client(self.endpoint.clone(), addr);
-        let challenge = tokio::time::timeout(OFFER_CONNECT_TIMEOUT, client.request_challenge())
-            .await
-            .map_err(|_| VnidropError::network(anyhow::anyhow!("device did not answer in time")))?
-            .context("device is not reachable")
-            .map_err(VnidropError::network)?;
+        let challenge =
+            match tokio::time::timeout(OFFER_CONNECT_TIMEOUT, client.request_challenge()).await {
+                Ok(Ok(challenge)) => challenge,
+                Ok(Err(error)) => {
+                    let _ = store
+                        .set_state(
+                            &transfer_uuid,
+                            TargetedTransferState::Offering,
+                            TargetedTransferState::Failed,
+                        )
+                        .await;
+                    let _ = self.cancel_idle_or_share(protocol_transfer_id).await;
+                    return Err(map_connect_failure(error));
+                }
+                Err(_) => {
+                    let _ = store
+                        .set_state(
+                            &transfer_uuid,
+                            TargetedTransferState::Offering,
+                            TargetedTransferState::Failed,
+                        )
+                        .await;
+                    let _ = self.cancel_idle_or_share(protocol_transfer_id).await;
+                    return Err(VnidropError::device_unavailable(anyhow::anyhow!(
+                        "device did not answer in time"
+                    )));
+                }
+            };
 
         let (proof, generation, relationship_protocol_version) = self
             .device_relationships
@@ -303,7 +330,7 @@ impl CoreInner {
             )
             .await?;
 
-        let response = tokio::time::timeout(
+        let response = match tokio::time::timeout(
             OFFER_CONNECT_TIMEOUT + std::time::Duration::from_secs(120),
             client.submit_offer(SubmitTargetedOffer {
                 proof,
@@ -318,12 +345,42 @@ impl CoreInner {
                 transfer_name: share.transfer_name.clone(),
                 file_count: share.file_count,
                 total_size: share.total_size,
+                relay_mode: self.relay_mode,
+                relay_urls: self
+                    .custom_relay_urls
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
             }),
         )
         .await
-        .map_err(|_| VnidropError::network(anyhow::anyhow!("offer timed out")))?
-        .context("failed to submit targeted offer")
-        .map_err(VnidropError::network)?;
+        {
+            Ok(Ok(response)) => response,
+            Ok(Err(error)) => {
+                let _ = store
+                    .set_state(
+                        &transfer_uuid,
+                        TargetedTransferState::AwaitingApproval,
+                        TargetedTransferState::Failed,
+                    )
+                    .await;
+                let _ = self.cancel_idle_or_share(protocol_transfer_id).await;
+                return Err(map_connect_failure(error));
+            }
+            Err(_) => {
+                let _ = store
+                    .set_state(
+                        &transfer_uuid,
+                        TargetedTransferState::AwaitingApproval,
+                        TargetedTransferState::Failed,
+                    )
+                    .await;
+                let _ = self.cancel_idle_or_share(protocol_transfer_id).await;
+                return Err(VnidropError::offer_timeout(anyhow::anyhow!(
+                    "offer timed out"
+                )));
+            }
+        };
 
         match response {
             TargetedOfferResponse::Accepted => {}
@@ -349,9 +406,7 @@ impl CoreInner {
                     )
                     .await;
                 let _ = self.cancel_idle_or_share(protocol_transfer_id).await;
-                return Err(VnidropError::permission(anyhow::anyhow!(
-                    "targeted offer refused: {reason}"
-                )));
+                return Err(map_offer_refuse_reason(&reason));
             }
         }
 
@@ -662,6 +717,21 @@ fn allocate_protocol_transfer_id(transfer_uuid: &str) -> u64 {
     } else {
         value
     }
+}
+
+fn map_connect_failure(error: irpc::Error) -> VnidropError {
+    let rendered = error.to_string();
+    // ALPN / protocol negotiation failures are distinguishable from offline peers.
+    if rendered.contains("ALPN")
+        || rendered.contains("alpn")
+        || rendered.contains("protocol")
+        || rendered.contains("unsupported")
+    {
+        return VnidropError::protocol_incompatible(anyhow::anyhow!(
+            "peer does not support saved-device targeted transfers"
+        ));
+    }
+    VnidropError::device_unavailable(anyhow::anyhow!("device is not reachable: {rendered}"))
 }
 
 trait BlobTicketParse {

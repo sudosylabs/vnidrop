@@ -397,6 +397,27 @@ impl VnidropCore {
         self.block_on(self.inner.request_saved_device_pairing(peer_endpoint_id))
     }
 
+    pub fn list_device_relationships(
+        &self,
+    ) -> Result<Vec<crate::api::DeviceRelationship>, VnidropError> {
+        self.block_on(self.inner.list_device_relationships())
+    }
+
+    pub fn list_saved_devices(&self) -> Result<Vec<crate::api::SavedDevice>, VnidropError> {
+        self.block_on(self.inner.list_saved_devices())
+    }
+
+    pub fn respond_to_device_pairing(
+        &self,
+        peer_endpoint_id: String,
+        accepted: bool,
+    ) -> Result<bool, VnidropError> {
+        self.block_on(
+            self.inner
+                .respond_to_device_pairing(peer_endpoint_id, accepted),
+        )
+    }
+
     /// Devices the user has chosen to remember.
     pub fn list_contacts(&self) -> Result<Vec<ContactSummary>, VnidropError> {
         self.block_on(self.inner.list_contacts())

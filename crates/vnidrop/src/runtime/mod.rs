@@ -56,6 +56,7 @@ use crate::{
     access_policy::{mode_from_storage, AccessPolicy},
     api::{CoreEvent, CoreEventSink, CoreLimits, CoreRelayMode},
     approval::ApprovalService,
+    device_relationship::{DeviceRelationshipService, RelationshipProtocol},
     event_hub::EventHub,
     handshake::HandshakeService,
     logging::init_logging,
@@ -106,6 +107,7 @@ pub(super) struct CoreInner {
     pub(super) approval: ApprovalService,
     pub(super) pairing: PairingService,
     pub(super) pairing_eligibility: PairingEligibilityService,
+    pub(super) device_relationships: Arc<DeviceRelationshipService>,
     pub(super) offers: OfferInbox,
     /// Endpoint → last poll time, for the rate limit above.
     pub(super) last_polled: TokioMutex<HashMap<String, i64>>,
@@ -385,12 +387,24 @@ impl CoreInner {
             tracing::warn!(%error, "failed to sweep dead grants");
         }
         let offers = OfferInbox::new(event_hub.clone(), limits.max_pending_offers as usize);
+        let device_relationships = Arc::new(DeviceRelationshipService::new(
+            repository.sqlite_pool(),
+            secret_custody.clone(),
+            pairing_eligibility.clone(),
+            event_hub.clone(),
+            endpoint.id().to_string(),
+            endpoint.clone(),
+        ));
         let router = Router::builder(endpoint.clone())
             .accept(iroh_blobs::ALPN, blobs)
             .accept(HandshakeService::ALPN, handshake)
             .accept(
                 OfferService::ALPN,
                 OfferService::new(pairing.clone(), offers.clone(), endpoint.id().to_string()),
+            )
+            .accept(
+                RelationshipProtocol::ALPN,
+                RelationshipProtocol::new(device_relationships.clone()),
             )
             .spawn();
 
@@ -405,6 +419,7 @@ impl CoreInner {
             approval,
             pairing,
             pairing_eligibility,
+            device_relationships,
             offers,
             last_polled: TokioMutex::new(HashMap::new()),
             relay_mode,
@@ -435,6 +450,9 @@ impl CoreInner {
         inner.spawn_delivery_receipt_task().await;
         if let Err(error) = inner.pairing_eligibility.reconcile().await {
             tracing::warn!(%error, "failed to reconcile pairing eligibility");
+        }
+        if let Err(error) = inner.device_relationships.reconcile().await {
+            tracing::warn!(%error, "failed to reconcile device relationships");
         }
         Ok(inner)
     }

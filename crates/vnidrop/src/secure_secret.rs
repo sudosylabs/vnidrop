@@ -52,6 +52,14 @@ impl SecretMaterial {
         let bytes: [u8; SECRET_BYTES] = self.0.try_into().expect("validated length");
         SecretKey::from_bytes(&bytes)
     }
+
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+
+    pub(crate) fn to_vec(&self) -> Vec<u8> {
+        self.0.clone()
+    }
 }
 
 impl fmt::Debug for SecretMaterial {

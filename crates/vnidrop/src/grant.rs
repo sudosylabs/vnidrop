@@ -64,6 +64,14 @@ impl GrantSecret {
         Self(random_bytes())
     }
 
+    pub(crate) fn as_bytes(&self) -> &[u8; GRANT_SECRET_LEN] {
+        &self.0
+    }
+
+    pub(crate) fn from_bytes(bytes: [u8; GRANT_SECRET_LEN]) -> Self {
+        Self(bytes)
+    }
+
     pub(crate) fn encode(&self) -> String {
         HEXLOWER.encode(&self.0)
     }
@@ -96,9 +104,27 @@ impl Challenge {
         Self(random_bytes())
     }
 
+    pub(crate) fn as_bytes(&self) -> &[u8; CHALLENGE_LEN] {
+        &self.0
+    }
+
     #[cfg(test)]
     pub(crate) fn from_bytes(bytes: [u8; CHALLENGE_LEN]) -> Self {
         Self(bytes)
+    }
+
+    pub(crate) fn encode(&self) -> String {
+        HEXLOWER.encode(&self.0)
+    }
+
+    pub(crate) fn decode(value: &str) -> Result<Self> {
+        let bytes = HEXLOWER
+            .decode(value.as_bytes())
+            .context("invalid challenge encoding")?;
+        let bytes: [u8; CHALLENGE_LEN] = bytes
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("invalid challenge length"))?;
+        Ok(Self(bytes))
     }
 }
 
@@ -113,6 +139,16 @@ impl fmt::Debug for Challenge {
 pub(crate) struct GrantProof {
     pub(crate) grant_id: GrantId,
     mac: [u8; PROOF_LEN],
+}
+
+impl GrantProof {
+    pub(crate) fn from_parts(grant_id: GrantId, mac: [u8; PROOF_LEN]) -> Self {
+        Self { grant_id, mac }
+    }
+
+    pub(crate) fn mac(&self) -> &[u8; PROOF_LEN] {
+        &self.mac
+    }
 }
 
 impl fmt::Debug for GrantProof {

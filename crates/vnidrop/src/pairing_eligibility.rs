@@ -148,24 +148,54 @@ impl PairingEligibilityService {
     ///
     /// Returns `false` when eligibility is missing/expired (silent reject). A
     /// successful start consumes the single-use eligibility for that session.
+    #[allow(
+        dead_code,
+        reason = "retained for eligibility-only callers; mutual consent uses take_eligibility"
+    )]
     pub(crate) async fn request_pairing(
         &self,
         peer_endpoint_id: &str,
     ) -> Result<bool, VnidropError> {
+        Ok(self.take_eligibility(peer_endpoint_id).await?.is_some())
+    }
+
+    /// Takes and consumes eligibility for a peer, returning the capability material.
+    pub(crate) async fn take_eligibility(
+        &self,
+        peer_endpoint_id: &str,
+    ) -> Result<Option<TakenEligibility>, VnidropError> {
         self.expire_due(true).await?;
         let entries = self
             .repository
             .list_pairing_eligibilities_for_peer(peer_endpoint_id)
             .await?;
         let Some(entry) = entries.into_iter().next() else {
-            return Ok(false);
+            return Ok(None);
         };
         if entry.expires_at <= now_ms() {
             self.delete_entry_silent(&entry).await?;
-            return Ok(false);
+            return Ok(None);
         }
+        let Some(custody) = &self.custody else {
+            self.delete_entry_silent(&entry).await?;
+            return Ok(None);
+        };
+        let capability = match custody
+            .load(&SecretHandle::from_stored(entry.secret_handle.clone()))
+            .await
+        {
+            Ok(material) => material,
+            Err(_) => {
+                self.delete_entry_silent(&entry).await?;
+                return Ok(None);
+            }
+        };
         self.delete_entry(&entry).await?;
-        Ok(true)
+        Ok(Some(TakenEligibility {
+            session_id: entry.session_id,
+            protocol_version: entry.protocol_version,
+            capability,
+        }))
     }
 
     /// Validates an inbound eligibility presentation without prompts or events on failure.
@@ -187,6 +217,24 @@ impl PairingEligibilityService {
         };
         self.delete_entry(&entry).await?;
         Ok(true)
+    }
+
+    /// Consumes eligibility for one session without requiring the capability bytes.
+    pub(crate) async fn consume_session(
+        &self,
+        peer_endpoint_id: &str,
+        session_id: &str,
+    ) -> Result<(), VnidropError> {
+        if let Some(entry) = self
+            .repository
+            .find_pairing_eligibility_by_session(session_id)
+            .await?
+        {
+            if entry.peer_endpoint_id == peer_endpoint_id {
+                self.delete_entry(&entry).await?;
+            }
+        }
+        Ok(())
     }
 
     pub(crate) async fn decline(&self, peer_endpoint_id: &str) -> Result<(), VnidropError> {
@@ -302,6 +350,13 @@ pub(crate) struct PairingEligibilityInsert<'a> {
     pub(crate) secret_handle: &'a str,
     pub(crate) created_at: i64,
     pub(crate) expires_at: i64,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct TakenEligibility {
+    pub(crate) session_id: String,
+    pub(crate) protocol_version: u16,
+    pub(crate) capability: SecretMaterial,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

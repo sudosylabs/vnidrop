@@ -59,8 +59,30 @@ impl CoreInner {
         &self,
         peer_endpoint_id: String,
     ) -> Result<bool, crate::error::VnidropError> {
-        self.pairing_eligibility
-            .request_pairing(&peer_endpoint_id)
+        self.device_relationships
+            .request_pairing(peer_endpoint_id)
+            .await
+    }
+
+    pub(super) async fn list_device_relationships(
+        &self,
+    ) -> Result<Vec<crate::api::DeviceRelationship>, crate::error::VnidropError> {
+        self.device_relationships.list().await
+    }
+
+    pub(super) async fn list_saved_devices(
+        &self,
+    ) -> Result<Vec<crate::api::SavedDevice>, crate::error::VnidropError> {
+        self.device_relationships.list_saved_devices().await
+    }
+
+    pub(super) async fn respond_to_device_pairing(
+        self: &Arc<Self>,
+        peer_endpoint_id: String,
+        accepted: bool,
+    ) -> Result<bool, crate::error::VnidropError> {
+        self.device_relationships
+            .respond_to_pairing(peer_endpoint_id, accepted)
             .await
     }
 

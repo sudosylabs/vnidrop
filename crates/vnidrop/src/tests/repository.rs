@@ -66,7 +66,7 @@ async fn received_artifacts_survive_history_deletion() {
 async fn persists_transfers_and_events_across_reopen() {
     let temp = tempfile::tempdir().unwrap();
     let repository = Repository::open(temp.path()).await.unwrap();
-    assert_eq!(repository.schema_version().await.unwrap(), 11);
+    assert_eq!(repository.schema_version().await.unwrap(), 13);
     repository
         .insert_transfer(transfer(
             7,
@@ -645,7 +645,7 @@ async fn migrates_schema_v2_identity_without_losing_transfer() {
     pool.close().await;
 
     let repository = Repository::open(temp.path()).await.unwrap();
-    assert_eq!(repository.schema_version().await.unwrap(), 11);
+    assert_eq!(repository.schema_version().await.unwrap(), 13);
     let stored = repository.list_transfers().await.unwrap().remove(0);
     assert_eq!(stored.transfer_id, 7);
     assert_eq!(stored.local_id, "legacy-7-send");

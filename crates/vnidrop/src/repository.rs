@@ -26,7 +26,7 @@ use crate::{
     util::now_ms,
 };
 
-const SCHEMA_VERSION: i64 = 11;
+const SCHEMA_VERSION: i64 = 13;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Repository {
@@ -323,6 +323,7 @@ impl Repository {
 
         crate::contacts::ensure_schema(&self.pool).await?;
         crate::secure_secret::ensure_schema(&self.pool).await?;
+        crate::device_relationship::DeviceRelationshipService::ensure_schema(&self.pool).await?;
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS pairing_eligibilities (
@@ -356,6 +357,10 @@ impl Repository {
     /// tables migrate together with the rest of the schema.
     pub(crate) fn contacts(&self) -> ContactStore {
         ContactStore::new(self.pool.clone())
+    }
+
+    pub(crate) fn sqlite_pool(&self) -> SqlitePool {
+        self.pool.clone()
     }
 
     #[allow(

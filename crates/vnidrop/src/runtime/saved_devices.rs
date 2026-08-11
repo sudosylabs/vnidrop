@@ -49,8 +49,7 @@ impl CoreInner {
         accepted: bool,
     ) -> Result<bool, crate::error::VnidropError> {
         if self
-            .repository
-            .blocked_devices()
+            .blocked_devices
             .is_blocked(&peer_endpoint_id)
             .await
             .unwrap_or(true)
@@ -97,8 +96,7 @@ impl CoreInner {
         peer_endpoint_id: String,
     ) -> Result<(), crate::error::VnidropError> {
         let now = now_ms();
-        self.repository
-            .blocked_devices()
+        self.blocked_devices
             .block_endpoint(&peer_endpoint_id, now)
             .await
             .map_err(VnidropError::repository)?;
@@ -120,8 +118,7 @@ impl CoreInner {
         &self,
         peer_endpoint_id: String,
     ) -> Result<(), crate::error::VnidropError> {
-        self.repository
-            .blocked_devices()
+        self.blocked_devices
             .unblock_endpoint(&peer_endpoint_id)
             .await
             .map_err(VnidropError::repository)?;
@@ -132,8 +129,7 @@ impl CoreInner {
     pub(super) async fn list_blocked_devices(
         &self,
     ) -> Result<Vec<String>, crate::error::VnidropError> {
-        self.repository
-            .blocked_devices()
+        self.blocked_devices
             .list_blocked()
             .await
             .map_err(VnidropError::repository)

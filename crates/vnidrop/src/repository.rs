@@ -1,4 +1,5 @@
-use std::{path::Path, str::FromStr};
+#[cfg(test)]
+use std::path::Path;
 
 #[cfg(test)]
 use std::sync::{
@@ -7,10 +8,7 @@ use std::sync::{
 };
 
 use anyhow::{Context, Result};
-use sqlx::{
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
-    Row, SqlitePool,
-};
+use sqlx::{Row, SqlitePool};
 use uuid::Uuid;
 
 use crate::{
@@ -105,27 +103,23 @@ pub(crate) struct PendingDeliveryReceiptInsert<'a> {
 }
 
 impl Repository {
-    pub(crate) async fn open(app_data_dir: &Path) -> Result<Self> {
-        let db_path = app_data_dir.join("vnidrop.sqlite3");
-        let options = SqliteConnectOptions::from_str("sqlite://")?
-            .filename(db_path)
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(4)
-            .connect_with(options)
-            .await?;
-        let repository = Self {
+    pub(crate) fn from_pool(pool: SqlitePool) -> Self {
+        Self {
             pool,
             #[cfg(test)]
             fail_next_write: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             fail_receive_history_after_dependants: Arc::new(AtomicBool::new(false)),
-        };
-        repository.ensure_schema().await?;
-        Ok(repository)
+        }
     }
 
-    async fn ensure_schema(&self) -> Result<()> {
+    /// Test/helper entry: opens [`AppDataStores`] and returns the invitation store.
+    #[cfg(test)]
+    pub(crate) async fn open(app_data_dir: &Path) -> Result<Self> {
+        Ok(crate::persistence::open_all(app_data_dir).await?.invitation)
+    }
+
+    pub(crate) async fn ensure_schema(&self) -> Result<()> {
         // The app owns this SQLite file.  Keep migrations explicit so future
         // desktop/mobile releases can move user history forward in place.
         sqlx::query(
@@ -372,10 +366,6 @@ impl Repository {
     /// Identity-wide deny list for saved-device and invitation traffic.
     pub(crate) fn blocked_devices(&self) -> BlockStore {
         BlockStore::new(self.pool.clone())
-    }
-
-    pub(crate) fn sqlite_pool(&self) -> SqlitePool {
-        self.pool.clone()
     }
 
     #[allow(

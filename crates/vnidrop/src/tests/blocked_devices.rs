@@ -1,8 +1,7 @@
-use crate::{blocked_devices::BlockStore, repository::Repository};
+use crate::{blocked_devices::BlockStore, persistence, repository::Repository};
 
 async fn store(temp: &tempfile::TempDir) -> BlockStore {
-    let repository = Repository::open(temp.path()).await.unwrap();
-    repository.blocked_devices()
+    persistence::open_all(temp.path()).await.unwrap().blocked
 }
 
 #[tokio::test]
@@ -24,7 +23,7 @@ async fn block_list_persists_and_unblocks() {
 }
 
 #[tokio::test]
-async fn opening_repository_drops_unreleased_prototype_tables() {
+async fn opening_app_data_drops_unreleased_prototype_tables() {
     let temp = tempfile::tempdir().unwrap();
     let db = temp.path().join("vnidrop.sqlite3");
     {
@@ -45,8 +44,8 @@ async fn opening_repository_drops_unreleased_prototype_tables() {
         }
     }
 
-    let repository = Repository::open(temp.path()).await.unwrap();
-    let pool = repository.sqlite_pool();
+    let stores = persistence::open_all(temp.path()).await.unwrap();
+    let pool = stores.pool_for_unmigrated();
     for table in ["contacts", "grants_issued", "grants_held", "held_offers"] {
         let row = sqlx::query(&format!(
             "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = '{table}'"
@@ -58,9 +57,7 @@ async fn opening_repository_drops_unreleased_prototype_tables() {
         assert_eq!(n, 0, "{table} must be dropped without migration");
     }
 
-    assert!(repository
-        .blocked_devices()
-        .is_blocked("keep-me")
-        .await
-        .unwrap());
+    assert!(stores.blocked.is_blocked("keep-me").await.unwrap());
+    // Invitation repository remains reachable from the bag.
+    let _ = Repository::open(temp.path()).await.unwrap();
 }

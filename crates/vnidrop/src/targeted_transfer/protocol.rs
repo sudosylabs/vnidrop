@@ -55,7 +55,7 @@ impl TargetedTransferProtocol {
     pub(crate) fn new(
         relationships: std::sync::Arc<DeviceRelationshipService>,
         inbox: TargetedOfferInbox,
-        pool: sqlx::SqlitePool,
+        store: TargetedTransferStore,
         limits: crate::api::CoreLimits,
         local_endpoint_id: String,
         relay_mode: CoreRelayMode,
@@ -64,7 +64,7 @@ impl TargetedTransferProtocol {
         Self {
             relationships,
             inbox,
-            store: TargetedTransferStore::new(pool),
+            store,
             limits,
             local_endpoint_id,
             relay_mode,

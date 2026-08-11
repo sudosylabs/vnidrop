@@ -96,6 +96,8 @@ pub(super) struct CoreInner {
     pub(super) router: Router,
     pub(super) store: FsStore,
     pub(super) repository: Repository,
+    pub(super) targeted_transfers: crate::targeted_transfer::TargetedTransferStore,
+    pub(super) blocked_devices: crate::blocked_devices::BlockStore,
     _profile_lock: Option<ProfileLock>,
     pub(super) secret_custody: Option<Arc<crate::secure_secret::SecretCustody>>,
     pub(super) event_hub: Arc<EventHub>,
@@ -150,7 +152,10 @@ impl CoreInner {
     ) -> Result<Arc<Self>> {
         tokio::fs::create_dir_all(&app_data_dir).await?;
         init_logging(&app_data_dir)?;
-        let repository = Repository::open(&app_data_dir).await?;
+        let stores = crate::persistence::open_all(&app_data_dir).await?;
+        let repository = stores.invitation.clone();
+        let targeted_transfers = stores.targeted.clone();
+        let blocked_devices = stores.blocked.clone();
         let (secret_key, secret_custody, profile_lock) = match identity_mode {
             IdentityMode::Legacy => (load_or_create_secret(&app_data_dir).await?, None, None),
             IdentityMode::Protected {
@@ -378,7 +383,7 @@ impl CoreInner {
             limits.offer_timeout_ms,
         );
         let device_relationships = Arc::new(DeviceRelationshipService::new(
-            repository.sqlite_pool(),
+            stores.pool_for_unmigrated(),
             secret_custody.clone(),
             pairing_eligibility.clone(),
             event_hub.clone(),
@@ -401,7 +406,7 @@ impl CoreInner {
                 TargetedTransferProtocol::new(
                     device_relationships.clone(),
                     targeted_offers.clone(),
-                    repository.sqlite_pool(),
+                    targeted_transfers.clone(),
                     limits.clone(),
                     endpoint.id().to_string(),
                     relay_mode,
@@ -416,6 +421,8 @@ impl CoreInner {
             router,
             store,
             repository,
+            targeted_transfers,
+            blocked_devices,
             _profile_lock: profile_lock,
             secret_custody: secret_custody.clone(),
             event_hub,

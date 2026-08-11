@@ -54,8 +54,15 @@ src/
     receive.rs    # receive, download, export, OutputSinkFile
     lifecycle.rs  # cancel share, delete, status, access mode, shutdown
     provider.rs   # provider messages, per-peer transfer progress
+    saved_devices.rs # experimental saved-device pairing, forget, block
+    targeted.rs   # saved-device targeted transfers
+  persistence.rs  # AppDataStores / persistence open (domain stores)
+  repository.rs   # invitation-transfer domain store (not raw pool export)
+  device_relationship/ # mutual consent + grants
+  targeted_transfer/   # targeted protocol + store adapter
+  blocked_devices.rs
+  secure_secret/  # custody + platform credential adapters
   filesystem.rs   # collect sources, atomic publish, path rules
-  repository.rs   # SQLite
   approval.rs / handshake.rs / ticket.rs / access_policy.rs / event_hub.rs
   api.rs          # UniFFI records/enums
   tests/          # crate-private unit tests
@@ -63,7 +70,8 @@ tests/            # public-API integration tests + support/
 ```
 
 **Do not** reassemble a single huge `runtime.rs`. Prefer new focused modules if a
-file approaches ~800 LoC of non-test code.
+file approaches ~800 LoC of non-test code. Do not add new `SqlitePool` call sites —
+open domain stores via `persistence::open_all`.
 
 ---
 

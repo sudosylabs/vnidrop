@@ -21,7 +21,7 @@ use crate::{
             SubmitTargetedOffer, TargetedOfferResponse, TargetedTransferProtocol,
         },
         reconstruct_authorization, TargetedAuthorization, TargetedAuthorizationDraft,
-        TargetedTransferRole, TargetedTransferRow, TargetedTransferStore,
+        TargetedTransferRole, TargetedTransferRow,
     },
     ticket::VnidropTicket,
     util::{non_empty, now_ms},
@@ -36,8 +36,8 @@ impl CoreInner {
         std::time::Duration::from_millis(self.limits.offer_timeout_ms)
     }
 
-    pub(super) fn targeted_store(&self) -> TargetedTransferStore {
-        TargetedTransferStore::new(self.repository.sqlite_pool())
+    pub(super) fn targeted_store(&self) -> crate::targeted_transfer::TargetedTransferStore {
+        self.targeted_transfers.clone()
     }
 
     pub(super) async fn list_pending_targeted_offers(&self) -> Vec<PendingTargetedOffer> {

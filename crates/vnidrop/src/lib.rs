@@ -11,6 +11,7 @@ mod grant;
 mod handshake;
 mod logging;
 mod pairing_eligibility;
+mod persistence;
 mod repository;
 mod runtime;
 mod secret;

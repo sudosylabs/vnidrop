@@ -27,6 +27,18 @@ pub fn experimental_saved_device_capabilities() -> ExperimentalSavedDeviceCapabi
     }
 }
 
+/// Public view of a single-use pairing window after a completed transfer.
+///
+/// The eligibility capability itself never crosses this boundary.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct PairingEligibilitySummary {
+    pub peer_endpoint_id: String,
+    pub session_id: String,
+    pub protocol_version: u16,
+    pub created_at: i64,
+    pub expires_at: i64,
+}
+
 /// A remote VniDrop app-installation identity that completed mutual consent.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
 pub struct SavedDevice {

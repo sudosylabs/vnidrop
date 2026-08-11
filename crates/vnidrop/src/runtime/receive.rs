@@ -419,6 +419,18 @@ impl CoreInner {
             })
             .await
             .map_err(VnidropError::repository)?;
+        let peer_endpoint_id = sender_addr.id.to_string();
+        if let Err(error) = self
+            .pairing_eligibility
+            .activate_after_completed_transfer(
+                &peer_endpoint_id,
+                &delivery_receipt.request_id,
+                &delivery_receipt.token,
+            )
+            .await
+        {
+            tracing::warn!(%error, "failed to activate pairing eligibility after receive");
+        }
         pending_delivery_receipt
             .lock()
             .expect("pending_delivery_receipt")

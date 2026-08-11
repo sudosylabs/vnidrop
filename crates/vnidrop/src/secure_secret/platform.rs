@@ -36,6 +36,20 @@ pub(crate) fn lock_profile(app_data_dir: &Path) -> Result<ProfileLock, VnidropEr
     Ok(ProfileLock { _file: file })
 }
 
+/// Opens the profile marker without locking so in-process restart tests can
+/// reopen the same directory after dropping the previous core.
+#[cfg(test)]
+pub(crate) fn unlocked_profile_for_test(app_data_dir: &Path) -> Result<ProfileLock, VnidropError> {
+    let file = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(app_data_dir.join("protected-secrets.lock"))
+        .map_err(VnidropError::filesystem)?;
+    Ok(ProfileLock { _file: file })
+}
+
 impl ScopedSecretStore {
     fn new(app_data_dir: &Path, inner: Arc<dyn SecureSecretStore>) -> Self {
         let profile = blake3::hash(app_data_dir.to_string_lossy().as_bytes()).to_hex();

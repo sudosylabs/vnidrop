@@ -12,6 +12,7 @@ use crate::{
         DeliveryFailureReceipt, DeliveryReceipt, DeliveryReceiptResponse, HandshakeResponse,
         RequestTransfer,
     },
+    pairing_eligibility::PairingEligibilityService,
     repository::{ReceiverRequestInsert, Repository},
     transfer_state::ReceiverRequestStatus,
     util::now_ms,
@@ -35,6 +36,7 @@ pub(crate) struct ApprovalService {
     pending: Arc<Mutex<HashMap<String, oneshot::Sender<ApprovalDecision>>>>,
     max_pending: usize,
     max_metadata_bytes: u64,
+    pairing_eligibility: Option<PairingEligibilityService>,
 }
 
 impl ApprovalService {
@@ -55,6 +57,18 @@ impl ApprovalService {
             .await
         {
             Ok(()) => {
+                if let Some(eligibility) = &self.pairing_eligibility {
+                    if let Err(error) = eligibility
+                        .activate_after_completed_transfer(
+                            &remote_endpoint_id,
+                            &receipt.request_id,
+                            &receipt.token,
+                        )
+                        .await
+                    {
+                        tracing::warn!(%error, "failed to activate pairing eligibility after delivery");
+                    }
+                }
                 self.event_hub.emit_transfer(
 					receipt.transfer_id,
 					"send",
@@ -119,6 +133,7 @@ impl ApprovalService {
         access_policy: Arc<AccessPolicy>,
         max_pending: usize,
         max_metadata_bytes: u64,
+        pairing_eligibility: Option<PairingEligibilityService>,
     ) -> Self {
         Self {
             repository,
@@ -127,6 +142,7 @@ impl ApprovalService {
             pending: Arc::new(Mutex::new(HashMap::new())),
             max_pending,
             max_metadata_bytes,
+            pairing_eligibility,
         }
     }
 

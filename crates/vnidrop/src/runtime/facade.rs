@@ -7,10 +7,10 @@ use super::{CoreInner, IdentityMode};
 use crate::{
     api::{
         ContactSendResult, ContactSummary, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig,
-        CoreStorageUsage, GrantLifetimeSetting, HeldOfferSummary, IncomingOffer, PendingPairing,
-        ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact, ReceiverRequest, RuntimeStatus,
-        ShareMetadataInput, ShareResult, ShareSource, StoredTransfer, TicketInspection,
-        TransferAccessMode,
+        CoreStorageUsage, GrantLifetimeSetting, HeldOfferSummary, IncomingOffer,
+        PairingEligibilitySummary, PendingPairing, ReceiveOutputSink, ReceiveOutputSinkV2,
+        ReceivedArtifact, ReceiverRequest, RuntimeStatus, ShareMetadataInput, ShareResult,
+        ShareSource, StoredTransfer, TicketInspection, TransferAccessMode,
     },
     error::VnidropError,
     filesystem::platform_path,
@@ -18,6 +18,9 @@ use crate::{
     ticket::parse_transfer_ticket_with_limits,
     transfer_state::{TransferDirection, TransferStatus},
 };
+
+#[cfg(test)]
+use crate::secure_secret::unlocked_profile_for_test;
 
 #[derive(uniffi::Object)]
 pub struct VnidropCore {
@@ -63,6 +66,57 @@ impl VnidropCore {
             ))
             .map_err(VnidropError::initialization)?;
         Ok(Arc::new(Self { runtime, inner }))
+    }
+}
+
+#[cfg(test)]
+impl VnidropCore {
+    /// Test-only protected identity with an injected secret store.
+    pub(crate) fn initialize_with_test_secret_store(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        store: Arc<dyn crate::secure_secret::SecureSecretStore>,
+    ) -> Result<Arc<Self>, VnidropError> {
+        let app_data_path = PathBuf::from(&app_data_dir);
+        std::fs::create_dir_all(&app_data_path).map_err(VnidropError::filesystem)?;
+        // In-process restart tests reopen the same directory immediately after
+        // drop; skip exclusive locking and rely on the injected store instead.
+        let profile_lock = unlocked_profile_for_test(&app_data_path)?;
+        Self::initialize_with_identity_mode(
+            app_data_dir,
+            event_sink,
+            CoreLimits::default(),
+            CoreNetworkConfig::default(),
+            IdentityMode::Protected {
+                store,
+                profile_lock,
+            },
+        )
+    }
+
+    pub(crate) fn force_pairing_eligibility_expiry_for_test(
+        &self,
+        session_id: String,
+        expires_at: i64,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .repository
+                .force_pairing_eligibility_expiry_for_test(&session_id, expires_at),
+        )
+    }
+
+    pub(crate) fn submit_pairing_eligibility_for_test(
+        &self,
+        peer_endpoint_id: String,
+        session_id: String,
+        capability: Vec<u8>,
+    ) -> Result<bool, VnidropError> {
+        self.block_on(self.inner.submit_pairing_eligibility_for_test(
+            peer_endpoint_id,
+            session_id,
+            capability,
+        ))
     }
 }
 
@@ -313,6 +367,34 @@ impl VnidropCore {
     ) -> Result<(), VnidropError> {
         self.block_on(self.inner.approval.respond(request_id, accepted, reason))
             .map_err(VnidropError::permission)
+    }
+
+    /// Single-use pairing windows created by completed authenticated transfers.
+    ///
+    /// Returns eligibility state only — never the capability material.
+    pub fn list_pairing_eligibilities(
+        &self,
+    ) -> Result<Vec<PairingEligibilitySummary>, VnidropError> {
+        self.block_on(self.inner.list_pairing_eligibilities())
+    }
+
+    /// Declines and removes pairing eligibility for a peer. Idempotent.
+    pub fn decline_pairing_eligibility(
+        &self,
+        peer_endpoint_id: String,
+    ) -> Result<(), VnidropError> {
+        self.block_on(self.inner.decline_pairing_eligibility(peer_endpoint_id))
+    }
+
+    /// Initiates saved-device pairing when local eligibility exists.
+    ///
+    /// Returns `false` when eligibility is missing or already consumed. Invalid
+    /// attempts produce no pairing prompt.
+    pub fn request_saved_device_pairing(
+        &self,
+        peer_endpoint_id: String,
+    ) -> Result<bool, VnidropError> {
+        self.block_on(self.inner.request_saved_device_pairing(peer_endpoint_id))
     }
 
     /// Devices the user has chosen to remember.

@@ -47,6 +47,10 @@ enum EventPhase {
     Transfer,
     /// Delivery receipts from receivers (completed download acknowledgements).
     Delivery,
+    /// Saved-device pairing eligibility and consent prompts.
+    Pairing,
+    /// Prototype contact lifecycle notifications.
+    Contacts,
 }
 
 impl EventPhase {
@@ -68,6 +72,8 @@ impl EventPhase {
             "approval" => Some(Self::Approval),
             "transfer" => Some(Self::Transfer),
             "delivery" => Some(Self::Delivery),
+            "pairing" => Some(Self::Pairing),
+            "contacts" => Some(Self::Contacts),
             _ => None,
         }
     }
@@ -90,6 +96,8 @@ impl EventPhase {
             Self::Approval => "approval",
             Self::Transfer => "transfer",
             Self::Delivery => "delivery",
+            Self::Pairing => "pairing",
+            Self::Contacts => "contacts",
         }
     }
 }

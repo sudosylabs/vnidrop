@@ -42,6 +42,41 @@ pub(crate) fn should_poll(last_polled_ms: Option<i64>, now_ms: i64) -> bool {
 }
 
 impl CoreInner {
+    pub(super) async fn list_pairing_eligibilities(
+        &self,
+    ) -> Result<Vec<crate::api::PairingEligibilitySummary>, crate::error::VnidropError> {
+        self.pairing_eligibility.list().await
+    }
+
+    pub(super) async fn decline_pairing_eligibility(
+        &self,
+        peer_endpoint_id: String,
+    ) -> Result<(), crate::error::VnidropError> {
+        self.pairing_eligibility.decline(&peer_endpoint_id).await
+    }
+
+    pub(super) async fn request_saved_device_pairing(
+        &self,
+        peer_endpoint_id: String,
+    ) -> Result<bool, crate::error::VnidropError> {
+        self.pairing_eligibility
+            .request_pairing(&peer_endpoint_id)
+            .await
+    }
+
+    #[cfg(test)]
+    pub(super) async fn submit_pairing_eligibility_for_test(
+        &self,
+        peer_endpoint_id: String,
+        session_id: String,
+        capability: Vec<u8>,
+    ) -> Result<bool, crate::error::VnidropError> {
+        let material = crate::secure_secret::SecretMaterial::new(capability)?;
+        self.pairing_eligibility
+            .accept_presented_eligibility(&peer_endpoint_id, &session_id, &material)
+            .await
+    }
+
     pub(super) async fn list_contacts(&self) -> Result<Vec<ContactSummary>> {
         let contacts = self
             .repository
@@ -531,6 +566,10 @@ impl CoreInner {
         // A prompt on screen from a device we just forgot would be actionable
         // with a grant that no longer exists.
         self.offers.discard_from(&endpoint_id).await;
+        self.pairing_eligibility
+            .remove_for_peer(&endpoint_id)
+            .await
+            .map_err(anyhow::Error::from)?;
         self.emit_endpoint(
             "contacts",
             "contact-forgotten",
@@ -555,6 +594,10 @@ impl CoreInner {
         for contact in &contacts {
             self.offers.discard_from(&contact.endpoint_id).await;
         }
+        self.pairing_eligibility
+            .remove_all()
+            .await
+            .map_err(anyhow::Error::from)?;
         self.emit_endpoint(
             "contacts",
             "contacts-cleared",
@@ -582,6 +625,10 @@ impl CoreInner {
             .await
             .map_err(VnidropError::repository)?;
         self.offers.discard_from(&endpoint_id).await;
+        self.pairing_eligibility
+            .remove_for_peer(&endpoint_id)
+            .await
+            .map_err(anyhow::Error::from)?;
         self.emit_endpoint(
             "contacts",
             "contact-blocked",

@@ -62,9 +62,10 @@ use crate::{
     offer::OfferService,
     offer_inbox::OfferInbox,
     pairing::PairingService,
+    pairing_eligibility::PairingEligibilityService,
     repository::Repository,
     secret::load_or_create_secret,
-    secure_secret::{start_endpoint_identity, ProfileLock, SecretCustody, SecureSecretStore},
+    secure_secret::{start_endpoint_identity, ProfileLock, SecureSecretStore},
     ticket::ticket_matches_relay_profile,
     transfer_state::{TransferDirection, TransferStatus},
 };
@@ -100,11 +101,11 @@ pub(super) struct CoreInner {
     pub(super) router: Router,
     pub(super) store: FsStore,
     pub(super) repository: Repository,
-    _secret_custody: Option<SecretCustody>,
     _profile_lock: Option<ProfileLock>,
     pub(super) event_hub: Arc<EventHub>,
     pub(super) approval: ApprovalService,
     pub(super) pairing: PairingService,
+    pub(super) pairing_eligibility: PairingEligibilityService,
     pub(super) offers: OfferInbox,
     /// Endpoint → last poll time, for the rate limit above.
     pub(super) last_polled: TokioMutex<HashMap<String, i64>>,
@@ -165,7 +166,7 @@ impl CoreInner {
                     &app_data_dir.join("iroh.secret"),
                 )
                 .await?;
-                (secret_key, Some(custody), Some(profile_lock))
+                (secret_key, Some(Arc::new(custody)), Some(profile_lock))
             }
         };
         let store_root = app_data_dir.join("blobs");
@@ -354,12 +355,19 @@ impl CoreInner {
                 store.tags().delete(name).await?;
             }
         }
+        let pairing_eligibility = PairingEligibilityService::new(
+            repository.clone(),
+            secret_custody.clone(),
+            event_hub.clone(),
+            endpoint.id().to_string(),
+        );
         let approval = ApprovalService::new(
             repository.clone(),
             event_hub.clone(),
             access_policy.clone(),
             limits.max_pending_approvals as usize,
             limits.max_metadata_bytes,
+            Some(pairing_eligibility.clone()),
         );
         let handshake = HandshakeService::new(approval.clone());
         let pairing = PairingService::new(
@@ -392,11 +400,11 @@ impl CoreInner {
             router,
             store,
             repository,
-            _secret_custody: secret_custody,
             _profile_lock: profile_lock,
             event_hub,
             approval,
             pairing,
+            pairing_eligibility,
             offers,
             last_polled: TokioMutex::new(HashMap::new()),
             relay_mode,
@@ -425,6 +433,9 @@ impl CoreInner {
         );
         inner.spawn_provider_event_task(event_rx).await;
         inner.spawn_delivery_receipt_task().await;
+        if let Err(error) = inner.pairing_eligibility.reconcile().await {
+            tracing::warn!(%error, "failed to reconcile pairing eligibility");
+        }
         Ok(inner)
     }
 

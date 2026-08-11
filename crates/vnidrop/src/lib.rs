@@ -11,6 +11,7 @@ mod logging;
 mod offer;
 mod offer_inbox;
 mod pairing;
+mod pairing_eligibility;
 mod repository;
 mod runtime;
 mod secret;
@@ -29,11 +30,11 @@ pub use api::{
     experimental_saved_device_capabilities, ContactSendResult, ContactSummary, CoreEvent,
     CoreEventSink, CoreLimits, CoreNetworkConfig, CoreRelayMode, CoreStorageUsage,
     DeviceRelationship, DeviceRelationshipState, ExperimentalSavedDeviceCapabilities,
-    GrantLifetimeSetting, HeldOfferSummary, IncomingOffer, PendingPairing, PublishedOutput,
-    ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest,
-    RuntimeStatus, SavedDevice, ShareMetadataInput, ShareResult, ShareSource, SourceKind,
-    StoredTransfer, TargetedTransfer, TargetedTransferState, TicketInspection, TransferAccessMode,
-    TransferMetadata,
+    GrantLifetimeSetting, HeldOfferSummary, IncomingOffer, PairingEligibilitySummary,
+    PendingPairing, PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact,
+    ReceivedLocatorKind, ReceiverRequest, RuntimeStatus, SavedDevice, ShareMetadataInput,
+    ShareResult, ShareSource, SourceKind, StoredTransfer, TargetedTransfer, TargetedTransferState,
+    TicketInspection, TransferAccessMode, TransferMetadata,
 };
 pub use error::VnidropError;
 pub use runtime::VnidropCore;

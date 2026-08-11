@@ -22,6 +22,8 @@ pub(crate) mod windows;
 
 #[cfg(test)]
 pub(crate) use platform::scope_store;
+#[cfg(test)]
+pub(crate) use platform::unlocked_profile_for_test;
 pub(crate) use platform::{lock_profile, platform_secret_store, ProfileLock};
 
 const SECRET_BYTES: usize = 32;
@@ -68,6 +70,10 @@ impl SecretHandle {
             kind.as_str(),
             Uuid::new_v4()
         ))
+    }
+
+    pub(crate) fn from_stored(value: String) -> Self {
+        Self(value)
     }
 
     pub(crate) fn as_str(&self) -> &str {
@@ -420,6 +426,28 @@ impl SecretCustody {
             metadata.expected_identity.as_deref(),
         )?;
         Ok(material)
+    }
+
+    /// Removes protected material and disables its metadata. Idempotent.
+    pub(crate) async fn remove(&self, handle: &SecretHandle) -> Result<(), VnidropError> {
+        if self.metadata.find(handle).await?.is_some() {
+            self.metadata.disable(handle).await?;
+        }
+        self.delete_if_present(handle)
+    }
+
+    pub(crate) async fn list_active_handles(
+        &self,
+        kind: SecretKind,
+    ) -> Result<Vec<SecretHandle>, VnidropError> {
+        Ok(self
+            .metadata
+            .list()
+            .await?
+            .into_iter()
+            .filter(|entry| entry.kind == kind && entry.state == SecretMetadataState::Active)
+            .map(|entry| entry.handle)
+            .collect())
     }
 
     pub(crate) async fn migrate_legacy_endpoint_identity(

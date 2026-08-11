@@ -16,6 +16,8 @@ mod handshake_tests;
 mod limits_tests;
 #[path = "tests/network_config.rs"]
 mod network_config_tests;
+#[path = "tests/pairing_eligibility.rs"]
+mod pairing_eligibility_tests;
 #[path = "tests/repository.rs"]
 mod repository_tests;
 #[path = "tests/runtime.rs"]

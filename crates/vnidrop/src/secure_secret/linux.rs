@@ -1,5 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
+// Blocking Secret Service / zbus owns a nested Tokio runtime. Never call this
+// adapter from a thread already inside Vnidrop's runtime — SecretCustody routes
+// store IO through `spawn_blocking` for that reason.
 use secret_service::{blocking::SecretService, EncryptionType, Error};
 
 use super::{

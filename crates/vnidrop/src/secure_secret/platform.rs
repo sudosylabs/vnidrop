@@ -47,12 +47,12 @@ fn lock_exclusive_nonblocking(file: &File) -> Result<(), VnidropError> {
             return Ok(());
         }
         let err = io::Error::last_os_error();
-        return Err(match err.kind() {
+        Err(match err.kind() {
             io::ErrorKind::WouldBlock => VnidropError::SecureStorageUnavailable {
                 reason: "another protected core is already using this profile".to_string(),
             },
             _ => VnidropError::filesystem(err),
-        });
+        })
     }
     #[cfg(windows)]
     {

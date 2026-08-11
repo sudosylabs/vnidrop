@@ -395,12 +395,10 @@ impl SecretCustody {
     ) -> Result<SecretHandle, VnidropError> {
         validate_material(kind, &material, expected_identity)?;
         let handle = SecretHandle::generate(kind);
-        self.store
-            .put(&handle, material.clone())
-            .map_err(map_store_error)?;
+        self.store_put(handle.clone(), material.clone()).await?;
         #[cfg(test)]
         self.maybe_crash(CustodyCrashPoint::StoreWrite)?;
-        let stored = self.store.get(&handle).map_err(map_store_error)?;
+        let stored = self.store_get(handle.clone()).await?;
         if stored != material {
             return Err(VnidropError::SecureStorageCorrupted {
                 reason: "credential store did not preserve protected material".to_string(),
@@ -408,7 +406,7 @@ impl SecretCustody {
         }
         validate_material(kind, &stored, expected_identity)?;
         if let Err(error) = self.metadata.stage(&handle, kind, expected_identity).await {
-            self.delete_if_present(&handle)?;
+            self.delete_if_present(&handle).await?;
             return Err(error);
         }
         #[cfg(test)]
@@ -430,7 +428,7 @@ impl SecretCustody {
                 reason: "protected secret is not active".to_string(),
             });
         }
-        let material = self.store.get(handle).map_err(map_store_error)?;
+        let material = self.store_get(handle.clone()).await?;
         validate_material(
             metadata.kind,
             &material,
@@ -444,7 +442,7 @@ impl SecretCustody {
         if self.metadata.find(handle).await?.is_some() {
             self.metadata.disable(handle).await?;
         }
-        self.delete_if_present(handle)
+        self.delete_if_present(handle).await
     }
 
     pub(crate) async fn list_active_handles(
@@ -522,9 +520,14 @@ impl SecretCustody {
             .contains_kind(SecretKind::EndpointIdentity)
             .await?
         {
-            return Err(VnidropError::SecureStorageUnavailable {
-                reason: "protected endpoint identity is disabled".to_string(),
-            });
+            // Concurrent first-start may have staged (not yet active) metadata.
+            // Wait for activation before treating leftover rows as disabled.
+            return match self.wait_for_active_endpoint_identity().await {
+                Ok(handle) => self.load(&handle).await,
+                Err(_) => Err(VnidropError::SecureStorageUnavailable {
+                    reason: "protected endpoint identity is disabled".to_string(),
+                }),
+            };
         }
         match tokio::fs::try_exists(legacy_path).await {
             Ok(true) => {
@@ -544,34 +547,38 @@ impl SecretCustody {
                     .await
                 {
                     Ok(handle) => self.load(&handle).await,
-                    Err(error) => {
-                        let winner = tokio::time::timeout(Duration::from_secs(1), async {
-                            loop {
-                                if let Some(active) = self
-                                    .metadata
-                                    .find_active_kind(SecretKind::EndpointIdentity)
-                                    .await?
-                                {
-                                    return self.load(&active.handle).await;
-                                }
-                                tokio::time::sleep(Duration::from_millis(10)).await;
-                            }
-                        })
-                        .await;
-                        match winner {
-                            Ok(result) => result,
-                            Err(_) => Err(error),
-                        }
-                    }
+                    Err(error) => match self.wait_for_active_endpoint_identity().await {
+                        Ok(handle) => self.load(&handle).await,
+                        Err(_) => Err(error),
+                    },
                 }
             }
             Err(error) => Err(VnidropError::filesystem(error)),
         }
     }
 
+    async fn wait_for_active_endpoint_identity(&self) -> Result<SecretHandle, VnidropError> {
+        tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                if let Some(active) = self
+                    .metadata
+                    .find_active_kind(SecretKind::EndpointIdentity)
+                    .await?
+                {
+                    return Ok(active.handle);
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .map_err(|_| VnidropError::SecureStorageUnavailable {
+            reason: "timed out waiting for protected endpoint identity".to_string(),
+        })?
+    }
+
     pub(crate) async fn reconcile(&self) -> Result<ReconciliationSummary, VnidropError> {
         let metadata = self.metadata.list().await?;
-        let stored_handles = self.store.list_handles().map_err(map_store_error)?;
+        let stored_handles = self.store_list_handles().await?;
         let known_handles = metadata
             .iter()
             .map(|entry| entry.handle.clone())
@@ -580,16 +587,16 @@ impl SecretCustody {
 
         for entry in metadata {
             if entry.state == SecretMetadataState::Disabled {
-                self.delete_if_present(&entry.handle)?;
+                self.delete_if_present(&entry.handle).await?;
                 continue;
             }
-            match self.store.get(&entry.handle) {
+            match self.store_get_raw(entry.handle.clone()).await? {
                 Ok(material) => {
                     if validate_material(entry.kind, &material, entry.expected_identity.as_deref())
                         .is_err()
                     {
                         self.metadata.disable(&entry.handle).await?;
-                        self.delete_if_present(&entry.handle)?;
+                        self.delete_if_present(&entry.handle).await?;
                         summary.disabled += 1;
                     } else if entry.state == SecretMetadataState::Staged {
                         self.metadata.activate(&entry.handle).await?;
@@ -598,7 +605,7 @@ impl SecretCustody {
                 }
                 Err(SecureSecretStoreError::Missing | SecureSecretStoreError::Corrupted) => {
                     self.metadata.disable(&entry.handle).await?;
-                    self.delete_if_present(&entry.handle)?;
+                    self.delete_if_present(&entry.handle).await?;
                     summary.disabled += 1;
                 }
                 Err(error) => return Err(map_store_error(error)),
@@ -607,18 +614,72 @@ impl SecretCustody {
 
         for handle in stored_handles {
             if !known_handles.contains(&handle) {
-                self.store.delete(&handle).map_err(map_store_error)?;
+                self.store_delete(handle).await?;
                 summary.orphans_deleted += 1;
             }
         }
         Ok(summary)
     }
 
-    fn delete_if_present(&self, handle: &SecretHandle) -> Result<(), VnidropError> {
-        match self.store.delete(handle) {
+    async fn delete_if_present(&self, handle: &SecretHandle) -> Result<(), VnidropError> {
+        match self.store_delete_raw(handle.clone()).await? {
             Ok(()) | Err(SecureSecretStoreError::Missing) => Ok(()),
             Err(error) => Err(map_store_error(error)),
         }
+    }
+
+    // Platform credential stores (especially Linux Secret Service via zbus
+    // blocking) nest their own Tokio `block_on`. Calling them on a worker
+    // already inside Vnidrop's runtime panics with "Cannot start a runtime
+    // from within a runtime" and breaks protected-core desktop startup.
+    async fn store_put(
+        &self,
+        handle: SecretHandle,
+        material: SecretMaterial,
+    ) -> Result<(), VnidropError> {
+        let store = Arc::clone(&self.store);
+        tokio::task::spawn_blocking(move || store.put(&handle, material))
+            .await
+            .map_err(VnidropError::internal)?
+            .map_err(map_store_error)
+    }
+
+    async fn store_get(&self, handle: SecretHandle) -> Result<SecretMaterial, VnidropError> {
+        self.store_get_raw(handle).await?.map_err(map_store_error)
+    }
+
+    async fn store_get_raw(
+        &self,
+        handle: SecretHandle,
+    ) -> Result<Result<SecretMaterial, SecureSecretStoreError>, VnidropError> {
+        let store = Arc::clone(&self.store);
+        tokio::task::spawn_blocking(move || store.get(&handle))
+            .await
+            .map_err(VnidropError::internal)
+    }
+
+    async fn store_delete(&self, handle: SecretHandle) -> Result<(), VnidropError> {
+        self.store_delete_raw(handle)
+            .await?
+            .map_err(map_store_error)
+    }
+
+    async fn store_delete_raw(
+        &self,
+        handle: SecretHandle,
+    ) -> Result<Result<(), SecureSecretStoreError>, VnidropError> {
+        let store = Arc::clone(&self.store);
+        tokio::task::spawn_blocking(move || store.delete(&handle))
+            .await
+            .map_err(VnidropError::internal)
+    }
+
+    async fn store_list_handles(&self) -> Result<Vec<SecretHandle>, VnidropError> {
+        let store = Arc::clone(&self.store);
+        tokio::task::spawn_blocking(move || store.list_handles())
+            .await
+            .map_err(VnidropError::internal)?
+            .map_err(map_store_error)
     }
 
     #[cfg(test)]

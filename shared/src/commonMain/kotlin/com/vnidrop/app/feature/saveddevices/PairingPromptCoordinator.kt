@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -45,20 +48,27 @@ class PairingPromptCoordinator(
 
 	init {
 		scope.launch {
-			preferencesRepository.preferences.collectLatest { preferences ->
-				val enabled = preferences.experimentalSavedDevicesEnabled
-				_state.update { it.copy(enabled = enabled) }
-				if (enabled) {
-					refresh()
-				} else {
-					_state.update { it.copy(prompt = null, busy = false) }
+			// Preferences can emit before AppViewModel finishes core initialize.
+			// Hitting the gateway then surfaces "Initialize the core first" snackbars.
+			combine(
+				preferencesRepository.preferences.map { it.experimentalSavedDevicesEnabled },
+				repository.state.map { it.isInitialized },
+			) { enabled, initialized -> enabled to initialized }
+				.distinctUntilChanged()
+				.collectLatest { (enabled, initialized) ->
+					_state.update { it.copy(enabled = enabled) }
+					when {
+						enabled && initialized -> refresh()
+						!enabled -> _state.update { it.copy(prompt = null, busy = false) }
+					}
 				}
-			}
 		}
 		scope.launch {
 			repository.signals.collect { signal ->
 				when (signal) {
-					CoreSignal.PairingChanged -> if (_state.value.enabled) refresh()
+					CoreSignal.PairingChanged -> {
+						if (_state.value.enabled && repository.state.value.isInitialized) refresh()
+					}
 					is CoreSignal.ApprovalChanged,
 					is CoreSignal.ReceiverHistoryChanged,
 					is CoreSignal.TransfersChanged,

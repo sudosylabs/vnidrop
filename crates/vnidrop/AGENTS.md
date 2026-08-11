@@ -87,11 +87,14 @@ open domain stores via `persistence::open_all`.
 4. **Cancel:** signal active-transfer oneshot **synchronously** before async DB
    work. Use existing `take_active_transfer` / facade cancel path. Do not reintroduce
    nested exclusive `Runtime::block_on` deadlocks.
-5. **No lock across await:** Clippy `await_holding_lock` fails CI.
-6. **ReceiveOutputSink:** after successful `start_file`, exactly one of
+5. **SecureSecretStore:** never call the sync store from an async task body.
+   Linux Secret Service / zbus blocking nests Tokio `block_on`; `SecretCustody`
+   must keep those calls on `spawn_blocking`.
+6. **No lock across await:** Clippy `await_holding_lock` fails CI.
+7. **ReceiveOutputSink:** after successful `start_file`, exactly one of
    `finish_file` or `abort_file` (see `OutputSinkFile` Drop).
-7. **No-overwrite publish** for path receives (temp + hard link / exclusive rename).
-8. Integration tests must use the **public** API + `tests/support/` only.
+8. **No-overwrite publish** for path receives (temp + hard link / exclusive rename).
+9. Integration tests must use the **public** API + `tests/support/` only.
 
 ---
 

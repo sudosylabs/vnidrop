@@ -11,6 +11,7 @@ import com.vnidrop.app.support.FakePreferencesRepository
 import com.vnidrop.app.ui.feedback.UiMessageController
 import com.vnidrop.app.ui.theme.ThemeMode
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -24,7 +25,7 @@ import kotlin.test.assertTrue
 class PairingPromptCoordinatorTest {
 	@Test
 	fun experimentalOffDoesNotPromptOnEligibility() = runTest {
-		val core = FakeCoreGateway().apply {
+		val core = initializedCore().apply {
 			pairingEligibilities = listOf(eligibility("peer-a"))
 		}
 		val coordinator = PairingPromptCoordinator(
@@ -39,8 +40,39 @@ class PairingPromptCoordinatorTest {
 	}
 
 	@Test
-	fun acceptEligibilityRequestsPairing() = runTest {
+	fun waitsForCoreInitializeBeforeRefreshing() = runTest {
+		// Regression: experimental prefs emit before AppViewModel initialize finishes.
 		val core = FakeCoreGateway().apply {
+			pairingEligibilities = listOf(eligibility("peer-a"))
+		}
+		val messages = UiMessageController()
+		val seen = mutableListOf<String>()
+		backgroundScope.launch {
+			messages.messages.collect { seen += it.text.toString() }
+		}
+		val coordinator = PairingPromptCoordinator(
+			core,
+			preferences(enabled = true),
+			messages,
+			backgroundScope,
+		)
+		runCurrent()
+		advanceUntilIdle()
+		assertEquals(0, core.listDeviceRelationshipsCount)
+		assertNull(coordinator.state.value.prompt)
+		assertTrue(seen.isEmpty())
+
+		core.mutableState.value = core.mutableState.value.copy(isInitialized = true)
+		runCurrent()
+		advanceUntilIdle()
+		assertEquals(1, core.listDeviceRelationshipsCount)
+		assertEquals(PairingPrompt.Eligibility("peer-a"), coordinator.state.value.prompt)
+		assertTrue(seen.isEmpty())
+	}
+
+	@Test
+	fun acceptEligibilityRequestsPairing() = runTest {
+		val core = initializedCore().apply {
 			pairingEligibilities = listOf(eligibility("peer-a"))
 		}
 		val coordinator = PairingPromptCoordinator(
@@ -61,7 +93,7 @@ class PairingPromptCoordinatorTest {
 
 	@Test
 	fun declineEligibilityConsumesWithoutRequest() = runTest {
-		val core = FakeCoreGateway().apply {
+		val core = initializedCore().apply {
 			pairingEligibilities = listOf(eligibility("peer-a"))
 		}
 		val coordinator = PairingPromptCoordinator(
@@ -82,7 +114,7 @@ class PairingPromptCoordinatorTest {
 
 	@Test
 	fun dismissKeepsEligibilityForSavedDevicesArea() = runTest {
-		val core = FakeCoreGateway().apply {
+		val core = initializedCore().apply {
 			pairingEligibilities = listOf(eligibility("peer-a"))
 		}
 		val coordinator = PairingPromptCoordinator(
@@ -102,7 +134,7 @@ class PairingPromptCoordinatorTest {
 
 	@Test
 	fun incomingPairingRequestAcceptsViaRespond() = runTest {
-		val core = FakeCoreGateway().apply {
+		val core = initializedCore().apply {
 			deviceRelationships = listOf(incoming("peer-b"))
 		}
 		val coordinator = PairingPromptCoordinator(
@@ -119,6 +151,10 @@ class PairingPromptCoordinatorTest {
 		runCurrent()
 		advanceUntilIdle()
 		assertEquals(listOf("peer-b" to true), core.pairingResponses)
+	}
+
+	private fun initializedCore() = FakeCoreGateway().apply {
+		mutableState.value = mutableState.value.copy(isInitialized = true)
 	}
 
 	private fun eligibility(peer: String) = PairingEligibilityModel(

@@ -16,6 +16,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import vnidrop.shared.generated.resources.Res
@@ -49,17 +52,29 @@ class TargetedOfferCoordinator(
 
 	init {
 		scope.launch {
-			preferencesRepository.preferences.collectLatest { preferences ->
-				receiveFolder = fileSystemService.effectiveReceiveFolder(preferences.receiveFolder)
-				val enabled = preferences.experimentalSavedDevicesEnabled
-				_state.update { it.copy(enabled = enabled) }
-				if (enabled) refresh() else _state.update { it.copy(pending = emptyList()) }
-			}
+			// Same startup race as PairingPromptCoordinator: prefs can load while
+			// core initialize still holds the lifecycle gate / core is null.
+			combine(
+				preferencesRepository.preferences,
+				repository.state.map { it.isInitialized },
+			) { preferences, initialized -> preferences to initialized }
+				.distinctUntilChanged()
+				.collectLatest { (preferences, initialized) ->
+					receiveFolder = fileSystemService.effectiveReceiveFolder(preferences.receiveFolder)
+					val enabled = preferences.experimentalSavedDevicesEnabled
+					_state.update { it.copy(enabled = enabled) }
+					when {
+						enabled && initialized -> refresh()
+						!enabled -> _state.update { it.copy(pending = emptyList()) }
+					}
+				}
 		}
 		scope.launch {
 			repository.signals.collect { signal ->
 				when (signal) {
-					CoreSignal.TargetedTransferChanged -> if (_state.value.enabled) refresh()
+					CoreSignal.TargetedTransferChanged -> {
+						if (_state.value.enabled && repository.state.value.isInitialized) refresh()
+					}
 					CoreSignal.PairingChanged,
 					is CoreSignal.ApprovalChanged,
 					is CoreSignal.ReceiverHistoryChanged,

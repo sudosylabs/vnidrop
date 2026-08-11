@@ -37,6 +37,7 @@ class SavedDevicesViewModelTest {
 	fun labelForgetAndBlockUpdateGateway() = runTest {
 		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 		val core = FakeCoreGateway().apply {
+			mutableState.value = mutableState.value.copy(isInitialized = true)
 			savedDevices = listOf(device("peer-1", label = null))
 		}
 		val preferences = preferences(enabled = true)
@@ -82,6 +83,7 @@ class SavedDevicesViewModelTest {
 	fun sendFromSavedDeviceCreatesTargetedTransfer() = runTest {
 		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 		val core = FakeCoreGateway().apply {
+			mutableState.value = mutableState.value.copy(isInitialized = true)
 			savedDevices = listOf(device("peer-3", label = "Kitchen"))
 			createTargetedResult = Result.success(
 				TargetedTransferModel(

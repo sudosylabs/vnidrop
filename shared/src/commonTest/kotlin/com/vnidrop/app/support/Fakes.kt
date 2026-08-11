@@ -209,6 +209,10 @@ class FakeCoreGateway : CoreGateway {
 	var blockedDevices: List<String> = emptyList()
 	var pendingTargetedOffers: List<PendingTargetedOfferModel> = emptyList()
 	var targetedTransfers: List<TargetedTransferModel> = emptyList()
+	var listPairingEligibilitiesCount = 0
+	var listDeviceRelationshipsCount = 0
+	var listPendingTargetedOffersCount = 0
+	var listSavedDevicesCount = 0
 	var respondTargetedResult: Result<TargetedOfferResponseModel> =
 		Result.success(TargetedOfferResponseModel.Declined)
 	var createTargetedResult: Result<TargetedTransferModel> =
@@ -217,7 +221,10 @@ class FakeCoreGateway : CoreGateway {
 	val blockedPeers = mutableListOf<String>()
 	val labeledDevices = mutableListOf<Pair<String, String?>>()
 
-	override suspend fun listPairingEligibilities() = Result.success(pairingEligibilities)
+	override suspend fun listPairingEligibilities(): Result<List<PairingEligibilityModel>> {
+		listPairingEligibilitiesCount += 1
+		return Result.success(pairingEligibilities)
+	}
 	override suspend fun declinePairingEligibility(peerEndpointId: String): Result<Unit> {
 		pairingEligibilities = pairingEligibilities.filterNot { it.peerEndpointId == peerEndpointId }
 		return Result.success(Unit)
@@ -240,8 +247,14 @@ class FakeCoreGateway : CoreGateway {
 		pairingResponses += peerEndpointId to accepted
 		return respondPairingResult.map { accepted }
 	}
-	override suspend fun listDeviceRelationships() = Result.success(deviceRelationships)
-	override suspend fun listSavedDevices() = Result.success(savedDevices)
+	override suspend fun listDeviceRelationships(): Result<List<DeviceRelationshipModel>> {
+		listDeviceRelationshipsCount += 1
+		return Result.success(deviceRelationships)
+	}
+	override suspend fun listSavedDevices(): Result<List<SavedDeviceModel>> {
+		listSavedDevicesCount += 1
+		return Result.success(savedDevices)
+	}
 	override suspend fun setSavedDeviceLabel(peerEndpointId: String, label: String?): Result<Unit> {
 		labeledDevices += peerEndpointId to label
 		savedDevices = savedDevices.map {
@@ -264,7 +277,10 @@ class FakeCoreGateway : CoreGateway {
 		return Result.success(Unit)
 	}
 	override suspend fun listBlockedDevices() = Result.success(blockedDevices)
-	override suspend fun listPendingTargetedOffers() = Result.success(pendingTargetedOffers)
+	override suspend fun listPendingTargetedOffers(): Result<List<PendingTargetedOfferModel>> {
+		listPendingTargetedOffersCount += 1
+		return Result.success(pendingTargetedOffers)
+	}
 	override suspend fun respondToTargetedOffer(transferId: String, accepted: Boolean): Result<TargetedOfferResponseModel> {
 		respondedTargetedOffers += transferId to accepted
 		return respondTargetedResult

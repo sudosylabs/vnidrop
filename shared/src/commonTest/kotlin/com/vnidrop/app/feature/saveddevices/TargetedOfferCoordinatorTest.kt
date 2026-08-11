@@ -23,7 +23,7 @@ import kotlin.test.assertTrue
 class TargetedOfferCoordinatorTest {
 	@Test
 	fun acceptApprovesAndPullsByTransferId() = runTest {
-		val core = FakeCoreGateway().apply {
+		val core = initializedCore().apply {
 			pendingTargetedOffers = listOf(offer("transfer-1"))
 			respondTargetedResult = Result.success(TargetedOfferResponseModel.Approved("transfer-1"))
 			receiveResult = Result.success(Unit)
@@ -56,7 +56,7 @@ class TargetedOfferCoordinatorTest {
 			override fun finishFile(relativePath: String) = error("unused")
 			override fun abortFile(relativePath: String, reason: String) = error("unused")
 		}
-		val core = FakeCoreGateway().apply {
+		val core = initializedCore().apply {
 			pendingTargetedOffers = listOf(offer("transfer-sink"))
 			respondTargetedResult = Result.success(TargetedOfferResponseModel.Approved("transfer-sink"))
 			receiveResult = Result.success(Unit)
@@ -82,7 +82,7 @@ class TargetedOfferCoordinatorTest {
 
 	@Test
 	fun declineDoesNotReceive() = runTest {
-		val core = FakeCoreGateway().apply {
+		val core = initializedCore().apply {
 			pendingTargetedOffers = listOf(offer("transfer-2"))
 			respondTargetedResult = Result.success(TargetedOfferResponseModel.Declined)
 		}
@@ -104,7 +104,7 @@ class TargetedOfferCoordinatorTest {
 
 	@Test
 	fun experimentalOffIgnoresPendingOffers() = runTest {
-		val core = FakeCoreGateway().apply {
+		val core = initializedCore().apply {
 			pendingTargetedOffers = listOf(offer("transfer-3"))
 		}
 		val coordinator = TargetedOfferCoordinator(
@@ -117,6 +117,34 @@ class TargetedOfferCoordinatorTest {
 		runCurrent()
 		advanceUntilIdle()
 		assertTrue(coordinator.state.value.pending.isEmpty())
+	}
+
+	@Test
+	fun waitsForCoreInitializeBeforeListingOffers() = runTest {
+		val core = FakeCoreGateway().apply {
+			pendingTargetedOffers = listOf(offer("transfer-late"))
+		}
+		val coordinator = TargetedOfferCoordinator(
+			core,
+			FakeFileSystemService(ReceiveFolder(ReceiveFolderKind.FileSystemPath, "/tmp", "tmp")),
+			preferences(enabled = true),
+			UiMessageController(),
+			backgroundScope,
+		)
+		runCurrent()
+		advanceUntilIdle()
+		assertEquals(0, core.listPendingTargetedOffersCount)
+		assertTrue(coordinator.state.value.pending.isEmpty())
+
+		core.mutableState.value = core.mutableState.value.copy(isInitialized = true)
+		runCurrent()
+		advanceUntilIdle()
+		assertEquals(1, core.listPendingTargetedOffersCount)
+		assertEquals("transfer-late", coordinator.state.value.current?.transferId)
+	}
+
+	private fun initializedCore() = FakeCoreGateway().apply {
+		mutableState.value = mutableState.value.copy(isInitialized = true)
 	}
 
 	private fun offer(id: String) = PendingTargetedOfferModel(

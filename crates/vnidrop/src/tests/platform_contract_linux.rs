@@ -509,6 +509,9 @@ fn secret_service_identity_survives_core_restart() {
 #[cfg(target_os = "linux")]
 #[test]
 fn experimental_secret_service_identity_survives_core_restart_on_linux() {
+    // Regression: protected init used to call blocking Secret Service on the
+    // Tokio worker that drives `CoreInner::start`, which nested `block_on` and
+    // aborted desktop startup with "Cannot start a runtime from within a runtime".
     let data_dir = tempfile::tempdir().unwrap();
     let sink = Arc::new(RecordingSink {
         events: Mutex::new(Vec::new()),

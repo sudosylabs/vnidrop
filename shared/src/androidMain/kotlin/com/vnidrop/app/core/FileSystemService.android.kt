@@ -142,7 +142,23 @@ private class AndroidFileSystemService(
 		transferName: String,
 		senderName: String,
 		accessPolicy: ShareAccessPolicy,
-	): Result<Share> = runCatching {
+	): Result<Share> = withAndroidShareSources(files) { sources ->
+		repository.shareSources(sources, transferName, senderName, accessPolicy).getOrThrow()
+	}
+
+	override suspend fun createTargetedTransferFromPickedFiles(
+		repository: CoreGateway,
+		receiverEndpointId: String,
+		files: List<PickedShareFile>,
+		transferName: String?,
+	): Result<TargetedTransferModel> = withAndroidShareSources(files) { sources ->
+		repository.createTargetedTransfer(receiverEndpointId, sources, transferName).getOrThrow()
+	}
+
+	private suspend fun <T> withAndroidShareSources(
+		files: List<PickedShareFile>,
+		block: suspend (List<uniffi.vnidrop.ShareSource>) -> T,
+	): Result<T> = runCatching {
 		require(files.isNotEmpty()) { "Select at least one file to share" }
 		// Android cannot pass a directory as a single FD. Expand SAF trees into
 		// individual document files with relative collection paths, then open FDs.
@@ -163,7 +179,7 @@ private class AndroidFileSystemService(
 					isDirectory = false,
 				)
 			}
-			repository.shareSources(sources, transferName, senderName, accessPolicy).getOrThrow()
+			block(sources)
 		} finally {
 			descriptors.forEach { it.close() }
 		}

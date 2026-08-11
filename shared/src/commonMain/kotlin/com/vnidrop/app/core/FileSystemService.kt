@@ -64,6 +64,14 @@ interface FileSystemService {
 		senderName: String,
 		accessPolicy: ShareAccessPolicy,
 	): Result<Share>
+
+	/** Builds platform share sources and creates a targeted transfer to a saved device. */
+	suspend fun createTargetedTransferFromPickedFiles(
+		repository: CoreGateway,
+		receiverEndpointId: String,
+		files: List<PickedShareFile>,
+		transferName: String?,
+	): Result<TargetedTransferModel>
 }
 
 @Composable

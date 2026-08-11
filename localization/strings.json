@@ -1458,6 +1458,57 @@
         "ru": "Не удалось обработать данные передачи. Попросите отправителя поделиться ими снова."
       }
     },
+    "experimental_saved_devices_description": {
+      "context": "Settings > Experimental: toggle description for saved devices and targeted transfers.",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Remember devices after a transfer and send to them again without a new invitation. Experimental and may change.",
+        "fr": "Remember devices after a transfer and send to them again without a new invitation. Experimental and may change.",
+        "es": "Remember devices after a transfer and send to them again without a new invitation. Experimental and may change.",
+        "it": "Remember devices after a transfer and send to them again without a new invitation. Experimental and may change.",
+        "de": "Remember devices after a transfer and send to them again without a new invitation. Experimental and may change.",
+        "pt": "Remember devices after a transfer and send to them again without a new invitation. Experimental and may change.",
+        "pl": "Remember devices after a transfer and send to them again without a new invitation. Experimental and may change.",
+        "nl": "Remember devices after a transfer and send to them again without a new invitation. Experimental and may change.",
+        "ru": "Remember devices after a transfer and send to them again without a new invitation. Experimental and may change."
+      }
+    },
+    "experimental_saved_devices_title": {
+      "context": "Settings > Experimental: toggle title for saved devices feature.",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Saved devices",
+        "fr": "Saved devices",
+        "es": "Saved devices",
+        "it": "Saved devices",
+        "de": "Saved devices",
+        "pt": "Saved devices",
+        "pl": "Saved devices",
+        "nl": "Saved devices",
+        "ru": "Saved devices"
+      }
+    },
+    "experimental_settings_title": {
+      "context": "Settings: experimental section title (Android).",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Experimental",
+        "fr": "Experimental",
+        "es": "Experimental",
+        "it": "Experimental",
+        "de": "Experimental",
+        "pt": "Experimental",
+        "pl": "Experimental",
+        "nl": "Experimental",
+        "ru": "Experimental"
+      }
+    },
     "field_receiver_name": {
       "context": "Text field label: the receiver's display name.",
       "translations": {
@@ -4787,6 +4838,380 @@
         "nl": "Weigeren",
         "ru": "Отклонить"
       }
+    },
+    "saved_devices_empty": {
+      "context": "Experimental saved devices: empty list when none are saved yet.",
+      "translations": {
+        "en": "No saved devices yet. Finish a transfer, then remember a device.",
+        "fr": "No saved devices yet. Finish a transfer, then remember a device.",
+        "es": "No saved devices yet. Finish a transfer, then remember a device.",
+        "it": "No saved devices yet. Finish a transfer, then remember a device.",
+        "de": "No saved devices yet. Finish a transfer, then remember a device.",
+        "pt": "No saved devices yet. Finish a transfer, then remember a device.",
+        "pl": "No saved devices yet. Finish a transfer, then remember a device.",
+        "nl": "No saved devices yet. Finish a transfer, then remember a device.",
+        "ru": "No saved devices yet. Finish a transfer, then remember a device."
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_eligibility_title": {
+      "context": "Experimental saved devices: section for peers eligible to pair after a transfer.",
+      "translations": {
+        "en": "Ready to remember",
+        "fr": "Ready to remember",
+        "es": "Ready to remember",
+        "it": "Ready to remember",
+        "de": "Ready to remember",
+        "pt": "Ready to remember",
+        "pl": "Ready to remember",
+        "nl": "Ready to remember",
+        "ru": "Ready to remember"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_pending_title": {
+      "context": "Experimental saved devices: section for in-progress pairing.",
+      "translations": {
+        "en": "Pending pairing",
+        "fr": "Pending pairing",
+        "es": "Pending pairing",
+        "it": "Pending pairing",
+        "de": "Pending pairing",
+        "pt": "Pending pairing",
+        "pl": "Pending pairing",
+        "nl": "Pending pairing",
+        "ru": "Pending pairing"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_list_title": {
+      "context": "Experimental saved devices: section listing saved devices.",
+      "translations": {
+        "en": "Saved devices",
+        "fr": "Saved devices",
+        "es": "Saved devices",
+        "it": "Saved devices",
+        "de": "Saved devices",
+        "pt": "Saved devices",
+        "pl": "Saved devices",
+        "nl": "Saved devices",
+        "ru": "Saved devices"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_unnamed": {
+      "context": "Fallback display when a saved device has no local label or remote name.",
+      "translations": {
+        "en": "Saved device",
+        "fr": "Saved device",
+        "es": "Saved device",
+        "it": "Saved device",
+        "de": "Saved device",
+        "pt": "Saved device",
+        "pl": "Saved device",
+        "nl": "Saved device",
+        "ru": "Saved device"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_remember_action": {
+      "context": "Action that starts mutual-consent pairing for an eligible peer.",
+      "translations": {
+        "en": "Remember",
+        "fr": "Remember",
+        "es": "Remember",
+        "it": "Remember",
+        "de": "Remember",
+        "pt": "Remember",
+        "pl": "Remember",
+        "nl": "Remember",
+        "ru": "Remember"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_decline_action": {
+      "context": "Action that declines pairing eligibility for a peer.",
+      "translations": {
+        "en": "Decline",
+        "fr": "Decline",
+        "es": "Decline",
+        "it": "Decline",
+        "de": "Decline",
+        "pt": "Decline",
+        "pl": "Decline",
+        "nl": "Decline",
+        "ru": "Decline"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_accept_pairing_action": {
+      "context": "Action that accepts an incoming pairing request.",
+      "translations": {
+        "en": "Accept",
+        "fr": "Accept",
+        "es": "Accept",
+        "it": "Accept",
+        "de": "Accept",
+        "pt": "Accept",
+        "pl": "Accept",
+        "nl": "Accept",
+        "ru": "Accept"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_send_action": {
+      "context": "Action that starts a targeted send to a saved device.",
+      "translations": {
+        "en": "Send files",
+        "fr": "Send files",
+        "es": "Send files",
+        "it": "Send files",
+        "de": "Send files",
+        "pt": "Send files",
+        "pl": "Send files",
+        "nl": "Send files",
+        "ru": "Send files"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_label_action": {
+      "context": "Action that edits the local label for a saved device.",
+      "translations": {
+        "en": "Label",
+        "fr": "Label",
+        "es": "Label",
+        "it": "Label",
+        "de": "Label",
+        "pt": "Label",
+        "pl": "Label",
+        "nl": "Label",
+        "ru": "Label"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_forget_action": {
+      "context": "Action that forgets a saved device relationship.",
+      "translations": {
+        "en": "Forget",
+        "fr": "Forget",
+        "es": "Forget",
+        "it": "Forget",
+        "de": "Forget",
+        "pt": "Forget",
+        "pl": "Forget",
+        "nl": "Forget",
+        "ru": "Forget"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_block_action": {
+      "context": "Action that blocks a device identity.",
+      "translations": {
+        "en": "Block",
+        "fr": "Block",
+        "es": "Block",
+        "it": "Block",
+        "de": "Block",
+        "pt": "Block",
+        "pl": "Block",
+        "nl": "Block",
+        "ru": "Block"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_label_title": {
+      "context": "Dialog title for editing a saved device local label.",
+      "translations": {
+        "en": "Device label",
+        "fr": "Device label",
+        "es": "Device label",
+        "it": "Device label",
+        "de": "Device label",
+        "pt": "Device label",
+        "pl": "Device label",
+        "nl": "Device label",
+        "ru": "Device label"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_label_placeholder": {
+      "context": "Placeholder for the local label text field.",
+      "translations": {
+        "en": "Label",
+        "fr": "Label",
+        "es": "Label",
+        "it": "Label",
+        "de": "Label",
+        "pt": "Label",
+        "pl": "Label",
+        "nl": "Label",
+        "ru": "Label"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_label_save": {
+      "context": "Button that saves the local device label.",
+      "translations": {
+        "en": "Save",
+        "fr": "Save",
+        "es": "Save",
+        "it": "Save",
+        "de": "Save",
+        "pt": "Save",
+        "pl": "Save",
+        "nl": "Save",
+        "ru": "Save"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_label_clear": {
+      "context": "Button that clears the local device label.",
+      "translations": {
+        "en": "Clear label",
+        "fr": "Clear label",
+        "es": "Clear label",
+        "it": "Clear label",
+        "de": "Clear label",
+        "pt": "Clear label",
+        "pl": "Clear label",
+        "nl": "Clear label",
+        "ru": "Clear label"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_pending_outgoing": {
+      "context": "Status text while waiting for the peer to accept pairing.",
+      "translations": {
+        "en": "Waiting for the other device",
+        "fr": "Waiting for the other device",
+        "es": "Waiting for the other device",
+        "it": "Waiting for the other device",
+        "de": "Waiting for the other device",
+        "pt": "Waiting for the other device",
+        "pl": "Waiting for the other device",
+        "nl": "Waiting for the other device",
+        "ru": "Waiting for the other device"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_pending_incoming": {
+      "context": "Status text when this device must accept a pairing request.",
+      "translations": {
+        "en": "Wants to remember this device",
+        "fr": "Wants to remember this device",
+        "es": "Wants to remember this device",
+        "it": "Wants to remember this device",
+        "de": "Wants to remember this device",
+        "pt": "Wants to remember this device",
+        "pl": "Wants to remember this device",
+        "nl": "Wants to remember this device",
+        "ru": "Wants to remember this device"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_send_started": {
+      "context": "Snackbar after creating a targeted transfer offer.",
+      "translations": {
+        "en": "Transfer offer sent",
+        "fr": "Transfer offer sent",
+        "es": "Transfer offer sent",
+        "it": "Transfer offer sent",
+        "de": "Transfer offer sent",
+        "pt": "Transfer offer sent",
+        "pl": "Transfer offer sent",
+        "nl": "Transfer offer sent",
+        "ru": "Transfer offer sent"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_forgotten": {
+      "context": "Snackbar after forgetting a saved device.",
+      "translations": {
+        "en": "Saved device forgotten",
+        "fr": "Saved device forgotten",
+        "es": "Saved device forgotten",
+        "it": "Saved device forgotten",
+        "de": "Saved device forgotten",
+        "pt": "Saved device forgotten",
+        "pl": "Saved device forgotten",
+        "nl": "Saved device forgotten",
+        "ru": "Saved device forgotten"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_blocked": {
+      "context": "Snackbar after blocking a device.",
+      "translations": {
+        "en": "Device blocked",
+        "fr": "Device blocked",
+        "es": "Device blocked",
+        "it": "Device blocked",
+        "de": "Device blocked",
+        "pt": "Device blocked",
+        "pl": "Device blocked",
+        "nl": "Device blocked",
+        "ru": "Device blocked"
+      },
+      "targets": [
+        "kmp"
+      ]
+    },
+    "saved_devices_labeled": {
+      "context": "Snackbar after updating a saved device label.",
+      "translations": {
+        "en": "Label updated",
+        "fr": "Label updated",
+        "es": "Label updated",
+        "it": "Label updated",
+        "de": "Label updated",
+        "pt": "Label updated",
+        "pl": "Label updated",
+        "nl": "Label updated",
+        "ru": "Label updated"
+      },
+      "targets": [
+        "kmp"
+      ]
     }
   }
 }

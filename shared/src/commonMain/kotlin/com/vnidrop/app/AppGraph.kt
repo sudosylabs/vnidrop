@@ -5,6 +5,8 @@ import com.vnidrop.app.core.CoreRepository
 import com.vnidrop.app.diagnostics.DiagnosticsCoordinator
 import com.vnidrop.app.diagnostics.createDiagnosticsTransport
 import com.vnidrop.app.feature.approvals.ApprovalCoordinator
+import com.vnidrop.app.feature.saveddevices.PairingPromptCoordinator
+import com.vnidrop.app.feature.saveddevices.TargetedOfferCoordinator
 import com.vnidrop.app.feature.send.AppFilePreviewRepository
 import com.vnidrop.app.feature.send.createPlatformPreviewStore
 import com.vnidrop.app.logging.AppLogger
@@ -55,6 +57,19 @@ class AppGraph(
 		preferencesRepository = preferencesRepository,
 		notifications = dependencies.localNotificationService,
 		visibility = visibility,
+		messages = messages,
+		scope = applicationScope,
+	)
+	val pairingPromptCoordinator = PairingPromptCoordinator(
+		repository = coreRepository,
+		preferencesRepository = preferencesRepository,
+		messages = messages,
+		scope = applicationScope,
+	)
+	val targetedOfferCoordinator = TargetedOfferCoordinator(
+		repository = coreRepository,
+		fileSystemService = dependencies.fileSystemService,
+		preferencesRepository = preferencesRepository,
 		messages = messages,
 		scope = applicationScope,
 	)

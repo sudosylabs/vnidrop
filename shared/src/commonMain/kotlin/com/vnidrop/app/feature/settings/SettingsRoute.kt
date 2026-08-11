@@ -4,17 +4,39 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.rememberReceiveFolderPicker
+import com.vnidrop.app.core.rememberShareFilePicker
+import com.vnidrop.app.feature.saveddevices.SavedDevicesEffect
+import com.vnidrop.app.feature.saveddevices.SavedDevicesViewModel
+import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.state.WindowClass
 
 @Composable
-fun SettingsRoute(viewModel: SettingsViewModel, windowClass: WindowClass) {
+fun SettingsRoute(
+	viewModel: SettingsViewModel,
+	savedDevicesViewModel: SavedDevicesViewModel,
+	windowClass: WindowClass,
+) {
 	val state by viewModel.state.collectAsStateWithLifecycle()
-	val picker = rememberReceiveFolderPicker(viewModel::onReceiveFolderPicked, viewModel::onReceiveFolderPickFailed)
+	val savedDevicesState by savedDevicesViewModel.state.collectAsStateWithLifecycle()
+	val showExperimental = LocalUiPlatform.current == UiPlatform.Android
+	val folderPicker = rememberReceiveFolderPicker(viewModel::onReceiveFolderPicked, viewModel::onReceiveFolderPickFailed)
+	val sharePicker = rememberShareFilePicker(
+		savedDevicesViewModel::onFilesPicked,
+		savedDevicesViewModel::onFilePickFailed,
+	)
 	LaunchedEffect(viewModel) {
 		viewModel.effectFlow.collect { effect ->
 			when (effect) {
-				SettingsEffect.OpenReceiveFolderPicker -> picker.pickFolder()
+				SettingsEffect.OpenReceiveFolderPicker -> folderPicker.pickFolder()
+			}
+		}
+	}
+	LaunchedEffect(savedDevicesViewModel) {
+		savedDevicesViewModel.effectFlow.collect { effect ->
+			when (effect) {
+				SavedDevicesEffect.OpenFilePicker -> sharePicker.pickFiles()
 			}
 		}
 	}
@@ -32,6 +54,21 @@ fun SettingsRoute(viewModel: SettingsViewModel, windowClass: WindowClass) {
 		onChooseFolder = viewModel::chooseReceiveFolder,
 		onResetFolder = viewModel::resetReceiveFolder,
 		onNotificationsChanged = viewModel::setNotificationsEnabled,
+		onExperimentalSavedDevicesChanged = viewModel::setExperimentalSavedDevicesEnabled,
+		showExperimental = showExperimental,
+		savedDevicesState = savedDevicesState,
+		onRememberEligibleDevice = savedDevicesViewModel::rememberEligible,
+		onDeclineEligibleDevice = savedDevicesViewModel::declineEligible,
+		onAcceptIncomingPairing = savedDevicesViewModel::acceptIncoming,
+		onDeclineIncomingPairing = savedDevicesViewModel::declineIncoming,
+		onSendToSavedDevice = savedDevicesViewModel::startSend,
+		onOpenSavedDeviceLabel = savedDevicesViewModel::openLabelEditor,
+		onForgetSavedDevice = savedDevicesViewModel::forget,
+		onBlockSavedDevice = savedDevicesViewModel::block,
+		onSavedDeviceLabelDraftChanged = savedDevicesViewModel::setLabelDraft,
+		onSaveSavedDeviceLabel = savedDevicesViewModel::saveLabel,
+		onClearSavedDeviceLabel = savedDevicesViewModel::clearLabel,
+		onDismissSavedDeviceLabel = savedDevicesViewModel::dismissLabelEditor,
 		onOpenNotificationSettings = viewModel::openNotificationSettings,
 		onBugWhatChanged = viewModel::setBugWhatHappened,
 		onBugExpectedChanged = viewModel::setBugExpected,

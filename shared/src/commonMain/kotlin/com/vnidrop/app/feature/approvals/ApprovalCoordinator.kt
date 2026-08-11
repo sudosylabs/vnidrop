@@ -64,7 +64,9 @@ class ApprovalCoordinator(
 				when (signal) {
 					is CoreSignal.ApprovalChanged -> refresh(signal.transferId)
 					is CoreSignal.ReceiverHistoryChanged,
-					is CoreSignal.TransfersChanged -> Unit
+					is CoreSignal.TransfersChanged,
+					CoreSignal.PairingChanged,
+					CoreSignal.TargetedTransferChanged -> Unit
 				}
 			}
 		}

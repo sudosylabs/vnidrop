@@ -37,6 +37,9 @@ import com.vnidrop.app.feature.receive.ReceiveRoute
 import com.vnidrop.app.feature.receive.ReceiveFloatingAction
 import com.vnidrop.app.feature.receive.ReceiveViewModel
 import com.vnidrop.app.feature.receive.ReceiveMethod
+import com.vnidrop.app.feature.saveddevices.PairingPromptHost
+import com.vnidrop.app.feature.saveddevices.SavedDevicesViewModel
+import com.vnidrop.app.feature.saveddevices.TargetedOfferModalHost
 import com.vnidrop.app.feature.send.SendRoute
 import com.vnidrop.app.feature.send.SendFloatingAction
 import com.vnidrop.app.feature.send.SendViewModel
@@ -106,12 +109,22 @@ fun App(
 			graph.diagnostics.bugReports,
 		)
 	}
+	val savedDevicesViewModel = viewModel {
+		SavedDevicesViewModel(
+			graph.coreRepository,
+			dependencies.fileSystemService,
+			graph.preferencesRepository,
+			graph.messages,
+		)
+	}
 	val appState by appViewModel.state.collectAsStateWithLifecycle()
 	val sendState by sendViewModel.state.collectAsStateWithLifecycle()
 	val sendCoreState by sendViewModel.coreState.collectAsStateWithLifecycle()
 	val receiveState by receiveViewModel.state.collectAsStateWithLifecycle()
 	val receiveCoreState by receiveViewModel.coreState.collectAsStateWithLifecycle()
 	val approvalState by graph.approvalCoordinator.state.collectAsStateWithLifecycle()
+	val pairingPromptState by graph.pairingPromptCoordinator.state.collectAsStateWithLifecycle()
+	val targetedOfferState by graph.targetedOfferCoordinator.state.collectAsStateWithLifecycle()
 	val lifecycleOwner = LocalLifecycleOwner.current
 	LaunchedEffect(dependencies.externalInvitations, appViewModel, receiveViewModel) {
 		dependencies.externalInvitations.invitations.collect { invitation ->
@@ -217,13 +230,26 @@ fun App(
 						when (appState.destination) {
 							AppDestination.Send -> SendRoute(sendViewModel, windowClass)
 							AppDestination.Receive -> ReceiveRoute(receiveViewModel, windowClass)
-							AppDestination.Settings -> ScreenScrollContainer { SettingsRoute(settingsViewModel, windowClass) }
+							AppDestination.Settings -> ScreenScrollContainer {
+								SettingsRoute(settingsViewModel, savedDevicesViewModel, windowClass)
+							}
 						}
 					}
 					ApprovalModalHost(
 						state = approvalState,
 						onAccept = graph.approvalCoordinator::accept,
 						onRefuse = graph.approvalCoordinator::refuse,
+					)
+					PairingPromptHost(
+						state = pairingPromptState,
+						onAccept = graph.pairingPromptCoordinator::accept,
+						onDecline = graph.pairingPromptCoordinator::decline,
+						onDismiss = graph.pairingPromptCoordinator::dismiss,
+					)
+					TargetedOfferModalHost(
+						state = targetedOfferState,
+						onAccept = graph.targetedOfferCoordinator::accept,
+						onDecline = graph.targetedOfferCoordinator::decline,
 					)
 				}
 				windowChrome?.invoke()

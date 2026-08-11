@@ -153,6 +153,10 @@ sealed interface CoreSignal {
 	data class ReceiverHistoryChanged(val transferId: ULong) : CoreSignal
 	/** Transfer status/history changed enough to re-read the durable snapshot. */
 	data class TransfersChanged(val transferId: ULong) : CoreSignal
+	/** Pairing / saved-device state changed; refresh eligibility, relationships, and saved list. */
+	data object PairingChanged : CoreSignal
+	/** Targeted-transfer offer or lifecycle changed; refresh pending offers and transfers. */
+	data object TargetedTransferChanged : CoreSignal
 }
 
 interface CoreGateway {
@@ -192,4 +196,38 @@ interface CoreGateway {
 	suspend fun receiverRequests(transferId: ULong): Result<List<ReceiverRequestModel>>
 	suspend fun respondReceiverRequest(requestId: String, accepted: Boolean, reason: String? = null): Result<Unit>
 	suspend fun refresh(): Result<Unit>
+
+	// Experimental saved devices / targeted transfers
+	suspend fun listPairingEligibilities(): Result<List<PairingEligibilityModel>>
+	suspend fun declinePairingEligibility(peerEndpointId: String): Result<Unit>
+	suspend fun requestSavedDevicePairing(peerEndpointId: String): Result<Boolean>
+	suspend fun respondToDevicePairing(peerEndpointId: String, accepted: Boolean): Result<Boolean>
+	suspend fun listDeviceRelationships(): Result<List<DeviceRelationshipModel>>
+	suspend fun listSavedDevices(): Result<List<SavedDeviceModel>>
+	suspend fun setSavedDeviceLabel(peerEndpointId: String, label: String?): Result<Unit>
+	suspend fun forgetSavedDevice(peerEndpointId: String): Result<Unit>
+	suspend fun blockDevice(peerEndpointId: String): Result<Unit>
+	suspend fun unblockDevice(peerEndpointId: String): Result<Unit>
+	suspend fun listBlockedDevices(): Result<List<String>>
+	suspend fun listPendingTargetedOffers(): Result<List<PendingTargetedOfferModel>>
+	suspend fun respondToTargetedOffer(transferId: String, accepted: Boolean): Result<TargetedOfferResponseModel>
+	suspend fun createTargetedTransfer(
+		receiverEndpointId: String,
+		sources: List<uniffi.vnidrop.ShareSource>,
+		transferName: String?,
+	): Result<TargetedTransferModel>
+	suspend fun getTargetedTransfer(id: String): Result<TargetedTransferModel?>
+	suspend fun listTargetedTransfers(): Result<List<TargetedTransferModel>>
+	suspend fun receiveTargetedTransfer(transferId: String, outputDir: String): Result<Unit>
+	suspend fun receiveTargetedTransferWithOutputSink(
+		transferId: String,
+		outputSink: ReceiveOutputSink,
+	): Result<Unit>
+	suspend fun receiveTargetedTransferWithOutputSinkV2(
+		transferId: String,
+		outputSink: ReceiveOutputSinkV2,
+	): Result<Unit>
+	suspend fun resumeTargetedTransfer(id: String, outputDir: String): Result<Unit>
+	suspend fun cancelTargetedTransfer(id: String): Result<Unit>
+	suspend fun deleteTargetedTransfer(id: String): Result<Unit>
 }

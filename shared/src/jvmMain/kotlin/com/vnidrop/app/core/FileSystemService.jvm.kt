@@ -61,15 +61,26 @@ private class JvmFileSystemService : FileSystemService {
 		accessPolicy: ShareAccessPolicy,
 	): Result<Share> {
 		require(files.isNotEmpty()) { "Select at least one file to share" }
-		val sources = files.map { file ->
-			uniffi.vnidrop.ShareSource(
-				kind = uniffi.vnidrop.SourceKind.PATH,
-				value = file.value,
-				displayName = file.displayName,
-				isDirectory = file.isDirectory || File(file.value).isDirectory,
-			)
-		}
-		return repository.shareSources(sources, transferName, senderName, accessPolicy)
+		return repository.shareSources(pathShareSources(files), transferName, senderName, accessPolicy)
+	}
+
+	override suspend fun createTargetedTransferFromPickedFiles(
+		repository: CoreGateway,
+		receiverEndpointId: String,
+		files: List<PickedShareFile>,
+		transferName: String?,
+	): Result<TargetedTransferModel> {
+		require(files.isNotEmpty()) { "Select at least one file to share" }
+		return repository.createTargetedTransfer(receiverEndpointId, pathShareSources(files), transferName)
+	}
+
+	private fun pathShareSources(files: List<PickedShareFile>) = files.map { file ->
+		uniffi.vnidrop.ShareSource(
+			kind = uniffi.vnidrop.SourceKind.PATH,
+			value = file.value,
+			displayName = file.displayName,
+			isDirectory = file.isDirectory || File(file.value).isDirectory,
+		)
 	}
 }
 

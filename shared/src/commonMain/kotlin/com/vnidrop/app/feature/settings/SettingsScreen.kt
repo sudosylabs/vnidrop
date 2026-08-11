@@ -8,20 +8,37 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.core.RelayMode
+import com.vnidrop.app.feature.saveddevices.SavedDevicesState
+import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.ThemeMode
 
 @Composable
 fun SettingsScreen(
 	state: SettingsState,
 	windowClass: WindowClass,
+	modifier: Modifier = Modifier,
 	onSectionSelected: (SettingsSection) -> Unit,
 	onUsernameChanged: (String) -> Unit,
 	onThemeModeChanged: (ThemeMode) -> Unit,
 	onChooseFolder: () -> Unit,
 	onResetFolder: () -> Unit,
 	onNotificationsChanged: (Boolean) -> Unit,
+	onExperimentalSavedDevicesChanged: (Boolean) -> Unit = {},
+	showExperimental: Boolean = false,
+	savedDevicesState: SavedDevicesState = SavedDevicesState(),
+	onRememberEligibleDevice: (String) -> Unit = {},
+	onDeclineEligibleDevice: (String) -> Unit = {},
+	onAcceptIncomingPairing: (String) -> Unit = {},
+	onDeclineIncomingPairing: (String) -> Unit = {},
+	onSendToSavedDevice: (String) -> Unit = {},
+	onOpenSavedDeviceLabel: (String) -> Unit = {},
+	onForgetSavedDevice: (String) -> Unit = {},
+	onBlockSavedDevice: (String) -> Unit = {},
+	onSavedDeviceLabelDraftChanged: (String) -> Unit = {},
+	onSaveSavedDeviceLabel: () -> Unit = {},
+	onClearSavedDeviceLabel: () -> Unit = {},
+	onDismissSavedDeviceLabel: () -> Unit = {},
 	onOpenNotificationSettings: () -> Unit,
 	onBugWhatChanged: (String) -> Unit,
 	onBugExpectedChanged: (String) -> Unit,
@@ -41,17 +58,23 @@ fun SettingsScreen(
 ) {
 	if (windowClass == WindowClass.Desktop) {
 		Row(
-			modifier = Modifier.fillMaxWidth(),
+			modifier.fillMaxWidth(),
 			horizontalArrangement = Arrangement.spacedBy(24.dp),
 		) {
 			Column(Modifier.widthIn(min = 280.dp, max = 340.dp)) {
-				SettingsOverview(state, onSectionSelected, largeTitle = false)
+				SettingsOverview(
+					state,
+					onSectionSelected,
+					largeTitle = false,
+					showExperimental = showExperimental,
+				)
 			}
 			Column(Modifier.weight(1f)) {
 				SettingsSectionContent(
 					state = state,
 					windowClass = windowClass,
-					section = state.selectedSection.takeUnless { it == SettingsSection.Overview } ?: SettingsSection.Preferences,
+					section = state.selectedSection.takeUnless { it == SettingsSection.Overview }
+						?: SettingsSection.Preferences,
 					onBack = {},
 					showBack = false,
 					onSectionSelected = onSectionSelected,
@@ -60,6 +83,20 @@ fun SettingsScreen(
 					onChooseFolder = onChooseFolder,
 					onResetFolder = onResetFolder,
 					onNotificationsChanged = onNotificationsChanged,
+					onExperimentalSavedDevicesChanged = onExperimentalSavedDevicesChanged,
+					savedDevicesState = savedDevicesState,
+					onRememberEligibleDevice = onRememberEligibleDevice,
+					onDeclineEligibleDevice = onDeclineEligibleDevice,
+					onAcceptIncomingPairing = onAcceptIncomingPairing,
+					onDeclineIncomingPairing = onDeclineIncomingPairing,
+					onSendToSavedDevice = onSendToSavedDevice,
+					onOpenSavedDeviceLabel = onOpenSavedDeviceLabel,
+					onForgetSavedDevice = onForgetSavedDevice,
+					onBlockSavedDevice = onBlockSavedDevice,
+					onSavedDeviceLabelDraftChanged = onSavedDeviceLabelDraftChanged,
+					onSaveSavedDeviceLabel = onSaveSavedDeviceLabel,
+					onClearSavedDeviceLabel = onClearSavedDeviceLabel,
+					onDismissSavedDeviceLabel = onDismissSavedDeviceLabel,
 					onOpenNotificationSettings = onOpenNotificationSettings,
 					onBugWhatChanged = onBugWhatChanged,
 					onBugExpectedChanged = onBugExpectedChanged,
@@ -81,7 +118,12 @@ fun SettingsScreen(
 		}
 	} else {
 		when (state.selectedSection) {
-			SettingsSection.Overview -> SettingsOverview(state, onSectionSelected, largeTitle = true)
+			SettingsSection.Overview -> SettingsOverview(
+				state,
+				onSectionSelected,
+				largeTitle = true,
+				showExperimental = showExperimental,
+			)
 			else -> SettingsSectionContent(
 				state = state,
 				windowClass = windowClass,
@@ -102,6 +144,20 @@ fun SettingsScreen(
 				onChooseFolder = onChooseFolder,
 				onResetFolder = onResetFolder,
 				onNotificationsChanged = onNotificationsChanged,
+				onExperimentalSavedDevicesChanged = onExperimentalSavedDevicesChanged,
+				savedDevicesState = savedDevicesState,
+				onRememberEligibleDevice = onRememberEligibleDevice,
+				onDeclineEligibleDevice = onDeclineEligibleDevice,
+				onAcceptIncomingPairing = onAcceptIncomingPairing,
+				onDeclineIncomingPairing = onDeclineIncomingPairing,
+				onSendToSavedDevice = onSendToSavedDevice,
+				onOpenSavedDeviceLabel = onOpenSavedDeviceLabel,
+				onForgetSavedDevice = onForgetSavedDevice,
+				onBlockSavedDevice = onBlockSavedDevice,
+				onSavedDeviceLabelDraftChanged = onSavedDeviceLabelDraftChanged,
+				onSaveSavedDeviceLabel = onSaveSavedDeviceLabel,
+				onClearSavedDeviceLabel = onClearSavedDeviceLabel,
+				onDismissSavedDeviceLabel = onDismissSavedDeviceLabel,
 				onOpenNotificationSettings = onOpenNotificationSettings,
 				onBugWhatChanged = onBugWhatChanged,
 				onBugExpectedChanged = onBugExpectedChanged,
@@ -136,6 +192,20 @@ private fun SettingsSectionContent(
 	onChooseFolder: () -> Unit,
 	onResetFolder: () -> Unit,
 	onNotificationsChanged: (Boolean) -> Unit,
+	onExperimentalSavedDevicesChanged: (Boolean) -> Unit,
+	savedDevicesState: SavedDevicesState,
+	onRememberEligibleDevice: (String) -> Unit,
+	onDeclineEligibleDevice: (String) -> Unit,
+	onAcceptIncomingPairing: (String) -> Unit,
+	onDeclineIncomingPairing: (String) -> Unit,
+	onSendToSavedDevice: (String) -> Unit,
+	onOpenSavedDeviceLabel: (String) -> Unit,
+	onForgetSavedDevice: (String) -> Unit,
+	onBlockSavedDevice: (String) -> Unit,
+	onSavedDeviceLabelDraftChanged: (String) -> Unit,
+	onSaveSavedDeviceLabel: () -> Unit,
+	onClearSavedDeviceLabel: () -> Unit,
+	onDismissSavedDeviceLabel: () -> Unit,
 	onOpenNotificationSettings: () -> Unit,
 	onBugWhatChanged: (String) -> Unit,
 	onBugExpectedChanged: (String) -> Unit,
@@ -168,6 +238,25 @@ private fun SettingsSectionContent(
 			showBack = showBack,
 		)
 		SettingsSection.Notifications -> NotificationSettings(state, onNotificationsChanged, onOpenNotificationSettings, onBack, showBack)
+		SettingsSection.Experimental -> ExperimentalSettings(
+			state = state,
+			savedDevicesState = savedDevicesState,
+			onSavedDevicesEnabledChanged = onExperimentalSavedDevicesChanged,
+			onRememberEligible = onRememberEligibleDevice,
+			onDeclineEligible = onDeclineEligibleDevice,
+			onAcceptIncoming = onAcceptIncomingPairing,
+			onDeclineIncoming = onDeclineIncomingPairing,
+			onSendToDevice = onSendToSavedDevice,
+			onOpenDeviceLabel = onOpenSavedDeviceLabel,
+			onForgetDevice = onForgetSavedDevice,
+			onBlockDevice = onBlockSavedDevice,
+			onLabelDraftChanged = onSavedDeviceLabelDraftChanged,
+			onSaveDeviceLabel = onSaveSavedDeviceLabel,
+			onClearDeviceLabel = onClearSavedDeviceLabel,
+			onDismissDeviceLabel = onDismissSavedDeviceLabel,
+			onBack = onBack,
+			showBack = showBack,
+		)
 		SettingsSection.Storage -> StorageSettings(
 			state,
 			windowClass,

@@ -81,9 +81,128 @@ impl CoreInner {
         peer_endpoint_id: String,
         accepted: bool,
     ) -> Result<bool, crate::error::VnidropError> {
+        if self
+            .repository
+            .contacts()
+            .is_blocked(&peer_endpoint_id)
+            .await
+            .unwrap_or(false)
+        {
+            return Ok(false);
+        }
         self.device_relationships
             .respond_to_pairing(peer_endpoint_id, accepted)
             .await
+    }
+
+    pub(super) async fn forget_saved_device(
+        self: &Arc<Self>,
+        peer_endpoint_id: String,
+    ) -> Result<(), crate::error::VnidropError> {
+        let outcome = self
+            .device_relationships
+            .forget(peer_endpoint_id.clone())
+            .await?;
+        // Targeted transfers for this relationship only (ticket 10 fills in).
+        // Invitation-domain shares are deliberately not cancelled here.
+        self.cancel_targeted_transfers_for_peer(&peer_endpoint_id)
+            .await;
+        self.emit_endpoint(
+            "pairing",
+            "saved-device-forgotten",
+            json!({
+                "peer_endpoint_id": peer_endpoint_id,
+                "had_relationship": outcome.had_relationship,
+            }),
+        );
+        if outcome.had_relationship {
+            if let Some(generation) = outcome.generation {
+                self.device_relationships
+                    .notify_remote_revoke(&peer_endpoint_id, generation, outcome.issued_grant_id)
+                    .await;
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) async fn block_device(
+        self: &Arc<Self>,
+        peer_endpoint_id: String,
+    ) -> Result<(), crate::error::VnidropError> {
+        let now = now_ms();
+        self.repository
+            .contacts()
+            .block_endpoint(&peer_endpoint_id, now)
+            .await
+            .map_err(VnidropError::repository)?;
+        self.device_relationships
+            .revoke_for_block(&peer_endpoint_id)
+            .await?;
+        self.cancel_targeted_transfers_for_peer(&peer_endpoint_id)
+            .await;
+        self.offers.discard_from(&peer_endpoint_id).await;
+        self.emit_endpoint(
+            "pairing",
+            "device-blocked",
+            json!({ "peer_endpoint_id": peer_endpoint_id }),
+        );
+        // Silence: blocked peers are not notified (design §8).
+        Ok(())
+    }
+
+    pub(super) async fn unblock_device(
+        &self,
+        peer_endpoint_id: String,
+    ) -> Result<(), crate::error::VnidropError> {
+        self.repository
+            .contacts()
+            .unblock_endpoint(&peer_endpoint_id)
+            .await
+            .map_err(VnidropError::repository)?;
+        // Unblock removes only the deny rule; grants/relationships stay gone.
+        Ok(())
+    }
+
+    pub(super) async fn list_blocked_devices(
+        &self,
+    ) -> Result<Vec<String>, crate::error::VnidropError> {
+        self.repository
+            .contacts()
+            .list_blocked()
+            .await
+            .map_err(VnidropError::repository)
+    }
+
+    pub(super) async fn rotate_relationship_grant(
+        &self,
+        peer_endpoint_id: String,
+    ) -> Result<u64, crate::error::VnidropError> {
+        self.device_relationships
+            .rotate_relationship_grant(peer_endpoint_id)
+            .await
+    }
+
+    /// Cancels active or resumable targeted transfers for a peer relationship.
+    ///
+    /// Stub until ticket 10 lands targeted-transfer cancellation. Forget/block
+    /// call this for immediate local effect without touching invitation shares.
+    pub(super) async fn cancel_targeted_transfers_for_peer(&self, peer_endpoint_id: &str) {
+        #[cfg(test)]
+        {
+            self.targeted_cancel_log
+                .lock()
+                .expect("targeted cancel log")
+                .push(peer_endpoint_id.to_string());
+        }
+        let _ = peer_endpoint_id;
+    }
+
+    #[cfg(test)]
+    pub(super) fn targeted_cancel_log_for_test(&self) -> Vec<String> {
+        self.targeted_cancel_log
+            .lock()
+            .expect("targeted cancel log")
+            .clone()
     }
 
     #[cfg(test)]

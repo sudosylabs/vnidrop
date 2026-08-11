@@ -118,6 +118,47 @@ impl VnidropCore {
             capability,
         ))
     }
+
+    pub(crate) fn relationship_issued_grant_for_test(
+        &self,
+        peer_endpoint_id: String,
+    ) -> Result<Option<(u64, String)>, VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .issued_grant_snapshot(&peer_endpoint_id),
+        )
+    }
+
+    pub(crate) fn relationship_tombstones_for_test(
+        &self,
+        peer_endpoint_id: String,
+    ) -> Result<Vec<crate::device_relationship::GenerationTombstone>, VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .list_tombstones(&peer_endpoint_id),
+        )
+    }
+
+    pub(crate) fn reject_relationship_generation_for_test(
+        &self,
+        peer_endpoint_id: String,
+        generation: u64,
+        grant_id: Option<String>,
+    ) -> Result<(), String> {
+        self.block_on(async {
+            self.inner
+                .device_relationships
+                .reject_replayed_generation(&peer_endpoint_id, generation, grant_id.as_deref())
+                .await
+                .map_err(|rejection| rejection.as_str().to_string())
+        })
+    }
+
+    pub(crate) fn targeted_cancel_log_for_test(&self) -> Vec<String> {
+        self.inner.targeted_cancel_log_for_test()
+    }
 }
 
 #[uniffi::export]
@@ -416,6 +457,31 @@ impl VnidropCore {
             self.inner
                 .respond_to_device_pairing(peer_endpoint_id, accepted),
         )
+    }
+
+    /// Forget a saved device: revoke locally, clean secrets, cancel that
+    /// relationship's targeted transfers, and best-effort notify the peer.
+    pub fn forget_saved_device(&self, peer_endpoint_id: String) -> Result<(), VnidropError> {
+        self.block_on(self.inner.forget_saved_device(peer_endpoint_id))
+    }
+
+    /// Identity-wide deny across pairing, targeted transfer, invitation, and handshake.
+    pub fn block_device(&self, peer_endpoint_id: String) -> Result<(), VnidropError> {
+        self.block_on(self.inner.block_device(peer_endpoint_id))
+    }
+
+    /// Remove only the deny rule; does not restore grants or relationships.
+    pub fn unblock_device(&self, peer_endpoint_id: String) -> Result<(), VnidropError> {
+        self.block_on(self.inner.unblock_device(peer_endpoint_id))
+    }
+
+    pub fn list_blocked_devices(&self) -> Result<Vec<String>, VnidropError> {
+        self.block_on(self.inner.list_blocked_devices())
+    }
+
+    /// Invalidate the prior relationship generation, then activate a replacement grant.
+    pub fn rotate_relationship_grant(&self, peer_endpoint_id: String) -> Result<u64, VnidropError> {
+        self.block_on(self.inner.rotate_relationship_grant(peer_endpoint_id))
     }
 
     /// Devices the user has chosen to remember.

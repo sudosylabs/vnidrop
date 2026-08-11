@@ -129,6 +129,9 @@ pub(super) struct CoreInner {
     pub(super) delivery_receipt_notify: Notify,
     pub(super) delivery_receipt_task: TokioMutex<Option<JoinHandle<()>>>,
     pub(super) shutdown_started: AtomicBool,
+    /// Test-only log of peers passed to [`Self::cancel_targeted_transfers_for_peer`].
+    #[cfg(test)]
+    targeted_cancel_log: std::sync::Mutex<Vec<String>>,
 }
 
 pub(super) struct ActiveTransfer {
@@ -435,6 +438,8 @@ impl CoreInner {
             delivery_receipt_notify: Notify::new(),
             delivery_receipt_task: TokioMutex::new(None),
             shutdown_started: AtomicBool::new(false),
+            #[cfg(test)]
+            targeted_cancel_log: std::sync::Mutex::new(Vec::new()),
         });
 
         inner.emit_endpoint(

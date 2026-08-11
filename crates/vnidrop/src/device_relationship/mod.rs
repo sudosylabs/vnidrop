@@ -31,7 +31,12 @@ use crate::{
 };
 
 mod crypto;
+mod lifecycle;
 
+#[cfg(test)]
+pub(crate) use lifecycle::GenerationTombstone;
+
+use crate::contacts::ContactStore;
 use crypto::{
     encode_relationship_grant_secret, prove_relationship_grant, secret_from_material,
     verify_relationship_grant,
@@ -71,7 +76,7 @@ impl DeviceRelationshipService {
         }
     }
 
-    async fn lock_peer(&self, peer_endpoint_id: &str) -> Arc<TokioMutex<()>> {
+    pub(super) async fn lock_peer(&self, peer_endpoint_id: &str) -> Arc<TokioMutex<()>> {
         let mut locks = self.peer_locks.lock().await;
         locks
             .entry(peer_endpoint_id.to_string())
@@ -115,7 +120,19 @@ impl DeviceRelationshipService {
                 .execute(pool)
                 .await?;
         }
+        Self::ensure_lifecycle_schema(pool).await?;
         Ok(())
+    }
+
+    pub(super) fn contacts(&self) -> ContactStore {
+        ContactStore::new(self.pool.clone())
+    }
+
+    pub(super) async fn is_blocked(&self, endpoint_id: &str) -> bool {
+        self.contacts()
+            .is_blocked(endpoint_id)
+            .await
+            .unwrap_or(false)
     }
 
     /// Drop orphaned relationship grant secrets and disable rows whose secrets are gone.
@@ -139,19 +156,28 @@ impl DeviceRelationshipService {
             let state = parse_state(&row.get::<String, _>("state"))?;
             let issued: Option<String> = row.get("issued_grant_handle");
             let held: Option<String> = row.get("held_grant_handle");
-            let mut missing = false;
-            for handle in [&issued, &held].into_iter().flatten() {
+            let mut issued_missing = issued.is_none();
+            if let Some(handle) = &issued {
                 live_handles.insert(handle.clone());
                 if custody
                     .load(&SecretHandle::from_stored(handle.clone()))
                     .await
                     .is_err()
                 {
-                    missing = true;
+                    issued_missing = true;
                 }
             }
-            if missing && state == DeviceRelationshipState::Saved {
-                // Grants are required for a usable saved device.
+            if let Some(handle) = &held {
+                live_handles.insert(handle.clone());
+                // Held gaps after rotation are recoverable; orphaned handles are
+                // still tracked so reconcile does not delete live custody rows.
+                let _ = custody
+                    .load(&SecretHandle::from_stored(handle.clone()))
+                    .await;
+            }
+            // Issued grants authorize the peer. A missing held grant after
+            // rotation is recoverable while the peer is offline.
+            if state == DeviceRelationshipState::Saved && issued_missing {
                 self.delete_relationship(&peer).await?;
             }
         }
@@ -202,6 +228,9 @@ impl DeviceRelationshipService {
         self: &Arc<Self>,
         peer_endpoint_id: String,
     ) -> Result<bool, VnidropError> {
+        if self.is_blocked(&peer_endpoint_id).await {
+            return Ok(false);
+        }
         let peer_lock = self.lock_peer(&peer_endpoint_id).await;
         let _guard = peer_lock.lock().await;
 
@@ -316,6 +345,9 @@ impl DeviceRelationshipService {
         peer_endpoint_id: String,
         accepted: bool,
     ) -> Result<bool, VnidropError> {
+        if self.is_blocked(&peer_endpoint_id).await {
+            return Ok(false);
+        }
         let Some(row) = self.find_row(&peer_endpoint_id).await? else {
             return Ok(false);
         };
@@ -442,6 +474,10 @@ impl DeviceRelationshipService {
         remote_endpoint_id: String,
         request: PairingRequest,
     ) -> PairingRequestResponse {
+        if self.is_blocked(&remote_endpoint_id).await {
+            // Indistinguishable rejection: do not expose block state.
+            return PairingRequestResponse::Rejected;
+        }
         let peer_lock = self.lock_peer(&remote_endpoint_id).await;
         let _guard = peer_lock.lock().await;
 
@@ -520,6 +556,9 @@ impl DeviceRelationshipService {
         remote_endpoint_id: String,
         consent: PairingConsent,
     ) -> PairingConsentResponse {
+        if self.is_blocked(&remote_endpoint_id).await {
+            return PairingConsentResponse::Rejected;
+        }
         let Ok(Some(row)) = self.find_row(&remote_endpoint_id).await else {
             return PairingConsentResponse::Rejected;
         };
@@ -588,6 +627,9 @@ impl DeviceRelationshipService {
         remote_endpoint_id: String,
         ack: PairingAck,
     ) -> PairingAckResponse {
+        if self.is_blocked(&remote_endpoint_id).await {
+            return PairingAckResponse::Rejected;
+        }
         let Ok(Some(row)) = self.find_row(&remote_endpoint_id).await else {
             return PairingAckResponse::Rejected;
         };
@@ -854,6 +896,15 @@ impl DeviceRelationshipService {
         generation: u64,
         protocol_version: u16,
     ) -> Result<(), VnidropError> {
+        if let Err(rejection) = self
+            .reject_replayed_generation(peer_endpoint_id, generation, Some(proof.grant_id.as_str()))
+            .await
+        {
+            return Err(VnidropError::invalid_input(anyhow::anyhow!(
+                "relationship grant {}",
+                rejection.as_str()
+            )));
+        }
         let custody =
             self.custody
                 .as_ref()
@@ -1103,6 +1154,19 @@ impl ProtocolHandler for RelationshipProtocol {
                         .await;
                     let _ = tx.send(response).await;
                 }
+                RelationshipMessage::RevokeNotice(message) => {
+                    let WithChannels { inner, tx, .. } = message;
+                    let acknowledged = self
+                        .relationships
+                        .handle_remote_revoke(remote_endpoint_id.clone(), inner.generation)
+                        .await;
+                    let response = if acknowledged {
+                        RevokeNoticeResponse::Acknowledged
+                    } else {
+                        RevokeNoticeResponse::Rejected
+                    };
+                    let _ = tx.send(response).await;
+                }
             }
         }
         connection.closed().await;
@@ -1141,6 +1205,13 @@ impl RelationshipClient {
 
     async fn pairing_ack(&self, ack: PairingAck) -> Result<PairingAckResponse, irpc::Error> {
         self.inner.rpc(ack).await
+    }
+
+    async fn revoke_notice(
+        &self,
+        notice: RevokeNotice,
+    ) -> Result<RevokeNoticeResponse, irpc::Error> {
+        self.inner.rpc(notice).await
     }
 }
 
@@ -1212,6 +1283,18 @@ struct WireProof {
     challenge: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RevokeNotice {
+    generation: u64,
+    issued_grant_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+enum RevokeNoticeResponse {
+    Acknowledged,
+    Rejected,
+}
+
 #[rpc_requests(message = RelationshipMessage)]
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(
@@ -1225,6 +1308,8 @@ enum RelationshipMessages {
     PairingConsent(PairingConsent),
     #[rpc(tx = oneshot::Sender<PairingAckResponse>)]
     PairingAck(PairingAck),
+    #[rpc(tx = oneshot::Sender<RevokeNoticeResponse>)]
+    RevokeNotice(RevokeNotice),
 }
 
 struct RelationshipUpsert<'a> {
@@ -1253,6 +1338,29 @@ struct RelationshipRow {
     issued_grant_id: Option<String>,
     held_grant_id: Option<String>,
     created_at: i64,
+}
+
+impl DeviceRelationshipService {
+    /// Best-effort signed/bound revocation notice; correctness never depends on delivery.
+    pub(crate) async fn notify_remote_revoke(
+        &self,
+        peer_endpoint_id: &str,
+        generation: u64,
+        issued_grant_id: Option<String>,
+    ) {
+        let Ok(addr) = self.peer_addr(peer_endpoint_id).await else {
+            return;
+        };
+        let client = RelationshipClient::connect(self.endpoint.clone(), addr);
+        let _ = tokio::time::timeout(
+            PAIRING_RPC_TIMEOUT,
+            client.revoke_notice(RevokeNotice {
+                generation,
+                issued_grant_id,
+            }),
+        )
+        .await;
+    }
 }
 
 fn state_as_str(state: DeviceRelationshipState) -> &'static str {

@@ -315,3 +315,228 @@ fn request_timeout_leaves_recoverable_pending_not_saved() {
         "timed-out pairing must not surface as saved"
     );
 }
+
+fn reach_saved(alice: &ProtectedNode, bob: &ProtectedNode, transfer_id: u64) {
+    let alice_id = alice.core.status().endpoint_id.clone();
+    let bob_id = bob.core.status().endpoint_id.clone();
+    complete_transfer(alice, bob, transfer_id);
+    assert!(alice
+        .core
+        .request_saved_device_pairing(bob_id.clone())
+        .unwrap());
+    wait_for_relationship(
+        &bob.core,
+        &alice_id,
+        DeviceRelationshipState::PendingIncoming,
+    );
+    assert!(bob
+        .core
+        .respond_to_device_pairing(alice_id.clone(), true)
+        .unwrap());
+    wait_for_relationship(&alice.core, &bob_id, DeviceRelationshipState::Saved);
+    wait_for_relationship(&bob.core, &alice_id, DeviceRelationshipState::Saved);
+}
+
+#[test]
+fn rotating_grant_invalidates_prior_generation_and_leaves_one_active() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    let bob_id = bob.core.status().endpoint_id.clone();
+    reach_saved(&alice, &bob, 90_001);
+
+    let (old_generation, old_grant_id) = alice
+        .core
+        .relationship_issued_grant_for_test(bob_id.clone())
+        .unwrap()
+        .expect("issued grant before rotate");
+    assert_eq!(old_generation, 1);
+
+    let new_generation = alice
+        .core
+        .rotate_relationship_grant(bob_id.clone())
+        .unwrap();
+    assert_eq!(new_generation, 2);
+
+    let relationships = alice.core.list_device_relationships().unwrap();
+    assert_eq!(relationships.len(), 1);
+    assert_eq!(relationships[0].generation, 2);
+    assert_eq!(relationships[0].state, DeviceRelationshipState::Saved);
+
+    let (active_generation, active_grant_id) = alice
+        .core
+        .relationship_issued_grant_for_test(bob_id.clone())
+        .unwrap()
+        .expect("issued grant after rotate");
+    assert_eq!(active_generation, 2);
+    assert_ne!(active_grant_id, old_grant_id);
+
+    let err = alice
+        .core
+        .reject_relationship_generation_for_test(
+            bob_id.clone(),
+            old_generation,
+            Some(old_grant_id.clone()),
+        )
+        .expect_err("tombstoned generation must be rejected");
+    assert_eq!(err, "revoked");
+
+    alice
+        .core
+        .reject_relationship_generation_for_test(bob_id.clone(), new_generation, None)
+        .expect("active generation remains usable");
+
+    let tombstones = alice.core.relationship_tombstones_for_test(bob_id).unwrap();
+    assert_eq!(tombstones.len(), 1);
+    assert_eq!(tombstones[0].generation, old_generation);
+    assert_eq!(
+        tombstones[0].issued_grant_id.as_deref(),
+        Some(old_grant_id.as_str())
+    );
+    // Minimal non-secret payload only.
+    assert!(tombstones[0].revoked_at > 0);
+}
+
+#[test]
+fn forget_saved_device_revokes_locally_and_hooks_targeted_cancel() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    let bob_id = bob.core.status().endpoint_id.clone();
+    reach_saved(&alice, &bob, 90_010);
+
+    alice.core.forget_saved_device(bob_id.clone()).unwrap();
+
+    assert!(alice.core.list_saved_devices().unwrap().is_empty());
+    let relationships = alice.core.list_device_relationships().unwrap();
+    assert!(
+        relationships.is_empty(),
+        "forgotten relationship must not remain listed"
+    );
+    let cancels = alice.core.targeted_cancel_log_for_test();
+    assert_eq!(cancels, vec![bob_id.clone()]);
+
+    let tombstones = alice
+        .core
+        .relationship_tombstones_for_test(bob_id.clone())
+        .unwrap();
+    assert_eq!(tombstones.len(), 1);
+    assert!(alice
+        .core
+        .reject_relationship_generation_for_test(bob_id, tombstones[0].generation, None)
+        .is_err());
+}
+
+#[test]
+fn forget_does_not_cancel_active_invitation_transfer() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    let bob_id = bob.core.status().endpoint_id.clone();
+    reach_saved(&alice, &bob, 90_020);
+
+    let source_dir = tempfile::tempdir().unwrap();
+    let output_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("hello.txt");
+    std::fs::write(&source_path, b"invitation continues after forget").unwrap();
+    let share = share_path(&alice.core, &source_path, 90_021);
+    let output = output_dir.path().to_string_lossy().to_string();
+    let receiver_core = bob.core.clone();
+    let ticket = share.ticket.clone();
+    let handle = std::thread::spawn(move || {
+        receiver_core.receive(ticket, output, Some("receiver".to_string()))
+    });
+    let request = wait_for_receiver_request(&alice.core, share.transfer_id);
+    alice
+        .core
+        .respond_receiver_request(request.id, true, None)
+        .unwrap();
+
+    // Forget after the invitation is approved; the share-domain transfer must finish.
+    alice.core.forget_saved_device(bob_id).unwrap();
+    handle.join().unwrap().unwrap();
+
+    let transfers = alice.core.list_transfers().unwrap();
+    let invitation = transfers
+        .iter()
+        .find(|entry| entry.transfer_id == share.transfer_id)
+        .expect("invitation transfer retained");
+    assert_ne!(
+        invitation.status.to_lowercase(),
+        "cancelled",
+        "forget must not cancel independently approved invitation transfers"
+    );
+}
+
+#[test]
+fn block_rejects_pairing_and_invitation_handshake_unblock_restores_neither() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    let alice_id = alice.core.status().endpoint_id.clone();
+    reach_saved(&alice, &bob, 90_030);
+
+    bob.core.block_device(alice_id.clone()).unwrap();
+    assert_eq!(
+        bob.core.list_blocked_devices().unwrap(),
+        vec![alice_id.clone()]
+    );
+    assert!(bob.core.list_saved_devices().unwrap().is_empty());
+    assert!(bob.core.list_device_relationships().unwrap().is_empty());
+
+    // Outbound pairing toward a blocked identity is refused locally.
+    assert!(!bob
+        .core
+        .request_saved_device_pairing(alice_id.clone())
+        .unwrap());
+
+    // Invitation handshake from the blocked identity is refused.
+    let source_dir = tempfile::tempdir().unwrap();
+    let output_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("blocked.txt");
+    std::fs::write(&source_path, b"blocked").unwrap();
+    let share = share_path(&bob.core, &source_path, 90_032);
+    let receive_result = alice.core.receive(
+        share.ticket,
+        output_dir.path().to_string_lossy().into_owned(),
+        Some("alice".to_string()),
+    );
+    assert!(
+        receive_result.is_err(),
+        "blocked endpoint must fail invitation handshake"
+    );
+
+    bob.core.unblock_device(alice_id).unwrap();
+    assert!(bob.core.list_blocked_devices().unwrap().is_empty());
+    assert!(
+        bob.core.list_saved_devices().unwrap().is_empty(),
+        "unblock must not restore the relationship"
+    );
+    assert!(bob.core.list_device_relationships().unwrap().is_empty());
+}
+
+#[test]
+fn reinstalled_peer_is_never_merged_by_name_or_metadata() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    let charlie = ProtectedNode::new();
+    let bob_id = bob.core.status().endpoint_id.clone();
+    let charlie_id = charlie.core.status().endpoint_id.clone();
+    assert_ne!(bob_id, charlie_id);
+
+    reach_saved(&alice, &bob, 90_040);
+    // Same display-facing label on a different endpoint identity must not merge.
+    alice
+        .core
+        .set_contact_label(bob_id.clone(), Some("Kitchen Tablet".to_string()))
+        .ok();
+    reach_saved(&alice, &charlie, 90_041);
+    alice
+        .core
+        .set_contact_label(charlie_id.clone(), Some("Kitchen Tablet".to_string()))
+        .ok();
+
+    let saved = alice.core.list_saved_devices().unwrap();
+    assert_eq!(saved.len(), 2);
+    let ids: std::collections::HashSet<_> =
+        saved.into_iter().map(|device| device.endpoint_id).collect();
+    assert!(ids.contains(&bob_id));
+    assert!(ids.contains(&charlie_id));
+    assert_eq!(alice.core.list_device_relationships().unwrap().len(), 2);
+}

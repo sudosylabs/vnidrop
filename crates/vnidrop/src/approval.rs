@@ -178,6 +178,18 @@ impl ApprovalService {
         remote_endpoint_id: String,
         request: RequestTransfer,
     ) -> HandshakeResponse {
+        if self
+            .repository
+            .contacts()
+            .is_blocked(&remote_endpoint_id)
+            .await
+            .unwrap_or(false)
+        {
+            // Indistinguishable from other refusals so probing cannot detect blocks.
+            return self
+                .deny(request.transfer_id, remote_endpoint_id, "not-accepted")
+                .await;
+        }
         let metadata_values = [
             request.transfer_hash.as_str(),
             request.transfer_name.as_str(),

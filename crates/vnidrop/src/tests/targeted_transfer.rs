@@ -6,7 +6,8 @@ use std::{
 
 use crate::{
     secure_secret::FaultInjectingSecretStore, CoreEvent, CoreEventSink, CoreNetworkConfig,
-    CoreRelayMode, DeviceRelationshipState, PendingTargetedOffer, ShareMetadataInput, ShareSource,
+    CoreRelayMode, DeviceRelationshipState, PendingTargetedOffer, PublishedOutput,
+    ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedLocatorKind, ShareMetadataInput, ShareSource,
     SourceKind, TargetedTransferState, TransferAccessMode, VnidropCore, VnidropError,
 };
 
@@ -272,7 +273,12 @@ fn create_targeted_transfer_is_immutable_and_saved_only() {
             Some("payload.txt".to_string()),
         )
         .unwrap();
-    let _auth = accept.join().unwrap().expect("authorization after approve");
+    let response = accept.join().unwrap();
+    assert!(matches!(
+        response,
+        crate::TargetedOfferResponse::Approved { transfer_id }
+            if transfer_id == transfer.id
+    ));
 
     assert_eq!(
         transfer.sender_endpoint_id,
@@ -339,7 +345,7 @@ fn preapproval_offer_is_authenticated_without_ordinary_share_ticket() {
             Some("payload.txt".to_string()),
         )
         .unwrap();
-    accept.join().unwrap().unwrap();
+    accept.join().unwrap();
 }
 
 fn alice_id_from(bob: &VnidropCore) -> String {
@@ -429,10 +435,10 @@ fn explicit_approval_gates_content_and_binds_authorization_to_receiver() {
         std::thread::sleep(Duration::from_millis(25));
     };
 
-    let _ = transfer_id;
-    // Without an approved authorization, receive must fail — no content yet.
+    let _ = transfer_id.clone();
+    // Without durable authorization, receive by id must fail — no content yet.
     let early_receive = bob.core().receive_targeted_transfer(
-        "not-a-real-authorization".to_string(),
+        transfer_id.clone(),
         tempfile::tempdir()
             .unwrap()
             .path()
@@ -442,12 +448,19 @@ fn explicit_approval_gates_content_and_binds_authorization_to_receiver() {
     assert!(early_receive.is_err());
 
     *gate.lock().unwrap() = true;
-    let auth = accept.join().unwrap().expect("receiver authorization");
+    let response = accept.join().unwrap();
+    assert!(matches!(
+        response,
+        crate::TargetedOfferResponse::Approved { transfer_id: id } if id == transfer_id
+    ));
     create.join().unwrap().unwrap();
 
     let output = tempfile::tempdir().unwrap();
     bob.core()
-        .receive_targeted_transfer(auth.clone(), output.path().to_string_lossy().into_owned())
+        .receive_targeted_transfer(
+            transfer_id.clone(),
+            output.path().to_string_lossy().into_owned(),
+        )
         .unwrap();
     assert_eq!(
         std::fs::read(output.path().join("payload.txt")).unwrap(),
@@ -455,12 +468,13 @@ fn explicit_approval_gates_content_and_binds_authorization_to_receiver() {
     );
 
     let charlie_output = tempfile::tempdir().unwrap();
-    let leaked = charlie
-        .core()
-        .receive_targeted_transfer(auth, charlie_output.path().to_string_lossy().into_owned());
+    let leaked = charlie.core().receive_targeted_transfer(
+        transfer_id,
+        charlie_output.path().to_string_lossy().into_owned(),
+    );
     assert!(
         leaked.is_err(),
-        "leaked authorization must not authorize another endpoint"
+        "another endpoint must not pull by the same transfer id"
     );
 }
 
@@ -516,7 +530,7 @@ fn approve_one(
     bob: &ProtectedNode,
     payload: &[u8],
     name: &str,
-) -> (crate::TargetedTransfer, String) {
+) -> crate::TargetedTransfer {
     let bob_id = bob.core().status().endpoint_id.clone();
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join(name);
@@ -537,8 +551,12 @@ fn approve_one(
             Some(name.to_string()),
         )
         .unwrap();
-    let auth = accept.join().unwrap().expect("authorization");
-    (transfer, auth)
+    let response = accept.join().unwrap();
+    assert!(matches!(
+        response,
+        crate::TargetedOfferResponse::Approved { .. }
+    ));
+    transfer
 }
 
 #[test]
@@ -546,15 +564,19 @@ fn protocol_ops_are_idempotent_for_stable_transfer_id() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();
     establish_saved(&alice, &bob, 11_001);
-    let (transfer, auth) = approve_one(&alice, &bob, b"idempotent payload", "payload.txt");
+    let transfer = approve_one(&alice, &bob, b"idempotent payload", "payload.txt");
 
-    // Replaying approval returns the same authorization — no duplicate prompts.
+    // Replaying approval returns AlreadySettled — no duplicate prompts.
     let again = bob
         .core()
         .respond_to_targeted_offer(transfer.id.clone(), true)
-        .unwrap()
-        .expect("idempotent authorization");
-    assert_eq!(again, auth);
+        .unwrap();
+    assert_eq!(
+        again,
+        crate::TargetedOfferResponse::AlreadySettled {
+            transfer_id: transfer.id.clone()
+        }
+    );
 
     let listed = bob
         .core()
@@ -627,7 +649,7 @@ fn approved_transfer_resumes_after_restart_without_reapproval() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();
     establish_saved(&alice, &bob, 11_020);
-    let (transfer, _auth) = approve_one(&alice, &bob, b"resume me please", "payload.txt");
+    let transfer = approve_one(&alice, &bob, b"resume me please", "payload.txt");
 
     let bob_before = bob
         .core()
@@ -678,8 +700,8 @@ fn manifest_change_requires_new_transfer_identity() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();
     establish_saved(&alice, &bob, 11_030);
-    let (first, _) = approve_one(&alice, &bob, b"first manifest", "a.txt");
-    let (second, _) = approve_one(&alice, &bob, b"second manifest", "b.txt");
+    let first = approve_one(&alice, &bob, b"first manifest", "a.txt");
+    let second = approve_one(&alice, &bob, b"second manifest", "b.txt");
     assert_ne!(first.id, second.id);
     assert_ne!(first.manifest_id, second.manifest_id);
 }
@@ -689,7 +711,7 @@ fn cancel_revokes_access_and_stops_streaming() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();
     establish_saved(&alice, &bob, 11_040);
-    let (transfer, auth) = approve_one(&alice, &bob, b"cancel me", "payload.txt");
+    let transfer = approve_one(&alice, &bob, b"cancel me", "payload.txt");
 
     alice
         .core()
@@ -705,7 +727,7 @@ fn cancel_revokes_access_and_stops_streaming() {
     let output = tempfile::tempdir().unwrap();
     let receive = bob
         .core()
-        .receive_targeted_transfer(auth, output.path().to_string_lossy().into_owned());
+        .receive_targeted_transfer(transfer.id, output.path().to_string_lossy().into_owned());
     assert!(
         receive.is_err(),
         "cancelled transfer must not remain receivable"
@@ -717,7 +739,7 @@ fn delete_removes_authorization_and_resumable_state() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();
     establish_saved(&alice, &bob, 11_050);
-    let (transfer, auth) = approve_one(&alice, &bob, b"delete me", "payload.txt");
+    let transfer = approve_one(&alice, &bob, b"delete me", "payload.txt");
 
     bob.core()
         .delete_targeted_transfer(transfer.id.clone())
@@ -741,16 +763,17 @@ fn delete_removes_authorization_and_resumable_state() {
     assert!(resume.is_err(), "deleted transfer must not resume");
 
     let receive = bob.core().receive_targeted_transfer(
-        auth,
+        transfer.id.clone(),
         tempfile::tempdir()
             .unwrap()
             .path()
             .to_string_lossy()
             .into_owned(),
     );
-    // Auth blob may still decode, but durable resume path is gone; receive may
-    // still attempt content pull if sender serves — sender delete is separate.
-    let _ = receive;
+    assert!(
+        receive.is_err(),
+        "deleted transfer must not remain receivable by id"
+    );
 
     alice
         .core()
@@ -772,8 +795,8 @@ fn concurrent_independent_transfers_between_same_devices_are_isolated() {
 
     // Design allows only one unresolved offer per sender; approve sequentially,
     // then prove independent approved transfers do not corrupt each other.
-    let (first, first_auth) = approve_one(&alice, &bob, b"alpha", "one.txt");
-    let (second, second_auth) = approve_one(&alice, &bob, b"beta-payload", "two.txt");
+    let first = approve_one(&alice, &bob, b"alpha", "one.txt");
+    let second = approve_one(&alice, &bob, b"beta-payload", "two.txt");
     assert_ne!(first.id, second.id);
 
     alice
@@ -783,7 +806,7 @@ fn concurrent_independent_transfers_between_same_devices_are_isolated() {
     assert_eq!(
         alice
             .core()
-            .get_targeted_transfer(first.id)
+            .get_targeted_transfer(first.id.clone())
             .unwrap()
             .unwrap()
             .state,
@@ -801,7 +824,10 @@ fn concurrent_independent_transfers_between_same_devices_are_isolated() {
 
     let output = tempfile::tempdir().unwrap();
     bob.core()
-        .receive_targeted_transfer(second_auth, output.path().to_string_lossy().into_owned())
+        .receive_targeted_transfer(
+            second.id.clone(),
+            output.path().to_string_lossy().into_owned(),
+        )
         .unwrap();
     assert_eq!(
         std::fs::read(output.path().join("two.txt")).unwrap(),
@@ -812,7 +838,7 @@ fn concurrent_independent_transfers_between_same_devices_are_isolated() {
     assert!(bob
         .core()
         .receive_targeted_transfer(
-            first_auth,
+            first.id,
             cancelled_output.path().to_string_lossy().into_owned(),
         )
         .is_err());
@@ -842,10 +868,16 @@ fn complete_targeted_roundtrip(alice: &ProtectedNode, bob: &ProtectedNode, trans
             Some("payload.txt".to_string()),
         )
         .unwrap();
-    let auth = accept.join().unwrap().expect("authorization");
+    assert!(matches!(
+        accept.join().unwrap(),
+        crate::TargetedOfferResponse::Approved { .. }
+    ));
     let output = tempfile::tempdir().unwrap();
     bob.core()
-        .receive_targeted_transfer(auth, output.path().to_string_lossy().into_owned())
+        .receive_targeted_transfer(
+            transfer.id.clone(),
+            output.path().to_string_lossy().into_owned(),
+        )
         .unwrap();
     assert_eq!(
         std::fs::read(output.path().join("payload.txt")).unwrap(),
@@ -1096,4 +1128,134 @@ fn start_loopback_relay() -> LoopbackRelay {
         shutdown: Some(shutdown_tx),
         thread: Some(thread),
     }
+}
+
+#[derive(Default)]
+struct MemoryOutputSink {
+    files: Mutex<std::collections::HashMap<String, Vec<u8>>>,
+}
+
+impl MemoryOutputSink {
+    fn file(&self, relative_path: &str) -> Vec<u8> {
+        self.files.lock().unwrap()[relative_path].clone()
+    }
+}
+
+impl ReceiveOutputSink for MemoryOutputSink {
+    fn start_file(&self, relative_path: String) -> Result<(), VnidropError> {
+        self.files.lock().unwrap().insert(relative_path, Vec::new());
+        Ok(())
+    }
+
+    fn write_chunk(&self, relative_path: String, bytes: Vec<u8>) -> Result<(), VnidropError> {
+        self.files
+            .lock()
+            .unwrap()
+            .get_mut(&relative_path)
+            .expect("started")
+            .extend(bytes);
+        Ok(())
+    }
+
+    fn finish_file(&self, _relative_path: String) -> Result<(), VnidropError> {
+        Ok(())
+    }
+
+    fn abort_file(&self, relative_path: String, _reason: String) -> Result<(), VnidropError> {
+        self.files.lock().unwrap().remove(&relative_path);
+        Ok(())
+    }
+}
+
+impl ReceiveOutputSinkV2 for MemoryOutputSink {
+    fn start_file(&self, relative_path: String) -> Result<(), VnidropError> {
+        ReceiveOutputSink::start_file(self, relative_path)
+    }
+
+    fn write_chunk(&self, relative_path: String, bytes: Vec<u8>) -> Result<(), VnidropError> {
+        ReceiveOutputSink::write_chunk(self, relative_path, bytes)
+    }
+
+    fn finish_file(&self, relative_path: String) -> Result<PublishedOutput, VnidropError> {
+        ReceiveOutputSink::finish_file(self, relative_path.clone())?;
+        Ok(PublishedOutput {
+            locator_kind: ReceivedLocatorKind::FilesystemPath,
+            locator: format!("memory://{relative_path}"),
+        })
+    }
+
+    fn abort_file(&self, relative_path: String, reason: String) -> Result<(), VnidropError> {
+        ReceiveOutputSink::abort_file(self, relative_path, reason)
+    }
+}
+
+#[test]
+fn targeted_receive_and_resume_through_output_sinks() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_070);
+    let transfer = approve_one(&alice, &bob, b"sink payload", "sink.txt");
+
+    let sink = Arc::new(MemoryOutputSink::default());
+    bob.core()
+        .receive_targeted_transfer_with_output_sink(transfer.id.clone(), sink.clone())
+        .unwrap();
+    assert_eq!(sink.file("sink.txt"), b"sink payload");
+    assert_eq!(
+        bob.core()
+            .get_targeted_transfer(transfer.id.clone())
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Completed
+    );
+
+    let transfer2 = approve_one(&alice, &bob, b"resume sink", "resume.txt");
+    let bob = bob.restart();
+    let sink_v2 = Arc::new(MemoryOutputSink::default());
+    bob.core()
+        .resume_targeted_transfer_with_output_sink_v2(transfer2.id.clone(), sink_v2.clone())
+        .unwrap();
+    assert_eq!(sink_v2.file("resume.txt"), b"resume sink");
+    assert_eq!(
+        bob.core()
+            .get_targeted_transfer(transfer2.id)
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Completed
+    );
+}
+
+#[test]
+fn decline_returns_typed_declined_outcome() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    let bob_id = bob.core().status().endpoint_id.clone();
+    establish_saved(&alice, &bob, 11_080);
+
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("payload.txt");
+    std::fs::write(&source_path, b"no thanks").unwrap();
+
+    let bob_core = bob.core().clone();
+    let decline = std::thread::spawn(move || {
+        let offer = wait_for_pending_offer(&bob_core);
+        bob_core
+            .respond_to_targeted_offer(offer.transfer_id, false)
+            .unwrap()
+    });
+    let create_err = alice
+        .core()
+        .create_targeted_transfer(
+            bob_id,
+            vec![targeted_source(&source_path)],
+            Some("payload.txt".to_string()),
+        )
+        .unwrap_err();
+    assert!(matches!(create_err, VnidropError::Permission { .. }));
+    assert_eq!(
+        decline.join().unwrap(),
+        crate::TargetedOfferResponse::Declined
+    );
 }

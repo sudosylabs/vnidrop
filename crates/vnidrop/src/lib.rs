@@ -32,8 +32,9 @@ pub use api::{
     DeviceRelationshipState, ExperimentalSavedDeviceCapabilities, PairingEligibilitySummary,
     PendingTargetedOffer, PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2,
     ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest, RuntimeStatus, SavedDevice,
-    ShareMetadataInput, ShareResult, ShareSource, SourceKind, StoredTransfer, TargetedTransfer,
-    TargetedTransferState, TicketInspection, TransferAccessMode, TransferMetadata,
+    ShareMetadataInput, ShareResult, ShareSource, SourceKind, StoredTransfer,
+    TargetedOfferResponse, TargetedTransfer, TargetedTransferState, TicketInspection,
+    TransferAccessMode, TransferMetadata,
 };
 pub use error::VnidropError;
 pub use runtime::VnidropCore;

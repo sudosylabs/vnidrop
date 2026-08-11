@@ -429,6 +429,33 @@ wake-up notifications, not authoritative storage. They may be delivered at
 least once; consumers deduplicate by stable ID and revision, then query current
 state after reconnect or restart.
 
+### 13.1 Pairing and targeted-transfer event catalog
+
+Canonical kinds emitted on `CoreEvent` (phase → kind). Treat every event as a
+wake-up: refresh durable state via list/get APIs. Mid-transfer progress polish
+(live `verified_bytes` updates) may follow; this catalog is the readiness bar.
+
+**`pairing`**
+
+| Kind | Meaning |
+|---|---|
+| `eligibility-available` | Pairing eligibility exists for a peer after a completed authenticated invitation transfer. |
+| `eligibility-removed` | Eligibility expired or was consumed/removed. |
+| `relationship-changed` | Device-relationship state changed (pending, saved, revoked, blocked). Payload includes peer id and state. |
+| `relationship-grant-rotated` | Local relationship grant generation advanced for a peer. |
+| `saved-device-forgotten` | Local forget completed for a saved peer. |
+| `device-blocked` | Peer was blocked locally. |
+
+**`targeted_transfer`**
+
+| Kind | Meaning |
+|---|---|
+| `offer-received` | A pre-approval offer is pending local approve/decline. |
+| `offer-accepted` | Local approval completed; authorization is in core custody. |
+| `offer-declined` | Local decline completed. |
+
+See also [`crates/vnidrop/CORE_FLOW.md`](crates/vnidrop/CORE_FLOW.md) (same catalog, linked so the lists cannot fork).
+
 Failures remain typed where callers can act differently, including:
 
 - Device unavailable or offer timeout.

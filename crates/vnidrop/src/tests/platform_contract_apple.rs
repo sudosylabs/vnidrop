@@ -508,7 +508,7 @@ fn approve_one(
     bob: &Arc<VnidropCore>,
     payload: &[u8],
     name: &str,
-) -> (crate::TargetedTransfer, String) {
+) -> crate::TargetedTransfer {
     let bob_id = bob.status().endpoint_id.clone();
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join(name);
@@ -528,8 +528,12 @@ fn approve_one(
             Some(name.to_string()),
         )
         .unwrap();
-    let auth = accept.join().unwrap().expect("authorization");
-    (transfer, auth)
+    let response = accept.join().unwrap();
+    assert!(matches!(
+        response,
+        crate::TargetedOfferResponse::Approved { .. }
+    ));
+    transfer
 }
 
 fn recover_authoritative_state(
@@ -615,7 +619,7 @@ fn public_api_contract_eligibility_through_unblock_on_apple_path() {
     assert_eq!(saved[0].endpoint_id, bob_id);
     assert_eq!(saved[0].local_label.as_deref(), Some("Bob Mac"));
 
-    let (transfer, _auth) = approve_one(&alice.core(), &bob.core(), b"apple contract", "a.txt");
+    let transfer = approve_one(&alice.core(), &bob.core(), b"apple contract", "a.txt");
     assert_eq!(transfer.receiver_endpoint_id, bob_id);
 
     let alice = alice.restart();

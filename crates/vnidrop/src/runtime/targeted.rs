@@ -6,11 +6,12 @@ use anyhow::{Context, Result};
 use iroh_blobs::{ticket::BlobTicket, BlobFormat};
 use uuid::Uuid;
 
-use super::CoreInner;
+use super::{receive::ReceiveTarget, CoreInner};
 use crate::{
     api::{
         experimental_saved_device_capabilities, PendingTargetedOffer, ShareMetadataInput,
-        ShareSource, TargetedTransfer, TargetedTransferState, TransferAccessMode, TransferMetadata,
+        ShareSource, TargetedOfferResponse, TargetedTransfer, TargetedTransferState,
+        TransferAccessMode, TransferMetadata,
     },
     error::VnidropError,
     secure_secret::{SecretHandle, SecretKind},
@@ -18,7 +19,7 @@ use crate::{
         auth_secret_material,
         protocol::{
             map_offer_refuse_reason, CancelTargetedOffer, DeliverTargetedAuthorization,
-            SubmitTargetedOffer, TargetedOfferResponse, TargetedTransferProtocol,
+            SubmitTargetedOffer, TargetedTransferProtocol, WireOfferResponse,
         },
         reconstruct_authorization, TargetedAuthorization, TargetedAuthorizationDraft,
         TargetedTransferRole, TargetedTransferRow,
@@ -195,26 +196,35 @@ impl CoreInner {
         self: &Arc<Self>,
         transfer_id: String,
         accepted: bool,
-    ) -> Result<Option<String>, VnidropError> {
-        if let Some(auth) = self
-            .targeted_offers
-            .settled_authorization(&transfer_id)
-            .await
-        {
-            return Ok(Some(auth));
+    ) -> Result<TargetedOfferResponse, VnidropError> {
+        if self.targeted_offers.is_settled(&transfer_id).await {
+            return Ok(TargetedOfferResponse::AlreadySettled { transfer_id });
         }
         if let Ok(Some(row)) = self.targeted_store().get_row(&transfer_id).await {
-            if let Some(encoded) = self.load_stored_authorization(&row).await? {
-                return Ok(Some(encoded));
+            if self.load_stored_authorization(&row).await?.is_some()
+                || matches!(
+                    row.state,
+                    TargetedTransferState::Approved
+                        | TargetedTransferState::Connecting
+                        | TargetedTransferState::Transferring
+                        | TargetedTransferState::Interrupted
+                        | TargetedTransferState::Completed
+                        | TargetedTransferState::Declined
+                        | TargetedTransferState::Cancelled
+                        | TargetedTransferState::Failed
+                        | TargetedTransferState::Deleted
+                )
+            {
+                return Ok(TargetedOfferResponse::AlreadySettled { transfer_id });
             }
         }
 
         match self.targeted_offers.respond(&transfer_id, accepted).await {
             Ok(Some(auth)) => {
                 self.persist_receiver_authorization(&auth).await?;
-                Ok(Some(auth))
+                Ok(TargetedOfferResponse::Approved { transfer_id })
             }
-            Ok(None) => Ok(None),
+            Ok(None) => Ok(TargetedOfferResponse::Declined),
             Err(crate::targeted_transfer::RespondError::Unknown) => Err(
                 VnidropError::invalid_input(anyhow::anyhow!("unknown targeted offer")),
             ),
@@ -390,8 +400,8 @@ impl CoreInner {
         };
 
         match response {
-            TargetedOfferResponse::Accepted => {}
-            TargetedOfferResponse::Declined { reason } => {
+            WireOfferResponse::Accepted => {}
+            WireOfferResponse::Declined { reason } => {
                 let _ = store
                     .set_state(
                         &transfer_uuid,
@@ -404,7 +414,7 @@ impl CoreInner {
                     "targeted offer declined: {reason}"
                 )));
             }
-            TargetedOfferResponse::Refused { reason } => {
+            WireOfferResponse::Refused { reason } => {
                 let _ = store
                     .set_state(
                         &transfer_uuid,
@@ -483,18 +493,77 @@ impl CoreInner {
 
     pub(super) async fn receive_targeted_transfer(
         self: &Arc<Self>,
-        authorization: String,
+        transfer_id: String,
         output_dir: String,
     ) -> Result<(), VnidropError> {
-        let auth = TargetedAuthorization::decode(&authorization)?;
-        auth.verify_for_receiver(&self.endpoint.id().to_string())?;
-        self.run_targeted_receive(&auth, output_dir).await
+        self.receive_targeted_to_target(
+            transfer_id,
+            ReceiveTarget::Directory(std::path::PathBuf::from(output_dir)),
+        )
+        .await
+    }
+
+    pub(super) async fn receive_targeted_transfer_with_output_sink(
+        self: &Arc<Self>,
+        transfer_id: String,
+        output_sink: Arc<dyn crate::ReceiveOutputSink>,
+    ) -> Result<(), VnidropError> {
+        self.receive_targeted_to_target(transfer_id, ReceiveTarget::OutputSink(output_sink))
+            .await
+    }
+
+    pub(super) async fn receive_targeted_transfer_with_output_sink_v2(
+        self: &Arc<Self>,
+        transfer_id: String,
+        output_sink: Arc<dyn crate::ReceiveOutputSinkV2>,
+    ) -> Result<(), VnidropError> {
+        self.receive_targeted_to_target(transfer_id, ReceiveTarget::OutputSinkV2(output_sink))
+            .await
     }
 
     pub(super) async fn resume_targeted_transfer(
         self: &Arc<Self>,
         id: String,
         output_dir: String,
+    ) -> Result<(), VnidropError> {
+        self.resume_targeted_to_target(
+            id,
+            ReceiveTarget::Directory(std::path::PathBuf::from(output_dir)),
+        )
+        .await
+    }
+
+    pub(super) async fn resume_targeted_transfer_with_output_sink(
+        self: &Arc<Self>,
+        id: String,
+        output_sink: Arc<dyn crate::ReceiveOutputSink>,
+    ) -> Result<(), VnidropError> {
+        self.resume_targeted_to_target(id, ReceiveTarget::OutputSink(output_sink))
+            .await
+    }
+
+    pub(super) async fn resume_targeted_transfer_with_output_sink_v2(
+        self: &Arc<Self>,
+        id: String,
+        output_sink: Arc<dyn crate::ReceiveOutputSinkV2>,
+    ) -> Result<(), VnidropError> {
+        self.resume_targeted_to_target(id, ReceiveTarget::OutputSinkV2(output_sink))
+            .await
+    }
+
+    async fn receive_targeted_to_target(
+        self: &Arc<Self>,
+        transfer_id: String,
+        target: ReceiveTarget,
+    ) -> Result<(), VnidropError> {
+        let auth = self.load_receiver_authorization(&transfer_id).await?;
+        self.run_targeted_receive(&auth, target).await
+    }
+
+    async fn resume_targeted_to_target(
+        self: &Arc<Self>,
+        id: String,
+        target: ReceiveTarget,
     ) -> Result<(), VnidropError> {
         let store = self.targeted_store();
         let row = store.get_row(&id).await?.ok_or_else(|| {
@@ -514,6 +583,18 @@ impl CoreInner {
                 ),
             });
         }
+        let auth = self.load_receiver_authorization(&id).await?;
+        self.run_targeted_receive(&auth, target).await
+    }
+
+    async fn load_receiver_authorization(
+        &self,
+        transfer_id: &str,
+    ) -> Result<TargetedAuthorization, VnidropError> {
+        let store = self.targeted_store();
+        let row = store.get_row(transfer_id).await?.ok_or_else(|| {
+            VnidropError::invalid_input(anyhow::anyhow!("unknown targeted transfer"))
+        })?;
         let encoded = self.load_stored_authorization(&row).await?.ok_or_else(|| {
             VnidropError::invalid_input(anyhow::anyhow!(
                 "targeted transfer has no durable authorization"
@@ -521,13 +602,13 @@ impl CoreInner {
         })?;
         let auth = TargetedAuthorization::decode(&encoded)?;
         auth.verify_for_receiver(&self.endpoint.id().to_string())?;
-        self.run_targeted_receive(&auth, output_dir).await
+        Ok(auth)
     }
 
     async fn run_targeted_receive(
         self: &Arc<Self>,
         auth: &TargetedAuthorization,
-        output_dir: String,
+        target: ReceiveTarget,
     ) -> Result<(), VnidropError> {
         let store = self.targeted_store();
         if let Ok(Some(row)) = store.get_row(&auth.transfer_id).await {
@@ -584,9 +665,7 @@ impl CoreInner {
                 .encode()
                 .map_err(VnidropError::ticket)?;
 
-        let receive_result = self
-            .receive(ticket, std::path::PathBuf::from(output_dir), None)
-            .await;
+        let receive_result = self.receive_to_target(ticket, target, None).await;
 
         match receive_result {
             Ok(()) => {

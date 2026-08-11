@@ -439,7 +439,7 @@ fn saved_device_cap_blocks_only_new_relationships() {
             Some("payload.txt".to_string()),
         )
         .unwrap();
-    accept.join().unwrap().unwrap();
+    accept.join().unwrap();
 
     // New relationship is refused while the cap is full.
     complete_transfer(&alice, &carol, 13_002);

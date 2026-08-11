@@ -41,11 +41,17 @@ bytes through Kotlin memory.
 - Transfer statuses: `sharing`, `receiving`, `done`, `failed`, `cancelled`,
   `stopped`.
 - Main event phases: `endpoint`, `import`, `ticket`, `handshake`, `approval`,
-  `access`, `transfer`, `download`, `export`, `delivery`, `lifecycle`, `error`.
+  `access`, `transfer`, `download`, `export`, `delivery`, `lifecycle`, `error`,
+  plus experimental `pairing` and `targeted_transfer` (see catalog below).
 - Events are sent to `CoreEventSink` immediately and persisted through the event
   hub. `list_events` flushes queued persistence before reading SQLite.
 - `shutdown()` is idempotent and flushes events before stopping the router.
 
+### Pairing and targeted-transfer event catalog
+
+Canonical catalog: [DESIGN-DEVICE-HISTORY.md §13.1](../../DESIGN-DEVICE-HISTORY.md).
+Do not maintain a second kind list here — link only. Events are wake-ups; query
+durable state after receive. Mid-transfer progress polish may follow.
 ## Platform File Rules
 
 - Desktop uses normal filesystem paths.

@@ -227,6 +227,10 @@ impl TargetedOfferInbox {
         }
     }
 
+    pub(crate) async fn is_settled(&self, transfer_id: &str) -> bool {
+        self.settled.lock().await.contains_key(transfer_id)
+    }
+
     /// Record the local decision. On accept, wait for sender-issued authorization.
     pub(crate) async fn respond(
         &self,

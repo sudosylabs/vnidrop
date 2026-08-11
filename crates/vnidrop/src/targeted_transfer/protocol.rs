@@ -87,28 +87,28 @@ impl TargetedTransferProtocol {
         remote_endpoint_id: &str,
         challenge: &Challenge,
         offer: SubmitTargetedOffer,
-    ) -> TargetedOfferResponse {
+    ) -> WireOfferResponse {
         let expected = experimental_saved_device_capabilities().targeted_transfer_protocol_version;
         if self.inbox.cooldown().is_cooling(remote_endpoint_id) {
-            return TargetedOfferResponse::Refused {
+            return WireOfferResponse::Refused {
                 reason: "identity-cooldown".to_string(),
             };
         }
         if offer.protocol_version != expected {
             self.inbox.cooldown().record_malformed(remote_endpoint_id);
-            return TargetedOfferResponse::Refused {
+            return WireOfferResponse::Refused {
                 reason: "protocol-incompatible".to_string(),
             };
         }
         if offer.receiver_endpoint_id != self.local_endpoint_id {
             self.inbox.cooldown().record_malformed(remote_endpoint_id);
-            return TargetedOfferResponse::Refused {
+            return WireOfferResponse::Refused {
                 reason: "receiver-mismatch".to_string(),
             };
         }
         if offer.sender_endpoint_id != remote_endpoint_id {
             self.inbox.cooldown().record_malformed(remote_endpoint_id);
-            return TargetedOfferResponse::Refused {
+            return WireOfferResponse::Refused {
                 reason: "sender-mismatch".to_string(),
             };
         }
@@ -121,7 +121,7 @@ impl TargetedTransferProtocol {
             || offer.content_hash.is_empty()
         {
             self.inbox.cooldown().record_malformed(remote_endpoint_id);
-            return TargetedOfferResponse::Refused {
+            return WireOfferResponse::Refused {
                 reason: "manifest-limits".to_string(),
             };
         }
@@ -130,7 +130,7 @@ impl TargetedTransferProtocol {
             .validate_metadata_text("transfer name", Some(offer.transfer_name.as_str()))
         {
             self.inbox.cooldown().record_malformed(remote_endpoint_id);
-            return TargetedOfferResponse::Refused {
+            return WireOfferResponse::Refused {
                 reason: error.to_string(),
             };
         }
@@ -143,7 +143,7 @@ impl TargetedTransferProtocol {
                 || existing.sender_endpoint_id != offer.sender_endpoint_id
                 || existing.receiver_endpoint_id != offer.receiver_endpoint_id
             {
-                return TargetedOfferResponse::Refused {
+                return WireOfferResponse::Refused {
                     reason: "immutable-transfer-mismatch".to_string(),
                 };
             }
@@ -152,28 +152,28 @@ impl TargetedTransferProtocol {
                 | TargetedTransferState::Connecting
                 | TargetedTransferState::Transferring
                 | TargetedTransferState::Interrupted
-                | TargetedTransferState::Completed => TargetedOfferResponse::Accepted,
-                TargetedTransferState::Declined => TargetedOfferResponse::Declined {
+                | TargetedTransferState::Completed => WireOfferResponse::Accepted,
+                TargetedTransferState::Declined => WireOfferResponse::Declined {
                     reason: "receiver-declined".to_string(),
                 },
-                TargetedTransferState::Cancelled => TargetedOfferResponse::Declined {
+                TargetedTransferState::Cancelled => WireOfferResponse::Declined {
                     reason: "cancelled".to_string(),
                 },
                 TargetedTransferState::Failed | TargetedTransferState::Deleted => {
-                    TargetedOfferResponse::Refused {
+                    WireOfferResponse::Refused {
                         reason: format!("transfer-{}", state_as_str(existing.state)),
                     }
                 }
                 TargetedTransferState::Preparing
                 | TargetedTransferState::Offering
-                | TargetedTransferState::AwaitingApproval => TargetedOfferResponse::Accepted,
+                | TargetedTransferState::AwaitingApproval => WireOfferResponse::Accepted,
             };
         }
 
         let remote_urls = match parse_offer_relay_urls(&offer.relay_urls) {
             Ok(urls) => urls,
             Err(_) => {
-                return TargetedOfferResponse::Refused {
+                return WireOfferResponse::Refused {
                     reason: "relay-policy-incompatible".to_string(),
                 };
             }
@@ -184,7 +184,7 @@ impl TargetedTransferProtocol {
             offer.relay_mode,
             &remote_urls,
         ) {
-            return TargetedOfferResponse::Refused {
+            return WireOfferResponse::Refused {
                 reason: "relay-policy-incompatible".to_string(),
             };
         }
@@ -203,11 +203,11 @@ impl TargetedTransferProtocol {
             tracing::debug!(error = %error, "targeted offer relationship proof rejected");
             self.inbox.cooldown().record_malformed(remote_endpoint_id);
             if matches!(error, VnidropError::ProtocolIncompatible { .. }) {
-                return TargetedOfferResponse::Refused {
+                return WireOfferResponse::Refused {
                     reason: "protocol-incompatible".to_string(),
                 };
             }
-            return TargetedOfferResponse::Refused {
+            return WireOfferResponse::Refused {
                 reason: "unauthenticated".to_string(),
             };
         }
@@ -226,11 +226,9 @@ impl TargetedTransferProtocol {
         };
 
         match self.inbox.submit(pending).await {
-            TargetedOfferDecision::Accepted => TargetedOfferResponse::Accepted,
-            TargetedOfferDecision::Declined { reason } => {
-                TargetedOfferResponse::Declined { reason }
-            }
-            TargetedOfferDecision::Refused { reason } => TargetedOfferResponse::Refused { reason },
+            TargetedOfferDecision::Accepted => WireOfferResponse::Accepted,
+            TargetedOfferDecision::Declined { reason } => WireOfferResponse::Declined { reason },
+            TargetedOfferDecision::Refused { reason } => WireOfferResponse::Refused { reason },
         }
     }
 
@@ -271,21 +269,21 @@ impl TargetedTransferProtocol {
         &self,
         remote_endpoint_id: &str,
         cancel: CancelTargetedOffer,
-    ) -> CancelTargetedOfferResponse {
+    ) -> CancelWireOfferResponse {
         if let Some(pending) = self.inbox.get_pending(&cancel.transfer_id).await {
             if pending.sender_endpoint_id != remote_endpoint_id {
-                return CancelTargetedOfferResponse::Rejected;
+                return CancelWireOfferResponse::Rejected;
             }
             self.inbox.discard(&cancel.transfer_id).await;
-            return CancelTargetedOfferResponse::Cancelled;
+            return CancelWireOfferResponse::Cancelled;
         }
         if let Ok(Some(row)) = self.store.get_row(&cancel.transfer_id).await {
             if row.sender_endpoint_id != remote_endpoint_id {
-                return CancelTargetedOfferResponse::Rejected;
+                return CancelWireOfferResponse::Rejected;
             }
-            return CancelTargetedOfferResponse::Cancelled;
+            return CancelWireOfferResponse::Cancelled;
         }
-        CancelTargetedOfferResponse::Cancelled
+        CancelWireOfferResponse::Cancelled
     }
 }
 
@@ -342,7 +340,7 @@ impl TargetedTransferClient {
     pub(crate) async fn submit_offer(
         &self,
         offer: SubmitTargetedOffer,
-    ) -> Result<TargetedOfferResponse, irpc::Error> {
+    ) -> Result<WireOfferResponse, irpc::Error> {
         self.inner.rpc(offer).await
     }
 
@@ -356,7 +354,7 @@ impl TargetedTransferClient {
     pub(crate) async fn cancel_offer(
         &self,
         cancel: CancelTargetedOffer,
-    ) -> Result<CancelTargetedOfferResponse, irpc::Error> {
+    ) -> Result<CancelWireOfferResponse, irpc::Error> {
         self.inner.rpc(cancel).await
     }
 }
@@ -388,7 +386,7 @@ pub(crate) struct SubmitTargetedOffer {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub(crate) enum TargetedOfferResponse {
+pub(crate) enum WireOfferResponse {
     Accepted,
     Declined { reason: String },
     Refused { reason: String },
@@ -412,7 +410,7 @@ pub(crate) struct CancelTargetedOffer {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub(crate) enum CancelTargetedOfferResponse {
+pub(crate) enum CancelWireOfferResponse {
     Cancelled,
     Rejected,
 }
@@ -426,11 +424,11 @@ pub(crate) enum CancelTargetedOfferResponse {
 enum TargetedTransferMessages {
     #[rpc(tx = oneshot::Sender<ChallengeResponse>)]
     RequestChallenge(RequestChallenge),
-    #[rpc(tx = oneshot::Sender<TargetedOfferResponse>)]
+    #[rpc(tx = oneshot::Sender<WireOfferResponse>)]
     SubmitTargetedOffer(SubmitTargetedOffer),
     #[rpc(tx = oneshot::Sender<DeliverAuthorizationResponse>)]
     DeliverTargetedAuthorization(DeliverTargetedAuthorization),
-    #[rpc(tx = oneshot::Sender<CancelTargetedOfferResponse>)]
+    #[rpc(tx = oneshot::Sender<CancelWireOfferResponse>)]
     CancelTargetedOffer(CancelTargetedOffer),
 }
 

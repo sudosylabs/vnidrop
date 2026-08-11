@@ -21,8 +21,9 @@ use crate::{
         android::{AndroidKeystore, AndroidSealedValue, AndroidSecureSecretStore},
         SecretHandle, SecretMaterial, SecureSecretStore, SecureSecretStoreError,
     },
-    CoreEvent, CoreEventSink, DeviceRelationshipState, ShareMetadataInput, ShareSource, SourceKind,
-    TargetedTransferState, TransferAccessMode, VnidropCore, VnidropError,
+    CoreEvent, CoreEventSink, DeviceRelationshipState, PublishedOutput, ReceiveOutputSinkV2,
+    ReceivedLocatorKind, ShareMetadataInput, ShareSource, SourceKind, TargetedTransferState,
+    TransferAccessMode, VnidropCore, VnidropError,
 };
 
 #[derive(Default)]
@@ -408,7 +409,7 @@ fn approve_targeted(
     bob: &AndroidContractNode,
     payload: &[u8],
     name: &str,
-) -> (crate::TargetedTransfer, String) {
+) -> crate::TargetedTransfer {
     let bob_id = bob.core().status().endpoint_id.clone();
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join(name);
@@ -429,8 +430,12 @@ fn approve_targeted(
             Some(name.to_string()),
         )
         .unwrap();
-    let auth = accept.join().unwrap().expect("authorization");
-    (transfer, auth)
+    let response = accept.join().unwrap();
+    assert!(matches!(
+        response,
+        crate::TargetedOfferResponse::Approved { .. }
+    ));
+    transfer
 }
 
 #[test]
@@ -461,7 +466,7 @@ fn android_public_api_covers_saved_device_and_targeted_lifecycle() {
     assert_eq!(saved[0].endpoint_id, bob_id);
     assert_eq!(saved[0].local_label.as_deref(), Some("Kitchen Tablet"));
 
-    let (transfer, _auth) = approve_targeted(&alice, &bob, b"android payload", "payload.txt");
+    let transfer = approve_targeted(&alice, &bob, b"android payload", "payload.txt");
     assert_eq!(transfer.receiver_endpoint_id, bob_id);
     assert_eq!(
         bob.core()
@@ -499,6 +504,155 @@ fn android_public_api_covers_saved_device_and_targeted_lifecycle() {
     assert!(bob.core().list_blocked_devices().unwrap().is_empty());
     // Alice already forgot; unblock on Bob must not restore Alice's local saved list.
     assert!(alice.core().list_saved_devices().unwrap().is_empty());
+}
+
+/// Host-side stand-in for MediaStore Downloads publish: durable Android locator, not a path dir.
+#[derive(Default)]
+struct AndroidMediaStoreSink {
+    files: Mutex<HashMap<String, Vec<u8>>>,
+    published: Mutex<HashMap<String, PublishedOutput>>,
+}
+
+impl AndroidMediaStoreSink {
+    fn bytes(&self, relative_path: &str) -> Vec<u8> {
+        self.files.lock().unwrap()[relative_path].clone()
+    }
+
+    fn published(&self, relative_path: &str) -> PublishedOutput {
+        self.published.lock().unwrap()[relative_path].clone()
+    }
+}
+
+impl ReceiveOutputSinkV2 for AndroidMediaStoreSink {
+    fn start_file(&self, relative_path: String) -> Result<(), VnidropError> {
+        self.files.lock().unwrap().insert(relative_path, Vec::new());
+        Ok(())
+    }
+
+    fn write_chunk(&self, relative_path: String, bytes: Vec<u8>) -> Result<(), VnidropError> {
+        self.files
+            .lock()
+            .unwrap()
+            .get_mut(&relative_path)
+            .expect("started")
+            .extend(bytes);
+        Ok(())
+    }
+
+    fn finish_file(&self, relative_path: String) -> Result<PublishedOutput, VnidropError> {
+        let published = PublishedOutput {
+            locator_kind: ReceivedLocatorKind::AndroidMediaStore,
+            locator: format!("content://media/external/downloads/{relative_path}"),
+        };
+        self.published
+            .lock()
+            .unwrap()
+            .insert(relative_path, published.clone());
+        Ok(published)
+    }
+
+    fn abort_file(&self, relative_path: String, _reason: String) -> Result<(), VnidropError> {
+        self.files.lock().unwrap().remove(&relative_path);
+        self.published.lock().unwrap().remove(&relative_path);
+        Ok(())
+    }
+}
+
+#[test]
+fn android_targeted_receive_and_resume_via_media_store_sink() {
+    let alice = AndroidContractNode::new();
+    let mut bob = AndroidContractNode::new();
+    establish_saved(&alice, &bob, 15_101);
+
+    let transfer = approve_targeted(&alice, &bob, b"media store payload", "download.txt");
+    let sink = Arc::new(AndroidMediaStoreSink::default());
+    bob.core()
+        .receive_targeted_transfer_with_output_sink_v2(transfer.id.clone(), sink.clone())
+        .unwrap();
+    assert_eq!(sink.bytes("download.txt"), b"media store payload");
+    let published = sink.published("download.txt");
+    assert_eq!(
+        published.locator_kind,
+        ReceivedLocatorKind::AndroidMediaStore
+    );
+    assert!(published.locator.starts_with("content://media/"));
+    assert_eq!(
+        bob.core()
+            .get_targeted_transfer(transfer.id)
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Completed
+    );
+
+    let transfer2 = approve_targeted(&alice, &bob, b"resume via sink", "resume.txt");
+    bob.restart();
+    let resume_sink = Arc::new(AndroidMediaStoreSink::default());
+    bob.core()
+        .resume_targeted_transfer_with_output_sink_v2(transfer2.id.clone(), resume_sink.clone())
+        .unwrap();
+    assert_eq!(resume_sink.bytes("resume.txt"), b"resume via sink");
+    assert_eq!(
+        resume_sink.published("resume.txt").locator_kind,
+        ReceivedLocatorKind::AndroidMediaStore
+    );
+    assert_eq!(
+        bob.core()
+            .get_targeted_transfer(transfer2.id)
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Completed
+    );
+}
+
+#[test]
+fn android_targeted_sink_failure_marks_transfer_interrupted() {
+    let alice = AndroidContractNode::new();
+    let bob = AndroidContractNode::new();
+    establish_saved(&alice, &bob, 15_102);
+    let transfer = approve_targeted(&alice, &bob, b"will fail", "fail.txt");
+
+    struct FailingMediaStoreSink;
+    impl ReceiveOutputSinkV2 for FailingMediaStoreSink {
+        fn start_file(&self, _relative_path: String) -> Result<(), VnidropError> {
+            Ok(())
+        }
+        fn write_chunk(&self, _relative_path: String, _bytes: Vec<u8>) -> Result<(), VnidropError> {
+            Err(VnidropError::Filesystem {
+                reason: "media store write failed".to_string(),
+            })
+        }
+        fn finish_file(&self, _relative_path: String) -> Result<PublishedOutput, VnidropError> {
+            unreachable!("write failed")
+        }
+        fn abort_file(&self, _relative_path: String, _reason: String) -> Result<(), VnidropError> {
+            Ok(())
+        }
+    }
+
+    let err = bob
+        .core()
+        .receive_targeted_transfer_with_output_sink_v2(
+            transfer.id.clone(),
+            Arc::new(FailingMediaStoreSink),
+        )
+        .unwrap_err();
+    assert!(
+        matches!(
+            err,
+            VnidropError::Transfer { .. } | VnidropError::Filesystem { .. }
+        ),
+        "expected transfer/filesystem failure, got {err:?}"
+    );
+    assert_eq!(
+        bob.core()
+            .get_targeted_transfer(transfer.id)
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Interrupted
+    );
 }
 
 #[test]

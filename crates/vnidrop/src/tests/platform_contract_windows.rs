@@ -367,7 +367,11 @@ fn public_api_exercises_complete_windows_saved_device_contract() {
             Some("payload.txt".to_string()),
         )
         .unwrap();
-    let _auth = accept.join().unwrap().expect("authorization");
+    let response = accept.join().unwrap();
+    assert!(matches!(
+        response,
+        crate::TargetedOfferResponse::Approved { .. }
+    ));
     assert_eq!(transfer.state, TargetedTransferState::Approved);
 
     // Interrupt via receiver restart, then resume without re-approval.

@@ -544,7 +544,8 @@ impl VnidropCore {
     /// Create an immutable one-receiver transfer and submit its pre-approval offer.
     ///
     /// Blocks until the saved receiver approves or declines. On approval the
-    /// receiver obtains bound authorization via [`Self::respond_to_targeted_offer`].
+    /// receiver stores bound authorization locally via
+    /// [`Self::respond_to_targeted_offer`].
     pub fn create_targeted_transfer(
         &self,
         receiver_endpoint_id: String,
@@ -565,25 +566,47 @@ impl VnidropCore {
 
     /// Approve or decline a pending targeted offer.
     ///
-    /// On approval, returns the recipient-bound authorization capability used
-    /// with [`Self::receive_targeted_transfer`]. Declining returns `None`.
+    /// On approval, authorization stays in core custody; callers pull content
+    /// with [`Self::receive_targeted_transfer`] using the transfer id.
     pub fn respond_to_targeted_offer(
         &self,
         transfer_id: String,
         accepted: bool,
-    ) -> Result<Option<String>, VnidropError> {
+    ) -> Result<crate::api::TargetedOfferResponse, VnidropError> {
         self.block_on(self.inner.respond_to_targeted_offer(transfer_id, accepted))
     }
 
     /// Pull an approved targeted transfer through existing output-sink machinery.
     pub fn receive_targeted_transfer(
         &self,
-        authorization: String,
+        transfer_id: String,
         output_dir: String,
     ) -> Result<(), VnidropError> {
         self.block_on(
             self.inner
-                .receive_targeted_transfer(authorization, output_dir),
+                .receive_targeted_transfer(transfer_id, output_dir),
+        )
+    }
+
+    pub fn receive_targeted_transfer_with_output_sink(
+        &self,
+        transfer_id: String,
+        output_sink: Arc<dyn ReceiveOutputSink>,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .receive_targeted_transfer_with_output_sink(transfer_id, output_sink),
+        )
+    }
+
+    pub fn receive_targeted_transfer_with_output_sink_v2(
+        &self,
+        transfer_id: String,
+        output_sink: Arc<dyn ReceiveOutputSinkV2>,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .receive_targeted_transfer_with_output_sink_v2(transfer_id, output_sink),
         )
     }
 
@@ -631,6 +654,28 @@ impl VnidropCore {
         output_dir: String,
     ) -> Result<(), VnidropError> {
         self.block_on(self.inner.resume_targeted_transfer(id, output_dir))
+    }
+
+    pub fn resume_targeted_transfer_with_output_sink(
+        &self,
+        id: String,
+        output_sink: Arc<dyn ReceiveOutputSink>,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .resume_targeted_transfer_with_output_sink(id, output_sink),
+        )
+    }
+
+    pub fn resume_targeted_transfer_with_output_sink_v2(
+        &self,
+        id: String,
+        output_sink: Arc<dyn ReceiveOutputSinkV2>,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .resume_targeted_transfer_with_output_sink_v2(id, output_sink),
+        )
     }
 
     pub fn list_transfers(&self) -> Result<Vec<StoredTransfer>, VnidropError> {

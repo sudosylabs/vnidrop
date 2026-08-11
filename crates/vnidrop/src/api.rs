@@ -118,6 +118,16 @@ pub struct PendingTargetedOffer {
     pub received_at: i64,
 }
 
+/// Local approve/decline outcome for a pending targeted offer.
+///
+/// Authorization stays in core custody; callers only receive transfer ids.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum TargetedOfferResponse {
+    Approved { transfer_id: String },
+    Declined,
+    AlreadySettled { transfer_id: String },
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
 pub enum CoreRelayMode {
     Automatic,

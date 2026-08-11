@@ -17,7 +17,7 @@ pub(crate) mod apple;
 #[cfg(any(test, target_os = "linux"))]
 pub(crate) mod linux;
 mod platform;
-#[cfg(target_os = "windows")]
+#[cfg(any(test, target_os = "windows"))]
 pub(crate) mod windows;
 
 #[cfg(test)]

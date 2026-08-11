@@ -3,13 +3,21 @@ use std::{
     ffi::OsStr,
     fs::{self, OpenOptions},
     io::{self, Write},
-    os::windows::ffi::OsStrExt,
     path::{Path, PathBuf},
-    ptr,
     sync::Arc,
 };
 
 use data_encoding::HEXLOWER;
+
+use super::{SecretHandle, SecretMaterial, SecureSecretStore, SecureSecretStoreError};
+
+#[cfg(test)]
+use super::SecretKind;
+
+#[cfg(target_os = "windows")]
+use std::{os::windows::ffi::OsStrExt, ptr};
+
+#[cfg(target_os = "windows")]
 use windows_sys::Win32::{
     Foundation::{
         GetLastError, LocalFree, ERROR_ACCESS_DENIED, ERROR_ALREADY_EXISTS,
@@ -22,11 +30,6 @@ use windows_sys::Win32::{
     Storage::FileSystem::{MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH},
 };
 
-use super::{SecretHandle, SecretMaterial, SecureSecretStore, SecureSecretStoreError};
-
-#[cfg(test)]
-use super::SecretKind;
-
 const ENVELOPE_MAGIC: &[u8; 8] = b"VNIDPAPI";
 const ENVELOPE_VERSION: u8 = 1;
 const FILE_EXTENSION: &str = "dpapi";
@@ -34,28 +37,41 @@ const MAX_ENVELOPE_BYTES: usize = 64 * 1024;
 const DEFAULT_CONTEXT: &[u8] = b"com.vnidrop.secure-secret.dpapi.v1.current-user";
 const PROTECTED_PAYLOAD_MAGIC: &[u8] = b"VNIDROP-SECRET-V1";
 
+/// Current-user DPAPI (or injectable stand-in) used by [`WindowsDpapiSecretStore`].
+pub(crate) trait WindowsDpapiApi: Send + Sync {
+    fn protect(
+        &self,
+        handle: &SecretHandle,
+        plaintext: &[u8],
+    ) -> Result<Vec<u8>, SecureSecretStoreError>;
+
+    fn unprotect(
+        &self,
+        handle: &SecretHandle,
+        ciphertext: &[u8],
+    ) -> Result<Vec<u8>, SecureSecretStoreError>;
+}
+
 /// Current-user DPAPI storage backed by atomically published protected blobs.
 pub(crate) struct WindowsDpapiSecretStore {
     directory: PathBuf,
-    protector: Arc<DpapiProtector>,
+    api: Arc<dyn WindowsDpapiApi>,
 }
 
 impl WindowsDpapiSecretStore {
+    #[cfg(target_os = "windows")]
     pub(crate) fn new(directory: impl AsRef<Path>) -> Result<Self, SecureSecretStoreError> {
-        Self::with_protector(directory, Arc::new(DpapiProtector::new()))
+        Self::with_api(directory, Arc::new(SystemWindowsDpapiApi::new()))
     }
 
-    fn with_protector(
+    pub(crate) fn with_api(
         directory: impl AsRef<Path>,
-        protector: Arc<DpapiProtector>,
+        api: Arc<dyn WindowsDpapiApi>,
     ) -> Result<Self, SecureSecretStoreError> {
         let directory = directory.as_ref().to_path_buf();
         fs::create_dir_all(&directory).map_err(map_io_error)?;
         cleanup_interrupted_writes(&directory)?;
-        Ok(Self {
-            directory,
-            protector,
-        })
+        Ok(Self { directory, api })
     }
 
     fn path_for(&self, handle: &SecretHandle) -> PathBuf {
@@ -67,14 +83,25 @@ impl WindowsDpapiSecretStore {
         ))
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, target_os = "windows"))]
     pub(crate) fn with_context_for_test(
         directory: impl AsRef<Path>,
         context: &[u8],
     ) -> Result<Self, SecureSecretStoreError> {
-        Self::with_protector(
+        Self::with_api(
             directory,
-            Arc::new(DpapiProtector::with_context_for_test(context)),
+            Arc::new(SystemWindowsDpapiApi::with_context_for_test(context)),
+        )
+    }
+
+    #[cfg(all(test, not(target_os = "windows")))]
+    pub(crate) fn with_context_for_test(
+        directory: impl AsRef<Path>,
+        context: &[u8],
+    ) -> Result<Self, SecureSecretStoreError> {
+        Self::with_api(
+            directory,
+            Arc::new(FakeWindowsDpapiApi::with_context(context)),
         )
     }
 
@@ -103,7 +130,7 @@ impl SecureSecretStore for WindowsDpapiSecretStore {
             Err(error) => return Err(error),
         };
 
-        let ciphertext = self.protector.protect(handle, &material.0)?;
+        let ciphertext = self.api.protect(handle, &material.0)?;
         let envelope = encode_envelope(handle, &ciphertext)?;
         let temporary = self.directory.join(format!(
             "{}.tmp-{}",
@@ -131,8 +158,8 @@ impl SecureSecretStore for WindowsDpapiSecretStore {
             Err(error)
                 if matches!(
                     error.raw_os_error().map(|code| code as u32),
-                    Some(ERROR_ALREADY_EXISTS) | Some(ERROR_FILE_EXISTS)
-                ) =>
+                    Some(ERROR_ALREADY_EXISTS_CODE) | Some(ERROR_FILE_EXISTS_CODE)
+                ) || error.kind() == io::ErrorKind::AlreadyExists =>
             {
                 match self.get(handle) {
                     Ok(existing) if existing == material => Ok(()),
@@ -152,7 +179,7 @@ impl SecureSecretStore for WindowsDpapiSecretStore {
     fn get(&self, handle: &SecretHandle) -> Result<SecretMaterial, SecureSecretStoreError> {
         let envelope = fs::read(self.path_for(handle)).map_err(map_io_error)?;
         let ciphertext = decode_envelope(&envelope, handle)?;
-        let plaintext = self.protector.unprotect(handle, ciphertext)?;
+        let plaintext = self.api.unprotect(handle, ciphertext)?;
         SecretMaterial::new(plaintext).map_err(|_| SecureSecretStoreError::Corrupted)
     }
 
@@ -282,32 +309,112 @@ impl Drop for TemporaryFile {
     }
 }
 
+#[cfg(target_os = "windows")]
+const ERROR_ALREADY_EXISTS_CODE: u32 = ERROR_ALREADY_EXISTS;
+#[cfg(target_os = "windows")]
+const ERROR_FILE_EXISTS_CODE: u32 = ERROR_FILE_EXISTS;
+#[cfg(not(target_os = "windows"))]
+const ERROR_ALREADY_EXISTS_CODE: u32 = 183;
+#[cfg(not(target_os = "windows"))]
+const ERROR_FILE_EXISTS_CODE: u32 = 80;
+
 fn move_write_through(source: &Path, destination: &Path, replace_existing: bool) -> io::Result<()> {
-    let source = wide_path(source);
-    let destination = wide_path(destination);
-    // The files share a directory, so MoveFileEx publishes the fully flushed blob as one rename.
-    let flags = if replace_existing {
-        MOVEFILE_WRITE_THROUGH | MOVEFILE_REPLACE_EXISTING
-    } else {
-        MOVEFILE_WRITE_THROUGH
-    };
-    let moved = unsafe { MoveFileExW(source.as_ptr(), destination.as_ptr(), flags) };
-    if moved == 0 {
-        Err(io::Error::last_os_error())
-    } else {
-        Ok(())
+    #[cfg(target_os = "windows")]
+    {
+        let source = wide_path(source);
+        let destination = wide_path(destination);
+        // The files share a directory, so MoveFileEx publishes the fully flushed blob as one rename.
+        let flags = if replace_existing {
+            MOVEFILE_WRITE_THROUGH | MOVEFILE_REPLACE_EXISTING
+        } else {
+            MOVEFILE_WRITE_THROUGH
+        };
+        let moved = unsafe { MoveFileExW(source.as_ptr(), destination.as_ptr(), flags) };
+        if moved == 0 {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        if !replace_existing && destination.exists() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                "destination already exists",
+            ));
+        }
+        fs::rename(source, destination)
     }
 }
 
+#[cfg(target_os = "windows")]
 fn wide_path(path: &Path) -> Vec<u16> {
     path.as_os_str().encode_wide().chain(Some(0)).collect()
 }
 
-struct DpapiProtector {
+fn dpapi_entropy(context: &[u8], handle: &SecretHandle) -> [u8; 32] {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(context);
+    hasher.update(&[0]);
+    hasher.update(handle.as_str().as_bytes());
+    *hasher.finalize().as_bytes()
+}
+
+fn encode_protected_payload(plaintext: &[u8]) -> Result<Vec<u8>, SecureSecretStoreError> {
+    let length = u32::try_from(plaintext.len()).map_err(|_| SecureSecretStoreError::Unavailable)?;
+    let mut payload = Vec::with_capacity(PROTECTED_PAYLOAD_MAGIC.len() + 4 + plaintext.len() + 32);
+    payload.extend_from_slice(PROTECTED_PAYLOAD_MAGIC);
+    payload.extend_from_slice(&length.to_le_bytes());
+    payload.extend_from_slice(plaintext);
+    let digest = blake3::hash(&payload);
+    payload.extend_from_slice(digest.as_bytes());
+    Ok(payload)
+}
+
+fn decode_protected_payload(payload: &[u8]) -> Result<&[u8], SecureSecretStoreError> {
+    let header_end = PROTECTED_PAYLOAD_MAGIC.len() + 4;
+    if payload.len() < header_end + 32 || !payload.starts_with(PROTECTED_PAYLOAD_MAGIC) {
+        return Err(SecureSecretStoreError::Corrupted);
+    }
+    let length = u32::from_le_bytes(
+        payload[PROTECTED_PAYLOAD_MAGIC.len()..header_end]
+            .try_into()
+            .map_err(|_| SecureSecretStoreError::Corrupted)?,
+    ) as usize;
+    let material_end = header_end
+        .checked_add(length)
+        .ok_or(SecureSecretStoreError::Corrupted)?;
+    if material_end
+        .checked_add(32)
+        .ok_or(SecureSecretStoreError::Corrupted)?
+        != payload.len()
+    {
+        return Err(SecureSecretStoreError::Corrupted);
+    }
+    let expected = blake3::hash(&payload[..material_end]);
+    if expected.as_bytes() != &payload[material_end..] {
+        return Err(SecureSecretStoreError::Corrupted);
+    }
+    Ok(&payload[header_end..material_end])
+}
+
+fn map_io_error(error: io::Error) -> SecureSecretStoreError {
+    match error.kind() {
+        io::ErrorKind::NotFound => SecureSecretStoreError::Missing,
+        io::ErrorKind::PermissionDenied => SecureSecretStoreError::Locked,
+        io::ErrorKind::InvalidData => SecureSecretStoreError::Corrupted,
+        _ => SecureSecretStoreError::Unavailable,
+    }
+}
+
+#[cfg(target_os = "windows")]
+struct SystemWindowsDpapiApi {
     context: Vec<u8>,
 }
 
-impl DpapiProtector {
+#[cfg(target_os = "windows")]
+impl SystemWindowsDpapiApi {
     fn new() -> Self {
         Self {
             context: DEFAULT_CONTEXT.to_vec(),
@@ -322,13 +429,12 @@ impl DpapiProtector {
     }
 
     fn entropy(&self, handle: &SecretHandle) -> [u8; 32] {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(&self.context);
-        hasher.update(&[0]);
-        hasher.update(handle.as_str().as_bytes());
-        *hasher.finalize().as_bytes()
+        dpapi_entropy(&self.context, handle)
     }
+}
 
+#[cfg(target_os = "windows")]
+impl WindowsDpapiApi for SystemWindowsDpapiApi {
     fn protect(
         &self,
         handle: &SecretHandle,
@@ -390,44 +496,7 @@ impl DpapiProtector {
     }
 }
 
-fn encode_protected_payload(plaintext: &[u8]) -> Result<Vec<u8>, SecureSecretStoreError> {
-    let length = u32::try_from(plaintext.len()).map_err(|_| SecureSecretStoreError::Unavailable)?;
-    let mut payload = Vec::with_capacity(PROTECTED_PAYLOAD_MAGIC.len() + 4 + plaintext.len() + 32);
-    payload.extend_from_slice(PROTECTED_PAYLOAD_MAGIC);
-    payload.extend_from_slice(&length.to_le_bytes());
-    payload.extend_from_slice(plaintext);
-    let digest = blake3::hash(&payload);
-    payload.extend_from_slice(digest.as_bytes());
-    Ok(payload)
-}
-
-fn decode_protected_payload(payload: &[u8]) -> Result<&[u8], SecureSecretStoreError> {
-    let header_end = PROTECTED_PAYLOAD_MAGIC.len() + 4;
-    if payload.len() < header_end + 32 || !payload.starts_with(PROTECTED_PAYLOAD_MAGIC) {
-        return Err(SecureSecretStoreError::Corrupted);
-    }
-    let length = u32::from_le_bytes(
-        payload[PROTECTED_PAYLOAD_MAGIC.len()..header_end]
-            .try_into()
-            .map_err(|_| SecureSecretStoreError::Corrupted)?,
-    ) as usize;
-    let material_end = header_end
-        .checked_add(length)
-        .ok_or(SecureSecretStoreError::Corrupted)?;
-    if material_end
-        .checked_add(32)
-        .ok_or(SecureSecretStoreError::Corrupted)?
-        != payload.len()
-    {
-        return Err(SecureSecretStoreError::Corrupted);
-    }
-    let expected = blake3::hash(&payload[..material_end]);
-    if expected.as_bytes() != &payload[material_end..] {
-        return Err(SecureSecretStoreError::Corrupted);
-    }
-    Ok(&payload[header_end..material_end])
-}
-
+#[cfg(target_os = "windows")]
 fn blob(bytes: &[u8]) -> Result<CRYPT_INTEGER_BLOB, SecureSecretStoreError> {
     Ok(CRYPT_INTEGER_BLOB {
         cbData: u32::try_from(bytes.len()).map_err(|_| SecureSecretStoreError::Unavailable)?,
@@ -435,6 +504,7 @@ fn blob(bytes: &[u8]) -> Result<CRYPT_INTEGER_BLOB, SecureSecretStoreError> {
     })
 }
 
+#[cfg(target_os = "windows")]
 fn copy_and_free(
     output: CRYPT_INTEGER_BLOB,
     clear_before_free: bool,
@@ -453,6 +523,7 @@ fn copy_and_free(
     Ok(result)
 }
 
+#[cfg(target_os = "windows")]
 fn map_dpapi_error(unprotecting: bool) -> SecureSecretStoreError {
     let code = unsafe { GetLastError() };
     match code {
@@ -463,11 +534,127 @@ fn map_dpapi_error(unprotecting: bool) -> SecureSecretStoreError {
     }
 }
 
-fn map_io_error(error: io::Error) -> SecureSecretStoreError {
-    match error.kind() {
-        io::ErrorKind::NotFound => SecureSecretStoreError::Missing,
-        io::ErrorKind::PermissionDenied => SecureSecretStoreError::Locked,
-        io::ErrorKind::InvalidData => SecureSecretStoreError::Corrupted,
-        _ => SecureSecretStoreError::Unavailable,
+/// Host-portable stand-in for current-user DPAPI used by contract harnesses.
+///
+/// Blobs are bound to an injectable user context so wrong-user decryption fails
+/// closed the same way real DPAPI fails across Windows accounts.
+#[cfg(any(test, not(target_os = "windows")))]
+pub(crate) struct FakeWindowsDpapiApi {
+    context: Vec<u8>,
+    failure: std::sync::Mutex<Option<SecureSecretStoreError>>,
+    unavailable_handle_substrings: std::sync::Mutex<Vec<String>>,
+}
+
+#[cfg(any(test, not(target_os = "windows")))]
+impl FakeWindowsDpapiApi {
+    pub(crate) fn new() -> Self {
+        Self::with_context(DEFAULT_CONTEXT)
     }
+
+    pub(crate) fn with_context(context: &[u8]) -> Self {
+        Self {
+            context: context.to_vec(),
+            failure: std::sync::Mutex::new(None),
+            unavailable_handle_substrings: std::sync::Mutex::new(Vec::new()),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn fail_with(&self, failure: Option<SecureSecretStoreError>) {
+        *self.failure.lock().unwrap() = failure;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_unavailable_for_handles_containing(&self, substring: &str) {
+        self.unavailable_handle_substrings
+            .lock()
+            .unwrap()
+            .push(substring.to_owned());
+    }
+
+    fn check(&self, handle: &SecretHandle) -> Result<(), SecureSecretStoreError> {
+        match &*self.failure.lock().unwrap() {
+            Some(SecureSecretStoreError::Locked) => return Err(SecureSecretStoreError::Locked),
+            Some(SecureSecretStoreError::Missing) => return Err(SecureSecretStoreError::Missing),
+            Some(SecureSecretStoreError::Corrupted) => {
+                return Err(SecureSecretStoreError::Corrupted)
+            }
+            Some(SecureSecretStoreError::Unavailable) => {
+                return Err(SecureSecretStoreError::Unavailable)
+            }
+            None => {}
+        }
+        if self
+            .unavailable_handle_substrings
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|needle| handle.as_str().contains(needle))
+        {
+            return Err(SecureSecretStoreError::Unavailable);
+        }
+        Ok(())
+    }
+
+    fn seal(
+        &self,
+        handle: &SecretHandle,
+        plaintext: &[u8],
+    ) -> Result<Vec<u8>, SecureSecretStoreError> {
+        let payload = encode_protected_payload(plaintext)?;
+        let key = dpapi_entropy(&self.context, handle);
+        Ok(xor_keystream(&key, &payload))
+    }
+
+    fn open(
+        &self,
+        handle: &SecretHandle,
+        ciphertext: &[u8],
+    ) -> Result<Vec<u8>, SecureSecretStoreError> {
+        let key = dpapi_entropy(&self.context, handle);
+        let payload = xor_keystream(&key, ciphertext);
+        decode_protected_payload(&payload).map(<[u8]>::to_vec)
+    }
+}
+
+#[cfg(any(test, not(target_os = "windows")))]
+impl WindowsDpapiApi for FakeWindowsDpapiApi {
+    fn protect(
+        &self,
+        handle: &SecretHandle,
+        plaintext: &[u8],
+    ) -> Result<Vec<u8>, SecureSecretStoreError> {
+        self.check(handle)?;
+        self.seal(handle, plaintext)
+    }
+
+    fn unprotect(
+        &self,
+        handle: &SecretHandle,
+        ciphertext: &[u8],
+    ) -> Result<Vec<u8>, SecureSecretStoreError> {
+        self.check(handle)?;
+        self.open(handle, ciphertext)
+    }
+}
+
+#[cfg(any(test, not(target_os = "windows")))]
+fn xor_keystream(key: &[u8; 32], bytes: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut counter = 0u64;
+    let mut offset = 0usize;
+    let mut block = [0u8; 32];
+    while offset < bytes.len() {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(key);
+        hasher.update(&counter.to_le_bytes());
+        block.copy_from_slice(hasher.finalize().as_bytes());
+        let take = (bytes.len() - offset).min(block.len());
+        for (index, byte) in bytes[offset..offset + take].iter().enumerate() {
+            out.push(byte ^ block[index]);
+        }
+        offset += take;
+        counter = counter.wrapping_add(1);
+    }
+    out
 }

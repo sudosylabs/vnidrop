@@ -247,8 +247,9 @@ impl EventHub {
             .sequence
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let id = format!("{timestamp}-{}", *sequence);
-        *sequence += 1;
+        let revision = *sequence;
+        let id = format!("{timestamp}-{revision}");
+        *sequence = sequence.saturating_add(1);
         drop(sequence);
 
         // Compose observes this event synchronously, while SQLite persistence is
@@ -258,6 +259,7 @@ impl EventHub {
         // typed UniFFI list APIs still expose the values the UI needs.
         let event = CoreEvent {
             id,
+            revision,
             timestamp,
             scope: scope.as_str().to_string(),
             transfer_id,

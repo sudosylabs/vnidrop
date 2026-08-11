@@ -404,6 +404,8 @@ pub fn default_core_limits() -> CoreLimits {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 pub struct CoreEvent {
     pub id: String,
+    /// Monotonic per-process revision for at-least-once delivery deduplication.
+    pub revision: u64,
     pub timestamp: i64,
     pub scope: String,
     pub transfer_id: Option<u64>,

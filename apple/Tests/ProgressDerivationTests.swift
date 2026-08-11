@@ -70,7 +70,7 @@ final class ProgressDerivationTests: XCTestCase {
 
 	private func event(phase: String, kind: String, json: String) -> CoreEventModel {
 		CoreEventModel(
-			id: UUID().uuidString, timestamp: 0, scope: "transfer", transferId: 1,
+			id: UUID().uuidString, revision: 1, timestamp: 0, scope: "transfer", transferId: 1,
 			direction: "send", phase: phase, kind: kind, dataJson: json
 		)
 	}

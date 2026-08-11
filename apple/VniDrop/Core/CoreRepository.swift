@@ -521,7 +521,7 @@ private func withSecurityScopedAccess<T>(pathOrUrl: String, _ body: () throws ->
 private extension CoreEvent {
 	func toModel() -> CoreEventModel {
 		CoreEventModel(
-			id: id, timestamp: timestamp, scope: scope, transferId: transferId,
+			id: id, revision: revision, timestamp: timestamp, scope: scope, transferId: transferId,
 			direction: direction, phase: phase, kind: kind, dataJson: dataJson
 		)
 	}

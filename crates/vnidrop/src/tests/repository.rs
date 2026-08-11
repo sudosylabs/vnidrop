@@ -87,6 +87,7 @@ async fn persists_transfers_and_events_across_reopen() {
         .insert_event(
             &CoreEvent {
                 id: "event-1".to_string(),
+                revision: 1,
                 timestamp: 10,
                 scope: "transfer".to_string(),
                 transfer_id: Some(7),
@@ -663,6 +664,7 @@ async fn event_reads_respect_configured_history_limit() {
             .insert_event(
                 &CoreEvent {
                     id: format!("event-{sequence}"),
+                    revision: 1,
                     timestamp: sequence,
                     scope: "endpoint".to_string(),
                     transfer_id: None,
@@ -711,6 +713,7 @@ async fn deleting_transfer_removes_related_history_transactionally() {
         .insert_event(
             &CoreEvent {
                 id: "event-delete".to_string(),
+                revision: 1,
                 timestamp: 1,
                 scope: "transfer".to_string(),
                 transfer_id: Some(88),
@@ -775,6 +778,7 @@ async fn deleting_receive_history_only_removes_terminal_receives_and_dependants(
             .insert_event(
                 &CoreEvent {
                     id: format!("event-{transfer_id}"),
+                    revision: 1,
                     timestamp: transfer_id as i64,
                     scope: "transfer".to_string(),
                     transfer_id: Some(transfer_id),
@@ -857,6 +861,7 @@ async fn receive_history_mid_transaction_failure_preserves_all_related_rows() {
         .insert_event(
             &CoreEvent {
                 id: "event-preserved".to_string(),
+                revision: 1,
                 timestamp: 1,
                 scope: "transfer".to_string(),
                 transfer_id: Some(106),

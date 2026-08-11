@@ -180,6 +180,7 @@ class AppUiModelsTest {
 			),
 			CoreEventModel(
 				id = "conn",
+				revision = 1UL,
 				timestamp = 1L,
 				scope = "endpoint",
 				transferId = null,
@@ -330,6 +331,7 @@ class AppUiModelsTest {
 		direction: String = "receive",
 	) = CoreEventModel(
 		id = id,
+		revision = 1UL,
 		timestamp = 1L,
 		scope = "transfer",
 		transferId = transferId,

@@ -493,6 +493,19 @@ impl VnidropCore {
         self.block_on(self.inner.list_saved_devices())
     }
 
+    /// Sets the user-owned local label for a Saved device.
+    pub fn set_saved_device_label(
+        &self,
+        peer_endpoint_id: String,
+        label: Option<String>,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .set_saved_device_label(peer_endpoint_id, label),
+        )
+    }
+
     pub fn respond_to_device_pairing(
         &self,
         peer_endpoint_id: String,

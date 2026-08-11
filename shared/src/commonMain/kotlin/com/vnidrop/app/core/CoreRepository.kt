@@ -370,6 +370,7 @@ private fun RelaySettings.toNative(): CoreNetworkConfig = when (mode) {
 
 private fun CoreEvent.toModel(): CoreEventModel = CoreEventModel(
 	id = id,
+	revision = revision,
 	timestamp = timestamp,
 	scope = scope,
 	transferId = transferId,

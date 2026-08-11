@@ -13,6 +13,7 @@ data class CoreStatus(
 
 data class CoreEventModel(
 	val id: String,
+	val revision: ULong,
 	val timestamp: Long,
 	val scope: String,
 	val transferId: ULong?,

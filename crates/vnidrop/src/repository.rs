@@ -227,6 +227,7 @@ impl Repository {
             r#"
             CREATE TABLE IF NOT EXISTS transfer_events (
                 id TEXT PRIMARY KEY,
+                revision INTEGER NOT NULL DEFAULT 0,
                 timestamp INTEGER NOT NULL,
                 scope TEXT NOT NULL,
                 transfer_id INTEGER,
@@ -239,6 +240,20 @@ impl Repository {
         )
         .execute(&self.pool)
         .await?;
+
+        let event_columns = sqlx::query("PRAGMA table_info(transfer_events)")
+            .fetch_all(&self.pool)
+            .await?;
+        if !event_columns
+            .iter()
+            .any(|row| row.get::<String, _>(1) == "revision")
+        {
+            sqlx::query(
+                "ALTER TABLE transfer_events ADD COLUMN revision INTEGER NOT NULL DEFAULT 0",
+            )
+            .execute(&self.pool)
+            .await?;
+        }
 
         sqlx::query(
             "CREATE INDEX IF NOT EXISTS idx_transfer_events_transfer_id ON transfer_events(transfer_id, timestamp);",
@@ -981,12 +996,13 @@ impl Repository {
         sqlx::query(
             r#"
             INSERT OR REPLACE INTO transfer_events (
-                id, timestamp, scope, transfer_id, direction, phase, kind, data_json
+                id, revision, timestamp, scope, transfer_id, direction, phase, kind, data_json
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8);
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9);
             "#,
         )
         .bind(&event.id)
+        .bind(to_db_id(event.revision)?)
         .bind(event.timestamp)
         .bind(&event.scope)
         .bind(event.transfer_id.map(to_db_id).transpose()?)
@@ -1330,10 +1346,10 @@ impl Repository {
         let rows = if let Some(transfer_id) = transfer_id {
             sqlx::query(
                 r#"
-                SELECT id, timestamp, scope, transfer_id, direction, phase, kind, data_json
+                SELECT id, revision, timestamp, scope, transfer_id, direction, phase, kind, data_json
                 FROM transfer_events
                 WHERE transfer_id = ?1
-                ORDER BY timestamp ASC
+                ORDER BY timestamp ASC, revision ASC
                 LIMIT ?2
                 "#,
             )
@@ -1344,9 +1360,9 @@ impl Repository {
         } else {
             sqlx::query(
                 r#"
-                SELECT id, timestamp, scope, transfer_id, direction, phase, kind, data_json
+                SELECT id, revision, timestamp, scope, transfer_id, direction, phase, kind, data_json
                 FROM transfer_events
-                ORDER BY timestamp DESC
+                ORDER BY timestamp DESC, revision DESC
                 LIMIT ?1
                 "#,
             )
@@ -1413,6 +1429,7 @@ fn row_to_transfer(row: sqlx::sqlite::SqliteRow) -> Result<StoredTransfer> {
 fn row_to_event(row: sqlx::sqlite::SqliteRow) -> CoreEvent {
     CoreEvent {
         id: row.get("id"),
+        revision: row.get::<i64, _>("revision") as u64,
         timestamp: row.get("timestamp"),
         scope: row.get("scope"),
         transfer_id: row

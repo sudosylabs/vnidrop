@@ -12,6 +12,7 @@ struct CoreStatus: Equatable, Sendable {
 
 struct CoreEventModel: Equatable, Identifiable, Sendable {
 	let id: String
+	let revision: UInt64
 	let timestamp: Int64
 	let scope: String
 	let transferId: UInt64?

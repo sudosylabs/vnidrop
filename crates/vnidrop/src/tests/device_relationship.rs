@@ -540,3 +540,60 @@ fn reinstalled_peer_is_never_merged_by_name_or_metadata() {
     assert!(ids.contains(&charlie_id));
     assert_eq!(alice.core.list_device_relationships().unwrap().len(), 2);
 }
+
+#[test]
+fn saved_device_local_label_survives_listing_and_rejects_non_saved_peers() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    let bob_id = bob.core.status().endpoint_id.clone();
+    reach_saved(&alice, &bob, 90_050);
+
+    alice
+        .core
+        .set_saved_device_label(bob_id.clone(), Some("Kitchen Tablet".to_string()))
+        .unwrap();
+    let saved = alice.core.list_saved_devices().unwrap();
+    assert_eq!(saved.len(), 1);
+    assert_eq!(saved[0].local_label.as_deref(), Some("Kitchen Tablet"));
+
+    alice
+        .core
+        .set_saved_device_label(bob_id.clone(), None)
+        .unwrap();
+    assert!(alice.core.list_saved_devices().unwrap()[0]
+        .local_label
+        .is_none());
+
+    let err = alice
+        .core
+        .set_saved_device_label("unknown-peer".to_string(), Some("x".to_string()))
+        .unwrap_err();
+    assert!(matches!(err, crate::VnidropError::InvalidInput { .. }));
+}
+
+#[test]
+fn events_carry_stable_ids_and_monotonic_revisions() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    reach_saved(&alice, &bob, 90_051);
+
+    let events = alice.core.list_events(None).unwrap();
+    assert!(!events.is_empty());
+    let mut seen_ids = std::collections::HashSet::new();
+    let mut revisions: Vec<u64> = Vec::new();
+    for event in &events {
+        assert!(
+            seen_ids.insert(event.id.clone()),
+            "event ids must be unique"
+        );
+        assert!(event.revision >= 1, "revisions start at 1");
+        revisions.push(event.revision);
+    }
+    revisions.sort_unstable();
+    revisions.dedup();
+    assert_eq!(
+        revisions.len(),
+        events.len(),
+        "each event must have a distinct revision"
+    );
+}

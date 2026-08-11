@@ -162,6 +162,11 @@ impl DeviceRelationshipService {
                 .execute(pool)
                 .await?;
         }
+        if !has("local_label") {
+            sqlx::query("ALTER TABLE device_relationships ADD COLUMN local_label TEXT")
+                .execute(pool)
+                .await?;
+        }
         Self::ensure_lifecycle_schema(pool).await?;
         Ok(())
     }
@@ -252,19 +257,56 @@ impl DeviceRelationshipService {
     }
 
     pub(crate) async fn list_saved_devices(&self) -> Result<Vec<SavedDevice>, VnidropError> {
-        Ok(self
-            .list()
-            .await?
+        let rows = sqlx::query(
+            r#"
+            SELECT remote_endpoint_id, local_label, created_at, updated_at
+            FROM device_relationships
+            WHERE state = 'saved'
+            ORDER BY updated_at DESC
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(rows
             .into_iter()
-            .filter(|entry| entry.state == DeviceRelationshipState::Saved)
-            .map(|entry| SavedDevice {
-                endpoint_id: entry.remote_endpoint_id,
-                local_label: None,
+            .map(|row| SavedDevice {
+                endpoint_id: row.get("remote_endpoint_id"),
+                local_label: row.get("local_label"),
                 remote_display_name: None,
-                created_at: entry.created_at,
-                last_authenticated_at: Some(entry.updated_at),
+                created_at: row.get("created_at"),
+                last_authenticated_at: Some(row.get("updated_at")),
             })
             .collect())
+    }
+
+    /// Sets the user-owned local label for a Saved device. Labels are never
+    /// overwritten by remote display names.
+    pub(crate) async fn set_saved_device_label(
+        &self,
+        peer_endpoint_id: String,
+        label: Option<String>,
+    ) -> Result<(), VnidropError> {
+        let result = sqlx::query(
+            r#"
+            UPDATE device_relationships
+            SET local_label = ?2, updated_at = ?3
+            WHERE remote_endpoint_id = ?1 AND state = 'saved'
+            "#,
+        )
+        .bind(&peer_endpoint_id)
+        .bind(label)
+        .bind(now_ms())
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        if result.rows_affected() == 0 {
+            return Err(VnidropError::invalid_input(anyhow::anyhow!(
+                "peer is not a saved device"
+            )));
+        }
+        self.emit_changed(&peer_endpoint_id, DeviceRelationshipState::Saved);
+        Ok(())
     }
 
     pub(crate) async fn request_pairing(

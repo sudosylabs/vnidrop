@@ -1,7 +1,7 @@
 //! Experimental saved-device mutual-consent relationships.
 //!
-//! Implements design §6/§7: pending outgoing/incoming states, directional grants
-//! bound to relationship generation, and Saved only after mutual acknowledgement.
+//! Pending outgoing/incoming states, directional grants bound to relationship
+//! generation, and Saved only after mutual acknowledgement.
 
 mod crypto;
 mod lifecycle;

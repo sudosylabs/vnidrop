@@ -875,7 +875,7 @@ impl DeviceRelationshipService {
             )));
         }
         // Established relationships record a protocol floor and reject silent
-        // downgrade attempts (design §7 / §15).
+        // downgrade attempts.
         if protocol_version < row.minimum_protocol_version {
             return Err(VnidropError::protocol_incompatible(anyhow::anyhow!(
                 "relationship protocol downgrade is forbidden"

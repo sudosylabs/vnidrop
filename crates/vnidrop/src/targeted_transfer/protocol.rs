@@ -1,4 +1,4 @@
-//! Targeted-transfer control-plane protocol (design §10).
+//! Targeted-transfer control-plane protocol.
 //!
 //! Separate ALPN from ordinary offers: pre-approval messages carry a manifest
 //! summary and relationship proof only — never a reusable share ticket.
@@ -443,7 +443,7 @@ fn parse_offer_relay_urls(values: &[String]) -> Result<Vec<RelayUrl>, ()> {
     Ok(urls)
 }
 
-/// Map a receiver refuse reason to a typed public error (design §13).
+/// Map a receiver refuse reason to a typed public error.
 pub(crate) fn map_offer_refuse_reason(reason: &str) -> VnidropError {
     match reason {
         "relay-policy-incompatible" => VnidropError::relay_policy_incompatible(anyhow::anyhow!(

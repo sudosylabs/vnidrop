@@ -302,7 +302,7 @@ pub struct CoreLimits {
     pub max_pending_offers: u64,
     pub max_concurrent_transfers: u64,
     pub event_queue_capacity: u64,
-    /// Cap on Saved + pending mutual-consent relationships (design §14).
+    /// Cap on Saved + pending mutual-consent relationships.
     pub max_saved_devices: u64,
     /// Quiet period after a decline or repeated malformed control-plane traffic.
     pub identity_cooldown_ms: u64,

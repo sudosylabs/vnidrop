@@ -49,9 +49,15 @@ bytes through Kotlin memory.
 
 ### Pairing and targeted-transfer event catalog
 
-Canonical catalog: [DESIGN-DEVICE-HISTORY.md §13.1](../../DESIGN-DEVICE-HISTORY.md).
-Do not maintain a second kind list here — link only. Events are wake-ups; query
-durable state after receive. Mid-transfer progress polish may follow.
+Treat every event as a wake-up: refresh durable state via list/get APIs.
+Mid-transfer progress polish may follow.
+
+**`pairing`:** `eligibility-available`, `eligibility-removed`,
+`relationship-changed`, `relationship-grant-rotated`, `saved-device-forgotten`,
+`device-blocked`.
+
+**`targeted_transfer`:** `offer-received`, `offer-accepted`, `offer-declined`.
+
 ## Platform File Rules
 
 - Desktop uses normal filesystem paths.

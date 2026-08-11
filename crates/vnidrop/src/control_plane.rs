@@ -1,4 +1,4 @@
-//! Saved-device control-plane hardening (design §14).
+//! Saved-device control-plane hardening.
 //!
 //! Bounds hostile / noisy peers without imposing quotas on transfers the
 //! receiver has already accepted.

@@ -1,4 +1,4 @@
-//! Forget, block, grant rotation, and minimal revocation tombstones (design §7–§8).
+//! Forget, block, grant rotation, and minimal revocation tombstones.
 
 use serde_json::json;
 

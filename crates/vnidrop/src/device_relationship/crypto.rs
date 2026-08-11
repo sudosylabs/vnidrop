@@ -1,4 +1,4 @@
-//! Relationship-grant possession proofs (design §7).
+//! Relationship-grant possession proofs.
 
 use crate::{
     error::VnidropError,

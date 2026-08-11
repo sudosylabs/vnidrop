@@ -454,8 +454,6 @@ wake-up: refresh durable state via list/get APIs. Mid-transfer progress polish
 | `offer-accepted` | Local approval completed; authorization is in core custody. |
 | `offer-declined` | Local decline completed. |
 
-See also [`crates/vnidrop/CORE_FLOW.md`](crates/vnidrop/CORE_FLOW.md) (same catalog, linked so the lists cannot fork).
-
 Failures remain typed where callers can act differently, including:
 
 - Device unavailable or offer timeout.

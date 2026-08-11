@@ -185,7 +185,7 @@ pub(crate) fn ticket_matches_relay_profile(
 }
 
 /// Whether a remote peer's advertised network profile can be used under the
-/// local profile (design §3 / §10 relay-policy validation).
+/// local profile.
 pub(crate) fn relay_profiles_compatible(
     local_mode: CoreRelayMode,
     local_urls: &[RelayUrl],

@@ -110,7 +110,7 @@ impl CoreInner {
             "device-blocked",
             json!({ "peer_endpoint_id": peer_endpoint_id }),
         );
-        // Silence: blocked peers are not notified (design §8).
+        // Silence: blocked peers are not notified.
         Ok(())
     }
 

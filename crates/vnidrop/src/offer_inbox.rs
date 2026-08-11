@@ -20,10 +20,6 @@ use crate::{event_hub::EventHub, offer::OfferResponse, util::now_ms};
 /// How long the sender waits for the receiving user to decide.
 const OFFER_WAIT_TIMEOUT: Duration = Duration::from_secs(120);
 
-/// Quiet period after a decline, so a paired device cannot re-prompt on a loop.
-/// A contact is not a stranger, but it is not unlimited either.
-const DECLINE_COOLDOWN_MS: i64 = 60 * 1_000;
-
 #[derive(Debug, Clone)]
 pub(crate) struct PendingOffer {
     pub(crate) offer_id: String,
@@ -50,16 +46,22 @@ pub(crate) struct OfferInbox {
     /// Endpoint → time before which new offers are refused.
     cooldowns: Arc<Mutex<HashMap<String, i64>>>,
     max_pending: usize,
+    decline_cooldown_ms: i64,
 }
 
 impl OfferInbox {
-    pub(crate) fn new(event_hub: Arc<EventHub>, max_pending: usize) -> Self {
+    pub(crate) fn new(
+        event_hub: Arc<EventHub>,
+        max_pending: usize,
+        identity_cooldown_ms: u64,
+    ) -> Self {
         Self {
             event_hub,
             pending: Arc::new(Mutex::new(HashMap::new())),
             waiters: Arc::new(Mutex::new(HashMap::new())),
             cooldowns: Arc::new(Mutex::new(HashMap::new())),
             max_pending,
+            decline_cooldown_ms: identity_cooldown_ms as i64,
         }
     }
 
@@ -229,7 +231,7 @@ impl OfferInbox {
         if !accepted {
             self.cooldowns.lock().await.insert(
                 offer.from_endpoint_id.clone(),
-                now_ms() + DECLINE_COOLDOWN_MS,
+                now_ms() + self.decline_cooldown_ms,
             );
         }
         if let Some(waiter) = waiter {

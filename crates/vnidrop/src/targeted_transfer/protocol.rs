@@ -89,17 +89,25 @@ impl TargetedTransferProtocol {
         offer: SubmitTargetedOffer,
     ) -> TargetedOfferResponse {
         let expected = experimental_saved_device_capabilities().targeted_transfer_protocol_version;
+        if self.inbox.cooldown().is_cooling(remote_endpoint_id) {
+            return TargetedOfferResponse::Refused {
+                reason: "identity-cooldown".to_string(),
+            };
+        }
         if offer.protocol_version != expected {
+            self.inbox.cooldown().record_malformed(remote_endpoint_id);
             return TargetedOfferResponse::Refused {
                 reason: "protocol-incompatible".to_string(),
             };
         }
         if offer.receiver_endpoint_id != self.local_endpoint_id {
+            self.inbox.cooldown().record_malformed(remote_endpoint_id);
             return TargetedOfferResponse::Refused {
                 reason: "receiver-mismatch".to_string(),
             };
         }
         if offer.sender_endpoint_id != remote_endpoint_id {
+            self.inbox.cooldown().record_malformed(remote_endpoint_id);
             return TargetedOfferResponse::Refused {
                 reason: "sender-mismatch".to_string(),
             };
@@ -112,6 +120,7 @@ impl TargetedTransferProtocol {
             || offer.manifest_id.is_empty()
             || offer.content_hash.is_empty()
         {
+            self.inbox.cooldown().record_malformed(remote_endpoint_id);
             return TargetedOfferResponse::Refused {
                 reason: "manifest-limits".to_string(),
             };
@@ -120,6 +129,7 @@ impl TargetedTransferProtocol {
             .limits
             .validate_metadata_text("transfer name", Some(offer.transfer_name.as_str()))
         {
+            self.inbox.cooldown().record_malformed(remote_endpoint_id);
             return TargetedOfferResponse::Refused {
                 reason: error.to_string(),
             };
@@ -190,7 +200,8 @@ impl TargetedTransferProtocol {
             )
             .await
         {
-            tracing::debug!(%error, "targeted offer relationship proof rejected");
+            tracing::debug!(error = %error, "targeted offer relationship proof rejected");
+            self.inbox.cooldown().record_malformed(remote_endpoint_id);
             if matches!(error, VnidropError::ProtocolIncompatible { .. }) {
                 return TargetedOfferResponse::Refused {
                     reason: "protocol-incompatible".to_string(),

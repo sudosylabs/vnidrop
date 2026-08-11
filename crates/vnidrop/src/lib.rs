@@ -2,6 +2,7 @@ mod access_policy;
 mod api;
 mod approval;
 mod contacts;
+mod control_plane;
 mod device_relationship;
 mod error;
 mod event_hub;

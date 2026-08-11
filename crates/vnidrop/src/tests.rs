@@ -4,6 +4,8 @@ mod access_policy_tests;
 mod contact_polling_tests;
 #[path = "tests/contacts.rs"]
 mod contacts_tests;
+#[path = "tests/control_plane.rs"]
+mod control_plane_tests;
 #[path = "tests/device_relationship.rs"]
 mod device_relationship_tests;
 #[path = "tests/error.rs"]

@@ -27,9 +27,15 @@ use crate::{
     util::{non_empty, now_ms},
 };
 
-const OFFER_CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
-
 impl CoreInner {
+    fn connection_timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(self.limits.connection_timeout_ms)
+    }
+
+    fn offer_wait_timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(self.limits.offer_timeout_ms)
+    }
+
     pub(super) fn targeted_store(&self) -> TargetedTransferStore {
         TargetedTransferStore::new(self.repository.sqlite_pool())
     }
@@ -131,7 +137,7 @@ impl CoreInner {
             {
                 let client = TargetedTransferProtocol::client(self.endpoint.clone(), addr);
                 let _ = tokio::time::timeout(
-                    OFFER_CONNECT_TIMEOUT,
+                    self.connection_timeout(),
                     client.cancel_offer(CancelTargetedOffer {
                         transfer_id: id.clone(),
                     }),
@@ -287,7 +293,8 @@ impl CoreInner {
             .await?;
         let client = TargetedTransferProtocol::client(self.endpoint.clone(), addr);
         let challenge =
-            match tokio::time::timeout(OFFER_CONNECT_TIMEOUT, client.request_challenge()).await {
+            match tokio::time::timeout(self.connection_timeout(), client.request_challenge()).await
+            {
                 Ok(Ok(challenge)) => challenge,
                 Ok(Err(error)) => {
                     let _ = store
@@ -331,7 +338,7 @@ impl CoreInner {
             .await?;
 
         let response = match tokio::time::timeout(
-            OFFER_CONNECT_TIMEOUT + std::time::Duration::from_secs(120),
+            self.connection_timeout() + self.offer_wait_timeout(),
             client.submit_offer(SubmitTargetedOffer {
                 proof,
                 generation,

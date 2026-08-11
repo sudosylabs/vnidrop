@@ -55,7 +55,7 @@ impl VnidropError {
 
     pub(crate) fn ticket(error: impl Into<anyhow::Error>) -> Self {
         Self::Ticket {
-            reason: error.into().to_string(),
+            reason: crate::control_plane::redact_text(&error.into().to_string()),
         }
     }
 
@@ -168,7 +168,7 @@ impl VnidropError {
     }
 
     fn classify(error: anyhow::Error, fallback: impl FnOnce(String) -> Self) -> Self {
-        let reason = error.to_string();
+        let reason = crate::control_plane::redact_text(&error.to_string());
         if let Some(existing) = error.chain().find_map(|cause| cause.downcast_ref::<Self>()) {
             return existing.with_reason(reason);
         }
@@ -193,7 +193,7 @@ impl VnidropError {
     }
 
     fn from_error(error: anyhow::Error, fallback: impl FnOnce(String) -> Self) -> Self {
-        let reason = error.to_string();
+        let reason = crate::control_plane::redact_text(&error.to_string());
         if let Some(existing) = error.chain().find_map(|cause| cause.downcast_ref::<Self>()) {
             existing.with_reason(reason)
         } else {

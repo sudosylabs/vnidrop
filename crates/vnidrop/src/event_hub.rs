@@ -8,6 +8,7 @@ use tokio::{
 
 use crate::{
     api::{CoreEvent, CoreEventSink},
+    control_plane::redact_json,
     repository::Repository,
     transfer_state::TransferDirection,
     util::now_ms,
@@ -51,6 +52,10 @@ enum EventPhase {
     Pairing,
     /// Prototype contact lifecycle notifications.
     Contacts,
+    /// Prototype contact offer prompts.
+    Offer,
+    /// Saved-device targeted-transfer pre-approval prompts.
+    TargetedTransfer,
 }
 
 impl EventPhase {
@@ -74,6 +79,8 @@ impl EventPhase {
             "delivery" => Some(Self::Delivery),
             "pairing" => Some(Self::Pairing),
             "contacts" => Some(Self::Contacts),
+            "offer" => Some(Self::Offer),
+            "targeted_transfer" => Some(Self::TargetedTransfer),
             _ => None,
         }
     }
@@ -98,6 +105,8 @@ impl EventPhase {
             Self::Delivery => "delivery",
             Self::Pairing => "pairing",
             Self::Contacts => "contacts",
+            Self::Offer => "offer",
+            Self::TargetedTransfer => "targeted_transfer",
         }
     }
 }
@@ -245,6 +254,8 @@ impl EventHub {
         // Compose observes this event synchronously, while SQLite persistence is
         // serialized through the queue.  That keeps the UI responsive without
         // losing the ability to flush persisted history during shutdown/tests.
+        // Production diagnostics redact endpoint ids, tickets, grants, and paths;
+        // typed UniFFI list APIs still expose the values the UI needs.
         let event = CoreEvent {
             id,
             timestamp,
@@ -253,7 +264,7 @@ impl EventHub {
             direction: direction.map(|direction| direction.as_str().to_string()),
             phase: phase.as_str().to_string(),
             kind: kind.0,
-            data_json: data.to_string(),
+            data_json: redact_json(data).to_string(),
         };
         if let Err(error) = self.tx.try_send(EventCommand::Persist(event.clone())) {
             tracing::warn!(event_id = %event.id, %error, "event persistence queue dropped event");

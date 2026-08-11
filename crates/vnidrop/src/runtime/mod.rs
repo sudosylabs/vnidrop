@@ -394,9 +394,21 @@ impl CoreInner {
         {
             tracing::warn!(%error, "failed to sweep dead grants");
         }
-        let offers = OfferInbox::new(event_hub.clone(), limits.max_pending_offers as usize);
-        let targeted_offers =
-            TargetedOfferInbox::new(event_hub.clone(), limits.max_pending_offers as usize);
+        let offers = OfferInbox::new(
+            event_hub.clone(),
+            limits.max_pending_offers as usize,
+            limits.identity_cooldown_ms,
+        );
+        let identity_cooldown = crate::control_plane::IdentityCooldown::new(
+            limits.identity_cooldown_ms,
+            limits.malformed_strike_limit,
+        );
+        let targeted_offers = TargetedOfferInbox::new(
+            event_hub.clone(),
+            limits.max_pending_offers as usize,
+            identity_cooldown,
+            limits.offer_timeout_ms,
+        );
         let device_relationships = Arc::new(DeviceRelationshipService::new(
             repository.sqlite_pool(),
             secret_custody.clone(),
@@ -406,6 +418,8 @@ impl CoreInner {
             endpoint.clone(),
             relay_mode,
             relay_urls.clone(),
+            limits.max_saved_devices,
+            limits.pairing_timeout_ms,
         ));
         let router = Router::builder(endpoint.clone())
             .accept(iroh_blobs::ALPN, blobs)

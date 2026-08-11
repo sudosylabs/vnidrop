@@ -46,7 +46,6 @@ use crypto::{
 };
 
 const PENDING_TTL_MS: i64 = 30 * 60 * 1_000;
-const PAIRING_RPC_TIMEOUT: Duration = Duration::from_secs(15);
 
 #[derive(Clone)]
 pub(crate) struct DeviceRelationshipService {
@@ -58,6 +57,8 @@ pub(crate) struct DeviceRelationshipService {
     endpoint: Endpoint,
     relay_mode: CoreRelayMode,
     custom_relay_urls: Vec<RelayUrl>,
+    max_saved_devices: u64,
+    pairing_timeout: Duration,
     peer_locks: Arc<TokioMutex<HashMap<String, Arc<TokioMutex<()>>>>>,
 }
 
@@ -75,6 +76,8 @@ impl DeviceRelationshipService {
         endpoint: Endpoint,
         relay_mode: CoreRelayMode,
         custom_relay_urls: Vec<RelayUrl>,
+        max_saved_devices: u64,
+        pairing_timeout_ms: u64,
     ) -> Self {
         Self {
             pool,
@@ -85,8 +88,34 @@ impl DeviceRelationshipService {
             endpoint,
             relay_mode,
             custom_relay_urls,
+            max_saved_devices,
+            pairing_timeout: Duration::from_millis(pairing_timeout_ms),
             peer_locks: Arc::new(TokioMutex::new(HashMap::new())),
         }
+    }
+
+    /// Slots consumed by Saved or in-flight mutual-consent relationships.
+    async fn relationship_slots_used(&self) -> Result<u64, VnidropError> {
+        let row = sqlx::query(
+            r#"
+            SELECT COUNT(*) AS n FROM device_relationships
+            WHERE state IN ('saved', 'pending_outgoing', 'pending_incoming')
+            "#,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(row.get::<i64, _>("n") as u64)
+    }
+
+    async fn can_create_new_relationship(
+        &self,
+        peer_endpoint_id: &str,
+    ) -> Result<bool, VnidropError> {
+        if self.find_row(peer_endpoint_id).await?.is_some() {
+            return Ok(true);
+        }
+        Ok(self.relationship_slots_used().await? < self.max_saved_devices)
     }
 
     pub(super) async fn lock_peer(&self, peer_endpoint_id: &str) -> Arc<TokioMutex<()>> {
@@ -254,6 +283,10 @@ impl DeviceRelationshipService {
             }
         }
 
+        if !self.can_create_new_relationship(&peer_endpoint_id).await? {
+            return Ok(false);
+        }
+
         let Some(taken) = self.eligibility.take_eligibility(&peer_endpoint_id).await? else {
             return Ok(false);
         };
@@ -316,7 +349,7 @@ impl DeviceRelationshipService {
         let addr = self.peer_addr(&peer_endpoint_id).await?;
         let client = RelationshipClient::connect(self.endpoint.clone(), addr);
         let response = match tokio::time::timeout(
-            PAIRING_RPC_TIMEOUT,
+            self.pairing_timeout,
             client.pairing_request(PairingRequest {
                 session_id: taken.session_id.clone(),
                 capability: taken.capability.to_vec(),
@@ -382,7 +415,7 @@ impl DeviceRelationshipService {
             let addr = self.peer_addr(&peer_endpoint_id).await?;
             let client = RelationshipClient::connect(self.endpoint.clone(), addr);
             let _ = tokio::time::timeout(
-                PAIRING_RPC_TIMEOUT,
+                self.pairing_timeout,
                 client.pairing_consent(PairingConsent {
                     accepted: false,
                     grant: None,
@@ -413,7 +446,7 @@ impl DeviceRelationshipService {
         let addr = self.peer_addr(&peer_endpoint_id).await?;
         let client = RelationshipClient::connect(self.endpoint.clone(), addr);
         let response = match tokio::time::timeout(
-            PAIRING_RPC_TIMEOUT,
+            self.pairing_timeout,
             client.pairing_consent(PairingConsent {
                 accepted: true,
                 grant: Some(grant.clone()),
@@ -456,7 +489,7 @@ impl DeviceRelationshipService {
                     )
                     .await?;
                 match tokio::time::timeout(
-                    PAIRING_RPC_TIMEOUT,
+                    self.pairing_timeout,
                     client.pairing_ack(PairingAck {
                         possession_proof: proof,
                         challenge: ack_challenge.encode(),
@@ -540,6 +573,11 @@ impl DeviceRelationshipService {
         };
         if !accepted {
             return PairingRequestResponse::Rejected;
+        }
+
+        match self.can_create_new_relationship(&remote_endpoint_id).await {
+            Ok(true) => {}
+            Ok(false) | Err(_) => return PairingRequestResponse::Rejected,
         }
 
         let now = now_ms();
@@ -726,7 +764,7 @@ impl DeviceRelationshipService {
         let addr = self.peer_addr(peer_endpoint_id).await?;
         let client = RelationshipClient::connect(self.endpoint.clone(), addr);
         let response = match tokio::time::timeout(
-            PAIRING_RPC_TIMEOUT,
+            self.pairing_timeout,
             client.pairing_consent(PairingConsent {
                 accepted: true,
                 grant: Some(grant),
@@ -767,7 +805,7 @@ impl DeviceRelationshipService {
                     .await?;
                 if let Ok(Ok(PairingAckResponse::Acknowledged | PairingAckResponse::AlreadySaved)) =
                     tokio::time::timeout(
-                        PAIRING_RPC_TIMEOUT,
+                        self.pairing_timeout,
                         client.pairing_ack(PairingAck {
                             possession_proof: proof,
                             challenge: ack_challenge.encode(),
@@ -1483,7 +1521,7 @@ impl DeviceRelationshipService {
         };
         let client = RelationshipClient::connect(self.endpoint.clone(), addr);
         let _ = tokio::time::timeout(
-            PAIRING_RPC_TIMEOUT,
+            self.pairing_timeout,
             client.revoke_notice(RevokeNotice {
                 generation,
                 issued_grant_id,

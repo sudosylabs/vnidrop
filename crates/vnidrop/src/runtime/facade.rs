@@ -91,6 +91,22 @@ impl VnidropCore {
         store: Arc<dyn crate::secure_secret::SecureSecretStore>,
         network_config: CoreNetworkConfig,
     ) -> Result<Arc<Self>, VnidropError> {
+        Self::initialize_with_test_secret_store_limits_and_network(
+            app_data_dir,
+            event_sink,
+            store,
+            CoreLimits::default(),
+            network_config,
+        )
+    }
+
+    pub(crate) fn initialize_with_test_secret_store_limits_and_network(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        store: Arc<dyn crate::secure_secret::SecureSecretStore>,
+        limits: CoreLimits,
+        network_config: CoreNetworkConfig,
+    ) -> Result<Arc<Self>, VnidropError> {
         let app_data_path = PathBuf::from(&app_data_dir);
         std::fs::create_dir_all(&app_data_path).map_err(VnidropError::filesystem)?;
         // In-process restart tests reopen the same directory immediately after
@@ -99,7 +115,7 @@ impl VnidropCore {
         Self::initialize_with_identity_mode(
             app_data_dir,
             event_sink,
-            CoreLimits::default(),
+            limits,
             network_config,
             IdentityMode::Protected {
                 store,

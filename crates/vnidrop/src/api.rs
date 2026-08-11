@@ -288,10 +288,22 @@ pub struct CoreLimits {
     pub max_metadata_bytes: u64,
     pub max_events: u64,
     pub max_pending_approvals: u64,
-    /// Incoming pairing offers awaiting the local user's decision.
+    /// Incoming pairing / targeted offers awaiting the local user's decision.
     pub max_pending_offers: u64,
     pub max_concurrent_transfers: u64,
     pub event_queue_capacity: u64,
+    /// Cap on Saved + pending mutual-consent relationships (design §14).
+    pub max_saved_devices: u64,
+    /// Quiet period after a decline or repeated malformed control-plane traffic.
+    pub identity_cooldown_ms: u64,
+    /// Malformed control-plane messages from one identity before cooldown.
+    pub malformed_strike_limit: u64,
+    /// Pairing RPC / acknowledgement wait bound (milliseconds).
+    pub pairing_timeout_ms: u64,
+    /// Pre-approval offer decision wait bound (milliseconds).
+    pub offer_timeout_ms: u64,
+    /// Connection establishment bound for targeted transfers (milliseconds).
+    pub connection_timeout_ms: u64,
 }
 
 impl Default for CoreLimits {
@@ -313,6 +325,12 @@ impl Default for CoreLimits {
             max_pending_offers: 16,
             max_concurrent_transfers: 8,
             event_queue_capacity: 1_024,
+            max_saved_devices: 256,
+            identity_cooldown_ms: 60_000,
+            malformed_strike_limit: 5,
+            pairing_timeout_ms: 15_000,
+            offer_timeout_ms: 120_000,
+            connection_timeout_ms: 30_000,
         }
     }
 }
@@ -331,6 +349,12 @@ impl CoreLimits {
             ("max_pending_offers", self.max_pending_offers),
             ("max_concurrent_transfers", self.max_concurrent_transfers),
             ("event_queue_capacity", self.event_queue_capacity),
+            ("max_saved_devices", self.max_saved_devices),
+            ("identity_cooldown_ms", self.identity_cooldown_ms),
+            ("malformed_strike_limit", self.malformed_strike_limit),
+            ("pairing_timeout_ms", self.pairing_timeout_ms),
+            ("offer_timeout_ms", self.offer_timeout_ms),
+            ("connection_timeout_ms", self.connection_timeout_ms),
         ];
         for (name, value) in positive {
             if value == 0 {
@@ -342,6 +366,8 @@ impl CoreLimits {
             ("max_pending_offers", self.max_pending_offers),
             ("max_concurrent_transfers", self.max_concurrent_transfers),
             ("event_queue_capacity", self.event_queue_capacity),
+            ("max_saved_devices", self.max_saved_devices),
+            ("malformed_strike_limit", self.malformed_strike_limit),
         ] {
             usize::try_from(value)
                 .with_context(|| format!("core limit {name} exceeds platform capacity"))?;

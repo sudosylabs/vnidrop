@@ -10,9 +10,7 @@ use serde_json::json;
 use tokio::sync::{watch, Mutex};
 use uuid::Uuid;
 
-use crate::{api::PendingTargetedOffer, event_hub::EventHub};
-
-const OFFER_WAIT_TIMEOUT: Duration = Duration::from_secs(120);
+use crate::{api::PendingTargetedOffer, control_plane::IdentityCooldown, event_hub::EventHub};
 
 #[derive(Debug, Clone)]
 pub(crate) struct PendingTargetedOfferRecord {
@@ -40,19 +38,32 @@ pub(crate) struct TargetedOfferInbox {
     decisions: Arc<Mutex<HashMap<String, PendingWaiter>>>,
     auths: Arc<Mutex<HashMap<String, AuthWaiter>>>,
     settled: Arc<Mutex<HashMap<String, SettledOfferResult>>>,
+    cooldown: IdentityCooldown,
     max_pending: usize,
+    offer_timeout: Duration,
 }
 
 impl TargetedOfferInbox {
-    pub(crate) fn new(event_hub: Arc<EventHub>, max_pending: usize) -> Self {
+    pub(crate) fn new(
+        event_hub: Arc<EventHub>,
+        max_pending: usize,
+        cooldown: IdentityCooldown,
+        offer_timeout_ms: u64,
+    ) -> Self {
         Self {
             event_hub,
             pending: Arc::new(Mutex::new(HashMap::new())),
             decisions: Arc::new(Mutex::new(HashMap::new())),
             auths: Arc::new(Mutex::new(HashMap::new())),
             settled: Arc::new(Mutex::new(HashMap::new())),
+            cooldown,
             max_pending,
+            offer_timeout: Duration::from_millis(offer_timeout_ms),
         }
+    }
+
+    pub(crate) fn cooldown(&self) -> &IdentityCooldown {
+        &self.cooldown
     }
 
     /// Surface a validated offer and block until the local user decides.
@@ -61,6 +72,11 @@ impl TargetedOfferInbox {
     /// the existing pending wait — never a second prompt.
     pub(crate) async fn submit(&self, offer: PendingTargetedOffer) -> TargetedOfferDecision {
         let transfer_id = offer.transfer_id.clone();
+        if self.cooldown.is_cooling(&offer.sender_endpoint_id) {
+            return TargetedOfferDecision::Refused {
+                reason: "identity-cooldown".to_string(),
+            };
+        }
         if let Some(settled) = self.settled.lock().await.get(&transfer_id).cloned() {
             return settled_to_decision(settled);
         }
@@ -76,17 +92,18 @@ impl TargetedOfferInbox {
                     reason: "immutable-transfer-mismatch".to_string(),
                 };
             }
-            if pending.len() >= self.max_pending {
-                return TargetedOfferDecision::Refused {
-                    reason: "too-many-pending-offers".to_string(),
-                };
-            }
+            // Prefer the more specific per-sender refusal before the global bound.
             if pending
                 .values()
                 .any(|entry| entry.offer.sender_endpoint_id == offer.sender_endpoint_id)
             {
                 return TargetedOfferDecision::Refused {
                     reason: "offer-already-pending".to_string(),
+                };
+            }
+            if pending.len() >= self.max_pending {
+                return TargetedOfferDecision::Refused {
+                    reason: "too-many-pending-offers".to_string(),
                 };
             }
         }
@@ -98,6 +115,19 @@ impl TargetedOfferInbox {
                 // Lost the race with another submit of the same id.
                 drop(pending);
                 return self.wait_existing_decision(&transfer_id).await;
+            }
+            if pending
+                .values()
+                .any(|entry| entry.offer.sender_endpoint_id == offer.sender_endpoint_id)
+            {
+                return TargetedOfferDecision::Refused {
+                    reason: "offer-already-pending".to_string(),
+                };
+            }
+            if pending.len() >= self.max_pending {
+                return TargetedOfferDecision::Refused {
+                    reason: "too-many-pending-offers".to_string(),
+                };
             }
             pending.insert(
                 transfer_id.clone(),
@@ -112,6 +142,7 @@ impl TargetedOfferInbox {
                 decision: decision_tx,
             },
         );
+        self.cooldown.clear_strikes(&offer.sender_endpoint_id);
 
         self.event_hub.emit_endpoint(
             "targeted_transfer",
@@ -153,7 +184,7 @@ impl TargetedOfferInbox {
             }
         };
 
-        match tokio::time::timeout(OFFER_WAIT_TIMEOUT, wait).await {
+        match tokio::time::timeout(self.offer_timeout, wait).await {
             Ok(true) => TargetedOfferDecision::Accepted,
             Ok(false) => {
                 self.discard(transfer_id).await;
@@ -206,10 +237,15 @@ impl TargetedOfferInbox {
             return Ok(Some(auth));
         }
 
-        let exists = self.pending.lock().await.contains_key(transfer_id);
-        if !exists {
+        let sender_endpoint_id = {
+            let pending = self.pending.lock().await;
+            pending
+                .get(transfer_id)
+                .map(|entry| entry.offer.sender_endpoint_id.clone())
+        };
+        let Some(sender_endpoint_id) = sender_endpoint_id else {
             return Err(RespondError::Unknown);
-        }
+        };
         let waiter = {
             let decisions = self.decisions.lock().await;
             decisions
@@ -222,6 +258,7 @@ impl TargetedOfferInbox {
         if !accepted {
             let _ = decision_tx.send(Some(false));
             self.discard(transfer_id).await;
+            self.cooldown.record_decline(&sender_endpoint_id);
             self.settled.lock().await.insert(
                 transfer_id.to_string(),
                 SettledOfferResult::Declined {
@@ -258,7 +295,7 @@ impl TargetedOfferInbox {
             }
         };
 
-        match tokio::time::timeout(OFFER_WAIT_TIMEOUT, wait_auth).await {
+        match tokio::time::timeout(self.offer_timeout, wait_auth).await {
             Ok(Ok(auth)) => {
                 self.pending.lock().await.remove(transfer_id);
                 self.auths.lock().await.remove(transfer_id);

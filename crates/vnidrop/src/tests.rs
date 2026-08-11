@@ -24,6 +24,9 @@ mod network_config_tests;
 mod pairing_eligibility_tests;
 #[path = "tests/platform_contract_android.rs"]
 mod platform_contract_android_tests;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[path = "tests/platform_contract_apple.rs"]
+mod platform_contract_apple_tests;
 #[path = "tests/platform_contract_linux.rs"]
 mod platform_contract_linux_tests;
 #[path = "tests/platform_contract_windows.rs"]

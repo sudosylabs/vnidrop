@@ -5,9 +5,9 @@ use std::{
 };
 
 use crate::{
-    secure_secret::FaultInjectingSecretStore, CoreEvent, CoreEventSink, DeviceRelationshipState,
-    PendingTargetedOffer, ShareMetadataInput, ShareSource, SourceKind, TargetedTransferState,
-    TransferAccessMode, VnidropCore, VnidropError,
+    secure_secret::FaultInjectingSecretStore, CoreEvent, CoreEventSink, CoreNetworkConfig,
+    CoreRelayMode, DeviceRelationshipState, PendingTargetedOffer, ShareMetadataInput, ShareSource,
+    SourceKind, TargetedTransferState, TransferAccessMode, VnidropCore, VnidropError,
 };
 
 struct RecordingSink {
@@ -27,15 +27,20 @@ struct ProtectedNode {
 
 impl ProtectedNode {
     fn new() -> Self {
+        Self::with_network_config(CoreNetworkConfig::default())
+    }
+
+    fn with_network_config(network_config: CoreNetworkConfig) -> Self {
         let data_dir = tempfile::tempdir().unwrap();
         let sink = Arc::new(RecordingSink {
             events: Mutex::new(Vec::new()),
         });
         let store = Arc::new(FaultInjectingSecretStore::default());
-        let core = VnidropCore::initialize_with_test_secret_store(
+        let core = VnidropCore::initialize_with_test_secret_store_and_network(
             data_dir.path().to_string_lossy().into_owned(),
             sink,
             store,
+            network_config,
         )
         .expect("protected test core");
         Self {
@@ -467,5 +472,285 @@ fn invitation_multi_receiver_shares_remain_independently_authorized() {
             std::fs::read(output.join("shared.txt")).unwrap(),
             b"shared with both receivers"
         );
+    }
+}
+
+fn complete_targeted_roundtrip(alice: &ProtectedNode, bob: &ProtectedNode, transfer_id: u64) {
+    establish_saved(alice, bob, transfer_id);
+    let bob_id = bob.core.status().endpoint_id.clone();
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("payload.txt");
+    let payload = b"profile-honoring payload";
+    std::fs::write(&source_path, payload).unwrap();
+
+    let bob_core = bob.core.clone();
+    let accept = std::thread::spawn(move || {
+        let offer = wait_for_pending_offer(&bob_core);
+        bob_core
+            .respond_to_targeted_offer(offer.transfer_id, true)
+            .unwrap()
+    });
+
+    let transfer = alice
+        .core
+        .create_targeted_transfer(
+            bob_id,
+            vec![targeted_source(&source_path)],
+            Some("payload.txt".to_string()),
+        )
+        .unwrap();
+    let auth = accept.join().unwrap().expect("authorization");
+    let output = tempfile::tempdir().unwrap();
+    bob.core
+        .receive_targeted_transfer(auth, output.path().to_string_lossy().into_owned())
+        .unwrap();
+    assert_eq!(
+        std::fs::read(output.path().join("payload.txt")).unwrap(),
+        payload
+    );
+    assert!(!transfer.id.is_empty());
+}
+
+#[test]
+fn targeted_transfer_honors_automatic_network_profile() {
+    let alice = ProtectedNode::with_network_config(CoreNetworkConfig {
+        mode: CoreRelayMode::Automatic,
+        relay_urls: Vec::new(),
+    });
+    let bob = ProtectedNode::with_network_config(CoreNetworkConfig {
+        mode: CoreRelayMode::Automatic,
+        relay_urls: Vec::new(),
+    });
+    complete_targeted_roundtrip(&alice, &bob, 12_001);
+}
+
+#[test]
+fn targeted_transfer_honors_strict_custom_and_direct_fallback_profiles() {
+    // Loopback HTTP relays are the supported custom-relay development path.
+    let relay = start_loopback_relay();
+    let urls = vec![relay.url.clone()];
+    for mode in [
+        CoreRelayMode::StrictCustom,
+        CoreRelayMode::CustomWithDirectFallback,
+    ] {
+        let config = CoreNetworkConfig {
+            mode,
+            relay_urls: urls.clone(),
+        };
+        let alice = ProtectedNode::with_network_config(config.clone());
+        let bob = ProtectedNode::with_network_config(config);
+        let transfer_id = match mode {
+            CoreRelayMode::StrictCustom => 12_010,
+            CoreRelayMode::CustomWithDirectFallback => 12_011,
+            _ => unreachable!(),
+        };
+        complete_targeted_roundtrip(&alice, &bob, transfer_id);
+    }
+}
+
+#[test]
+fn targeted_transfer_local_only_uses_direct_reachability_without_relays() {
+    let config = CoreNetworkConfig {
+        mode: CoreRelayMode::LocalOnly,
+        relay_urls: Vec::new(),
+    };
+    let alice = ProtectedNode::with_network_config(config.clone());
+    let bob = ProtectedNode::with_network_config(config);
+    assert!(!alice.core.status().addr.contains("iroh.link"));
+    assert!(!bob.core.status().addr.contains("iroh.link"));
+    complete_targeted_roundtrip(&alice, &bob, 12_020);
+}
+
+#[test]
+fn mismatched_relay_profiles_are_typed_and_never_reinterpreted_as_ordinary_share() {
+    let relay = start_loopback_relay();
+    let alice = ProtectedNode::with_network_config(CoreNetworkConfig {
+        mode: CoreRelayMode::Automatic,
+        relay_urls: Vec::new(),
+    });
+    let bob = ProtectedNode::with_network_config(CoreNetworkConfig {
+        mode: CoreRelayMode::StrictCustom,
+        relay_urls: vec![relay.url.clone()],
+    });
+    establish_saved(&alice, &bob, 12_030);
+    let bob_id = bob.core.status().endpoint_id.clone();
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("payload.txt");
+    std::fs::write(&source_path, b"incompatible profiles").unwrap();
+
+    let err = alice
+        .core
+        .create_targeted_transfer(
+            bob_id,
+            vec![targeted_source(&source_path)],
+            Some("payload.txt".to_string()),
+        )
+        .unwrap_err();
+    assert!(
+        matches!(err, VnidropError::RelayPolicyIncompatible { .. }),
+        "expected relay-policy incompatibility, got {err:?}"
+    );
+    assert!(bob.core.list_pending_targeted_offers().is_empty());
+    let failed = alice
+        .core
+        .list_targeted_transfers()
+        .unwrap()
+        .into_iter()
+        .find(|entry| matches!(entry.state, TargetedTransferState::Failed));
+    assert!(
+        failed.is_some(),
+        "failed targeted transfer must remain targeted, not an ordinary share"
+    );
+}
+
+#[test]
+fn protocol_floor_rejects_silent_downgrade_with_typed_error() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 12_040);
+    let alice_id = alice.core.status().endpoint_id.clone();
+    let bob_id = bob.core.status().endpoint_id.clone();
+    bob.core
+        .force_relationship_protocol_floor_for_test(alice_id, 2)
+        .unwrap();
+
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("payload.txt");
+    std::fs::write(&source_path, b"downgrade attempt").unwrap();
+    let err = alice
+        .core
+        .create_targeted_transfer(
+            bob_id,
+            vec![targeted_source(&source_path)],
+            Some("payload.txt".to_string()),
+        )
+        .unwrap_err();
+    assert!(
+        matches!(err, VnidropError::ProtocolIncompatible { .. }),
+        "expected protocol incompatibility, got {err:?}"
+    );
+    assert!(bob.core.list_pending_targeted_offers().is_empty());
+}
+
+#[test]
+fn incompatible_network_or_protocol_peers_keep_ordinary_invitation_flow() {
+    let relay = start_loopback_relay();
+    // Profiles that cannot complete a targeted transfer can still use ordinary shares.
+    let alice = ProtectedNode::with_network_config(CoreNetworkConfig {
+        mode: CoreRelayMode::Automatic,
+        relay_urls: Vec::new(),
+    });
+    let bob = ProtectedNode::with_network_config(CoreNetworkConfig {
+        mode: CoreRelayMode::StrictCustom,
+        relay_urls: vec![relay.url.clone()],
+    });
+    complete_transfer(&alice, &bob, 12_050);
+    assert!(alice
+        .core
+        .list_pairing_eligibilities()
+        .unwrap()
+        .iter()
+        .any(|entry| entry.peer_endpoint_id == bob.core.status().endpoint_id));
+
+    let source_dir = tempfile::tempdir().unwrap();
+    let output_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("invite.txt");
+    std::fs::write(&source_path, b"ordinary invitation still works").unwrap();
+    let share = alice
+        .core
+        .share_files(
+            vec![ShareSource {
+                kind: SourceKind::Path,
+                value: source_path.to_string_lossy().into_owned(),
+                display_name: Some("invite.txt".to_string()),
+                is_directory: false,
+            }],
+            ShareMetadataInput {
+                transfer_id: 12_051,
+                transfer_name: Some("invite".to_string()),
+                sender_name: Some("alice".to_string()),
+                access_mode: TransferAccessMode::Public,
+            },
+        )
+        .unwrap();
+    bob.core
+        .receive(
+            share.ticket,
+            output_dir.path().to_string_lossy().into_owned(),
+            Some("bob".to_string()),
+        )
+        .unwrap();
+    assert_eq!(
+        std::fs::read(output_dir.path().join("invite.txt")).unwrap(),
+        b"ordinary invitation still works"
+    );
+}
+
+#[test]
+fn map_offer_refuse_reasons_stay_typed() {
+    use crate::targeted_transfer::protocol::map_offer_refuse_reason;
+
+    assert!(matches!(
+        map_offer_refuse_reason("relay-policy-incompatible"),
+        VnidropError::RelayPolicyIncompatible { .. }
+    ));
+    assert!(matches!(
+        map_offer_refuse_reason("protocol-incompatible"),
+        VnidropError::ProtocolIncompatible { .. }
+    ));
+    assert!(matches!(
+        map_offer_refuse_reason("unauthenticated"),
+        VnidropError::Permission { .. }
+    ));
+}
+
+struct LoopbackRelay {
+    url: String,
+    shutdown: Option<tokio::sync::oneshot::Sender<()>>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Drop for LoopbackRelay {
+    fn drop(&mut self) {
+        if let Some(shutdown) = self.shutdown.take() {
+            let _ = shutdown.send(());
+        }
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
+fn start_loopback_relay() -> LoopbackRelay {
+    let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+    let thread = std::thread::spawn(move || {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .thread_name("vnidrop-ticket12-relay")
+            .build()
+            .unwrap();
+        runtime.block_on(async move {
+            let relay = iroh_relay::server::RelayConfig::new((std::net::Ipv4Addr::LOCALHOST, 0));
+            let mut config = iroh_relay::server::ServerConfig::default();
+            config.relay = Some(relay);
+            let server = match iroh_relay::server::Server::spawn(config).await {
+                Ok(server) => server,
+                Err(error) => {
+                    ready_tx.send(Err(error.to_string())).ok();
+                    return;
+                }
+            };
+            let url = format!("http://{}", server.http_addr().expect("http addr"));
+            ready_tx.send(Ok(url)).ok();
+            let _ = shutdown_rx.await;
+            let _ = server.shutdown().await;
+        });
+    });
+    let url = ready_rx.recv().unwrap().expect("relay started");
+    LoopbackRelay {
+        url,
+        shutdown: Some(shutdown_tx),
+        thread: Some(thread),
     }
 }

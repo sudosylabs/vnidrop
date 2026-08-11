@@ -403,6 +403,8 @@ impl CoreInner {
             event_hub.clone(),
             endpoint.id().to_string(),
             endpoint.clone(),
+            relay_mode,
+            relay_urls.clone(),
         ));
         let router = Router::builder(endpoint.clone())
             .accept(iroh_blobs::ALPN, blobs)
@@ -422,6 +424,8 @@ impl CoreInner {
                     targeted_offers.clone(),
                     limits.clone(),
                     endpoint.id().to_string(),
+                    relay_mode,
+                    relay_urls.clone(),
                 ),
             )
             .spawn();
@@ -526,38 +530,7 @@ pub(crate) fn filter_peer_addr_for_relay_mode(
     relay_mode: CoreRelayMode,
     custom_relay_urls: &[RelayUrl],
 ) -> Result<EndpointAddr> {
-    match relay_mode {
-        CoreRelayMode::Automatic => Ok(addr.clone()),
-        CoreRelayMode::StrictCustom | CoreRelayMode::CustomWithDirectFallback => {
-            let mut filtered = EndpointAddr::new(addr.id);
-            for ip_addr in addr.ip_addrs().copied() {
-                filtered = filtered.with_ip_addr(ip_addr);
-            }
-            for relay_url in addr
-                .relay_urls()
-                .filter(|relay_url| custom_relay_urls.contains(relay_url))
-                .cloned()
-            {
-                filtered = filtered.with_relay_url(relay_url);
-            }
-            if filtered.is_empty() {
-                anyhow::bail!(
-                    "invitation has no direct address or relay allowed by strict custom relay mode"
-                );
-            }
-            Ok(filtered)
-        }
-        CoreRelayMode::LocalOnly => {
-            let mut filtered = EndpointAddr::new(addr.id);
-            for ip_addr in addr.ip_addrs().copied() {
-                filtered = filtered.with_ip_addr(ip_addr);
-            }
-            if filtered.is_empty() {
-                anyhow::bail!("invitation has no direct address allowed by local-only mode");
-            }
-            Ok(filtered)
-        }
-    }
+    crate::ticket::filter_peer_addr_for_relay_mode(addr, relay_mode, custom_relay_urls)
 }
 
 pub(crate) async fn wait_for_relay(

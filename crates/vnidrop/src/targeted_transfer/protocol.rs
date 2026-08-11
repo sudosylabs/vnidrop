@@ -9,7 +9,7 @@ use anyhow::Result;
 use iroh::{
     endpoint::Connection,
     protocol::{AcceptError, ProtocolHandler},
-    Endpoint, EndpointAddr,
+    Endpoint, EndpointAddr, RelayUrl,
 };
 use irpc::{channel::oneshot, rpc_requests, Client, WithChannels};
 use irpc_iroh::{read_request, IrohLazyRemoteConnection};
@@ -20,10 +20,11 @@ use super::{
     inbox::{TargetedOfferDecision, TargetedOfferInbox},
 };
 use crate::{
-    api::{experimental_saved_device_capabilities, PendingTargetedOffer},
+    api::{experimental_saved_device_capabilities, CoreRelayMode, PendingTargetedOffer},
     device_relationship::{DeviceRelationshipService, WireProof},
     error::VnidropError,
     grant::Challenge,
+    ticket::relay_profiles_compatible,
     util::now_ms,
 };
 
@@ -33,6 +34,8 @@ pub(crate) struct TargetedTransferProtocol {
     inbox: TargetedOfferInbox,
     limits: crate::api::CoreLimits,
     local_endpoint_id: String,
+    relay_mode: CoreRelayMode,
+    custom_relay_urls: Vec<RelayUrl>,
 }
 
 impl fmt::Debug for TargetedTransferProtocol {
@@ -49,12 +52,16 @@ impl TargetedTransferProtocol {
         inbox: TargetedOfferInbox,
         limits: crate::api::CoreLimits,
         local_endpoint_id: String,
+        relay_mode: CoreRelayMode,
+        custom_relay_urls: Vec<RelayUrl>,
     ) -> Self {
         Self {
             relationships,
             inbox,
             limits,
             local_endpoint_id,
+            relay_mode,
+            custom_relay_urls,
         }
     }
 
@@ -111,6 +118,25 @@ impl TargetedTransferProtocol {
             };
         }
 
+        let remote_urls = match parse_offer_relay_urls(&offer.relay_urls) {
+            Ok(urls) => urls,
+            Err(_) => {
+                return TargetedOfferResponse::Refused {
+                    reason: "relay-policy-incompatible".to_string(),
+                };
+            }
+        };
+        if !relay_profiles_compatible(
+            self.relay_mode,
+            &self.custom_relay_urls,
+            offer.relay_mode,
+            &remote_urls,
+        ) {
+            return TargetedOfferResponse::Refused {
+                reason: "relay-policy-incompatible".to_string(),
+            };
+        }
+
         if let Err(error) = self
             .relationships
             .verify_saved_possession(
@@ -123,6 +149,11 @@ impl TargetedTransferProtocol {
             .await
         {
             tracing::debug!(%error, "targeted offer relationship proof rejected");
+            if matches!(error, VnidropError::ProtocolIncompatible { .. }) {
+                return TargetedOfferResponse::Refused {
+                    reason: "protocol-incompatible".to_string(),
+                };
+            }
             return TargetedOfferResponse::Refused {
                 reason: "unauthenticated".to_string(),
             };
@@ -258,6 +289,8 @@ pub(crate) struct SubmitTargetedOffer {
     pub(crate) transfer_name: String,
     pub(crate) file_count: u64,
     pub(crate) total_size: u64,
+    pub(crate) relay_mode: CoreRelayMode,
+    pub(crate) relay_urls: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -281,6 +314,10 @@ pub(crate) enum DeliverAuthorizationResponse {
 
 #[rpc_requests(message = TargetedTransferMessage)]
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "offer payload carries relay profile + manifest summary; boxing breaks irpc channels"
+)]
 enum TargetedTransferMessages {
     #[rpc(tx = oneshot::Sender<ChallengeResponse>)]
     RequestChallenge(RequestChallenge),
@@ -290,8 +327,26 @@ enum TargetedTransferMessages {
     DeliverTargetedAuthorization(DeliverTargetedAuthorization),
 }
 
-/// Helper kept for type visibility in callers that map refuse reasons.
-#[allow(dead_code)]
-pub(crate) fn map_offer_error(reason: &str) -> VnidropError {
-    VnidropError::permission(anyhow::anyhow!("targeted offer refused: {reason}"))
+fn parse_offer_relay_urls(values: &[String]) -> Result<Vec<RelayUrl>, ()> {
+    let mut urls = Vec::with_capacity(values.len());
+    for value in values {
+        let Ok(url) = value.parse::<RelayUrl>() else {
+            return Err(());
+        };
+        urls.push(url);
+    }
+    Ok(urls)
+}
+
+/// Map a receiver refuse reason to a typed public error (design §13).
+pub(crate) fn map_offer_refuse_reason(reason: &str) -> VnidropError {
+    match reason {
+        "relay-policy-incompatible" => VnidropError::relay_policy_incompatible(anyhow::anyhow!(
+            "sender and receiver network profiles are incompatible"
+        )),
+        "protocol-incompatible" => VnidropError::protocol_incompatible(anyhow::anyhow!(
+            "targeted-transfer protocol is incompatible"
+        )),
+        other => VnidropError::permission(anyhow::anyhow!("targeted offer refused: {other}")),
+    }
 }

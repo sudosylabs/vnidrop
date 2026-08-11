@@ -23,11 +23,11 @@ _Avoid_: contact record, friendship
 ## Persistence (core)
 
 **Domain store**:
-The module that owns schema and queries for one domain (invitation history, targeted transfers, blocked devices, relationship rows, secret metadata). Callers use store methods — never a raw SQL pool.
+The module that owns schema and queries for one domain (invitation history, targeted transfers, blocked devices, relationship rows, pairing eligibility, secret metadata). Callers use store methods — never a raw SQL pool.
 _Avoid_: repository-for-everything, DAO, database layer
 
 **Invitation repository**:
-The domain store for invitation-transfer history, artifacts, receiver requests, and related events. Today’s type name may still be `Repository`.
+The domain store for invitation-transfer history, artifacts, receiver requests, and related events. Module path `invitation`; today’s type name may still be `Repository`.
 _Avoid_: “the database”, AppDataStores
 
 **AppDataStores**:

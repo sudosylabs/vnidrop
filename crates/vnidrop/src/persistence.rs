@@ -1,18 +1,20 @@
 //! Persistence open: one SQLite pool, every domain schema, [`AppDataStores`].
 //!
-//! Runtime talks to domain stores — not a raw pool. Unmigrated modules may still
-//! take [`AppDataStores::pool_for_unmigrated`] until their own stores deepen.
+//! Runtime talks to domain stores — not a raw pool. Schema application for each
+//! domain is owned here (not orchestrated from the invitation store).
 
 use std::{path::Path, str::FromStr};
 
 use anyhow::{Context, Result};
-use sqlx::{
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
-    SqlitePool,
-};
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
 use crate::{
-    blocked_devices::BlockStore, repository::Repository, targeted_transfer::TargetedTransferStore,
+    blocked_devices::{self, BlockStore},
+    device_relationship::DeviceRelationshipStore,
+    invitation::Repository,
+    pairing_eligibility::PairingEligibilityStore,
+    secure_secret::{self, SecretMetadataStore},
+    targeted_transfer::{self, TargetedTransferStore},
 };
 
 /// Concrete domain stores for one app-data profile.
@@ -22,17 +24,14 @@ pub(crate) struct AppDataStores {
     pub(crate) invitation: Repository,
     /// Targeted-transfer durable rows.
     pub(crate) targeted: TargetedTransferStore,
+    /// Mutual-consent device relationships (+ generation tombstones).
+    pub(crate) relationships: DeviceRelationshipStore,
+    /// Post-transfer pairing eligibility rows.
+    pub(crate) eligibility: PairingEligibilityStore,
+    /// Non-secret metadata for protected credential handles.
+    pub(crate) secrets: SecretMetadataStore,
     /// Identity-wide deny list.
     pub(crate) blocked: BlockStore,
-    pool: SqlitePool,
-}
-
-impl AppDataStores {
-    /// Temporary: remaining domain modules still construct on a shared pool.
-    /// Do not add new callers — migrate them to domain stores instead.
-    pub(crate) fn pool_for_unmigrated(&self) -> SqlitePool {
-        self.pool.clone()
-    }
 }
 
 /// Create the profile pool, apply all domain schemas, return [`AppDataStores`].
@@ -47,15 +46,27 @@ pub(crate) async fn open_all(app_data_dir: &Path) -> Result<AppDataStores> {
         .await
         .context("failed to open app data sqlite")?;
 
-    // Invitation ensure_schema still orchestrates cross-domain schemas until
-    // each domain store owns its ensure_schema call from this path alone.
+    // Unreleased device-history prototype tables — no migration path.
+    for table in ["held_offers", "grants_held", "grants_issued", "contacts"] {
+        sqlx::query(&format!("DROP TABLE IF EXISTS {table}"))
+            .execute(&pool)
+            .await?;
+    }
+
     let invitation = Repository::from_pool(pool.clone());
     invitation.ensure_schema().await?;
+    blocked_devices::ensure_schema(&pool).await?;
+    secure_secret::ensure_schema(&pool).await?;
+    DeviceRelationshipStore::ensure_schema(&pool).await?;
+    targeted_transfer::ensure_schema(&pool).await?;
+    PairingEligibilityStore::ensure_schema(&pool).await?;
 
     Ok(AppDataStores {
         targeted: TargetedTransferStore::new(pool.clone()),
-        blocked: BlockStore::new(pool.clone()),
+        relationships: DeviceRelationshipStore::new(pool.clone()),
+        eligibility: PairingEligibilityStore::new(pool.clone()),
+        secrets: SecretMetadataStore::new(pool.clone()),
+        blocked: BlockStore::new(pool),
         invitation,
-        pool,
     })
 }

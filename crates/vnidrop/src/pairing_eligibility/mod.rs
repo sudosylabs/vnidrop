@@ -9,11 +9,14 @@ use std::sync::Arc;
 
 use serde_json::json;
 
+mod store;
+
+pub(crate) use store::PairingEligibilityStore;
+
 use crate::{
     api::{experimental_saved_device_capabilities, PairingEligibilitySummary},
     error::VnidropError,
     event_hub::EventHub,
-    repository::Repository,
     secure_secret::{SecretCustody, SecretHandle, SecretKind, SecretMaterial},
     util::now_ms,
 };
@@ -23,7 +26,7 @@ const CAPABILITY_CONTEXT: &str = "vnidrop-pairing-eligibility-v1";
 
 #[derive(Clone)]
 pub(crate) struct PairingEligibilityService {
-    repository: Repository,
+    store: PairingEligibilityStore,
     custody: Option<Arc<SecretCustody>>,
     event_hub: Arc<EventHub>,
     local_endpoint_id: String,
@@ -31,13 +34,13 @@ pub(crate) struct PairingEligibilityService {
 
 impl PairingEligibilityService {
     pub(crate) fn new(
-        repository: Repository,
+        store: PairingEligibilityStore,
         custody: Option<Arc<SecretCustody>>,
         event_hub: Arc<EventHub>,
         local_endpoint_id: String,
     ) -> Self {
         Self {
-            repository,
+            store,
             custody,
             event_hub,
             local_endpoint_id,
@@ -46,7 +49,7 @@ impl PairingEligibilityService {
 
     /// Removes orphaned eligibility secrets and rows whose secrets are missing.
     pub(crate) async fn reconcile(&self) -> Result<(), VnidropError> {
-        let records = self.repository.list_pairing_eligibility_records().await?;
+        let records = self.store.list_records().await?;
         let mut referenced = HashSet::new();
         for entry in records {
             referenced.insert(entry.secret_handle.clone());
@@ -73,7 +76,7 @@ impl PairingEligibilityService {
 
     pub(crate) async fn list(&self) -> Result<Vec<PairingEligibilitySummary>, VnidropError> {
         self.expire_due(true).await?;
-        self.repository.list_pairing_eligibilities().await
+        self.store.list_summaries().await
     }
 
     /// Activates eligibility after a durable completed authenticated transfer.
@@ -89,12 +92,7 @@ impl PairingEligibilityService {
         if peer_endpoint_id.is_empty() || session_id.is_empty() || approval_token.is_empty() {
             return Ok(());
         }
-        if self
-            .repository
-            .find_pairing_eligibility_by_session(session_id)
-            .await?
-            .is_some()
-        {
+        if self.store.find_by_session(session_id).await?.is_some() {
             return Ok(());
         }
 
@@ -116,8 +114,8 @@ impl PairingEligibilityService {
         let created_at = now_ms();
         let expires_at = created_at + ELIGIBILITY_TTL_MS;
         if let Err(error) = self
-            .repository
-            .insert_pairing_eligibility(PairingEligibilityInsert {
+            .store
+            .insert(PairingEligibilityInsert {
                 peer_endpoint_id,
                 session_id,
                 protocol_version,
@@ -165,10 +163,7 @@ impl PairingEligibilityService {
         peer_endpoint_id: &str,
     ) -> Result<Option<TakenEligibility>, VnidropError> {
         self.expire_due(true).await?;
-        let entries = self
-            .repository
-            .list_pairing_eligibilities_for_peer(peer_endpoint_id)
-            .await?;
+        let entries = self.store.list_for_peer(peer_endpoint_id).await?;
         let Some(entry) = entries.into_iter().next() else {
             return Ok(None);
         };
@@ -225,11 +220,7 @@ impl PairingEligibilityService {
         peer_endpoint_id: &str,
         session_id: &str,
     ) -> Result<(), VnidropError> {
-        if let Some(entry) = self
-            .repository
-            .find_pairing_eligibility_by_session(session_id)
-            .await?
-        {
+        if let Some(entry) = self.store.find_by_session(session_id).await? {
             if entry.peer_endpoint_id == peer_endpoint_id {
                 self.delete_entry(&entry).await?;
             }
@@ -242,10 +233,7 @@ impl PairingEligibilityService {
     }
 
     pub(crate) async fn remove_for_peer(&self, peer_endpoint_id: &str) -> Result<(), VnidropError> {
-        let entries = self
-            .repository
-            .list_pairing_eligibilities_for_peer(peer_endpoint_id)
-            .await?;
+        let entries = self.store.list_for_peer(peer_endpoint_id).await?;
         for entry in entries {
             self.delete_entry(&entry).await?;
         }
@@ -268,11 +256,7 @@ impl PairingEligibilityService {
         let Some(custody) = &self.custody else {
             return Ok(None);
         };
-        let Some(entry) = self
-            .repository
-            .find_pairing_eligibility_by_session(session_id)
-            .await?
-        else {
+        let Some(entry) = self.store.find_by_session(session_id).await? else {
             return Ok(None);
         };
         if entry.peer_endpoint_id != peer_endpoint_id || entry.expires_at <= now_ms() {
@@ -294,10 +278,7 @@ impl PairingEligibilityService {
 
     async fn expire_due(&self, emit_events: bool) -> Result<(), VnidropError> {
         let now = now_ms();
-        let expired = self
-            .repository
-            .list_expired_pairing_eligibilities(now)
-            .await?;
+        let expired = self.store.list_expired(now).await?;
         for entry in expired {
             if emit_events {
                 self.delete_entry(&entry).await?;
@@ -321,6 +302,17 @@ impl PairingEligibilityService {
         Ok(())
     }
 
+    #[cfg(test)]
+    pub(crate) async fn force_expiry_for_test(
+        &self,
+        session_id: &str,
+        expires_at: i64,
+    ) -> Result<(), VnidropError> {
+        self.store
+            .force_expiry_for_test(session_id, expires_at)
+            .await
+    }
+
     async fn delete_entry_silent(
         &self,
         entry: &PairingEligibilityRecord,
@@ -329,9 +321,7 @@ impl PairingEligibilityService {
             let handle = SecretHandle::from_stored(entry.secret_handle.clone());
             let _ = custody.remove(&handle).await;
         }
-        self.repository
-            .delete_pairing_eligibility(&entry.session_id)
-            .await
+        self.store.delete(&entry.session_id).await
     }
 }
 

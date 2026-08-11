@@ -59,9 +59,9 @@ use crate::{
     device_relationship::{DeviceRelationshipService, RelationshipProtocol},
     event_hub::EventHub,
     handshake::HandshakeService,
+    invitation::Repository,
     logging::init_logging,
     pairing_eligibility::PairingEligibilityService,
-    repository::Repository,
     secret::load_or_create_secret,
     secure_secret::{start_endpoint_identity, ProfileLock, SecureSecretStore},
     targeted_transfer::{TargetedOfferInbox, TargetedTransferProtocol},
@@ -163,7 +163,7 @@ impl CoreInner {
                 profile_lock,
             } => {
                 let (secret_key, custody) = start_endpoint_identity(
-                    repository.protected_secrets(),
+                    stores.secrets.clone(),
                     store,
                     &app_data_dir.join("iroh.secret"),
                 )
@@ -358,13 +358,14 @@ impl CoreInner {
             }
         }
         let pairing_eligibility = PairingEligibilityService::new(
-            repository.clone(),
+            stores.eligibility.clone(),
             secret_custody.clone(),
             event_hub.clone(),
             endpoint.id().to_string(),
         );
         let approval = ApprovalService::new(
             repository.clone(),
+            blocked_devices.clone(),
             event_hub.clone(),
             access_policy.clone(),
             limits.max_pending_approvals as usize,
@@ -383,7 +384,8 @@ impl CoreInner {
             limits.offer_timeout_ms,
         );
         let device_relationships = Arc::new(DeviceRelationshipService::new(
-            stores.pool_for_unmigrated(),
+            stores.relationships.clone(),
+            stores.blocked.clone(),
             secret_custody.clone(),
             pairing_eligibility.clone(),
             event_hub.clone(),

@@ -139,7 +139,7 @@ crates/vnidrop/src/runtime/
   provider.rs   # provider events, per-connection send progress
 ```
 
-Other core modules: `filesystem.rs`, `repository.rs`, `approval.rs`,
+Other core modules: `filesystem.rs`, `invitation/`, `approval.rs`,
 `handshake.rs`, `ticket.rs`, `access_policy.rs`, `event_hub.rs`, `api.rs`.
 
 ### Shared app

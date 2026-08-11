@@ -57,11 +57,12 @@ src/
     saved_devices.rs # experimental saved-device pairing, forget, block
     targeted.rs   # saved-device targeted transfers
   persistence.rs  # AppDataStores / persistence open (domain stores)
-  repository.rs   # invitation-transfer domain store (not raw pool export)
-  device_relationship/ # mutual consent + grants
+  invitation/     # invitation-transfer domain store (type name: Repository)
+  pairing_eligibility/ # eligibility service + store
+  device_relationship/ # store + service + protocol (ALPN pairing)
   targeted_transfer/   # targeted protocol + store adapter
   blocked_devices.rs
-  secure_secret/  # custody + platform credential adapters
+  secure_secret/  # custody + platform credential adapters (+ metadata store)
   filesystem.rs   # collect sources, atomic publish, path rules
   approval.rs / handshake.rs / ticket.rs / access_policy.rs / event_hub.rs
   api.rs          # UniFFI records/enums

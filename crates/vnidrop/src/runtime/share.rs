@@ -22,7 +22,7 @@ use crate::{
         collect_import_files_with_limits, default_collection_name,
         read_stream_from_blocking_reader, TransferImport,
     },
-    repository::TransferUpsert,
+    invitation::TransferUpsert,
     ticket::VnidropTicket,
     transfer_state::{TransferDirection, TransferStatus},
     util::non_empty,

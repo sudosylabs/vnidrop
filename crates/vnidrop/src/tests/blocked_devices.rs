@@ -1,4 +1,4 @@
-use crate::{blocked_devices::BlockStore, persistence, repository::Repository};
+use crate::{blocked_devices::BlockStore, invitation::Repository, persistence};
 
 async fn store(temp: &tempfile::TempDir) -> BlockStore {
     persistence::open_all(temp.path()).await.unwrap().blocked
@@ -45,7 +45,12 @@ async fn opening_app_data_drops_unreleased_prototype_tables() {
     }
 
     let stores = persistence::open_all(temp.path()).await.unwrap();
-    let pool = stores.pool_for_unmigrated();
+    let pool = {
+        let options = sqlx::sqlite::SqliteConnectOptions::new()
+            .filename(temp.path().join("vnidrop.sqlite3"))
+            .create_if_missing(false);
+        sqlx::SqlitePool::connect_with(options).await.unwrap()
+    };
     for table in ["contacts", "grants_issued", "grants_held", "held_offers"] {
         let row = sqlx::query(&format!(
             "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = '{table}'"

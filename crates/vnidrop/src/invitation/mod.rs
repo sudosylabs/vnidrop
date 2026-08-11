@@ -1,3 +1,9 @@
+//! Invitation-transfer domain store (history, approvals, delivery receipts).
+//!
+//! This is the invitation half of [`crate::persistence::AppDataStores`]. It owns
+//! only invitation-transfer tables — not relationships, eligibility, blocks, or
+//! secret metadata (those have their own domain stores).
+
 #[cfg(test)]
 use std::path::Path;
 
@@ -13,19 +19,16 @@ use uuid::Uuid;
 
 use crate::{
     access_policy::mode_from_storage,
-    api::{
-        CoreEvent, PairingEligibilitySummary, ReceivedArtifact, ReceivedLocatorKind,
-        ReceiverRequest, StoredTransfer,
-    },
-    blocked_devices::BlockStore,
-    error::VnidropError,
-    pairing_eligibility::{PairingEligibilityInsert, PairingEligibilityRecord},
+    api::{CoreEvent, ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest, StoredTransfer},
     transfer_state::{ReceiverRequestStatus, TransferDirection, TransferStatus},
     util::now_ms,
 };
 
 const SCHEMA_VERSION: i64 = 13;
 
+/// Invitation-transfer durable store (history, receiver requests, receipts, events).
+///
+/// Type name kept for call-site stability; module path is [`crate::invitation`].
 #[derive(Debug, Clone)]
 pub(crate) struct Repository {
     pool: SqlitePool,
@@ -120,8 +123,9 @@ impl Repository {
     }
 
     pub(crate) async fn ensure_schema(&self) -> Result<()> {
-        // The app owns this SQLite file.  Keep migrations explicit so future
-        // desktop/mobile releases can move user history forward in place.
+        // Invitation-transfer tables only. Other domains apply schema from
+        // [`crate::persistence::open_all`]. Keep migrations explicit so releases
+        // can move invitation history forward in place.
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS transfers (
@@ -330,193 +334,9 @@ impl Repository {
                 .await?;
         }
 
-        crate::blocked_devices::ensure_schema(&self.pool).await?;
-        crate::secure_secret::ensure_schema(&self.pool).await?;
-        crate::device_relationship::DeviceRelationshipService::ensure_schema(&self.pool).await?;
-        crate::targeted_transfer::ensure_schema(&self.pool).await?;
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS pairing_eligibilities (
-                session_id TEXT PRIMARY KEY,
-                peer_endpoint_id TEXT NOT NULL,
-                protocol_version INTEGER NOT NULL,
-                secret_handle TEXT NOT NULL UNIQUE,
-                created_at INTEGER NOT NULL,
-                expires_at INTEGER NOT NULL
-            );
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-        sqlx::query(
-            r#"
-            CREATE INDEX IF NOT EXISTS pairing_eligibilities_peer
-                ON pairing_eligibilities(peer_endpoint_id);
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-
         sqlx::query(&format!("PRAGMA user_version = {SCHEMA_VERSION}"))
             .execute(&self.pool)
             .await?;
-        Ok(())
-    }
-
-    /// Identity-wide deny list for saved-device and invitation traffic.
-    pub(crate) fn blocked_devices(&self) -> BlockStore {
-        BlockStore::new(self.pool.clone())
-    }
-
-    #[allow(
-        dead_code,
-        reason = "the private custody seam is activated by platform credential adapters"
-    )]
-    pub(crate) fn protected_secrets(&self) -> crate::secure_secret::SecretMetadataStore {
-        crate::secure_secret::SecretMetadataStore::new(self.pool.clone())
-    }
-
-    pub(crate) async fn insert_pairing_eligibility(
-        &self,
-        entry: PairingEligibilityInsert<'_>,
-    ) -> Result<(), VnidropError> {
-        sqlx::query(
-            r#"
-            INSERT INTO pairing_eligibilities (
-                session_id, peer_endpoint_id, protocol_version, secret_handle, created_at, expires_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-            "#,
-        )
-        .bind(entry.session_id)
-        .bind(entry.peer_endpoint_id)
-        .bind(i64::from(entry.protocol_version))
-        .bind(entry.secret_handle)
-        .bind(entry.created_at)
-        .bind(entry.expires_at)
-        .execute(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(())
-    }
-
-    pub(crate) async fn list_pairing_eligibilities(
-        &self,
-    ) -> Result<Vec<PairingEligibilitySummary>, VnidropError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT peer_endpoint_id, session_id, protocol_version, created_at, expires_at
-            FROM pairing_eligibilities
-            ORDER BY created_at DESC
-            "#,
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(rows
-            .into_iter()
-            .map(|row| PairingEligibilitySummary {
-                peer_endpoint_id: row.get("peer_endpoint_id"),
-                session_id: row.get("session_id"),
-                protocol_version: row.get::<i64, _>("protocol_version") as u16,
-                created_at: row.get("created_at"),
-                expires_at: row.get("expires_at"),
-            })
-            .collect())
-    }
-
-    pub(crate) async fn list_pairing_eligibility_records(
-        &self,
-    ) -> Result<Vec<PairingEligibilityRecord>, VnidropError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT peer_endpoint_id, session_id, protocol_version, secret_handle, created_at, expires_at
-            FROM pairing_eligibilities
-            "#,
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(rows.into_iter().map(row_to_pairing_eligibility).collect())
-    }
-
-    pub(crate) async fn list_pairing_eligibilities_for_peer(
-        &self,
-        peer_endpoint_id: &str,
-    ) -> Result<Vec<PairingEligibilityRecord>, VnidropError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT peer_endpoint_id, session_id, protocol_version, secret_handle, created_at, expires_at
-            FROM pairing_eligibilities
-            WHERE peer_endpoint_id = ?1
-            "#,
-        )
-        .bind(peer_endpoint_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(rows.into_iter().map(row_to_pairing_eligibility).collect())
-    }
-
-    pub(crate) async fn list_expired_pairing_eligibilities(
-        &self,
-        now_ms: i64,
-    ) -> Result<Vec<PairingEligibilityRecord>, VnidropError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT peer_endpoint_id, session_id, protocol_version, secret_handle, created_at, expires_at
-            FROM pairing_eligibilities
-            WHERE expires_at <= ?1
-            "#,
-        )
-        .bind(now_ms)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(rows.into_iter().map(row_to_pairing_eligibility).collect())
-    }
-
-    pub(crate) async fn find_pairing_eligibility_by_session(
-        &self,
-        session_id: &str,
-    ) -> Result<Option<PairingEligibilityRecord>, VnidropError> {
-        let row = sqlx::query(
-            r#"
-            SELECT peer_endpoint_id, session_id, protocol_version, secret_handle, created_at, expires_at
-            FROM pairing_eligibilities
-            WHERE session_id = ?1
-            "#,
-        )
-        .bind(session_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(row.map(row_to_pairing_eligibility))
-    }
-
-    pub(crate) async fn delete_pairing_eligibility(
-        &self,
-        session_id: &str,
-    ) -> Result<(), VnidropError> {
-        sqlx::query("DELETE FROM pairing_eligibilities WHERE session_id = ?1")
-            .bind(session_id)
-            .execute(&self.pool)
-            .await
-            .map_err(VnidropError::repository)?;
-        Ok(())
-    }
-
-    #[cfg(test)]
-    pub(crate) async fn force_pairing_eligibility_expiry_for_test(
-        &self,
-        session_id: &str,
-        expires_at: i64,
-    ) -> Result<(), VnidropError> {
-        sqlx::query("UPDATE pairing_eligibilities SET expires_at = ?2 WHERE session_id = ?1")
-            .bind(session_id)
-            .bind(expires_at)
-            .execute(&self.pool)
-            .await
-            .map_err(VnidropError::repository)?;
         Ok(())
     }
 
@@ -1448,16 +1268,5 @@ fn row_to_receiver_request(row: sqlx::sqlite::SqliteRow) -> ReceiverRequest {
         requested_at: row.get("requested_at"),
         responded_at: row.get("responded_at"),
         completed_at: row.get("completed_at"),
-    }
-}
-
-fn row_to_pairing_eligibility(row: sqlx::sqlite::SqliteRow) -> PairingEligibilityRecord {
-    PairingEligibilityRecord {
-        peer_endpoint_id: row.get("peer_endpoint_id"),
-        session_id: row.get("session_id"),
-        protocol_version: row.get::<i64, _>("protocol_version") as u16,
-        secret_handle: row.get("secret_handle"),
-        created_at: row.get("created_at"),
-        expires_at: row.get("expires_at"),
     }
 }

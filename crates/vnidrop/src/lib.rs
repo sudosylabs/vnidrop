@@ -9,10 +9,10 @@ mod event_hub;
 mod filesystem;
 mod grant;
 mod handshake;
+mod invitation;
 mod logging;
 mod pairing_eligibility;
 mod persistence;
-mod repository;
 mod runtime;
 mod secret;
 #[allow(

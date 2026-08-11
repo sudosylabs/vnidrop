@@ -1,27 +1,12 @@
 //! Forget, block, grant rotation, and minimal revocation tombstones (design §7–§8).
 
 use serde_json::json;
-use sqlx::Row;
 
-use super::{DeviceRelationshipService, RelationshipRow};
+use super::{store::RelationshipRow, DeviceRelationshipService};
 use crate::{
     api::DeviceRelationshipState, error::VnidropError, grant::GrantRejection,
-    secure_secret::SecretHandle, util::now_ms,
+    secure_secret::SecretHandle,
 };
-
-/// Minimal non-secret tombstone for a revoked relationship generation.
-///
-/// Retains only what is needed to reject replay: peer identity, generation,
-/// opaque grant ids, and revocation time. No names, filenames, history, or
-/// capability material.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct GenerationTombstone {
-    pub(crate) remote_endpoint_id: String,
-    pub(crate) generation: u64,
-    pub(crate) issued_grant_id: Option<String>,
-    pub(crate) held_grant_id: Option<String>,
-    pub(crate) revoked_at: i64,
-}
 
 #[derive(Debug, Clone)]
 pub(crate) struct ForgetOutcome {
@@ -31,24 +16,6 @@ pub(crate) struct ForgetOutcome {
 }
 
 impl DeviceRelationshipService {
-    pub(crate) async fn ensure_lifecycle_schema(pool: &sqlx::SqlitePool) -> anyhow::Result<()> {
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS relationship_generation_tombstones (
-                remote_endpoint_id TEXT NOT NULL,
-                generation INTEGER NOT NULL,
-                issued_grant_id TEXT,
-                held_grant_id TEXT,
-                revoked_at INTEGER NOT NULL,
-                PRIMARY KEY (remote_endpoint_id, generation)
-            );
-            "#,
-        )
-        .execute(pool)
-        .await?;
-        Ok(())
-    }
-
     /// Forget a saved (or pending) device: revoke locally first, clean secrets,
     /// then the caller sends a best-effort remote notice. Invitation-domain
     /// transfers are untouched.
@@ -127,25 +94,9 @@ impl DeviceRelationshipService {
         self.clear_grant_secrets(&row).await?;
 
         let new_generation = row.generation.saturating_add(1);
-        let now = now_ms();
-        sqlx::query(
-            r#"
-            UPDATE device_relationships
-            SET generation = ?2,
-                issued_grant_handle = NULL,
-                held_grant_handle = NULL,
-                issued_grant_id = NULL,
-                held_grant_id = NULL,
-                updated_at = ?3
-            WHERE remote_endpoint_id = ?1
-            "#,
-        )
-        .bind(&peer_endpoint_id)
-        .bind(new_generation as i64)
-        .bind(now)
-        .execute(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
+        self.store
+            .begin_grant_rotation(&peer_endpoint_id, new_generation)
+            .await?;
 
         let _wire = self
             .mint_and_store_issued_grant(
@@ -210,29 +161,8 @@ impl DeviceRelationshipService {
     pub(crate) async fn list_tombstones(
         &self,
         peer_endpoint_id: &str,
-    ) -> Result<Vec<GenerationTombstone>, VnidropError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT remote_endpoint_id, generation, issued_grant_id, held_grant_id, revoked_at
-            FROM relationship_generation_tombstones
-            WHERE remote_endpoint_id = ?1
-            ORDER BY generation ASC
-            "#,
-        )
-        .bind(peer_endpoint_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(rows
-            .into_iter()
-            .map(|row| GenerationTombstone {
-                remote_endpoint_id: row.get("remote_endpoint_id"),
-                generation: row.get::<i64, _>("generation") as u64,
-                issued_grant_id: row.get("issued_grant_id"),
-                held_grant_id: row.get("held_grant_id"),
-                revoked_at: row.get("revoked_at"),
-            })
-            .collect())
+    ) -> Result<Vec<super::store::GenerationTombstone>, VnidropError> {
+        self.store.list_tombstones(peer_endpoint_id).await
     }
 
     #[cfg(test)]
@@ -254,52 +184,17 @@ impl DeviceRelationshipService {
         peer_endpoint_id: &str,
         row: &RelationshipRow,
     ) -> Result<(), VnidropError> {
-        sqlx::query(
-            r#"
-            INSERT INTO relationship_generation_tombstones (
-                remote_endpoint_id, generation, issued_grant_id, held_grant_id, revoked_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5)
-            ON CONFLICT(remote_endpoint_id, generation) DO UPDATE SET
-                issued_grant_id = COALESCE(excluded.issued_grant_id, relationship_generation_tombstones.issued_grant_id),
-                held_grant_id = COALESCE(excluded.held_grant_id, relationship_generation_tombstones.held_grant_id),
-                revoked_at = excluded.revoked_at
-            "#,
-        )
-        .bind(peer_endpoint_id)
-        .bind(row.generation as i64)
-        .bind(row.issued_grant_id.as_deref())
-        .bind(row.held_grant_id.as_deref())
-        .bind(now_ms())
-        .execute(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(())
+        self.store.insert_tombstone(peer_endpoint_id, row).await
     }
 
     async fn find_tombstone(
         &self,
         peer_endpoint_id: &str,
         generation: u64,
-    ) -> Result<Option<GenerationTombstone>, VnidropError> {
-        let row = sqlx::query(
-            r#"
-            SELECT remote_endpoint_id, generation, issued_grant_id, held_grant_id, revoked_at
-            FROM relationship_generation_tombstones
-            WHERE remote_endpoint_id = ?1 AND generation = ?2
-            "#,
-        )
-        .bind(peer_endpoint_id)
-        .bind(generation as i64)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(row.map(|row| GenerationTombstone {
-            remote_endpoint_id: row.get("remote_endpoint_id"),
-            generation: row.get::<i64, _>("generation") as u64,
-            issued_grant_id: row.get("issued_grant_id"),
-            held_grant_id: row.get("held_grant_id"),
-            revoked_at: row.get("revoked_at"),
-        }))
+    ) -> Result<Option<super::store::GenerationTombstone>, VnidropError> {
+        self.store
+            .find_tombstone(peer_endpoint_id, generation)
+            .await
     }
 
     async fn clear_grant_secrets(&self, row: &RelationshipRow) -> Result<(), VnidropError> {

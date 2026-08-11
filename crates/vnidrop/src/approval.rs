@@ -7,13 +7,14 @@ use uuid::Uuid;
 
 use crate::{
     access_policy::{AccessDecision, AccessPolicy, APPROVAL_SESSION_TTL_MS},
+    blocked_devices::BlockStore,
     event_hub::EventHub,
     handshake::{
         DeliveryFailureReceipt, DeliveryReceipt, DeliveryReceiptResponse, HandshakeResponse,
         RequestTransfer,
     },
+    invitation::{ReceiverRequestInsert, Repository},
     pairing_eligibility::PairingEligibilityService,
-    repository::{ReceiverRequestInsert, Repository},
     transfer_state::ReceiverRequestStatus,
     util::now_ms,
 };
@@ -31,6 +32,7 @@ pub(crate) struct ApprovalDecision {
 #[derive(Clone)]
 pub(crate) struct ApprovalService {
     repository: Repository,
+    blocked: BlockStore,
     event_hub: Arc<EventHub>,
     access_policy: Arc<AccessPolicy>,
     pending: Arc<Mutex<HashMap<String, oneshot::Sender<ApprovalDecision>>>>,
@@ -129,6 +131,7 @@ impl ApprovalService {
 
     pub(crate) fn new(
         repository: Repository,
+        blocked: BlockStore,
         event_hub: Arc<EventHub>,
         access_policy: Arc<AccessPolicy>,
         max_pending: usize,
@@ -137,6 +140,7 @@ impl ApprovalService {
     ) -> Self {
         Self {
             repository,
+            blocked,
             event_hub,
             access_policy,
             pending: Arc::new(Mutex::new(HashMap::new())),
@@ -179,8 +183,7 @@ impl ApprovalService {
         request: RequestTransfer,
     ) -> HandshakeResponse {
         if self
-            .repository
-            .blocked_devices()
+            .blocked
             .is_blocked(&remote_endpoint_id)
             .await
             .unwrap_or(true)

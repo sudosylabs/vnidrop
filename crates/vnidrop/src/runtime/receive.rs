@@ -27,7 +27,7 @@ use crate::{
         AtomicOutputFile,
     },
     handshake::{DeliveryReceipt, HandshakeResponse, HandshakeService},
-    repository::{PendingDeliveryReceiptInsert, ReceivedArtifactInsert, TransferUpsert},
+    invitation::{PendingDeliveryReceiptInsert, ReceivedArtifactInsert, TransferUpsert},
     ticket::{
         encode_persisted_sender_address, parse_transfer_ticket_with_limits, ParsedTransferTicket,
     },

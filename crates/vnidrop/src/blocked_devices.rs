@@ -1,19 +1,9 @@
 //! Identity-wide deny list for saved-device and invitation traffic.
-//!
-//! Unreleased prototype contact / grant / held-offer tables are dropped on open
-//! so they leave no compatibility commitment or orphaned authorization.
 
 use anyhow::Result;
 use sqlx::{Row, SqlitePool};
 
 pub(crate) async fn ensure_schema(pool: &SqlitePool) -> Result<()> {
-    // Prototype artifacts from the unreleased device-history experiment.
-    for table in ["held_offers", "grants_held", "grants_issued", "contacts"] {
-        sqlx::query(&format!("DROP TABLE IF EXISTS {table}"))
-            .execute(pool)
-            .await?;
-    }
-
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS blocked_endpoints (
@@ -28,7 +18,7 @@ pub(crate) async fn ensure_schema(pool: &SqlitePool) -> Result<()> {
     Ok(())
 }
 
-/// Durable deny records over the shared repository pool.
+/// Durable deny records for one app-data profile.
 #[derive(Debug, Clone)]
 pub(crate) struct BlockStore {
     pool: SqlitePool,

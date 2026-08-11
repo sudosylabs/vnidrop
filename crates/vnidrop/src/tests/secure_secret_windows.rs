@@ -4,7 +4,7 @@ use data_encoding::HEXLOWER;
 use iroh::SecretKey;
 
 use crate::{
-    repository::Repository,
+    persistence,
     secure_secret::{
         windows::WindowsDpapiSecretStore, CustodyCrashPoint, SecretCustody, SecretMaterial,
         SecureSecretStore, SecureSecretStoreError,
@@ -144,10 +144,10 @@ async fn endpoint_migration_survives_activation_crash_without_changing_identity(
     let original = SecretKey::generate();
     fs::write(&legacy, HEXLOWER.encode(&original.to_bytes())).unwrap();
 
-    let repository = Repository::open(&app_data).await.unwrap();
+    let stores = persistence::open_all(&app_data).await.unwrap();
     let protected_directory = app_data.join("protected-secrets");
     let store = Arc::new(WindowsDpapiSecretStore::new(&protected_directory).unwrap());
-    let custody = SecretCustody::new(repository.protected_secrets(), store);
+    let custody = SecretCustody::new(stores.secrets.clone(), store);
     custody.crash_once_at(CustodyCrashPoint::MetadataActivation);
     assert!(custody
         .migrate_legacy_endpoint_identity(&legacy)
@@ -155,11 +155,10 @@ async fn endpoint_migration_survives_activation_crash_without_changing_identity(
         .is_err());
     assert!(legacy.exists());
     drop(custody);
-    drop(repository);
 
-    let repository = Repository::open(&app_data).await.unwrap();
+    let stores = persistence::open_all(&app_data).await.unwrap();
     let restarted_store = Arc::new(WindowsDpapiSecretStore::new(&protected_directory).unwrap());
-    let (custody, _) = SecretCustody::start(repository.protected_secrets(), restarted_store)
+    let (custody, _) = SecretCustody::start(stores.secrets.clone(), restarted_store)
         .await
         .unwrap();
     let handle = custody

@@ -6,7 +6,7 @@ use std::{
 use secret_service::Error;
 
 use crate::{
-    repository::Repository,
+    persistence,
     secure_secret::{
         linux::{map_error, LinuxSecretServiceApi, LinuxSecretServiceStore},
         SecretCustody, SecretHandle, SecretKind, SecretMaterial, SecureSecretStore,
@@ -101,10 +101,10 @@ fn adapter_survives_restart_and_deletes_only_the_selected_item() {
 #[tokio::test]
 async fn transient_backend_failures_do_not_delete_protected_metadata_or_material() {
     let temp = tempfile::tempdir().unwrap();
-    let repository = Repository::open(temp.path()).await.unwrap();
+    let stores = persistence::open_all(temp.path()).await.unwrap();
     let api = Arc::new(RecordingSecretService::default());
     let store = Arc::new(LinuxSecretServiceStore::with_api(api.clone()));
-    let custody = SecretCustody::new(repository.protected_secrets(), store.clone());
+    let custody = SecretCustody::new(stores.secrets.clone(), store.clone());
     let protected = custody
         .protect(
             SecretKind::RelationshipGrant,
@@ -117,12 +117,12 @@ async fn transient_backend_failures_do_not_delete_protected_metadata_or_material
     *api.failure.lock().unwrap() = Some(SecureSecretStoreError::Unavailable);
     drop(custody);
     assert!(matches!(
-        SecretCustody::start(repository.protected_secrets(), store.clone()).await,
+        SecretCustody::start(stores.secrets.clone(), store.clone()).await,
         Err(VnidropError::SecureStorageUnavailable { .. })
     ));
 
     *api.failure.lock().unwrap() = None;
-    let (restarted, _) = SecretCustody::start(repository.protected_secrets(), store)
+    let (restarted, _) = SecretCustody::start(stores.secrets.clone(), store)
         .await
         .unwrap();
     assert_eq!(

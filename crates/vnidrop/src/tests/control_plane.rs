@@ -6,7 +6,7 @@ use crate::{
     api::{CoreEvent, CoreEventSink, CoreLimits, PendingTargetedOffer},
     control_plane::IdentityCooldown,
     event_hub::EventHub,
-    repository::Repository,
+    invitation::Repository,
     secure_secret::FaultInjectingSecretStore,
     targeted_transfer::inbox::{TargetedOfferDecision, TargetedOfferInbox},
     CoreNetworkConfig, DeviceRelationshipState, ShareMetadataInput, ShareSource, SourceKind,

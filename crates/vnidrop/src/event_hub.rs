@@ -9,7 +9,7 @@ use tokio::{
 use crate::{
     api::{CoreEvent, CoreEventSink},
     control_plane::redact_json,
-    repository::Repository,
+    invitation::Repository,
     transfer_state::TransferDirection,
     util::now_ms,
 };

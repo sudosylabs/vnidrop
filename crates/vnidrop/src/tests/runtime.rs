@@ -9,7 +9,7 @@ use iroh_blobs::{
 };
 
 use crate::{
-    repository::{PendingDeliveryReceiptInsert, Repository, TransferUpsert},
+    invitation::{PendingDeliveryReceiptInsert, Repository, TransferUpsert},
     runtime::{consume_request_updates, CoreInner, IdentityMode, RequestStreamOutcome},
     secure_secret::{lock_profile, FaultInjectingSecretStore},
     transfer_state::{TransferDirection, TransferStatus},

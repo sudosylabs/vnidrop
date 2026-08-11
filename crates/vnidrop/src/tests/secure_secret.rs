@@ -7,7 +7,7 @@ use data_encoding::HEXLOWER;
 use iroh::SecretKey;
 
 use crate::{
-    repository::Repository,
+    persistence,
     secure_secret::{
         lock_profile, scope_store, CustodyCrashPoint, FaultInjectingSecretStore,
         ReferenceStoreFailure, SecretCustody, SecretKind, SecretMaterial, SecureSecretStore,
@@ -55,10 +55,10 @@ async fn reconciliation_is_scoped_to_one_application_profile() {
     let shared_platform_store = Arc::new(FaultInjectingSecretStore::default());
     let first_store = scope_store(&first_dir, shared_platform_store.clone());
     let second_store = scope_store(&second_dir, shared_platform_store);
-    let first_repository = Repository::open(&first_dir).await.unwrap();
-    let second_repository = Repository::open(&second_dir).await.unwrap();
-    let first = SecretCustody::new(first_repository.protected_secrets(), first_store.clone());
-    let second = SecretCustody::new(second_repository.protected_secrets(), second_store.clone());
+    let first_stores = persistence::open_all(&first_dir).await.unwrap();
+    let second_stores = persistence::open_all(&second_dir).await.unwrap();
+    let first = SecretCustody::new(first_stores.secrets.clone(), first_store.clone());
+    let second = SecretCustody::new(second_stores.secrets.clone(), second_store.clone());
     let first_handle = first
         .protect(
             SecretKind::RelationshipGrant,
@@ -77,10 +77,9 @@ async fn reconciliation_is_scoped_to_one_application_profile() {
         .unwrap();
 
     drop(first);
-    let (restarted, summary) =
-        SecretCustody::start(first_repository.protected_secrets(), first_store)
-            .await
-            .unwrap();
+    let (restarted, summary) = SecretCustody::start(first_stores.secrets.clone(), first_store)
+        .await
+        .unwrap();
 
     assert_eq!(summary.orphans_deleted, 0);
     assert_eq!(
@@ -96,9 +95,9 @@ async fn reconciliation_is_scoped_to_one_application_profile() {
 #[tokio::test]
 async fn custody_maps_reference_store_failures_to_typed_core_errors() {
     let temp = tempfile::tempdir().unwrap();
-    let repository = Repository::open(temp.path()).await.unwrap();
+    let stores = persistence::open_all(temp.path()).await.unwrap();
     let store = Arc::new(FaultInjectingSecretStore::default());
-    let custody = SecretCustody::new(repository.protected_secrets(), store.clone());
+    let custody = SecretCustody::new(stores.secrets.clone(), store.clone());
     let secret = SecretMaterial::new(vec![0x5a; 32]).unwrap();
     let handle = custody
         .protect(SecretKind::RelationshipGrant, secret.clone(), None)
@@ -140,9 +139,9 @@ async fn custody_maps_reference_store_failures_to_typed_core_errors() {
 #[tokio::test]
 async fn reconciliation_repairs_staged_metadata_and_disables_unusable_secrets() {
     let temp = tempfile::tempdir().unwrap();
-    let mut repository = Repository::open(temp.path()).await.unwrap();
+    let mut stores = persistence::open_all(temp.path()).await.unwrap();
     let store = Arc::new(FaultInjectingSecretStore::default());
-    let custody = SecretCustody::new(repository.protected_secrets(), store.clone());
+    let custody = SecretCustody::new(stores.secrets.clone(), store.clone());
 
     custody.crash_once_at(CustodyCrashPoint::StoreWrite);
     assert!(custody
@@ -154,9 +153,9 @@ async fn reconciliation_repairs_staged_metadata_and_disables_unusable_secrets() 
         .await
         .is_err());
     drop(custody);
-    drop(repository);
-    repository = Repository::open(temp.path()).await.unwrap();
-    let (custody, summary) = SecretCustody::start(repository.protected_secrets(), store.clone())
+    drop(stores);
+    stores = persistence::open_all(temp.path()).await.unwrap();
+    let (custody, summary) = SecretCustody::start(stores.secrets.clone(), store.clone())
         .await
         .unwrap();
     assert_eq!(summary.orphans_deleted, 1);
@@ -173,9 +172,9 @@ async fn reconciliation_repairs_staged_metadata_and_disables_unusable_secrets() 
         .is_err());
     let staged_handle = store.only_handle_for_test();
     drop(custody);
-    drop(repository);
-    repository = Repository::open(temp.path()).await.unwrap();
-    let (custody, summary) = SecretCustody::start(repository.protected_secrets(), store.clone())
+    drop(stores);
+    stores = persistence::open_all(temp.path()).await.unwrap();
+    let (custody, summary) = SecretCustody::start(stores.secrets.clone(), store.clone())
         .await
         .unwrap();
     assert_eq!(summary.staged_activated, 1);
@@ -186,9 +185,9 @@ async fn reconciliation_repairs_staged_metadata_and_disables_unusable_secrets() 
 
     store.remove_for_test(&staged_handle);
     drop(custody);
-    drop(repository);
-    repository = Repository::open(temp.path()).await.unwrap();
-    let (custody, summary) = SecretCustody::start(repository.protected_secrets(), store.clone())
+    drop(stores);
+    stores = persistence::open_all(temp.path()).await.unwrap();
+    let (custody, summary) = SecretCustody::start(stores.secrets.clone(), store.clone())
         .await
         .unwrap();
     assert_eq!(summary.disabled, 1);
@@ -207,9 +206,8 @@ async fn reconciliation_repairs_staged_metadata_and_disables_unusable_secrets() 
         .unwrap();
     store.corrupt_for_test(&corrupted);
     drop(custody);
-    drop(repository);
-    let repository = Repository::open(temp.path()).await.unwrap();
-    let (custody, summary) = SecretCustody::start(repository.protected_secrets(), store.clone())
+    let stores = persistence::open_all(temp.path()).await.unwrap();
+    let (custody, summary) = SecretCustody::start(stores.secrets.clone(), store.clone())
         .await
         .unwrap();
     assert_eq!(summary.disabled, 1);
@@ -225,9 +223,9 @@ async fn endpoint_migration_preserves_identity_across_crash_and_rejects_replacem
     let legacy_path = temp.path().join("iroh.secret");
     let original = SecretKey::generate();
     std::fs::write(&legacy_path, HEXLOWER.encode(&original.to_bytes())).unwrap();
-    let repository = Repository::open(temp.path()).await.unwrap();
+    let stores = persistence::open_all(temp.path()).await.unwrap();
     let store = Arc::new(FaultInjectingSecretStore::default());
-    let custody = SecretCustody::new(repository.protected_secrets(), store.clone());
+    let custody = SecretCustody::new(stores.secrets.clone(), store.clone());
 
     custody.crash_once_at(CustodyCrashPoint::MetadataActivation);
     assert!(custody
@@ -240,9 +238,8 @@ async fn endpoint_migration_preserves_identity_across_crash_and_rejects_replacem
     );
 
     drop(custody);
-    drop(repository);
-    let repository = Repository::open(temp.path()).await.unwrap();
-    let (custody, summary) = SecretCustody::start(repository.protected_secrets(), store.clone())
+    let stores = persistence::open_all(temp.path()).await.unwrap();
+    let (custody, summary) = SecretCustody::start(stores.secrets.clone(), store.clone())
         .await
         .unwrap();
     assert_eq!(summary.staged_activated, 0);
@@ -272,8 +269,8 @@ async fn endpoint_migration_preserves_identity_across_crash_and_rejects_replacem
     let empty_store = Arc::new(FaultInjectingSecretStore::default());
     let other_dir = temp.path().join("other");
     std::fs::create_dir(&other_dir).unwrap();
-    let other_repository = Repository::open(&other_dir).await.unwrap();
-    let empty_custody = SecretCustody::new(other_repository.protected_secrets(), empty_store);
+    let other_stores = persistence::open_all(&other_dir).await.unwrap();
+    let empty_custody = SecretCustody::new(other_stores.secrets.clone(), empty_store);
     assert!(matches!(
         empty_custody
             .migrate_legacy_endpoint_identity(&missing)
@@ -286,9 +283,9 @@ async fn endpoint_migration_preserves_identity_across_crash_and_rejects_replacem
 async fn first_install_identity_is_protected_once_and_never_silently_replaced() {
     let temp = tempfile::tempdir().unwrap();
     let legacy_path = temp.path().join("iroh.secret");
-    let repository = Repository::open(temp.path()).await.unwrap();
+    let stores = persistence::open_all(temp.path()).await.unwrap();
     let store = Arc::new(FaultInjectingSecretStore::default());
-    let (custody, _) = SecretCustody::start(repository.protected_secrets(), store.clone())
+    let (custody, _) = SecretCustody::start(stores.secrets.clone(), store.clone())
         .await
         .unwrap();
 
@@ -299,10 +296,9 @@ async fn first_install_identity_is_protected_once_and_never_silently_replaced() 
     assert!(!legacy_path.exists());
     let handle = store.only_handle_for_test();
     drop(custody);
-    drop(repository);
 
-    let repository = Repository::open(temp.path()).await.unwrap();
-    let (custody, _) = SecretCustody::start(repository.protected_secrets(), store.clone())
+    let stores = persistence::open_all(temp.path()).await.unwrap();
+    let (custody, _) = SecretCustody::start(stores.secrets.clone(), store.clone())
         .await
         .unwrap();
     assert_eq!(
@@ -315,9 +311,8 @@ async fn first_install_identity_is_protected_once_and_never_silently_replaced() 
 
     store.remove_for_test(&handle);
     drop(custody);
-    drop(repository);
-    let repository = Repository::open(temp.path()).await.unwrap();
-    let (custody, summary) = SecretCustody::start(repository.protected_secrets(), store.clone())
+    let stores = persistence::open_all(temp.path()).await.unwrap();
+    let (custody, summary) = SecretCustody::start(stores.secrets.clone(), store.clone())
         .await
         .unwrap();
     assert_eq!(summary.disabled, 1);
@@ -332,10 +327,10 @@ async fn first_install_identity_is_protected_once_and_never_silently_replaced() 
 async fn concurrent_first_starts_converge_on_one_protected_endpoint_identity() {
     let temp = tempfile::tempdir().unwrap();
     let legacy_path = temp.path().join("iroh.secret");
-    let repository = Repository::open(temp.path()).await.unwrap();
+    let stores = persistence::open_all(temp.path()).await.unwrap();
     let store = Arc::new(FaultInjectingSecretStore::default());
-    let first = SecretCustody::new(repository.protected_secrets(), store.clone());
-    let second = SecretCustody::new(repository.protected_secrets(), store.clone());
+    let first = SecretCustody::new(stores.secrets.clone(), store.clone());
+    let second = SecretCustody::new(stores.secrets.clone(), store.clone());
 
     let (first_identity, second_identity) = tokio::join!(
         first.initialize_endpoint_identity(&legacy_path),
@@ -349,9 +344,9 @@ async fn concurrent_first_starts_converge_on_one_protected_endpoint_identity() {
 #[tokio::test]
 async fn protected_material_is_absent_from_database_and_diagnostics() {
     let temp = tempfile::tempdir().unwrap();
-    let repository = Repository::open(temp.path()).await.unwrap();
+    let stores = persistence::open_all(temp.path()).await.unwrap();
     let store = Arc::new(FaultInjectingSecretStore::default());
-    let custody = SecretCustody::new(repository.protected_secrets(), store.clone());
+    let custody = SecretCustody::new(stores.secrets.clone(), store.clone());
     let raw = (0u8..32).map(|value| value + 1).collect::<Vec<_>>();
     let encoded = HEXLOWER.encode(&raw);
     let material = SecretMaterial::new(raw.clone()).unwrap();
@@ -380,6 +375,7 @@ async fn protected_material_is_absent_from_database_and_diagnostics() {
     let diagnostics = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
     assert!(!diagnostics.contains(&encoded));
 
+    let repository = stores.invitation.clone();
     assert!(repository.list_events(None, 500).await.unwrap().is_empty());
 
     let mut persisted = Vec::new();

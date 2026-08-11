@@ -1,6 +1,6 @@
 use crate::{
     api::{CoreEvent, ReceivedLocatorKind},
-    repository::{
+    invitation::{
         PendingDeliveryReceiptInsert, ReceivedArtifactInsert, ReceiverRequestInsert, Repository,
         TransferUpsert,
     },

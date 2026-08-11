@@ -130,8 +130,8 @@ impl VnidropCore {
     ) -> Result<(), VnidropError> {
         self.block_on(
             self.inner
-                .repository
-                .force_pairing_eligibility_expiry_for_test(&session_id, expires_at),
+                .pairing_eligibility
+                .force_expiry_for_test(&session_id, expires_at),
         )
     }
 

@@ -24,6 +24,8 @@ mod network_config_tests;
 mod pairing_eligibility_tests;
 #[path = "tests/platform_contract_android.rs"]
 mod platform_contract_android_tests;
+#[path = "tests/platform_contract_linux.rs"]
+mod platform_contract_linux_tests;
 #[path = "tests/platform_contract_windows.rs"]
 mod platform_contract_windows_tests;
 #[path = "tests/repository.rs"]

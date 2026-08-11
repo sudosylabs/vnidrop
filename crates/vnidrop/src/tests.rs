@@ -22,6 +22,9 @@ mod limits_tests;
 mod network_config_tests;
 #[path = "tests/pairing_eligibility.rs"]
 mod pairing_eligibility_tests;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[path = "tests/platform_contract_apple.rs"]
+mod platform_contract_apple_tests;
 #[path = "tests/repository.rs"]
 mod repository_tests;
 #[path = "tests/runtime.rs"]

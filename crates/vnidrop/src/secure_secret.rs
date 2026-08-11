@@ -108,6 +108,7 @@ pub(crate) enum SecretKind {
     EndpointIdentity,
     RelationshipGrant,
     PairingEligibility,
+    TargetedAuthorization,
 }
 
 impl SecretKind {
@@ -116,6 +117,7 @@ impl SecretKind {
             Self::EndpointIdentity => "endpoint-identity",
             Self::RelationshipGrant => "relationship-grant",
             Self::PairingEligibility => "pairing-eligibility",
+            Self::TargetedAuthorization => "targeted-authorization",
         }
     }
 
@@ -124,6 +126,7 @@ impl SecretKind {
             "endpoint-identity" => Ok(Self::EndpointIdentity),
             "relationship-grant" => Ok(Self::RelationshipGrant),
             "pairing-eligibility" => Ok(Self::PairingEligibility),
+            "targeted-authorization" => Ok(Self::TargetedAuthorization),
             _ => Err(VnidropError::SecureStorageCorrupted {
                 reason: "protected secret has an unknown kind".to_string(),
             }),

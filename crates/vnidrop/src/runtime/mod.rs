@@ -106,6 +106,7 @@ pub(super) struct CoreInner {
     pub(super) store: FsStore,
     pub(super) repository: Repository,
     _profile_lock: Option<ProfileLock>,
+    pub(super) secret_custody: Option<Arc<crate::secure_secret::SecretCustody>>,
     pub(super) event_hub: Arc<EventHub>,
     pub(super) approval: ApprovalService,
     pub(super) pairing: PairingService,
@@ -420,6 +421,7 @@ impl CoreInner {
                 TargetedTransferProtocol::new(
                     device_relationships.clone(),
                     targeted_offers.clone(),
+                    repository.sqlite_pool(),
                     limits.clone(),
                     endpoint.id().to_string(),
                 ),
@@ -433,6 +435,7 @@ impl CoreInner {
             store,
             repository,
             _profile_lock: profile_lock,
+            secret_custody: secret_custody.clone(),
             event_hub,
             approval,
             pairing,
@@ -457,6 +460,15 @@ impl CoreInner {
             #[cfg(test)]
             targeted_cancel_log: std::sync::Mutex::new(Vec::new()),
         });
+
+        // In-flight connecting/transferring transfers become Interrupted across restart.
+        if let Err(error) = inner.targeted_store().mark_interrupted_in_flight().await {
+            tracing::warn!(%error, "failed to mark in-flight targeted transfers interrupted");
+        }
+        // Restore permanent receiver ACLs for approved targeted shares.
+        if let Err(error) = inner.restore_targeted_transfer_access().await {
+            tracing::warn!(%error, "failed to restore targeted transfer access");
+        }
 
         inner.emit_endpoint(
             "startup",

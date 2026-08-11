@@ -543,6 +543,39 @@ impl VnidropCore {
         self.block_on(self.inner.list_targeted_transfers())
     }
 
+    /// Withdraw an offer or revoke an approved transfer.
+    ///
+    /// Stops active streaming synchronously before asynchronous cleanup.
+    pub fn cancel_targeted_transfer(&self, id: String) -> Result<(), VnidropError> {
+        if let Ok(Some(row)) = self.block_on(self.inner.targeted_store().get_row(&id)) {
+            let _ = self
+                .inner
+                .signal_targeted_transfer_cancel(row.protocol_transfer_id);
+        }
+        self.block_on(self.inner.cancel_targeted_transfer(id))
+    }
+
+    /// Durably remove authorization, resumable state, and content service.
+    ///
+    /// Local denial is mandatory even when remote cleanup fails.
+    pub fn delete_targeted_transfer(&self, id: String) -> Result<(), VnidropError> {
+        if let Ok(Some(row)) = self.block_on(self.inner.targeted_store().get_row(&id)) {
+            let _ = self
+                .inner
+                .signal_targeted_transfer_cancel(row.protocol_transfer_id);
+        }
+        self.block_on(self.inner.delete_targeted_transfer(id))
+    }
+
+    /// Resume an approved/interrupted transfer without another approval.
+    pub fn resume_targeted_transfer(
+        &self,
+        id: String,
+        output_dir: String,
+    ) -> Result<(), VnidropError> {
+        self.block_on(self.inner.resume_targeted_transfer(id, output_dir))
+    }
+
     /// Devices the user has chosen to remember.
     pub fn list_contacts(&self) -> Result<Vec<ContactSummary>, VnidropError> {
         self.block_on(self.inner.list_contacts())

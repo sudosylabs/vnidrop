@@ -8,7 +8,10 @@ pub(crate) mod inbox;
 pub(crate) mod protocol;
 mod state;
 
-pub(crate) use auth::{TargetedAuthorization, TargetedAuthorizationDraft};
+pub(crate) use auth::{
+    auth_secret_material, reconstruct_authorization, TargetedAuthorization,
+    TargetedAuthorizationDraft,
+};
 pub(crate) use inbox::{RespondError, TargetedOfferInbox};
 pub(crate) use protocol::TargetedTransferProtocol;
 
@@ -33,6 +36,10 @@ pub(crate) async fn ensure_schema(pool: &SqlitePool) -> anyhow::Result<()> {
             transfer_name TEXT NOT NULL,
             file_count INTEGER NOT NULL,
             total_size INTEGER NOT NULL,
+            verified_bytes INTEGER NOT NULL DEFAULT 0,
+            blob_ticket TEXT,
+            authorization_secret_handle TEXT,
+            role TEXT NOT NULL DEFAULT 'sender',
             state TEXT NOT NULL,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
@@ -41,9 +48,38 @@ pub(crate) async fn ensure_schema(pool: &SqlitePool) -> anyhow::Result<()> {
     )
     .execute(pool)
     .await?;
+    let columns = sqlx::query("PRAGMA table_info(targeted_transfers)")
+        .fetch_all(pool)
+        .await?;
+    let has = |name: &str| columns.iter().any(|row| row.get::<String, _>(1) == name);
+    if !has("verified_bytes") {
+        sqlx::query(
+            "ALTER TABLE targeted_transfers ADD COLUMN verified_bytes INTEGER NOT NULL DEFAULT 0",
+        )
+        .execute(pool)
+        .await?;
+    }
+    if !has("blob_ticket") {
+        sqlx::query("ALTER TABLE targeted_transfers ADD COLUMN blob_ticket TEXT")
+            .execute(pool)
+            .await?;
+    }
+    if !has("authorization_secret_handle") {
+        sqlx::query("ALTER TABLE targeted_transfers ADD COLUMN authorization_secret_handle TEXT")
+            .execute(pool)
+            .await?;
+    }
+    if !has("role") {
+        sqlx::query(
+            "ALTER TABLE targeted_transfers ADD COLUMN role TEXT NOT NULL DEFAULT 'sender'",
+        )
+        .execute(pool)
+        .await?;
+    }
     Ok(())
 }
 
+#[derive(Clone)]
 pub(crate) struct TargetedTransferStore {
     pool: SqlitePool,
 }
@@ -59,8 +95,9 @@ impl TargetedTransferStore {
             INSERT INTO targeted_transfers (
                 id, protocol_transfer_id, sender_endpoint_id, receiver_endpoint_id,
                 manifest_id, content_hash, transfer_name, file_count, total_size,
+                verified_bytes, blob_ticket, authorization_secret_handle, role,
                 state, created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
             "#,
         )
         .bind(&transfer.id)
@@ -72,6 +109,10 @@ impl TargetedTransferStore {
         .bind(&transfer.transfer_name)
         .bind(transfer.file_count as i64)
         .bind(transfer.total_size as i64)
+        .bind(transfer.verified_bytes as i64)
+        .bind(&transfer.blob_ticket)
+        .bind(&transfer.authorization_secret_handle)
+        .bind(role_as_str(transfer.role))
         .bind(state_as_str(transfer.state))
         .bind(transfer.created_at)
         .bind(transfer.updated_at)
@@ -110,11 +151,113 @@ impl TargetedTransferStore {
         Ok(())
     }
 
+    /// Transition from any non-terminal state; used by cancel/delete.
+    pub(crate) async fn set_state_from_any(
+        &self,
+        id: &str,
+        to: TargetedTransferState,
+    ) -> Result<(), VnidropError> {
+        let Some(row) = self.get_row(id).await? else {
+            return Err(VnidropError::invalid_input(anyhow::anyhow!(
+                "unknown targeted transfer"
+            )));
+        };
+        if row.state == to {
+            return Ok(());
+        }
+        row.state.validate_transition_to(to)?;
+        let result = sqlx::query(
+            r#"
+            UPDATE targeted_transfers
+            SET state = ?2, updated_at = ?3
+            WHERE id = ?1 AND state = ?4
+            "#,
+        )
+        .bind(id)
+        .bind(state_as_str(to))
+        .bind(now_ms())
+        .bind(state_as_str(row.state))
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        if result.rows_affected() == 0 {
+            return Err(VnidropError::InvalidTransition {
+                reason: format!("{} -> {}", state_as_str(row.state), state_as_str(to)),
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn set_verified_bytes(
+        &self,
+        id: &str,
+        verified_bytes: u64,
+    ) -> Result<(), VnidropError> {
+        sqlx::query(
+            r#"
+            UPDATE targeted_transfers
+            SET verified_bytes = ?2, updated_at = ?3
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id)
+        .bind(verified_bytes as i64)
+        .bind(now_ms())
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(())
+    }
+
+    pub(crate) async fn store_authorization(
+        &self,
+        id: &str,
+        blob_ticket: &str,
+        authorization_secret_handle: &str,
+    ) -> Result<(), VnidropError> {
+        sqlx::query(
+            r#"
+            UPDATE targeted_transfers
+            SET blob_ticket = ?2,
+                authorization_secret_handle = ?3,
+                updated_at = ?4
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id)
+        .bind(blob_ticket)
+        .bind(authorization_secret_handle)
+        .bind(now_ms())
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(())
+    }
+
+    pub(crate) async fn clear_authorization(&self, id: &str) -> Result<(), VnidropError> {
+        sqlx::query(
+            r#"
+            UPDATE targeted_transfers
+            SET blob_ticket = NULL,
+                authorization_secret_handle = NULL,
+                verified_bytes = 0,
+                updated_at = ?2
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id)
+        .bind(now_ms())
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(())
+    }
+
     pub(crate) async fn get(&self, id: &str) -> Result<Option<TargetedTransfer>, VnidropError> {
         let row = sqlx::query(
             r#"
             SELECT id, sender_endpoint_id, receiver_endpoint_id, manifest_id,
-                   file_count, total_size, state, created_at, updated_at
+                   file_count, total_size, verified_bytes, state, created_at, updated_at
             FROM targeted_transfers WHERE id = ?1
             "#,
         )
@@ -133,6 +276,7 @@ impl TargetedTransferStore {
             r#"
             SELECT id, protocol_transfer_id, sender_endpoint_id, receiver_endpoint_id,
                    manifest_id, content_hash, transfer_name, file_count, total_size,
+                   verified_bytes, blob_ticket, authorization_secret_handle, role,
                    state, created_at, updated_at
             FROM targeted_transfers WHERE id = ?1
             "#,
@@ -148,7 +292,7 @@ impl TargetedTransferStore {
         let rows = sqlx::query(
             r#"
             SELECT id, sender_endpoint_id, receiver_endpoint_id, manifest_id,
-                   file_count, total_size, state, created_at, updated_at
+                   file_count, total_size, verified_bytes, state, created_at, updated_at
             FROM targeted_transfers
             ORDER BY updated_at DESC
             "#,
@@ -157,6 +301,26 @@ impl TargetedTransferStore {
         .await
         .map_err(VnidropError::repository)?;
         rows.into_iter().map(row_to_transfer).collect()
+    }
+
+    pub(crate) async fn list_resumable_sender_rows(
+        &self,
+    ) -> Result<Vec<TargetedTransferRow>, VnidropError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, protocol_transfer_id, sender_endpoint_id, receiver_endpoint_id,
+                   manifest_id, content_hash, transfer_name, file_count, total_size,
+                   verified_bytes, blob_ticket, authorization_secret_handle, role,
+                   state, created_at, updated_at
+            FROM targeted_transfers
+            WHERE role = 'sender'
+              AND state IN ('approved', 'connecting', 'transferring', 'interrupted')
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        rows.into_iter().map(row_to_full).collect()
     }
 
     pub(crate) async fn cancel_by_peer(&self, peer_endpoint_id: &str) -> Result<u64, VnidropError> {
@@ -196,6 +360,28 @@ impl TargetedTransferStore {
             .map(|row| row.get::<i64, _>(0) as u64)
             .collect())
     }
+
+    pub(crate) async fn mark_interrupted_in_flight(&self) -> Result<u64, VnidropError> {
+        let now = now_ms();
+        let result = sqlx::query(
+            r#"
+            UPDATE targeted_transfers
+            SET state = 'interrupted', updated_at = ?1
+            WHERE state IN ('connecting', 'transferring')
+            "#,
+        )
+        .bind(now)
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(result.rows_affected())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TargetedTransferRole {
+    Sender,
+    Receiver,
 }
 
 #[derive(Debug, Clone)]
@@ -209,6 +395,10 @@ pub(crate) struct TargetedTransferRow {
     pub(crate) transfer_name: String,
     pub(crate) file_count: u64,
     pub(crate) total_size: u64,
+    pub(crate) verified_bytes: u64,
+    pub(crate) blob_ticket: Option<String>,
+    pub(crate) authorization_secret_handle: Option<String>,
+    pub(crate) role: TargetedTransferRole,
     pub(crate) state: TargetedTransferState,
     pub(crate) created_at: i64,
     pub(crate) updated_at: i64,
@@ -222,6 +412,7 @@ fn row_to_transfer(row: sqlx::sqlite::SqliteRow) -> Result<TargetedTransfer, Vni
         manifest_id: row.get("manifest_id"),
         file_count: row.get::<i64, _>("file_count") as u64,
         total_size: row.get::<i64, _>("total_size") as u64,
+        verified_bytes: row.try_get::<i64, _>("verified_bytes").unwrap_or(0) as u64,
         state: parse_state(&row.get::<String, _>("state"))?,
         created_at: row.get("created_at"),
         updated_at: row.get("updated_at"),
@@ -239,6 +430,13 @@ fn row_to_full(row: sqlx::sqlite::SqliteRow) -> Result<TargetedTransferRow, Vnid
         transfer_name: row.get("transfer_name"),
         file_count: row.get::<i64, _>("file_count") as u64,
         total_size: row.get::<i64, _>("total_size") as u64,
+        verified_bytes: row.try_get::<i64, _>("verified_bytes").unwrap_or(0) as u64,
+        blob_ticket: row.try_get("blob_ticket").ok().flatten(),
+        authorization_secret_handle: row.try_get("authorization_secret_handle").ok().flatten(),
+        role: parse_role(
+            &row.try_get::<String, _>("role")
+                .unwrap_or_else(|_| "sender".to_string()),
+        )?,
         state: parse_state(&row.get::<String, _>("state"))?,
         created_at: row.get("created_at"),
         updated_at: row.get("updated_at"),
@@ -259,6 +457,23 @@ pub(crate) fn state_as_str(state: TargetedTransferState) -> &'static str {
         TargetedTransferState::Cancelled => "cancelled",
         TargetedTransferState::Failed => "failed",
         TargetedTransferState::Deleted => "deleted",
+    }
+}
+
+fn role_as_str(role: TargetedTransferRole) -> &'static str {
+    match role {
+        TargetedTransferRole::Sender => "sender",
+        TargetedTransferRole::Receiver => "receiver",
+    }
+}
+
+fn parse_role(value: &str) -> Result<TargetedTransferRole, VnidropError> {
+    match value {
+        "sender" => Ok(TargetedTransferRole::Sender),
+        "receiver" => Ok(TargetedTransferRole::Receiver),
+        other => Err(VnidropError::repository(anyhow::anyhow!(
+            "unknown targeted transfer role: {other}"
+        ))),
     }
 }
 

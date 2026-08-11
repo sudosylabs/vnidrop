@@ -14,13 +14,15 @@ use iroh::{
 use irpc::{channel::oneshot, rpc_requests, Client, WithChannels};
 use irpc_iroh::{read_request, IrohLazyRemoteConnection};
 use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
 
 use super::{
     auth::TargetedAuthorization,
     inbox::{TargetedOfferDecision, TargetedOfferInbox},
+    state_as_str, TargetedTransferStore,
 };
 use crate::{
-    api::{experimental_saved_device_capabilities, PendingTargetedOffer},
+    api::{experimental_saved_device_capabilities, PendingTargetedOffer, TargetedTransferState},
     device_relationship::{DeviceRelationshipService, WireProof},
     error::VnidropError,
     grant::Challenge,
@@ -31,6 +33,7 @@ use crate::{
 pub(crate) struct TargetedTransferProtocol {
     relationships: std::sync::Arc<DeviceRelationshipService>,
     inbox: TargetedOfferInbox,
+    store: TargetedTransferStore,
     limits: crate::api::CoreLimits,
     local_endpoint_id: String,
 }
@@ -47,12 +50,14 @@ impl TargetedTransferProtocol {
     pub(crate) fn new(
         relationships: std::sync::Arc<DeviceRelationshipService>,
         inbox: TargetedOfferInbox,
+        pool: SqlitePool,
         limits: crate::api::CoreLimits,
         local_endpoint_id: String,
     ) -> Self {
         Self {
             relationships,
             inbox,
+            store: TargetedTransferStore::new(pool),
             limits,
             local_endpoint_id,
         }
@@ -111,6 +116,44 @@ impl TargetedTransferProtocol {
             };
         }
 
+        if let Ok(Some(existing)) = self.store.get_row(&offer.transfer_id).await {
+            if existing.manifest_id != offer.manifest_id
+                || existing.content_hash != offer.content_hash
+                || existing.file_count != offer.file_count
+                || existing.total_size != offer.total_size
+                || existing.sender_endpoint_id != offer.sender_endpoint_id
+                || existing.receiver_endpoint_id != offer.receiver_endpoint_id
+            {
+                return TargetedOfferResponse::Refused {
+                    reason: "immutable-transfer-mismatch".to_string(),
+                };
+            }
+            return match existing.state {
+                TargetedTransferState::Approved
+                | TargetedTransferState::Connecting
+                | TargetedTransferState::Transferring
+                | TargetedTransferState::Interrupted
+                | TargetedTransferState::Completed => TargetedOfferResponse::Accepted,
+                TargetedTransferState::Declined => TargetedOfferResponse::Declined {
+                    reason: "receiver-declined".to_string(),
+                },
+                TargetedTransferState::Cancelled => TargetedOfferResponse::Declined {
+                    reason: "cancelled".to_string(),
+                },
+                TargetedTransferState::Failed | TargetedTransferState::Deleted => {
+                    TargetedOfferResponse::Refused {
+                        reason: format!("transfer-{}", state_as_str(existing.state)),
+                    }
+                }
+                TargetedTransferState::Preparing
+                | TargetedTransferState::Offering
+                | TargetedTransferState::AwaitingApproval => {
+                    // Live offer path below may still be pending.
+                    TargetedOfferResponse::Accepted
+                }
+            };
+        }
+
         if let Err(error) = self
             .relationships
             .verify_saved_possession(
@@ -164,6 +207,14 @@ impl TargetedTransferProtocol {
         {
             return DeliverAuthorizationResponse::Rejected;
         }
+        if let Ok(Some(row)) = self.store.get_row(&delivery.transfer_id).await {
+            if row.authorization_secret_handle.is_some()
+                && row.manifest_id == auth.manifest_id
+                && row.content_hash == auth.content_hash
+            {
+                return DeliverAuthorizationResponse::Stored;
+            }
+        }
         if self
             .inbox
             .deliver_authorization(&delivery.transfer_id, delivery.authorization)
@@ -173,6 +224,28 @@ impl TargetedTransferProtocol {
         } else {
             DeliverAuthorizationResponse::Rejected
         }
+    }
+
+    async fn handle_cancel(
+        &self,
+        remote_endpoint_id: &str,
+        cancel: CancelTargetedOffer,
+    ) -> CancelTargetedOfferResponse {
+        if let Some(pending) = self.inbox.get_pending(&cancel.transfer_id).await {
+            if pending.sender_endpoint_id != remote_endpoint_id {
+                return CancelTargetedOfferResponse::Rejected;
+            }
+            self.inbox.discard(&cancel.transfer_id).await;
+            return CancelTargetedOfferResponse::Cancelled;
+        }
+        if let Ok(Some(row)) = self.store.get_row(&cancel.transfer_id).await {
+            if row.sender_endpoint_id != remote_endpoint_id {
+                return CancelTargetedOfferResponse::Rejected;
+            }
+            // Already gone from the live inbox; treat as idempotent success.
+            return CancelTargetedOfferResponse::Cancelled;
+        }
+        CancelTargetedOfferResponse::Cancelled
     }
 }
 
@@ -204,6 +277,11 @@ impl ProtocolHandler for TargetedTransferProtocol {
                         .await;
                     let _ = tx.send(response).await;
                 }
+                TargetedTransferMessage::CancelTargetedOffer(message) => {
+                    let WithChannels { inner, tx, .. } = message;
+                    let response = self.handle_cancel(&remote_endpoint_id, inner).await;
+                    let _ = tx.send(response).await;
+                }
             }
         }
         connection.closed().await;
@@ -233,6 +311,13 @@ impl TargetedTransferClient {
         delivery: DeliverTargetedAuthorization,
     ) -> Result<DeliverAuthorizationResponse, irpc::Error> {
         self.inner.rpc(delivery).await
+    }
+
+    pub(crate) async fn cancel_offer(
+        &self,
+        cancel: CancelTargetedOffer,
+    ) -> Result<CancelTargetedOfferResponse, irpc::Error> {
+        self.inner.rpc(cancel).await
     }
 }
 
@@ -279,6 +364,17 @@ pub(crate) enum DeliverAuthorizationResponse {
     Rejected,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct CancelTargetedOffer {
+    pub(crate) transfer_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) enum CancelTargetedOfferResponse {
+    Cancelled,
+    Rejected,
+}
+
 #[rpc_requests(message = TargetedTransferMessage)]
 #[derive(Debug, Serialize, Deserialize)]
 enum TargetedTransferMessages {
@@ -288,6 +384,8 @@ enum TargetedTransferMessages {
     SubmitTargetedOffer(SubmitTargetedOffer),
     #[rpc(tx = oneshot::Sender<DeliverAuthorizationResponse>)]
     DeliverTargetedAuthorization(DeliverTargetedAuthorization),
+    #[rpc(tx = oneshot::Sender<CancelTargetedOfferResponse>)]
+    CancelTargetedOffer(CancelTargetedOffer),
 }
 
 /// Helper kept for type visibility in callers that map refuse reasons.

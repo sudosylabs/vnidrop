@@ -96,6 +96,8 @@ pub struct TargetedTransfer {
     pub manifest_id: String,
     pub file_count: u64,
     pub total_size: u64,
+    /// Bytes verified so far; survives interruption for resume.
+    pub verified_bytes: u64,
     pub state: TargetedTransferState,
     pub created_at: i64,
     pub updated_at: i64,

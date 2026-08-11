@@ -9,7 +9,7 @@
 use data_encoding::{BASE64URL_NOPAD, HEXLOWER};
 use serde::{Deserialize, Serialize};
 
-use crate::error::VnidropError;
+use crate::{error::VnidropError, secure_secret::SecretMaterial};
 
 const AUTH_CONTEXT: &[u8] = b"vnidrop-targeted-auth-v1";
 
@@ -137,4 +137,44 @@ impl TargetedAuthorization {
         hasher.update(&self.protocol_version.to_le_bytes());
         Ok(*hasher.finalize().as_bytes())
     }
+
+    pub(crate) fn secret_bytes(&self) -> Result<[u8; 32], VnidropError> {
+        let secret_bytes = HEXLOWER.decode(self.auth_secret.as_bytes()).map_err(|_| {
+            VnidropError::invalid_input(anyhow::anyhow!("invalid authorization secret"))
+        })?;
+        secret_bytes.try_into().map_err(|_| {
+            VnidropError::invalid_input(anyhow::anyhow!("invalid authorization secret length"))
+        })
+    }
+}
+
+pub(crate) fn auth_secret_material(
+    auth: &TargetedAuthorization,
+) -> Result<SecretMaterial, VnidropError> {
+    SecretMaterial::new(auth.secret_bytes()?.to_vec())
+}
+
+/// Rebuild a bound authorization from durable row fields + custody secret.
+pub(crate) fn reconstruct_authorization(
+    draft: TargetedAuthorizationDraft,
+    secret_material: &SecretMaterial,
+) -> Result<TargetedAuthorization, VnidropError> {
+    let auth_secret = HEXLOWER.encode(secret_material.as_bytes());
+    let mut auth = TargetedAuthorization {
+        transfer_id: draft.transfer_id,
+        protocol_transfer_id: draft.protocol_transfer_id,
+        sender_endpoint_id: draft.sender_endpoint_id,
+        receiver_endpoint_id: draft.receiver_endpoint_id,
+        manifest_id: draft.manifest_id,
+        content_hash: draft.content_hash,
+        file_count: draft.file_count,
+        total_size: draft.total_size,
+        protocol_version: draft.protocol_version,
+        transfer_name: draft.transfer_name,
+        blob_ticket: draft.blob_ticket,
+        auth_secret,
+        mac: String::new(),
+    };
+    auth.mac = HEXLOWER.encode(&auth.compute_mac()?);
+    Ok(auth)
 }

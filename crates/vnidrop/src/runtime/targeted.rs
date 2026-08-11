@@ -1,4 +1,4 @@
-//! Create, offer, approve, and receive targeted transfers between Saved devices.
+//! Create, offer, approve, resume, cancel, and delete targeted transfers.
 
 use std::sync::Arc;
 
@@ -13,13 +13,15 @@ use crate::{
         ShareSource, TargetedTransfer, TargetedTransferState, TransferAccessMode, TransferMetadata,
     },
     error::VnidropError,
+    secure_secret::{SecretHandle, SecretKind},
     targeted_transfer::{
+        auth_secret_material,
         protocol::{
-            DeliverTargetedAuthorization, SubmitTargetedOffer, TargetedOfferResponse,
-            TargetedTransferProtocol,
+            CancelTargetedOffer, DeliverTargetedAuthorization, SubmitTargetedOffer,
+            TargetedOfferResponse, TargetedTransferProtocol,
         },
-        TargetedAuthorization, TargetedAuthorizationDraft, TargetedTransferRow,
-        TargetedTransferStore,
+        reconstruct_authorization, TargetedAuthorization, TargetedAuthorizationDraft,
+        TargetedTransferRole, TargetedTransferRow, TargetedTransferStore,
     },
     ticket::VnidropTicket,
     util::{non_empty, now_ms},
@@ -49,6 +51,15 @@ impl CoreInner {
         self.targeted_store().list().await
     }
 
+    pub(crate) async fn restore_targeted_transfer_access(&self) -> Result<(), VnidropError> {
+        for row in self.targeted_store().list_resumable_sender_rows().await? {
+            self.access_policy
+                .approve_endpoint_until(row.protocol_transfer_id, row.receiver_endpoint_id, None)
+                .await;
+        }
+        Ok(())
+    }
+
     /// Cancel in-flight targeted transfers involving `peer` (for forget/block).
     pub(crate) async fn cancel_targeted_transfers_for_peer(
         &self,
@@ -76,13 +87,128 @@ impl CoreInner {
         self.targeted_store().cancel_by_peer(peer_endpoint_id).await
     }
 
+    /// Synchronously stop streaming for one transfer (facade calls this first).
+    pub(super) fn signal_targeted_transfer_cancel(&self, protocol_transfer_id: u64) -> bool {
+        self.take_active_transfer(protocol_transfer_id).is_some()
+    }
+
+    pub(super) async fn cancel_targeted_transfer(&self, id: String) -> Result<(), VnidropError> {
+        let store = self.targeted_store();
+        let Some(row) = store.get_row(&id).await? else {
+            // Still drop any live-session offer under this id.
+            self.targeted_offers.discard(&id).await;
+            return Ok(());
+        };
+        let _ = self.take_active_transfer(row.protocol_transfer_id);
+        self.targeted_offers.discard(&id).await;
+        self.access_policy
+            .remove_transfer(row.protocol_transfer_id)
+            .await;
+        let _ = self.cancel_idle_or_share(row.protocol_transfer_id).await;
+        if !matches!(
+            row.state,
+            TargetedTransferState::Completed
+                | TargetedTransferState::Declined
+                | TargetedTransferState::Cancelled
+                | TargetedTransferState::Failed
+                | TargetedTransferState::Deleted
+        ) {
+            let _ = store
+                .set_state_from_any(&id, TargetedTransferState::Cancelled)
+                .await;
+        }
+        // Best-effort remote withdraw of an unapproved live offer.
+        if row.role == TargetedTransferRole::Sender
+            && matches!(
+                row.state,
+                TargetedTransferState::Offering | TargetedTransferState::AwaitingApproval
+            )
+        {
+            if let Ok(addr) = self
+                .device_relationships
+                .peer_addr(&row.receiver_endpoint_id)
+                .await
+            {
+                let client = TargetedTransferProtocol::client(self.endpoint.clone(), addr);
+                let _ = tokio::time::timeout(
+                    OFFER_CONNECT_TIMEOUT,
+                    client.cancel_offer(CancelTargetedOffer {
+                        transfer_id: id.clone(),
+                    }),
+                )
+                .await;
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) async fn delete_targeted_transfer(
+        self: &Arc<Self>,
+        id: String,
+    ) -> Result<(), VnidropError> {
+        let store = self.targeted_store();
+        let Some(row) = store.get_row(&id).await? else {
+            self.targeted_offers.discard(&id).await;
+            return Ok(());
+        };
+        // Durable local denial first — remote cleanup is best-effort.
+        let _ = self.take_active_transfer(row.protocol_transfer_id);
+        self.targeted_offers.discard(&id).await;
+        self.access_policy
+            .remove_transfer(row.protocol_transfer_id)
+            .await;
+        let _ = self.cancel_idle_or_share(row.protocol_transfer_id).await;
+        if let Some(handle) = &row.authorization_secret_handle {
+            if let Some(custody) = &self.secret_custody {
+                let _ = custody
+                    .remove(&SecretHandle::from_stored(handle.clone()))
+                    .await;
+            }
+        }
+        store.clear_authorization(&id).await?;
+        if row.state != TargetedTransferState::Deleted {
+            if !matches!(
+                row.state,
+                TargetedTransferState::Completed
+                    | TargetedTransferState::Declined
+                    | TargetedTransferState::Cancelled
+                    | TargetedTransferState::Failed
+            ) {
+                let _ = store
+                    .set_state_from_any(&id, TargetedTransferState::Cancelled)
+                    .await;
+            }
+            let _ = store
+                .set_state_from_any(&id, TargetedTransferState::Deleted)
+                .await;
+        }
+        Ok(())
+    }
+
     pub(super) async fn respond_to_targeted_offer(
-        &self,
+        self: &Arc<Self>,
         transfer_id: String,
         accepted: bool,
     ) -> Result<Option<String>, VnidropError> {
+        if let Some(auth) = self
+            .targeted_offers
+            .settled_authorization(&transfer_id)
+            .await
+        {
+            return Ok(Some(auth));
+        }
+        if let Ok(Some(row)) = self.targeted_store().get_row(&transfer_id).await {
+            if let Some(encoded) = self.load_stored_authorization(&row).await? {
+                return Ok(Some(encoded));
+            }
+        }
+
         match self.targeted_offers.respond(&transfer_id, accepted).await {
-            Ok(auth) => Ok(auth),
+            Ok(Some(auth)) => {
+                self.persist_receiver_authorization(&auth).await?;
+                Ok(Some(auth))
+            }
+            Ok(None) => Ok(None),
             Err(crate::targeted_transfer::RespondError::Unknown) => Err(
                 VnidropError::invalid_input(anyhow::anyhow!("unknown targeted offer")),
             ),
@@ -134,6 +260,10 @@ impl CoreInner {
             transfer_name: share.transfer_name.clone(),
             file_count: share.file_count,
             total_size: share.total_size,
+            verified_bytes: 0,
+            blob_ticket: None,
+            authorization_secret_handle: None,
+            role: TargetedTransferRole::Sender,
             state: TargetedTransferState::Preparing,
             created_at: now,
             updated_at: now,
@@ -225,9 +355,9 @@ impl CoreInner {
             }
         }
 
-        // Bound authorization: only the approved receiver endpoint may fetch.
+        // Permanent until cancel/delete — approved targeted transfers must resume.
         self.access_policy
-            .approve_endpoint(protocol_transfer_id, receiver_endpoint_id.clone())
+            .approve_endpoint_until(protocol_transfer_id, receiver_endpoint_id.clone(), None)
             .await;
 
         let parsed = crate::ticket::parse_transfer_ticket_with_limits(&share.ticket, &self.limits)
@@ -250,6 +380,8 @@ impl CoreInner {
             transfer_name: share.transfer_name.clone(),
             blob_ticket: blob_ticket.to_string(),
         })?;
+        self.persist_authorization_secret(&transfer_uuid, &authorization)
+            .await?;
         let encoded = authorization.encode()?;
 
         let deliver = client
@@ -294,6 +426,86 @@ impl CoreInner {
     ) -> Result<(), VnidropError> {
         let auth = TargetedAuthorization::decode(&authorization)?;
         auth.verify_for_receiver(&self.endpoint.id().to_string())?;
+        self.run_targeted_receive(&auth, output_dir).await
+    }
+
+    pub(super) async fn resume_targeted_transfer(
+        self: &Arc<Self>,
+        id: String,
+        output_dir: String,
+    ) -> Result<(), VnidropError> {
+        let store = self.targeted_store();
+        let row = store.get_row(&id).await?.ok_or_else(|| {
+            VnidropError::invalid_input(anyhow::anyhow!("unknown targeted transfer"))
+        })?;
+        if !matches!(
+            row.state,
+            TargetedTransferState::Approved
+                | TargetedTransferState::Connecting
+                | TargetedTransferState::Transferring
+                | TargetedTransferState::Interrupted
+        ) {
+            return Err(VnidropError::InvalidTransition {
+                reason: format!(
+                    "cannot resume from {}",
+                    crate::targeted_transfer::state_as_str(row.state)
+                ),
+            });
+        }
+        let encoded = self.load_stored_authorization(&row).await?.ok_or_else(|| {
+            VnidropError::invalid_input(anyhow::anyhow!(
+                "targeted transfer has no durable authorization"
+            ))
+        })?;
+        let auth = TargetedAuthorization::decode(&encoded)?;
+        auth.verify_for_receiver(&self.endpoint.id().to_string())?;
+        self.run_targeted_receive(&auth, output_dir).await
+    }
+
+    async fn run_targeted_receive(
+        self: &Arc<Self>,
+        auth: &TargetedAuthorization,
+        output_dir: String,
+    ) -> Result<(), VnidropError> {
+        let store = self.targeted_store();
+        if let Ok(Some(row)) = store.get_row(&auth.transfer_id).await {
+            match row.state {
+                TargetedTransferState::Approved | TargetedTransferState::Interrupted => {
+                    store
+                        .set_state(
+                            &auth.transfer_id,
+                            row.state,
+                            TargetedTransferState::Connecting,
+                        )
+                        .await?;
+                    store
+                        .set_state(
+                            &auth.transfer_id,
+                            TargetedTransferState::Connecting,
+                            TargetedTransferState::Transferring,
+                        )
+                        .await?;
+                }
+                TargetedTransferState::Connecting => {
+                    store
+                        .set_state(
+                            &auth.transfer_id,
+                            TargetedTransferState::Connecting,
+                            TargetedTransferState::Transferring,
+                        )
+                        .await?;
+                }
+                TargetedTransferState::Transferring => {}
+                other => {
+                    return Err(VnidropError::InvalidTransition {
+                        reason: format!(
+                            "cannot receive from {}",
+                            crate::targeted_transfer::state_as_str(other)
+                        ),
+                    });
+                }
+            }
+        }
 
         let blob_ticket = BlobTicket::from_str_compat(&auth.blob_ticket)
             .map_err(|error| VnidropError::ticket(anyhow::anyhow!(error)))?;
@@ -310,21 +522,132 @@ impl CoreInner {
                 .encode()
                 .map_err(VnidropError::ticket)?;
 
-        self.receive(ticket, std::path::PathBuf::from(output_dir), None)
-            .await
-            .map_err(VnidropError::transfer)?;
+        let receive_result = self
+            .receive(ticket, std::path::PathBuf::from(output_dir), None)
+            .await;
 
-        if let Ok(Some(row)) = self.targeted_store().get_row(&auth.transfer_id).await {
-            let _ = self
-                .targeted_store()
-                .set_state(
-                    &auth.transfer_id,
-                    row.state,
-                    TargetedTransferState::Completed,
-                )
-                .await;
+        match receive_result {
+            Ok(()) => {
+                if let Ok(Some(row)) = store.get_row(&auth.transfer_id).await {
+                    let _ = store
+                        .set_verified_bytes(&auth.transfer_id, row.total_size)
+                        .await;
+                    let _ = store
+                        .set_state(
+                            &auth.transfer_id,
+                            TargetedTransferState::Transferring,
+                            TargetedTransferState::Completed,
+                        )
+                        .await;
+                }
+                Ok(())
+            }
+            Err(error) => {
+                if let Ok(Some(row)) = store.get_row(&auth.transfer_id).await {
+                    if matches!(
+                        row.state,
+                        TargetedTransferState::Connecting | TargetedTransferState::Transferring
+                    ) {
+                        let _ = store
+                            .set_state_from_any(
+                                &auth.transfer_id,
+                                TargetedTransferState::Interrupted,
+                            )
+                            .await;
+                    }
+                }
+                Err(VnidropError::transfer(error))
+            }
         }
-        Ok(())
+    }
+
+    async fn persist_authorization_secret(
+        &self,
+        transfer_id: &str,
+        authorization: &TargetedAuthorization,
+    ) -> Result<(), VnidropError> {
+        let custody =
+            self.secret_custody
+                .as_ref()
+                .ok_or_else(|| VnidropError::SecureStorageUnavailable {
+                    reason: "targeted authorization requires protected custody".to_string(),
+                })?;
+        let material = auth_secret_material(authorization)?;
+        let handle = custody
+            .protect(SecretKind::TargetedAuthorization, material, None)
+            .await?;
+        self.targeted_store()
+            .store_authorization(transfer_id, &authorization.blob_ticket, handle.as_str())
+            .await
+    }
+
+    async fn persist_receiver_authorization(&self, encoded: &str) -> Result<(), VnidropError> {
+        let auth = TargetedAuthorization::decode(encoded)?;
+        let store = self.targeted_store();
+        if store.get_row(&auth.transfer_id).await?.is_none() {
+            let now = now_ms();
+            store
+                .insert(&TargetedTransferRow {
+                    id: auth.transfer_id.clone(),
+                    protocol_transfer_id: auth.protocol_transfer_id,
+                    sender_endpoint_id: auth.sender_endpoint_id.clone(),
+                    receiver_endpoint_id: auth.receiver_endpoint_id.clone(),
+                    manifest_id: auth.manifest_id.clone(),
+                    content_hash: auth.content_hash.clone(),
+                    transfer_name: auth.transfer_name.clone(),
+                    file_count: auth.file_count,
+                    total_size: auth.total_size,
+                    verified_bytes: 0,
+                    blob_ticket: Some(auth.blob_ticket.clone()),
+                    authorization_secret_handle: None,
+                    role: TargetedTransferRole::Receiver,
+                    state: TargetedTransferState::Approved,
+                    created_at: now,
+                    updated_at: now,
+                })
+                .await?;
+        }
+        self.persist_authorization_secret(&auth.transfer_id, &auth)
+            .await
+    }
+
+    async fn load_stored_authorization(
+        &self,
+        row: &TargetedTransferRow,
+    ) -> Result<Option<String>, VnidropError> {
+        let (Some(handle), Some(blob_ticket)) = (
+            row.authorization_secret_handle.as_ref(),
+            row.blob_ticket.as_ref(),
+        ) else {
+            return Ok(None);
+        };
+        let custody =
+            self.secret_custody
+                .as_ref()
+                .ok_or_else(|| VnidropError::SecureStorageUnavailable {
+                    reason: "targeted authorization requires protected custody".to_string(),
+                })?;
+        let material = custody
+            .load(&SecretHandle::from_stored(handle.clone()))
+            .await?;
+        let auth = reconstruct_authorization(
+            TargetedAuthorizationDraft {
+                transfer_id: row.id.clone(),
+                protocol_transfer_id: row.protocol_transfer_id,
+                sender_endpoint_id: row.sender_endpoint_id.clone(),
+                receiver_endpoint_id: row.receiver_endpoint_id.clone(),
+                manifest_id: row.manifest_id.clone(),
+                content_hash: row.content_hash.clone(),
+                file_count: row.file_count,
+                total_size: row.total_size,
+                protocol_version: experimental_saved_device_capabilities()
+                    .targeted_transfer_protocol_version,
+                transfer_name: row.transfer_name.clone(),
+                blob_ticket: blob_ticket.clone(),
+            },
+            &material,
+        )?;
+        Ok(Some(auth.encode()?))
     }
 }
 

@@ -16,7 +16,7 @@ impl TargetedTransferState {
                 Self::Approved | Self::Declined | Self::Cancelled | Self::Failed
             ) | (
                 Self::Approved,
-                Self::Connecting | Self::Cancelled | Self::Failed
+                Self::Connecting | Self::Cancelled | Self::Failed | Self::Deleted
             ) | (
                 Self::Connecting,
                 Self::Transferring | Self::Interrupted | Self::Cancelled | Self::Failed

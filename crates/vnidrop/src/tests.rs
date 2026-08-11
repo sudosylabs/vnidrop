@@ -38,6 +38,8 @@ mod secure_secret_tests;
 #[cfg(target_os = "windows")]
 #[path = "tests/secure_secret_windows.rs"]
 mod secure_secret_windows_tests;
+#[path = "tests/targeted_transfer.rs"]
+mod targeted_transfer_tests;
 #[path = "tests/ticket.rs"]
 mod ticket_tests;
 #[path = "tests/transfer_state.rs"]

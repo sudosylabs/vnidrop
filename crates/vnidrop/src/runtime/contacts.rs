@@ -106,7 +106,7 @@ impl CoreInner {
         // Targeted transfers for this relationship only (ticket 10 fills in).
         // Invitation-domain shares are deliberately not cancelled here.
         self.cancel_targeted_transfers_for_peer(&peer_endpoint_id)
-            .await;
+            .await?;
         self.emit_endpoint(
             "pairing",
             "saved-device-forgotten",
@@ -139,7 +139,7 @@ impl CoreInner {
             .revoke_for_block(&peer_endpoint_id)
             .await?;
         self.cancel_targeted_transfers_for_peer(&peer_endpoint_id)
-            .await;
+            .await?;
         self.offers.discard_from(&peer_endpoint_id).await;
         self.emit_endpoint(
             "pairing",
@@ -180,21 +180,6 @@ impl CoreInner {
         self.device_relationships
             .rotate_relationship_grant(peer_endpoint_id)
             .await
-    }
-
-    /// Cancels active or resumable targeted transfers for a peer relationship.
-    ///
-    /// Stub until ticket 10 lands targeted-transfer cancellation. Forget/block
-    /// call this for immediate local effect without touching invitation shares.
-    pub(super) async fn cancel_targeted_transfers_for_peer(&self, peer_endpoint_id: &str) {
-        #[cfg(test)]
-        {
-            self.targeted_cancel_log
-                .lock()
-                .expect("targeted cancel log")
-                .push(peer_endpoint_id.to_string());
-        }
-        let _ = peer_endpoint_id;
     }
 
     #[cfg(test)]

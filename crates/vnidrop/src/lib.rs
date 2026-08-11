@@ -32,10 +32,10 @@ pub use api::{
     CoreEventSink, CoreLimits, CoreNetworkConfig, CoreRelayMode, CoreStorageUsage,
     DeviceRelationship, DeviceRelationshipState, ExperimentalSavedDeviceCapabilities,
     GrantLifetimeSetting, HeldOfferSummary, IncomingOffer, PairingEligibilitySummary,
-    PendingPairing, PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact,
-    ReceivedLocatorKind, ReceiverRequest, RuntimeStatus, SavedDevice, ShareMetadataInput,
-    ShareResult, ShareSource, SourceKind, StoredTransfer, TargetedTransfer, TargetedTransferState,
-    TicketInspection, TransferAccessMode, TransferMetadata,
+    PendingPairing, PendingTargetedOffer, PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2,
+    ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest, RuntimeStatus, SavedDevice,
+    ShareMetadataInput, ShareResult, ShareSource, SourceKind, StoredTransfer, TargetedTransfer,
+    TargetedTransferState, TicketInspection, TransferAccessMode, TransferMetadata,
 };
 pub use error::VnidropError;
 pub use runtime::VnidropCore;

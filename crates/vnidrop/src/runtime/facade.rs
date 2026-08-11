@@ -484,6 +484,65 @@ impl VnidropCore {
         self.block_on(self.inner.rotate_relationship_grant(peer_endpoint_id))
     }
 
+    /// Create an immutable one-receiver transfer and submit its pre-approval offer.
+    ///
+    /// Blocks until the saved receiver approves or declines. On approval the
+    /// receiver obtains bound authorization via [`Self::respond_to_targeted_offer`].
+    pub fn create_targeted_transfer(
+        &self,
+        receiver_endpoint_id: String,
+        sources: Vec<ShareSource>,
+        transfer_name: Option<String>,
+    ) -> Result<crate::api::TargetedTransfer, VnidropError> {
+        self.block_on(self.inner.create_targeted_transfer(
+            receiver_endpoint_id,
+            sources,
+            transfer_name,
+        ))
+    }
+
+    /// Offline-only pending offers awaiting explicit local approval.
+    pub fn list_pending_targeted_offers(&self) -> Vec<crate::api::PendingTargetedOffer> {
+        self.block_on(self.inner.list_pending_targeted_offers())
+    }
+
+    /// Approve or decline a pending targeted offer.
+    ///
+    /// On approval, returns the recipient-bound authorization capability used
+    /// with [`Self::receive_targeted_transfer`]. Declining returns `None`.
+    pub fn respond_to_targeted_offer(
+        &self,
+        transfer_id: String,
+        accepted: bool,
+    ) -> Result<Option<String>, VnidropError> {
+        self.block_on(self.inner.respond_to_targeted_offer(transfer_id, accepted))
+    }
+
+    /// Pull an approved targeted transfer through existing output-sink machinery.
+    pub fn receive_targeted_transfer(
+        &self,
+        authorization: String,
+        output_dir: String,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .receive_targeted_transfer(authorization, output_dir),
+        )
+    }
+
+    pub fn get_targeted_transfer(
+        &self,
+        id: String,
+    ) -> Result<Option<crate::api::TargetedTransfer>, VnidropError> {
+        self.block_on(self.inner.get_targeted_transfer(id))
+    }
+
+    pub fn list_targeted_transfers(
+        &self,
+    ) -> Result<Vec<crate::api::TargetedTransfer>, VnidropError> {
+        self.block_on(self.inner.list_targeted_transfers())
+    }
+
     /// Devices the user has chosen to remember.
     pub fn list_contacts(&self) -> Result<Vec<ContactSummary>, VnidropError> {
         self.block_on(self.inner.list_contacts())

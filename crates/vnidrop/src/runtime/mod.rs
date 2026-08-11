@@ -7,6 +7,7 @@
 //! - [`lifecycle`] — cancel/delete/shutdown/status/access
 //! - [`provider`] — blob provider events and per-connection send progress
 //! - [`contacts`] — device history: pairing, forgetting, blocking
+//! - [`targeted`] — saved-device targeted transfers
 
 mod contacts;
 mod delivery;
@@ -16,6 +17,7 @@ mod provider;
 mod receive;
 mod share;
 mod storage;
+mod targeted;
 
 #[cfg(test)]
 pub(crate) use self::contacts::should_poll;
@@ -67,6 +69,7 @@ use crate::{
     repository::Repository,
     secret::load_or_create_secret,
     secure_secret::{start_endpoint_identity, ProfileLock, SecureSecretStore},
+    targeted_transfer::{TargetedOfferInbox, TargetedTransferProtocol},
     ticket::ticket_matches_relay_profile,
     transfer_state::{TransferDirection, TransferStatus},
 };
@@ -109,6 +112,7 @@ pub(super) struct CoreInner {
     pub(super) pairing_eligibility: PairingEligibilityService,
     pub(super) device_relationships: Arc<DeviceRelationshipService>,
     pub(super) offers: OfferInbox,
+    pub(super) targeted_offers: TargetedOfferInbox,
     /// Endpoint → last poll time, for the rate limit above.
     pub(super) last_polled: TokioMutex<HashMap<String, i64>>,
     pub(super) limits: CoreLimits,
@@ -390,6 +394,8 @@ impl CoreInner {
             tracing::warn!(%error, "failed to sweep dead grants");
         }
         let offers = OfferInbox::new(event_hub.clone(), limits.max_pending_offers as usize);
+        let targeted_offers =
+            TargetedOfferInbox::new(event_hub.clone(), limits.max_pending_offers as usize);
         let device_relationships = Arc::new(DeviceRelationshipService::new(
             repository.sqlite_pool(),
             secret_custody.clone(),
@@ -409,6 +415,15 @@ impl CoreInner {
                 RelationshipProtocol::ALPN,
                 RelationshipProtocol::new(device_relationships.clone()),
             )
+            .accept(
+                TargetedTransferProtocol::ALPN,
+                TargetedTransferProtocol::new(
+                    device_relationships.clone(),
+                    targeted_offers.clone(),
+                    limits.clone(),
+                    endpoint.id().to_string(),
+                ),
+            )
             .spawn();
 
         let inner = Arc::new(Self {
@@ -424,6 +439,7 @@ impl CoreInner {
             pairing_eligibility,
             device_relationships,
             offers,
+            targeted_offers,
             last_polled: TokioMutex::new(HashMap::new()),
             relay_mode,
             custom_relay_urls: relay_urls,

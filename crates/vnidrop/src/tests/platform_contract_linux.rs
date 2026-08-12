@@ -546,7 +546,7 @@ fn secret_service_identity_survives_core_restart() {
 
 #[cfg(target_os = "linux")]
 #[test]
-fn experimental_secret_service_identity_survives_core_restart_on_linux() {
+fn secret_service_identity_survives_core_restart_on_linux() {
     // Regression: protected init used to call blocking Secret Service on the
     // Tokio worker that drives `CoreInner::start`, which nested `block_on` and
     // aborted desktop startup with "Cannot start a runtime from within a runtime".
@@ -560,7 +560,7 @@ fn experimental_secret_service_identity_survives_core_restart_on_linux() {
         CoreLimits::default(),
         CoreNetworkConfig::default(),
     )
-    .expect("experimental Linux Secret Service core");
+    .expect("Linux Secret Service core");
     let endpoint_id = core.status().endpoint_id.clone();
     assert!(!endpoint_id.is_empty());
     assert!(!data_dir.path().join("iroh.secret").exists());
@@ -585,7 +585,7 @@ fn experimental_secret_service_identity_survives_core_restart_on_linux() {
             {
                 std::thread::sleep(Duration::from_millis(25));
             }
-            Err(error) => panic!("restart experimental Linux core: {error:?}"),
+            Err(error) => panic!("restart Linux core: {error:?}"),
         }
     };
     assert_eq!(restarted.status().endpoint_id, endpoint_id);
@@ -842,7 +842,7 @@ fn linux_public_bindings_omit_raw_secrets_and_generic_mutation() {
     }
     assert!(
         public_facade.contains("initialize_with_limits_and_network_config"),
-        "facade must expose experimental saved-device init"
+        "facade must expose standard protected initialization"
     );
     assert!(
         !public_facade.contains("fn set_state(") && !public_facade.contains("fn mutate_state("),

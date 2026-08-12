@@ -10,6 +10,9 @@ fn public_api_exposes_saved_device_surface_without_prototype_contact_entry_point
     let lib = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/lib.rs"));
 
     for forbidden in [
+        "initialize_with_experimental_saved_devices",
+        "experimental_saved_device_capabilities",
+        "ExperimentalSavedDeviceCapabilities",
         "fn list_contacts(",
         "fn send_to_contact(",
         "fn poll_contacts_for_offers(",
@@ -58,7 +61,6 @@ fn public_api_exposes_saved_device_surface_without_prototype_contact_entry_point
         "fn forget_saved_device(",
         "fn share_files(",
         "fn receive(",
-        "experimental_saved_device_capabilities",
         "saved_device_capabilities",
     ] {
         assert!(

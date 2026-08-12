@@ -53,7 +53,7 @@ impl RecordingSink {
 /// `AppleKeychainSecretStore` + profile scoping. CLI unit tests lack the app
 /// Keychain entitlement, so the system Keychain returns Unavailable; the
 /// injectable API exercises the identical adapter path. Swift XCTest covers
-/// the real experimental constructor under the app entitlements.
+/// the standard protected constructor under the app entitlements.
 struct KeychainNode {
     data_dir: tempfile::TempDir,
     api: RecordingKeychain,
@@ -208,7 +208,7 @@ impl Drop for KeychainNode {
     }
 }
 
-fn try_experimental_keychain_init(app_data_dir: &Path) -> Result<Arc<VnidropCore>, VnidropError> {
+fn try_keychain_init(app_data_dir: &Path) -> Result<Arc<VnidropCore>, VnidropError> {
     VnidropCore::initialize_with_limits_and_network_config(
         app_data_dir.to_string_lossy().into_owned(),
         Arc::new(RecordingSink {
@@ -593,7 +593,7 @@ fn recover_authoritative_state(
 }
 
 #[test]
-fn experimental_keychain_identity_survives_core_restart() {
+fn keychain_identity_survives_core_restart() {
     let node = KeychainNode::new();
     let endpoint_id = node.core().status().endpoint_id.clone();
     assert!(!endpoint_id.is_empty());
@@ -610,18 +610,18 @@ fn experimental_keychain_identity_survives_core_restart() {
     // constructor must also preserve identity. Headless cargo often lacks that
     // entitlement and maps it to Unavailable — that path is covered by Swift.
     let live = tempfile::tempdir().unwrap();
-    match try_experimental_keychain_init(live.path()) {
+    match try_keychain_init(live.path()) {
         Ok(core) => {
             let id = core.status().endpoint_id.clone();
             core.shutdown();
             drop(core);
-            let restarted = try_experimental_keychain_init(live.path()).expect("restart");
+            let restarted = try_keychain_init(live.path()).expect("restart");
             assert_eq!(restarted.status().endpoint_id, id);
             restarted.shutdown();
             cleanup_scoped_keychain(live.path());
         }
         Err(VnidropError::SecureStorageUnavailable { .. }) => {}
-        Err(error) => panic!("unexpected experimental init failure: {error:?}"),
+        Err(error) => panic!("unexpected protected init failure: {error:?}"),
     }
 }
 
@@ -840,6 +840,9 @@ fn apple_public_bindings_omit_raw_secrets_and_generic_mutation() {
                 swift.display()
             );
         }
+        assert!(!source.contains("initializeWithExperimentalSavedDevices"));
+        assert!(!source.contains("ExperimentalSavedDeviceCapabilities"));
+        assert!(!source.contains("experimentalSavedDeviceCapabilities"));
         assert!(
             source.contains("initializeWithLimitsAndNetworkConfig"),
             "Swift bindings must expose standard protected initialization"
@@ -865,6 +868,8 @@ fn apple_public_bindings_omit_raw_secrets_and_generic_mutation() {
     )
     .expect("api.rs");
     for forbidden in [
+        "ExperimentalSavedDeviceCapabilities",
+        "experimental_saved_device_capabilities",
         "SecretMaterial",
         "SecretHandle",
         "SecureSecretStore",

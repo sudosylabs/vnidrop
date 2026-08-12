@@ -315,7 +315,7 @@ fn windows_dpapi_identity_survives_core_restart() {
 
 #[cfg(target_os = "windows")]
 #[test]
-fn real_windows_dpapi_experimental_init_preserves_identity() {
+fn real_windows_dpapi_init_preserves_identity() {
     let data_dir = tempfile::tempdir().unwrap();
     let path = data_dir.path().to_string_lossy().into_owned();
     let sink = Arc::new(RecordingSink {
@@ -327,7 +327,7 @@ fn real_windows_dpapi_experimental_init_preserves_identity() {
         CoreLimits::default(),
         CoreNetworkConfig::default(),
     )
-    .expect("experimental windows core");
+    .expect("Windows core");
     let first = core.status().endpoint_id.clone();
     core.shutdown();
     drop(core);
@@ -341,7 +341,7 @@ fn real_windows_dpapi_experimental_init_preserves_identity() {
         CoreLimits::default(),
         CoreNetworkConfig::default(),
     )
-    .expect("restarted experimental windows core");
+    .expect("restarted Windows core");
     assert_eq!(restarted.status().endpoint_id, first);
     restarted.shutdown();
 }

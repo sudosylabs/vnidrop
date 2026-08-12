@@ -32,6 +32,9 @@ class SavedDeviceCoreContractBindingHygieneTest {
 				"generated binding ${binding.path} must not expose `$token`",
 			)
 		}
+		assertFalse(source.contains("initializeWithExperimentalSavedDevices"))
+		assertFalse(source.contains("ExperimentalSavedDeviceCapabilities"))
+		assertFalse(source.contains("experimentalSavedDeviceCapabilities"))
 
 		assertTrue(
 			source.contains("initializeWithLimitsAndNetworkConfig"),

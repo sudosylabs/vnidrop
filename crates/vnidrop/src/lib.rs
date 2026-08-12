@@ -14,8 +14,6 @@ mod logging;
 mod pairing_eligibility;
 mod persistence;
 mod runtime;
-#[cfg(test)]
-mod secret;
 #[allow(
     dead_code,
     reason = "the private custody seam is activated by platform credential adapters"
@@ -26,15 +24,13 @@ mod ticket;
 mod transfer_state;
 mod util;
 
-#[allow(deprecated)]
 pub use api::{
     clear_inactive_transfer_cache, default_core_limits, default_core_network_config,
-    experimental_saved_device_capabilities, saved_device_capabilities, CoreEvent, CoreEventSink,
-    CoreLimits, CoreNetworkConfig, CoreRelayMode, CoreStorageUsage, DeviceRelationship,
-    DeviceRelationshipState, ExperimentalSavedDeviceCapabilities, PairingEligibilitySummary,
-    PendingTargetedOffer, PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2,
-    ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest, RuntimeStatus, SavedDevice,
-    SavedDeviceCapabilities, ShareMetadataInput, ShareResult, ShareSource, SourceKind,
+    saved_device_capabilities, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig,
+    CoreRelayMode, CoreStorageUsage, DeviceRelationship, DeviceRelationshipState,
+    PairingEligibilitySummary, PendingTargetedOffer, PublishedOutput, ReceiveOutputSink,
+    ReceiveOutputSinkV2, ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest, RuntimeStatus,
+    SavedDevice, SavedDeviceCapabilities, ShareMetadataInput, ShareResult, ShareSource, SourceKind,
     StoredTransfer, TargetedOfferResponse, TargetedTransfer, TargetedTransferState,
     TicketInspection, TransferAccessMode, TransferMetadata,
 };

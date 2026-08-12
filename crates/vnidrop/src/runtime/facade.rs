@@ -1,5 +1,3 @@
-#![allow(deprecated)]
-
 use std::{future::Future, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
@@ -317,7 +315,6 @@ impl VnidropCore {
     }
 }
 
-#[allow(deprecated)]
 #[uniffi::export]
 impl VnidropCore {
     #[uniffi::constructor]
@@ -363,18 +360,6 @@ impl VnidropCore {
 
     #[uniffi::constructor]
     pub fn initialize_with_limits_and_network_config(
-        app_data_dir: String,
-        event_sink: Arc<dyn CoreEventSink>,
-        limits: CoreLimits,
-        network_config: CoreNetworkConfig,
-    ) -> Result<Arc<Self>, VnidropError> {
-        Self::initialize_protected(app_data_dir, event_sink, limits, network_config)
-    }
-
-    /// Compatibility constructor retained during the protected-initialization expand phase.
-    #[deprecated(note = "use initialize_with_limits_and_network_config")]
-    #[uniffi::constructor]
-    pub fn initialize_with_experimental_saved_devices(
         app_data_dir: String,
         event_sink: Arc<dyn CoreEventSink>,
         limits: CoreLimits,

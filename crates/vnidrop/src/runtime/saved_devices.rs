@@ -1,4 +1,4 @@
-//! Runtime operations for experimental saved devices and device relationships.
+//! Runtime operations for saved devices and device relationships.
 
 use std::sync::Arc;
 

@@ -1,4 +1,4 @@
-//! Experimental saved-device mutual-consent relationships.
+//! Saved-device mutual-consent relationships.
 //!
 //! Pending outgoing/incoming states, directional grants bound to relationship
 //! generation, and Saved only after mutual acknowledgement.

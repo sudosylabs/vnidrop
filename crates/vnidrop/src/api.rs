@@ -1,5 +1,3 @@
-#![allow(deprecated)]
-
 use anyhow::Context;
 use iroh::RelayUrl;
 use iroh_blobs::Hash;
@@ -26,25 +24,6 @@ pub fn saved_device_capabilities() -> SavedDeviceCapabilities {
         domain_contract_version: 1,
         relationship_protocol_version: 1,
         targeted_transfer_protocol_version: 3,
-    }
-}
-
-#[deprecated(note = "use SavedDeviceCapabilities")]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
-pub struct ExperimentalSavedDeviceCapabilities {
-    pub domain_contract_version: u16,
-    pub relationship_protocol_version: u16,
-    pub targeted_transfer_protocol_version: u16,
-}
-
-#[deprecated(note = "use saved_device_capabilities")]
-#[uniffi::export]
-pub fn experimental_saved_device_capabilities() -> ExperimentalSavedDeviceCapabilities {
-    let capabilities = saved_device_capabilities();
-    ExperimentalSavedDeviceCapabilities {
-        domain_contract_version: capabilities.domain_contract_version,
-        relationship_protocol_version: capabilities.relationship_protocol_version,
-        targeted_transfer_protocol_version: capabilities.targeted_transfer_protocol_version,
     }
 }
 

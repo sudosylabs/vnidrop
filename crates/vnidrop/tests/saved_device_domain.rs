@@ -8,7 +8,7 @@ use vnidrop::{
 };
 
 #[test]
-fn saved_device_protocols_are_explicitly_experimental_and_versioned() {
+fn saved_device_protocols_are_explicitly_versioned() {
     assert_eq!(
         saved_device_capabilities(),
         SavedDeviceCapabilities {
@@ -97,7 +97,7 @@ fn targeted_transfer_transitions_are_validated_by_the_domain() {
 }
 
 #[test]
-fn experimental_domain_seam_does_not_change_multi_receiver_shares() {
+fn saved_device_domain_seam_does_not_change_multi_receiver_shares() {
     let source_dir = tempfile::tempdir().unwrap();
     let first_output = tempfile::tempdir().unwrap();
     let second_output = tempfile::tempdir().unwrap();

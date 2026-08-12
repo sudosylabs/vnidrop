@@ -161,6 +161,9 @@ final class SavedDeviceCoreContractTests: XCTestCase {
 				"generated bindings must not expose \(needle)"
 			)
 		}
+		XCTAssertFalse(source.contains("initializeWithExperimentalSavedDevices"))
+		XCTAssertFalse(source.contains("ExperimentalSavedDeviceCapabilities"))
+		XCTAssertFalse(source.contains("experimentalSavedDeviceCapabilities"))
 		XCTAssertTrue(source.contains("initializeWithLimitsAndNetworkConfig"))
 		XCTAssertTrue(source.contains("public struct SavedDeviceCapabilities"))
 		XCTAssertTrue(source.contains("public func savedDeviceCapabilities()"))

@@ -6,7 +6,7 @@
 //! - [`receive`] — ticket receive, download, export
 //! - [`lifecycle`] — cancel/delete/shutdown/status/access
 //! - [`provider`] — blob provider events and per-connection send progress
-//! - [`saved_devices`] — experimental saved-device pairing, forget, block
+//! - [`saved_devices`] — saved-device pairing, forget, block
 //! - [`targeted`] — saved-device targeted transfers
 
 mod delivery;

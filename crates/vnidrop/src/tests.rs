@@ -37,8 +37,6 @@ mod platform_contract_windows_tests;
 mod repository_tests;
 #[path = "tests/runtime.rs"]
 mod runtime_tests;
-#[path = "tests/secret.rs"]
-mod secret_tests;
 #[path = "tests/secure_secret_android.rs"]
 mod secure_secret_android_tests;
 #[cfg(any(target_os = "macos", target_os = "ios"))]

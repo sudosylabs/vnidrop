@@ -54,7 +54,7 @@ src/
     receive.rs    # receive, download, export, OutputSinkFile
     lifecycle.rs  # cancel share, delete, status, access mode, shutdown
     provider.rs   # provider messages, per-peer transfer progress
-    saved_devices.rs # experimental saved-device pairing, forget, block
+    saved_devices.rs # saved-device pairing, forget, block
     targeted.rs   # saved-device targeted transfers
   persistence.rs  # AppDataStores / persistence open (domain stores)
   invitation/     # invitation-transfer domain store (type name: Repository)

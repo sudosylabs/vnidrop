@@ -1,7 +1,10 @@
 use std::{
     path::Path,
     str::FromStr,
-    sync::{mpsc, Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc, Mutex,
+    },
     time::{Duration, Instant},
 };
 
@@ -28,11 +31,15 @@ struct EventGateSink {
     kind: &'static str,
     observed: mpsc::SyncSender<CoreEvent>,
     release: Mutex<mpsc::Receiver<()>>,
+    triggered: AtomicBool,
 }
 
 impl CoreEventSink for EventGateSink {
     fn on_event(&self, event: CoreEvent) {
-        if event.phase == "targeted_transfer" && event.kind == self.kind {
+        if event.phase == "targeted_transfer"
+            && event.kind == self.kind
+            && !self.triggered.swap(true, Ordering::SeqCst)
+        {
             self.observed.send(event).unwrap();
             self.release.lock().unwrap().recv().unwrap();
         }
@@ -284,6 +291,7 @@ fn accepted_event_is_emitted_only_after_receiver_snapshot_is_durable() {
         kind: "approved",
         observed: observed_tx,
         release: Mutex::new(release_rx),
+        triggered: AtomicBool::new(false),
     }));
     establish_saved(&sender, &receiver, 21_002);
 
@@ -344,6 +352,10 @@ fn terminal_events_have_ordered_revisions_and_no_later_progress() {
     assert!(events
         .windows(2)
         .all(|pair| pair[0].revision < pair[1].revision));
+    assert!(
+        events.iter().any(|event| event.kind == "progress"),
+        "sizable receive must emit a durable-state progress wake-up"
+    );
     let completed = events
         .iter()
         .position(|event| event.kind == "completed")
@@ -351,15 +363,62 @@ fn terminal_events_have_ordered_revisions_and_no_later_progress() {
     assert!(events[completed + 1..]
         .iter()
         .all(|event| event.kind != "progress"));
-    assert_eq!(
-        receiver
-            .core()
-            .get_targeted_transfer(transfer.id)
-            .unwrap()
-            .unwrap()
-            .state,
-        TargetedTransferState::Completed
+    let completed_snapshot = receiver
+        .core()
+        .get_targeted_transfer(transfer.id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(completed_snapshot.state, TargetedTransferState::Completed);
+    assert_eq!(completed_snapshot.verified_bytes, transfer.total_size);
+}
+
+#[test]
+fn progress_wakeup_exposes_monotonic_bounded_durable_snapshot() {
+    let (observed_tx, observed_rx) = mpsc::sync_channel(1);
+    let (release_tx, release_rx) = mpsc::sync_channel(1);
+    let sender = ProtectedNode::new();
+    let receiver = ProtectedNode::with_sink(Arc::new(EventGateSink {
+        kind: "progress",
+        observed: observed_tx,
+        release: Mutex::new(release_rx),
+        triggered: AtomicBool::new(false),
+    }));
+    establish_saved(&sender, &receiver, 21_008);
+    let transfer = approve(
+        &sender,
+        &receiver,
+        "progress.bin",
+        &vec![9; 2 * 1024 * 1024],
     );
+    let output = tempfile::tempdir().unwrap();
+    let receiver_core = receiver.core();
+    let transfer_id = transfer.id.clone();
+    let output_path = output.path().to_string_lossy().into_owned();
+    let receive = std::thread::spawn(move || {
+        receiver_core.receive_targeted_transfer(transfer_id, output_path)
+    });
+
+    observed_rx
+        .recv_timeout(Duration::from_secs(20))
+        .expect("progress wake-up");
+    let progress = receiver
+        .core()
+        .get_targeted_transfer(transfer.id.clone())
+        .unwrap()
+        .unwrap();
+    assert!(progress.verified_bytes > 0);
+    assert!(progress.verified_bytes <= progress.total_size);
+    release_tx.send(()).unwrap();
+    receive.join().unwrap().unwrap();
+
+    let completed = receiver
+        .core()
+        .get_targeted_transfer(transfer.id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(completed.state, TargetedTransferState::Completed);
+    assert_eq!(completed.verified_bytes, completed.total_size);
+    assert!(completed.verified_bytes >= progress.verified_bytes);
 }
 
 #[test]

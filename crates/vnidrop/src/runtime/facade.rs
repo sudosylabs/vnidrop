@@ -623,7 +623,9 @@ impl VnidropCore {
     ///
     /// Blocks until the saved receiver approves or declines. On approval the
     /// receiver stores bound authorization locally via
-    /// [`Self::respond_to_targeted_offer`].
+    /// [`Self::respond_to_targeted_offer`]. This path creates no invitation
+    /// transfer, receiver approval request, invitation delivery receipt,
+    /// received-artifact record, or pairing eligibility.
     pub fn create_targeted_transfer(
         &self,
         receiver_endpoint_id: String,

@@ -416,9 +416,37 @@ fn explicit_approval_gates_content_and_binds_authorization_to_receiver() {
     establish_saved(&alice, &bob, 10_020);
     let alice_invitation_count = alice.core().list_transfers().unwrap().len();
     let bob_invitation_count = bob.core().list_transfers().unwrap().len();
+    let alice_invitation_requests = alice
+        .core()
+        .list_receiver_requests(10_020)
+        .unwrap()
+        .into_iter()
+        .map(|request| (request.id, request.status, request.completed_at))
+        .collect::<Vec<_>>();
+    let bob_invitation_requests = bob
+        .core()
+        .list_receiver_requests(10_020)
+        .unwrap()
+        .into_iter()
+        .map(|request| (request.id, request.status, request.completed_at))
+        .collect::<Vec<_>>();
     let alice_eligibility_count = alice.core().list_pairing_eligibilities().unwrap().len();
     let bob_eligibility_count = bob.core().list_pairing_eligibilities().unwrap().len();
     let bob_artifacts_before = bob.core().list_received_artifacts().unwrap();
+    let alice_delivery_events = alice
+        .core()
+        .list_events(None)
+        .unwrap()
+        .iter()
+        .filter(|event| event.phase == "delivery")
+        .count();
+    let bob_delivery_events = bob
+        .core()
+        .list_events(None)
+        .unwrap()
+        .iter()
+        .filter(|event| event.phase == "delivery")
+        .count();
 
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join("payload.txt");
@@ -499,6 +527,22 @@ fn explicit_approval_gates_content_and_binds_authorization_to_receiver() {
         std::fs::read(output.path().join("payload.txt")).unwrap(),
         payload
     );
+    let completion_started = Instant::now();
+    loop {
+        if alice
+            .core()
+            .get_targeted_transfer(transfer_id.clone())
+            .unwrap()
+            .is_some_and(|row| row.state == TargetedTransferState::Completed)
+        {
+            break;
+        }
+        assert!(
+            completion_started.elapsed() < Duration::from_secs(10),
+            "sender never durably acknowledged targeted completion"
+        );
+        std::thread::sleep(Duration::from_millis(25));
+    }
     assert_eq!(
         alice.core().list_transfers().unwrap().len(),
         alice_invitation_count
@@ -516,8 +560,50 @@ fn explicit_approval_gates_content_and_binds_authorization_to_receiver() {
         bob_eligibility_count
     );
     assert_eq!(
-        bob.core().list_received_artifacts().unwrap().len(),
-        bob_artifacts_before.len()
+        alice
+            .core()
+            .list_receiver_requests(10_020)
+            .unwrap()
+            .into_iter()
+            .map(|request| (request.id, request.status, request.completed_at))
+            .collect::<Vec<_>>(),
+        alice_invitation_requests,
+        "targeted receive must not create sender invitation approval requests"
+    );
+    assert_eq!(
+        bob.core()
+            .list_receiver_requests(10_020)
+            .unwrap()
+            .into_iter()
+            .map(|request| (request.id, request.status, request.completed_at))
+            .collect::<Vec<_>>(),
+        bob_invitation_requests,
+        "targeted receive must not create receiver invitation requests"
+    );
+    assert_eq!(
+        bob.core().list_received_artifacts().unwrap(),
+        bob_artifacts_before
+    );
+    assert_eq!(
+        alice
+            .core()
+            .list_events(None)
+            .unwrap()
+            .iter()
+            .filter(|event| event.phase == "delivery")
+            .count(),
+        alice_delivery_events,
+        "targeted completion must not emit invitation delivery receipts"
+    );
+    assert_eq!(
+        bob.core()
+            .list_events(None)
+            .unwrap()
+            .iter()
+            .filter(|event| event.phase == "delivery")
+            .count(),
+        bob_delivery_events,
+        "targeted receive must not emit invitation delivery events"
     );
 
     let charlie_output = tempfile::tempdir().unwrap();
@@ -529,6 +615,49 @@ fn explicit_approval_gates_content_and_binds_authorization_to_receiver() {
         leaked.is_err(),
         "another endpoint must not pull by the same transfer id"
     );
+}
+
+#[test]
+fn unrelated_endpoint_cannot_discover_or_approve_another_receivers_offer() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    let charlie = ProtectedNode::new();
+    let bob_id = bob.core().status().endpoint_id.clone();
+    establish_saved(&alice, &bob, 10_024);
+
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("private.txt");
+    std::fs::write(&source_path, b"only Bob may approve").unwrap();
+    let alice_core = alice.core().clone();
+    let create = std::thread::spawn(move || {
+        alice_core.create_targeted_transfer(
+            bob_id,
+            vec![targeted_source(&source_path)],
+            Some("private.txt".to_string()),
+        )
+    });
+    let offer = wait_for_pending_offer(&bob.core());
+
+    assert!(charlie.core().list_pending_targeted_offers().is_empty());
+    assert!(charlie.core().list_targeted_transfers().unwrap().is_empty());
+    let forged = charlie
+        .core()
+        .respond_to_targeted_offer(offer.transfer_id.clone(), true);
+    assert!(
+        forged.is_err(),
+        "an unrelated endpoint must not approve Bob's offer"
+    );
+    assert!(charlie.core().list_pending_targeted_offers().is_empty());
+    assert!(charlie.core().list_targeted_transfers().unwrap().is_empty());
+    assert_eq!(
+        bob.core().list_pending_targeted_offers(),
+        vec![offer.clone()]
+    );
+
+    bob.core()
+        .respond_to_targeted_offer(offer.transfer_id, false)
+        .unwrap();
+    assert!(create.join().unwrap().is_err());
 }
 
 #[test]

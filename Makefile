@@ -10,7 +10,7 @@ include $(ROOT)/make/release.mk
 
 .PHONY: help doctor setup setup-localization setup-docs setup-diagnostics
 .PHONY: format test check check-rust audit-rust test-rust test-rust-all
-.PHONY: test-rust-transfer test-rust-approval test-rust-lifecycle test-rust-output-sink
+.PHONY: test-rust-transfer test-rust-approval test-rust-lifecycle test-rust-output-sink test-rust-saved-devices
 .PHONY: check-shared test-shared test-android-host check-android verify-android-libs build-android run-desktop
 .PHONY: apple-core apple-version-config apple-app-config apple-project open-apple-project open-apple build-apple-macos build-apple-ios check-apple package-apple-core
 .PHONY: prepare-release check-version check-release check-localization localization localization-migrate
@@ -107,6 +107,11 @@ test-rust-lifecycle: ## Run Rust lifecycle integration tests.
 
 test-rust-output-sink: ## Run Rust output-sink integration tests.
 	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --test output_sink
+
+test-rust-saved-devices: ## Run the Saved devices production-core release gate.
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --lib
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --test saved_device_domain
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --test transfer --test approval --test lifecycle --test output_sink
 
 check-shared: ## Test and compile the shared Android/JVM module.
 	cd $(ROOT) && $(GRADLE) :shared:jvmTest :shared:compileKotlinJvm $(GRADLE_FLAGS)

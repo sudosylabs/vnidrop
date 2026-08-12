@@ -45,6 +45,8 @@ jobs:
         run: rustup component add clippy rustfmt
       - name: Check Rust core
         run: make check-rust
+      - name: Saved devices production release gate
+        run: make test-rust-saved-devices
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
       - name: Audit Rust dependencies

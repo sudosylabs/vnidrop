@@ -6,9 +6,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -16,12 +17,15 @@ import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.DeviceRelationshipModel
 import com.vnidrop.app.core.DeviceRelationshipStateModel
 import com.vnidrop.app.core.PairingEligibilityModel
+import com.vnidrop.app.core.PendingTargetedOfferModel
 import com.vnidrop.app.core.SavedDeviceModel
+import com.vnidrop.app.core.TargetedTransferStateModel
 import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.VniDropTheme
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
@@ -29,10 +33,15 @@ import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.button_retry
 import vnidrop.shared.generated.resources.saved_devices_block_action
 import vnidrop.shared.generated.resources.saved_devices_block_confirm_title
+import vnidrop.shared.generated.resources.saved_devices_attention_title
+import vnidrop.shared.generated.resources.saved_devices_devices_title
 import vnidrop.shared.generated.resources.saved_devices_empty
+import vnidrop.shared.generated.resources.saved_devices_empty_title
 import vnidrop.shared.generated.resources.saved_devices_forget_action
 import vnidrop.shared.generated.resources.saved_devices_load_failed
 import vnidrop.shared.generated.resources.saved_devices_send_action
+import vnidrop.shared.generated.resources.saved_devices_transfer_resume
+import vnidrop.shared.generated.resources.saved_devices_transfers_title
 
 @OptIn(ExperimentalTestApi::class)
 class SavedDevicesScreenTest {
@@ -53,7 +62,10 @@ class SavedDevicesScreenTest {
 		runOnIdle { assertEquals(1, retried) }
 
 		runOnIdle { state.value = SavedDevicesState(isLoading = false) }
+		onNodeWithText(Res.string.saved_devices_empty_title.value).assertIsDisplayed()
 		onNodeWithText(Res.string.saved_devices_empty.value).assertIsDisplayed()
+		onAllNodesWithText(Res.string.saved_devices_devices_title.value).assertCountEquals(0)
+		onAllNodesWithText(Res.string.saved_devices_transfers_title.value).assertCountEquals(0)
 	}
 
 	@Test
@@ -96,9 +108,10 @@ class SavedDevicesScreenTest {
 				}
 			}
 		}
-		onNodeWithText(Res.string.saved_devices_send_action.value).assertIsNotEnabled()
+		onAllNodesWithContentDescription(Res.string.saved_devices_send_action.value).assertCountEquals(0)
 
 		runOnIdle { state.value = state.value.copy(busyPeerIds = emptySet()) }
+		onNodeWithContentDescription(Res.string.saved_devices_send_action.value).assertIsDisplayed()
 		onNodeWithContentDescription("More actions for Riley's phone").performClick()
 		onNodeWithText(Res.string.saved_devices_block_action.value).performClick()
 		onNodeWithText(Res.string.saved_devices_block_confirm_title.value).assertIsDisplayed()
@@ -122,6 +135,106 @@ class SavedDevicesScreenTest {
 		}
 		onNodeWithContentDescription("More actions for Desktop").performClick()
 		onNodeWithText(Res.string.saved_devices_forget_action.value).assertIsDisplayed()
+	}
+
+	@Test
+	fun directTransferHistoryShowsProgressAndRoutesResumeById() = runComposeUiTest {
+		val actions = mutableListOf<Pair<String, SavedDeviceTransferAction>>()
+		setContent {
+			CompositionLocalProvider(LocalUiPlatform provides UiPlatform.Android) {
+				VniDropTheme(isDarkTheme = false) {
+					SavedDevicesScreen(
+						state = SavedDevicesState(
+							isLoading = false,
+							targetedTransfers = listOf(
+								SavedDeviceTransferItem(
+									id = "transfer-resume",
+									peerEndpointId = "peer",
+									peerDisplayName = "Office PC",
+									direction = SavedDeviceTransferDirection.Incoming,
+									transferName = "Project files",
+									fileCount = 2u,
+									totalSize = 100u,
+									verifiedBytes = 40u,
+									state = TargetedTransferStateModel.Interrupted,
+									createdAt = 1,
+									updatedAt = 2,
+								),
+							),
+						),
+						windowClass = WindowClass.Desktop,
+						onTransferAction = { id, action -> actions += id to action },
+					)
+				}
+			}
+		}
+
+		onNodeWithText(Res.string.saved_devices_transfers_title.value).assertIsDisplayed()
+		onNodeWithText("Project files").assertIsDisplayed()
+		onNodeWithText("Office PC", substring = true).assertIsDisplayed()
+		onNodeWithText(Res.string.saved_devices_transfer_resume.value).performClick()
+		runOnIdle {
+			assertEquals(listOf("transfer-resume" to SavedDeviceTransferAction.Resume), actions)
+		}
+	}
+
+	@Test
+	fun desktopHubUsesGroupedDeviceListAndShowsInlineAttentionActions() = runComposeUiTest {
+		val acceptedOffers = mutableListOf<String>()
+		setContent {
+			CompositionLocalProvider(LocalUiPlatform provides UiPlatform.Windows) {
+				VniDropTheme(isDarkTheme = false) {
+					SavedDevicesScreen(
+						state = SavedDevicesState(
+							isLoading = false,
+							savedDevices = listOf(
+								device("peer-one", null, "Amira's phone"),
+								device("peer-two", "Studio PC", "Workstation"),
+							),
+							targetedOffers = TargetedOfferState(
+								pending = listOf(offer("offer-one", "peer-one", "Holiday photos")),
+								senderDisplayNames = mapOf("peer-one" to "Amira's phone"),
+							),
+						),
+						windowClass = WindowClass.Desktop,
+						onAcceptOffer = acceptedOffers::add,
+					)
+				}
+			}
+		}
+
+		onNodeWithText(Res.string.saved_devices_devices_title.value).assertIsDisplayed()
+		onNodeWithText(Res.string.saved_devices_attention_title.value).assertIsDisplayed()
+		onNodeWithText("Amira's phone").assertIsDisplayed()
+		onNodeWithText("Studio PC").assertIsDisplayed()
+		onNodeWithTag("saved-device-peer-one").assertIsDisplayed()
+		onNodeWithTag("saved-device-peer-two").assertIsDisplayed()
+		onNodeWithText("Receive").performClick()
+		runOnIdle { assertEquals(listOf("offer-one"), acceptedOffers) }
+	}
+
+	@Test
+	fun compactHubPlacesAttentionBeforeSavedDevices() = runComposeUiTest {
+		setContent {
+			CompositionLocalProvider(LocalUiPlatform provides UiPlatform.Android) {
+				VniDropTheme(isDarkTheme = false) {
+					SavedDevicesScreen(
+						state = SavedDevicesState(
+							isLoading = false,
+							savedDevices = listOf(device("peer-one", null, "Phone")),
+							eligibilities = listOf(eligibility("peer-two", "Laptop")),
+						),
+						windowClass = WindowClass.Phone,
+					)
+				}
+			}
+		}
+
+		val attentionTop = onNodeWithText(Res.string.saved_devices_attention_title.value)
+			.fetchSemanticsNode().boundsInRoot.top
+		val devicesTop = onNodeWithText(Res.string.saved_devices_devices_title.value)
+			.fetchSemanticsNode().boundsInRoot.top
+		assertTrue(attentionTop < devicesTop, "compact layouts should surface pending decisions before the device list")
 	}
 
 	private fun device(endpoint: String, label: String?, name: String?) = SavedDeviceModel(
@@ -149,6 +262,19 @@ class SavedDevicesScreenTest {
 		createdAt = 1,
 		updatedAt = 2,
 	)
+
+	private fun offer(id: String, sender: String, name: String) = PendingTargetedOfferModel(
+		transferId = id,
+		senderEndpointId = sender,
+		receiverEndpointId = "local",
+		manifestId = "manifest",
+		contentHash = "hash",
+		transferName = name,
+		fileCount = 2u,
+		totalSize = 100u,
+		protocolVersion = 3u,
+		receivedAt = 1,
+	)
 }
 
 @Composable
@@ -157,6 +283,8 @@ private fun SavedDevicesScreen(
 	windowClass: WindowClass,
 	onRetry: () -> Unit = {},
 	onBlock: (String) -> Unit = {},
+	onAcceptOffer: (String) -> Unit = {},
+	onTransferAction: (String, SavedDeviceTransferAction) -> Unit = { _, _ -> },
 ) = SavedDevicesScreen(
 	state = state,
 	windowClass = windowClass,
@@ -165,10 +293,13 @@ private fun SavedDevicesScreen(
 	onDeclineEligible = {},
 	onAcceptIncoming = {},
 	onDeclineIncoming = {},
+	onAcceptOffer = onAcceptOffer,
+	onDeclineOffer = {},
 	onSend = {},
 	onOpenLabel = {},
 	onForget = {},
 	onBlock = onBlock,
+	onTransferAction = onTransferAction,
 	onLabelDraftChanged = {},
 	onSaveLabel = {},
 	onClearLabel = {},

@@ -4828,6 +4828,185 @@
         "ru": "Отклонить"
       }
     },
+    "saved_devices_attention_title": {
+      "context": "Saved devices screen: heading for transfers and pairing decisions that need a response.",
+      "translations": {
+        "en": "Needs attention",
+        "fr": "Nécessite votre attention",
+        "es": "Requiere atención",
+        "it": "Richiede attenzione",
+        "de": "Erfordert Aufmerksamkeit",
+        "pt": "Requer atenção",
+        "pl": "Wymaga uwagi",
+        "nl": "Aandacht vereist",
+        "ru": "Требует внимания"
+      },
+      "targets": ["kmp"]
+    },
+    "saved_devices_devices_title": {
+      "context": "Saved devices screen: heading for mutually trusted saved devices.",
+      "translations": {
+        "en": "Your devices",
+        "fr": "Vos appareils",
+        "es": "Tus dispositivos",
+        "it": "I tuoi dispositivi",
+        "de": "Deine Geräte",
+        "pt": "Os seus dispositivos",
+        "pl": "Twoje urządzenia",
+        "nl": "Je apparaten",
+        "ru": "Ваши устройства"
+      },
+      "targets": ["kmp"]
+    },
+    "saved_devices_transfers_title": {
+      "context": "Saved devices screen: heading for durable targeted-transfer history.",
+      "translations": {
+        "en": "Direct transfers",
+        "fr": "Transferts directs",
+        "es": "Transferencias directas",
+        "it": "Trasferimenti diretti",
+        "de": "Direkte Übertragungen",
+        "pt": "Transferências diretas",
+        "pl": "Transfery bezpośrednie",
+        "nl": "Directe overdrachten",
+        "ru": "Прямые передачи"
+      },
+      "targets": ["kmp"]
+    },
+    "saved_devices_transfer_empty": {
+      "context": "Saved devices screen: empty targeted-transfer history.",
+      "translations": {
+        "en": "No direct transfers yet.",
+        "fr": "Aucun transfert direct pour le moment.",
+        "es": "Aún no hay transferencias directas.",
+        "it": "Nessun trasferimento diretto.",
+        "de": "Noch keine direkten Übertragungen.",
+        "pt": "Ainda não existem transferências diretas.",
+        "pl": "Brak transferów bezpośrednich.",
+        "nl": "Nog geen directe overdrachten.",
+        "ru": "Прямых передач пока нет."
+      },
+      "targets": ["kmp"]
+    },
+    "saved_devices_transfer_direction_incoming": {
+      "context": "Targeted transfer card: incoming direction followed by the saved-device display name.",
+      "args": [{"name": "device", "type": "string"}],
+      "translations": {
+        "en": "From %1$s",
+        "fr": "De %1$s",
+        "es": "De %1$s",
+        "it": "Da %1$s",
+        "de": "Von %1$s",
+        "pt": "De %1$s",
+        "pl": "Od %1$s",
+        "nl": "Van %1$s",
+        "ru": "От %1$s"
+      },
+      "targets": ["kmp"]
+    },
+    "saved_devices_transfer_direction_outgoing": {
+      "context": "Targeted transfer card: outgoing direction followed by the saved-device display name.",
+      "args": [{"name": "device", "type": "string"}],
+      "translations": {
+        "en": "To %1$s",
+        "fr": "Vers %1$s",
+        "es": "A %1$s",
+        "it": "A %1$s",
+        "de": "An %1$s",
+        "pt": "Para %1$s",
+        "pl": "Do %1$s",
+        "nl": "Naar %1$s",
+        "ru": "Для %1$s"
+      },
+      "targets": ["kmp"]
+    },
+    "saved_devices_transfer_files": {
+      "context": "Targeted transfer card metadata. First placeholder is file count, second is formatted total size.",
+      "args": [{"name": "count", "type": "string"}, {"name": "size", "type": "string"}],
+      "translations": {
+        "en": "%1$s files · %2$s",
+        "fr": "%1$s fichiers · %2$s",
+        "es": "%1$s archivos · %2$s",
+        "it": "%1$s file · %2$s",
+        "de": "%1$s Dateien · %2$s",
+        "pt": "%1$s ficheiros · %2$s",
+        "pl": "%1$s plików · %2$s",
+        "nl": "%1$s bestanden · %2$s",
+        "ru": "%1$s файлов · %2$s"
+      },
+      "targets": ["kmp"]
+    },
+    "saved_devices_transfer_progress": {
+      "context": "Targeted transfer card progress. First placeholder is verified bytes, second is total size.",
+      "args": [{"name": "verified", "type": "string"}, {"name": "total", "type": "string"}],
+      "translations": {
+        "en": "%1$s of %2$s",
+        "fr": "%1$s sur %2$s",
+        "es": "%1$s de %2$s",
+        "it": "%1$s di %2$s",
+        "de": "%1$s von %2$s",
+        "pt": "%1$s de %2$s",
+        "pl": "%1$s z %2$s",
+        "nl": "%1$s van %2$s",
+        "ru": "%1$s из %2$s"
+      },
+      "targets": ["kmp"]
+    },
+    "saved_devices_transfer_receive": {
+      "context": "Targeted transfer history action: receive an approved transfer.",
+      "translations": {"en": "Receive", "fr": "Recevoir", "es": "Recibir", "it": "Ricevi", "de": "Empfangen", "pt": "Receber", "pl": "Odbierz", "nl": "Ontvangen", "ru": "Получить"},
+      "targets": ["kmp"]
+    },
+    "saved_devices_transfer_resume": {
+      "context": "Targeted transfer history action: resume an interrupted transfer.",
+      "translations": {"en": "Resume", "fr": "Reprendre", "es": "Reanudar", "it": "Riprendi", "de": "Fortsetzen", "pt": "Retomar", "pl": "Wznów", "nl": "Hervatten", "ru": "Продолжить"},
+      "targets": ["kmp"]
+    },
+    "saved_devices_transfer_cancel": {
+      "context": "Targeted transfer history action: cancel an active transfer.",
+      "translations": {"en": "Cancel", "fr": "Annuler", "es": "Cancelar", "it": "Annulla", "de": "Abbrechen", "pt": "Cancelar", "pl": "Anuluj", "nl": "Annuleren", "ru": "Отменить"},
+      "targets": ["kmp"]
+    },
+    "saved_devices_transfer_delete": {
+      "context": "Targeted transfer history action: delete a terminal transfer record.",
+      "translations": {"en": "Delete", "fr": "Supprimer", "es": "Eliminar", "it": "Elimina", "de": "Löschen", "pt": "Eliminar", "pl": "Usuń", "nl": "Verwijderen", "ru": "Удалить"},
+      "targets": ["kmp"]
+    },
+    "status_offering": {
+      "context": "Targeted transfer status: offering to the saved device.",
+      "translations": {"en": "Offering", "fr": "Proposition", "es": "Ofreciendo", "it": "Proposta", "de": "Wird angeboten", "pt": "A propor", "pl": "Oferowanie", "nl": "Aanbieden", "ru": "Предложение"},
+      "targets": ["kmp"]
+    },
+    "status_awaiting_approval": {
+      "context": "Targeted transfer status: waiting for the saved device to approve.",
+      "translations": {"en": "Waiting for approval", "fr": "En attente d’approbation", "es": "Esperando aprobación", "it": "In attesa di approvazione", "de": "Wartet auf Genehmigung", "pt": "A aguardar aprovação", "pl": "Oczekiwanie na zgodę", "nl": "Wachten op goedkeuring", "ru": "Ожидание подтверждения"},
+      "targets": ["kmp"]
+    },
+    "status_approved": {
+	  "context": "Targeted transfer status: approved by the receiving saved device.",
+	  "translations": {"en": "Approved", "fr": "Approuvé", "es": "Aprobado", "it": "Approvato", "de": "Genehmigt", "pt": "Aprovado", "pl": "Zatwierdzony", "nl": "Goedgekeurd", "ru": "Подтверждено"},
+      "targets": ["kmp"]
+    },
+    "status_connecting": {
+      "context": "Targeted transfer status: connecting to the saved device.",
+      "translations": {"en": "Connecting", "fr": "Connexion", "es": "Conectando", "it": "Connessione", "de": "Verbindung wird hergestellt", "pt": "A ligar", "pl": "Łączenie", "nl": "Verbinden", "ru": "Подключение"},
+      "targets": ["kmp"]
+    },
+    "status_interrupted": {
+      "context": "Targeted transfer status: interrupted and resumable.",
+      "translations": {"en": "Interrupted", "fr": "Interrompu", "es": "Interrumpido", "it": "Interrotto", "de": "Unterbrochen", "pt": "Interrompido", "pl": "Przerwany", "nl": "Onderbroken", "ru": "Прервано"},
+      "targets": ["kmp"]
+    },
+    "status_transferring": {
+      "context": "Targeted transfer status: authenticated content transfer is active.",
+      "translations": {"en": "Transferring", "fr": "Transfert", "es": "Transfiriendo", "it": "Trasferimento", "de": "Übertragung läuft", "pt": "A transferir", "pl": "Przesyłanie", "nl": "Overdragen", "ru": "Передача"},
+      "targets": ["kmp"]
+    },
+    "status_declined": {
+      "context": "Targeted transfer status: declined by the saved device.",
+      "translations": {"en": "Declined", "fr": "Refusé", "es": "Rechazado", "it": "Rifiutato", "de": "Abgelehnt", "pt": "Recusado", "pl": "Odrzucony", "nl": "Geweigerd", "ru": "Отклонено"},
+      "targets": ["kmp"]
+    },
     "saved_devices_authenticated_name": {
       "context": "Saved-device card: authenticated name shared by the remote app when a local label is also shown.",
       "translations": {
@@ -4914,22 +5093,37 @@
       ]
     },
     "saved_devices_empty": {
-	  "context": "Saved devices screen: empty list when none are saved yet.",
+	  "context": "Saved devices screen: guidance shown when no device has been saved.",
       "translations": {
-        "en": "No saved devices yet. Finish a transfer, then remember a device.",
-        "fr": "No saved devices yet. Finish a transfer, then remember a device.",
-        "es": "No saved devices yet. Finish a transfer, then remember a device.",
-        "it": "No saved devices yet. Finish a transfer, then remember a device.",
-        "de": "No saved devices yet. Finish a transfer, then remember a device.",
-        "pt": "No saved devices yet. Finish a transfer, then remember a device.",
-        "pl": "No saved devices yet. Finish a transfer, then remember a device.",
-        "nl": "No saved devices yet. Finish a transfer, then remember a device.",
-        "ru": "No saved devices yet. Finish a transfer, then remember a device."
+		"en": "Finish a transfer, then choose to remember the other device.",
+		"fr": "Terminez un transfert, puis choisissez de mémoriser l’autre appareil.",
+		"es": "Finaliza una transferencia y elige recordar el otro dispositivo.",
+		"it": "Completa un trasferimento, quindi scegli di ricordare l’altro dispositivo.",
+		"de": "Schließe eine Übertragung ab und speichere anschließend das andere Gerät.",
+		"pt": "Conclua uma transferência e escolha guardar o outro dispositivo.",
+		"pl": "Ukończ transfer, a następnie zapisz drugie urządzenie.",
+		"nl": "Voltooi een overdracht en kies daarna om het andere apparaat te onthouden.",
+		"ru": "Завершите передачу, затем сохраните другое устройство."
       },
       "targets": [
         "kmp"
       ]
     },
+	"saved_devices_empty_title": {
+	  "context": "Saved devices screen: title for the empty state.",
+	  "translations": {
+		"en": "No saved devices",
+		"fr": "Aucun appareil enregistré",
+		"es": "No hay dispositivos guardados",
+		"it": "Nessun dispositivo salvato",
+		"de": "Keine gespeicherten Geräte",
+		"pt": "Nenhum dispositivo guardado",
+		"pl": "Brak zapisanych urządzeń",
+		"nl": "Geen opgeslagen apparaten",
+		"ru": "Нет сохранённых устройств"
+	  },
+	  "targets": ["kmp"]
+	},
     "saved_devices_forget_confirm_body": {
       "context": "Confirmation message before forgetting a saved device. Placeholder is the display name.",
       "translations": {

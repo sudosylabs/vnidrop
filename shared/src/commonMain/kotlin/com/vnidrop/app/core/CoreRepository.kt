@@ -358,6 +358,13 @@ class CoreRepository internal constructor(
 		activeCore.resumeTargetedTransfer(id, outputDir)
 	}
 
+	override suspend fun resumeTargetedTransferWithOutputSinkV2(
+		id: String,
+		outputSink: ReceiveOutputSinkV2,
+	): Result<Unit> = runCore { activeCore ->
+		activeCore.resumeTargetedTransferWithOutputSinkV2(id, outputSink)
+	}
+
 	override suspend fun cancelTargetedTransfer(id: String): Result<Unit> = runCore { activeCore ->
 		activeCore.cancelTargetedTransfer(id)
 	}

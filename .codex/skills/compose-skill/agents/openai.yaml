@@ -1,4 +1,4 @@
 interface:
   display_name: "VniDrop KMP UI"
-  short_description: "Build native-feeling VniDrop KMP interfaces"
-  default_prompt: "Use $compose-skill to design or implement a native-feeling VniDrop KMP UI feature."
+  short_description: "Build and visually verify native VniDrop UI"
+  default_prompt: "Use $compose-skill to design, implement, launch, and visually verify a native-feeling VniDrop KMP UI feature."

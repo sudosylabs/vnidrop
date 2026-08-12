@@ -238,6 +238,11 @@ class FakeCoreGateway : CoreGateway {
 	val receivedTargetedTransferIds = mutableListOf<String>()
 	val receivedTargetedPathDirs = mutableListOf<Pair<String, String>>()
 	val receivedTargetedViaSinkIds = mutableListOf<String>()
+	val resumedTargetedTransferIds = mutableListOf<String>()
+	val resumedTargetedPathDirs = mutableListOf<Pair<String, String>>()
+	val resumedTargetedViaSinkIds = mutableListOf<String>()
+	val cancelledTargetedTransferIds = mutableListOf<String>()
+	val deletedTargetedTransferIds = mutableListOf<String>()
 	val respondedTargetedOffers = mutableListOf<Pair<String, Boolean>>()
 
 	override suspend fun requestSavedDevicePairing(peerEndpointId: String): Result<Boolean> {
@@ -284,7 +289,9 @@ class FakeCoreGateway : CoreGateway {
 	}
 	override suspend fun respondToTargetedOffer(transferId: String, accepted: Boolean): Result<TargetedOfferResponseModel> {
 		respondedTargetedOffers += transferId to accepted
-		return respondTargetedResult
+		return respondTargetedResult.onSuccess {
+			pendingTargetedOffers = pendingTargetedOffers.filterNot { offer -> offer.transferId == transferId }
+		}
 	}
 	override suspend fun createTargetedTransfer(
 		receiverEndpointId: String,
@@ -318,9 +325,31 @@ class FakeCoreGateway : CoreGateway {
 		receivedTargetedViaSinkIds += transferId
 		return receiveResult
 	}
-	override suspend fun resumeTargetedTransfer(id: String, outputDir: String) = receiveResult
-	override suspend fun cancelTargetedTransfer(id: String) = Result.success(Unit)
-	override suspend fun deleteTargetedTransfer(id: String) = Result.success(Unit)
+	override suspend fun resumeTargetedTransfer(id: String, outputDir: String): Result<Unit> {
+		resumedTargetedTransferIds += id
+		resumedTargetedPathDirs += id to outputDir
+		return receiveResult
+	}
+	override suspend fun resumeTargetedTransferWithOutputSinkV2(
+		id: String,
+		outputSink: ReceiveOutputSinkV2,
+	): Result<Unit> {
+		resumedTargetedTransferIds += id
+		resumedTargetedViaSinkIds += id
+		return receiveResult
+	}
+	override suspend fun cancelTargetedTransfer(id: String): Result<Unit> {
+		cancelledTargetedTransferIds += id
+		targetedTransfers = targetedTransfers.map { transfer ->
+			if (transfer.id == id) transfer.copy(state = com.vnidrop.app.core.TargetedTransferStateModel.Cancelled) else transfer
+		}
+		return Result.success(Unit)
+	}
+	override suspend fun deleteTargetedTransfer(id: String): Result<Unit> {
+		deletedTargetedTransferIds += id
+		targetedTransfers = targetedTransfers.filterNot { it.id == id }
+		return Result.success(Unit)
+	}
 }
 
 class FakePreferencesRepository(

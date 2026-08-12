@@ -24,6 +24,8 @@ lists, animation, accessibility:
 3. Open **at most one** file under `.codex/skills/compose-skill/references/` when
    the skill links to it for the current task.
 4. Do **not** invent a parallel Compose style guide.
+5. For visible UI changes, complete the skill's rendered-app visual QA gate.
+   Tests and compilation alone are not a finished UI handoff.
 
 ### Project policy
 

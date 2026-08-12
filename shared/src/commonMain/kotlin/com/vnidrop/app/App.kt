@@ -132,6 +132,8 @@ fun App(
 	val savedDevicesViewModel = viewModel {
 		SavedDevicesViewModel(
 			graph.coreRepository,
+			dependencies.fileSystemService,
+			graph.preferencesRepository,
 			graph.messages,
 		)
 	}
@@ -141,8 +143,7 @@ fun App(
 	val receiveState by receiveViewModel.state.collectAsStateWithLifecycle()
 	val receiveCoreState by receiveViewModel.coreState.collectAsStateWithLifecycle()
 	val approvalState by graph.approvalCoordinator.state.collectAsStateWithLifecycle()
-	val pairingPromptState by graph.pairingPromptCoordinator.state.collectAsStateWithLifecycle()
-	val targetedOfferState by graph.targetedOfferCoordinator.state.collectAsStateWithLifecycle()
+	val savedDevicesState by savedDevicesViewModel.state.collectAsStateWithLifecycle()
 	val username by graph.preferencesRepository.preferences
 		.map { it.username }
 		.collectAsStateWithLifecycle(initialValue = dependencies.environment.defaultUsername)
@@ -266,17 +267,19 @@ fun App(
 						onAccept = graph.approvalCoordinator::accept,
 						onRefuse = graph.approvalCoordinator::refuse,
 					)
-					PairingPromptHost(
-						state = pairingPromptState,
-						onAccept = graph.pairingPromptCoordinator::accept,
-						onDecline = graph.pairingPromptCoordinator::decline,
-						onDismiss = graph.pairingPromptCoordinator::dismiss,
-					)
-					TargetedOfferModalHost(
-						state = targetedOfferState,
-						onAccept = graph.targetedOfferCoordinator::accept,
-						onDecline = graph.targetedOfferCoordinator::decline,
-					)
+					if (appState.destination != AppDestination.SavedDevices) {
+						PairingPromptHost(
+							state = savedDevicesState.pairingPrompt,
+							onAccept = savedDevicesViewModel::acceptPairingPrompt,
+							onDecline = savedDevicesViewModel::declinePairingPrompt,
+							onDismiss = savedDevicesViewModel::dismissPairingPrompt,
+						)
+						TargetedOfferModalHost(
+							state = savedDevicesState.targetedOffers,
+							onAccept = savedDevicesViewModel::acceptTargetedOffer,
+							onDecline = savedDevicesViewModel::declineTargetedOffer,
+						)
+					}
 					TransferDraftHost(targetedDraftViewModel, windowClass, onCreated = {})
 				}
 				windowChrome?.invoke()

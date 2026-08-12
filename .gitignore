@@ -21,6 +21,7 @@ target/
 .junie
 config.override.mk
 bin/
+tmp/
 
 # Local design export scratch
 output/

@@ -228,6 +228,7 @@ interface CoreGateway {
 		outputSink: ReceiveOutputSinkV2,
 	): Result<Unit>
 	suspend fun resumeTargetedTransfer(id: String, outputDir: String): Result<Unit>
+	suspend fun resumeTargetedTransferWithOutputSinkV2(id: String, outputSink: ReceiveOutputSinkV2): Result<Unit>
 	suspend fun cancelTargetedTransfer(id: String): Result<Unit>
 	suspend fun deleteTargetedTransfer(id: String): Result<Unit>
 }

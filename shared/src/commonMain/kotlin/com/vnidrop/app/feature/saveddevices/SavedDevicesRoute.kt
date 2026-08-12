@@ -25,6 +25,8 @@ internal fun SavedDevicesRoute(
 		onDeclineEligible = viewModel::declineEligible,
 		onAcceptIncoming = viewModel::acceptIncoming,
 		onDeclineIncoming = viewModel::declineIncoming,
+		onAcceptOffer = viewModel::acceptTargetedOffer,
+		onDeclineOffer = viewModel::declineTargetedOffer,
 		onSend = { peerEndpointId ->
 			state.savedDevices.firstOrNull { it.endpointId == peerEndpointId }
 				?.let { targetedDraftViewModel.openTargeted(it, unnamedDeviceName) }
@@ -32,6 +34,14 @@ internal fun SavedDevicesRoute(
 		onOpenLabel = viewModel::openLabelEditor,
 		onForget = viewModel::forget,
 		onBlock = viewModel::block,
+		onTransferAction = { transferId, action ->
+			when (action) {
+				SavedDeviceTransferAction.Receive -> viewModel.receiveTargetedTransfer(transferId)
+				SavedDeviceTransferAction.Resume -> viewModel.resumeTargetedTransfer(transferId)
+				SavedDeviceTransferAction.Cancel -> viewModel.cancelTargetedTransfer(transferId)
+				SavedDeviceTransferAction.Delete -> viewModel.deleteTargetedTransfer(transferId)
+			}
+		},
 		onLabelDraftChanged = viewModel::setLabelDraft,
 		onSaveLabel = viewModel::saveLabel,
 		onClearLabel = viewModel::clearLabel,

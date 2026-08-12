@@ -1,6 +1,6 @@
 ---
 name: compose-skill
-description: VniDrop-specific Compose Multiplatform UI and Kotlin presentation architecture. Use when designing, implementing, refactoring, or reviewing code under shared/ for Android, Windows, or Linux: screens, ViewModels, routes, navigation, adaptive layouts, platform adapters, icons, resources, accessibility, and UI tests.
+description: VniDrop-specific Compose Multiplatform UI, Kotlin presentation architecture, and rendered-app visual QA. Use when designing, implementing, refactoring, or reviewing code under shared/ for Android, Windows, or Linux: screens, ViewModels, routes, navigation, adaptive layouts, platform adapters, native icons, resources, accessibility, UI tests, simulator inspection, screenshots, and visual refinement.
 ---
 
 # VniDrop KMP UI
@@ -15,7 +15,9 @@ Build VniDrop's Android and desktop UI without weakening its domain model, platf
 4. Identify the module, interface, seam, and adapters. Prefer a deep module: small interface, substantial hidden behavior, one test surface.
 5. Model state and platform behavior before drawing pixels.
 6. Implement the smallest complete product flow; add regressions at the lowest useful layer.
-7. Run `make test-shared`; run `make check-shared` for a production UI handoff.
+7. Run `make test-shared`, then launch and inspect the affected app using the visual QA gate below.
+8. Refine the rendered result until every affected presentation passes the maturity and native-platform review.
+9. Run `make check-shared` for a production UI handoff.
 
 ## Scope and ownership
 
@@ -103,6 +105,40 @@ Use one deep, session-scoped composition module for Invitation and Targeted crea
 - Preserve minimum touch targets, keyboard access, focus order, readable contrast, and meaningful semantics.
 - Treat phone, tablet/rail, Windows desktop, and Linux desktop as deliberate presentations—not scaled copies.
 
+### Visual maturity
+
+Build quiet, intentional product interfaces. Establish hierarchy with typography, alignment, spacing, and native controls before adding containers or decoration.
+
+- Give each screen one clear primary task and scanning order.
+- Use cards only when a real object or boundary needs containment. Prefer native lists, grouped rows, dividers, and whitespace for ordinary collections.
+- Use count badges only when the count changes a decision. Use icon tiles only when the icon is meaningful content or a native convention.
+- Keep accent color scarce. Let status, selection, or the primary action earn it.
+- Keep utility screens concise. Explanatory copy must resolve a real ambiguity; headings and helper panels are not filler.
+- Preserve platform density: touch-friendly Material surfaces on Android and restrained, information-dense desktop layouts on Windows/Linux.
+- Compare the result with the app's strongest nearby screen and the affected platform's native conventions. A prototype is input, not a visual specification to copy literally.
+- Treat repeated rounded cards, pills, icon-in-a-square decoration, equal-weight sections, oversized headings, and generic dashboard layouts as signals to simplify.
+
+## Rendered-app visual QA
+
+A visible UI change is incomplete until the actual app has been launched and inspected. Unit tests, Compose tests, previews, and successful compilation do not replace this gate.
+
+1. Build and launch the real affected host from the repository's current Make/Gradle tasks.
+2. Navigate to the changed screen through the product UI. Exercise the changed interaction rather than stopping at app launch.
+3. Inspect realistic content, including long names, empty/content states, busy or pending actions, and destructive confirmations when affected.
+4. Capture a screenshot of every affected presentation and inspect hierarchy, density, alignment, clipping, contrast, native iconography, focus/touch targets, and awkward unused space.
+5. Fix visible defects and repeat the same route. Complete the gate only after the new screenshot is materially acceptable.
+
+Choose hosts by changed source set:
+
+- `commonMain` visual changes: inspect an Android phone emulator and a desktop window when the UI has a desktop/adaptive branch.
+- `androidMain`: inspect an Android emulator at the affected form factor.
+- `jvmMain`: inspect the affected desktop presentation; verify Windows/Linux-specific conventions where those hosts are available.
+- Logic-only ViewModel/model changes with no rendered difference may omit screenshots, but still require behavior tests.
+
+Use available simulator or computer-control tools to operate the app and view the rendered result. Prefer screenshots from the running app over isolated previews. If an affected platform cannot be launched, report that exact validation gap and do not claim the UI is visually complete.
+
+Apple UI lives under `apple/` and requires a native SwiftUI workflow with iOS/macOS simulator inspection. This Compose skill does not validate Apple presentation.
+
 ## Strings and resources
 
 - `localization/strings.json` is the only source of truth for product strings.
@@ -129,6 +165,7 @@ Use one deep, session-scoped composition module for Invitation and Targeted crea
 - Assert native icon-family selection and accessibility semantics when adding platform actions.
 - Prefer deterministic gates and virtual time; avoid fixed sleeps.
 - Delete obsolete shallow tests after equivalent interface-level coverage exists.
+- Record which real hosts and screen states were visually inspected in the handoff.
 
 ## Anti-patterns
 

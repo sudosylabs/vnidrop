@@ -8,16 +8,18 @@ import uniffi.vnidrop.CoreEvent
 import uniffi.vnidrop.CoreEventSink
 import uniffi.vnidrop.CoreNetworkConfig
 import uniffi.vnidrop.CoreRelayMode
+import uniffi.vnidrop.SavedDeviceCapabilities
 import uniffi.vnidrop.VnidropCore
 import uniffi.vnidrop.VnidropException
 import uniffi.vnidrop.defaultCoreLimits
+import uniffi.vnidrop.savedDeviceCapabilities
 
 /**
  * JVM-adjacent Android contract smoke.
  *
  * Full Keystore-backed identity/restart lives in the Rust
  * `platform_contract_android` harness. Here we prove the regenerated UniFFI
- * surface exposes revision-bearing events and the experimental initializer,
+ * surface exposes revision-bearing events and the production initializer,
  * exercising protected init when the host credential store is available.
  */
 class SavedDeviceCoreContractJvmSmokeTest {
@@ -33,11 +35,19 @@ class SavedDeviceCoreContractJvmSmokeTest {
 		}
 		val network = CoreNetworkConfig(CoreRelayMode.LOCAL_ONLY, emptyList())
 
-		val first = VnidropCore.initializeWithNetworkConfig(
-			coreDir.toString(),
-			sink,
-			network,
-		)
+		val first = try {
+			VnidropCore.initializeWithNetworkConfig(
+				coreDir.toString(),
+				sink,
+				network,
+			)
+		} catch (_: VnidropException.SecureStorageUnavailable) {
+			coreDir.toFile().deleteRecursively()
+			return
+		} catch (_: VnidropException.SecureStorageLocked) {
+			coreDir.toFile().deleteRecursively()
+			return
+		}
 		val endpointId = try {
 			val id = first.status().endpointId
 			assertTrue(id.isNotBlank())
@@ -66,14 +76,19 @@ class SavedDeviceCoreContractJvmSmokeTest {
 	}
 
 	@Test
-	fun experimentalProtectedInitWorksWhenHostSecretStoreIsAvailable() {
-		val coreDir = Files.createTempDirectory("vnidrop-android-contract-experimental")
+	fun productionProtectedInitWorksWhenHostSecretStoreIsAvailable() {
+		val capabilities: SavedDeviceCapabilities = savedDeviceCapabilities()
+		assertTrue(capabilities.domainContractVersion >= 1u)
+		assertTrue(capabilities.relationshipProtocolVersion >= 1u)
+		assertTrue(capabilities.targetedTransferProtocolVersion >= 1u)
+
+		val coreDir = Files.createTempDirectory("vnidrop-android-contract-production")
 		val sink = object : CoreEventSink {
 			override fun onEvent(event: CoreEvent) = Unit
 		}
 		val network = CoreNetworkConfig(CoreRelayMode.LOCAL_ONLY, emptyList())
 		val core = try {
-			VnidropCore.initializeWithExperimentalSavedDevices(
+			VnidropCore.initializeWithLimitsAndNetworkConfig(
 				coreDir.toString(),
 				sink,
 				defaultCoreLimits(),

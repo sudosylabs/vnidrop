@@ -28,7 +28,7 @@ final class SavedDeviceCoreContractTests: XCTestCase {
 		}
 	}
 
-	func testExperimentalKeychainIdentitySurvivesRestart() throws {
+	func testProtectedKeychainIdentitySurvivesStandardConstructorRestart() throws {
 		let directory = try FileManager.default.url(
 			for: .itemReplacementDirectory,
 			in: .userDomainMask,
@@ -39,7 +39,7 @@ final class SavedDeviceCoreContractTests: XCTestCase {
 		defer { try? FileManager.default.removeItem(at: directory) }
 
 		let sink = RecordingSink()
-		let first = try VnidropCore.initializeWithExperimentalSavedDevices(
+		let first = try VnidropCore.initializeWithLimitsAndNetworkConfig(
 			appDataDir: directory.path,
 			eventSink: sink,
 			limits: defaultCoreLimits(),
@@ -53,7 +53,7 @@ final class SavedDeviceCoreContractTests: XCTestCase {
 		)
 		first.shutdown()
 
-		let restarted = try VnidropCore.initializeWithExperimentalSavedDevices(
+		let restarted = try VnidropCore.initializeWithLimitsAndNetworkConfig(
 			appDataDir: directory.path,
 			eventSink: RecordingSink(),
 			limits: defaultCoreLimits(),
@@ -74,7 +74,7 @@ final class SavedDeviceCoreContractTests: XCTestCase {
 		defer { try? FileManager.default.removeItem(at: directory) }
 
 		let sink = RecordingSink()
-		let core = try VnidropCore.initializeWithExperimentalSavedDevices(
+		let core = try VnidropCore.initializeWithLimitsAndNetworkConfig(
 			appDataDir: directory.path,
 			eventSink: sink,
 			limits: defaultCoreLimits(),
@@ -133,7 +133,9 @@ final class SavedDeviceCoreContractTests: XCTestCase {
 			// regenerated surface is what the harness compiles against.
 			let _: (
 				(String, CoreEventSink, CoreLimits, CoreNetworkConfig) throws -> VnidropCore
-			) = VnidropCore.initializeWithExperimentalSavedDevices
+			) = VnidropCore.initializeWithLimitsAndNetworkConfig
+			let capabilities: SavedDeviceCapabilities = savedDeviceCapabilities()
+			XCTAssertGreaterThanOrEqual(capabilities.domainContractVersion, 1)
 			XCTAssertNotNil(defaultCoreLimits().maxSavedDevices)
 			return
 		}
@@ -159,7 +161,9 @@ final class SavedDeviceCoreContractTests: XCTestCase {
 				"generated bindings must not expose \(needle)"
 			)
 		}
-		XCTAssertTrue(source.contains("initializeWithExperimentalSavedDevices"))
+		XCTAssertTrue(source.contains("initializeWithLimitsAndNetworkConfig"))
+		XCTAssertTrue(source.contains("public struct SavedDeviceCapabilities"))
+		XCTAssertTrue(source.contains("public func savedDeviceCapabilities()"))
 		XCTAssertTrue(source.contains("setSavedDeviceLabel"))
 		XCTAssertTrue(source.contains("listSavedDevices"))
 		XCTAssertTrue(source.contains("revision"))

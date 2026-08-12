@@ -9,9 +9,10 @@ import uniffi.vnidrop.CoreEventSink
 import uniffi.vnidrop.VnidropCore
 import uniffi.vnidrop.defaultCoreLimits
 import uniffi.vnidrop.defaultCoreNetworkConfig
+import uniffi.vnidrop.savedDeviceCapabilities
 
 /**
- * Optional Windows host harness for the experimental saved-device core.
+ * Optional Windows host harness for the saved-device core.
  *
  * Linux/macOS CI skips so shared jvmTest stays green; Windows desktop runs the
  * DPAPI-backed initialize/restart identity check against public bindings.
@@ -22,6 +23,7 @@ class WindowsSavedDeviceCoreContractTest {
 		if (!isWindowsHost()) {
 			return
 		}
+		assertTrue(savedDeviceCapabilities().domainContractVersion >= 1u)
 
 		val coreDir = Files.createTempDirectory("vnidrop-windows-contract")
 		val sink = object : CoreEventSink {
@@ -30,7 +32,7 @@ class WindowsSavedDeviceCoreContractTest {
 			}
 		}
 
-		val first = VnidropCore.initializeWithExperimentalSavedDevices(
+		val first = VnidropCore.initializeWithLimitsAndNetworkConfig(
 			appDataDir = coreDir.toString(),
 			eventSink = sink,
 			limits = defaultCoreLimits(),
@@ -45,7 +47,7 @@ class WindowsSavedDeviceCoreContractTest {
 			first.shutdown()
 		}
 
-		val restarted = VnidropCore.initializeWithExperimentalSavedDevices(
+		val restarted = VnidropCore.initializeWithLimitsAndNetworkConfig(
 			appDataDir = coreDir.toString(),
 			eventSink = sink,
 			limits = defaultCoreLimits(),
@@ -77,8 +79,7 @@ class WindowsSavedDeviceCoreContractTest {
 				fail("public bindings must not expose $forbidden")
 			}
 		}
-		// Typed saved-device operations (names may be mangled by UniFFI); require
-		// at least the experimental constructor surface used above.
+		// Typed saved-device operations (names may be mangled by UniFFI).
 		assertTrue(
 			methods.any { it.contains("listSaved", ignoreCase = true) }
 				|| methods.any { it.contains("SavedDevice", ignoreCase = true) }

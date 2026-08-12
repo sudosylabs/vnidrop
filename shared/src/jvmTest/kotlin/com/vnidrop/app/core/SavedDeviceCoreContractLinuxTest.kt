@@ -10,16 +10,20 @@ import uniffi.vnidrop.CoreEventSink
 import uniffi.vnidrop.VnidropCore
 import uniffi.vnidrop.defaultCoreLimits
 import uniffi.vnidrop.defaultCoreNetworkConfig
+import uniffi.vnidrop.savedDeviceCapabilities
 
 /**
- * Linux host harness for the experimental saved-device core contract (ticket 17).
+ * Linux host harness for the saved-device core contract.
  *
  * Identity restart against Secret Service runs only on Linux (CI host). Binding
  * hygiene assertions run on every JVM so macOS/Windows desktop checks stay useful.
  */
 class SavedDeviceCoreContractLinuxTest {
 	@Test
-	fun experimentalInitRestartsSameIdentityOnLinux() {
+	fun productionInitRestartsSameIdentityOnLinux() {
+		val capabilities = savedDeviceCapabilities()
+		assertTrue(capabilities.domainContractVersion >= 1u)
+
 		val isLinux = System.getProperty("os.name").orEmpty().lowercase().contains("linux")
 		if (!isLinux) {
 			return
@@ -29,7 +33,7 @@ class SavedDeviceCoreContractLinuxTest {
 		val sink = object : CoreEventSink {
 			override fun onEvent(event: CoreEvent) = Unit
 		}
-		val first = VnidropCore.initializeWithExperimentalSavedDevices(
+		val first = VnidropCore.initializeWithLimitsAndNetworkConfig(
 			appDataDir = coreDir.toString(),
 			eventSink = sink,
 			limits = defaultCoreLimits(),
@@ -44,7 +48,7 @@ class SavedDeviceCoreContractLinuxTest {
 			first.shutdown()
 		}
 
-		val second = VnidropCore.initializeWithExperimentalSavedDevices(
+		val second = VnidropCore.initializeWithLimitsAndNetworkConfig(
 			appDataDir = coreDir.toString(),
 			eventSink = sink,
 			limits = defaultCoreLimits(),
@@ -89,8 +93,8 @@ class SavedDeviceCoreContractLinuxTest {
 			)
 		}
 		assertTrue(
-			companionMethods.contains("initializeWithExperimentalSavedDevices"),
-			"experimental saved-device init must be on the public binding",
+			companionMethods.contains("initializeWithLimitsAndNetworkConfig"),
+			"production protected init must be on the public binding",
 		)
 		assertTrue(
 			instanceMethods.contains("setSavedDeviceLabel"),

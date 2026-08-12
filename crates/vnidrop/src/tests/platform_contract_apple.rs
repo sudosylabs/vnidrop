@@ -841,8 +841,13 @@ fn apple_public_bindings_omit_raw_secrets_and_generic_mutation() {
             );
         }
         assert!(
-            source.contains("initializeWithExperimentalSavedDevices"),
-            "Swift bindings must expose experimental saved-device init"
+            source.contains("initializeWithLimitsAndNetworkConfig"),
+            "Swift bindings must expose standard protected initialization"
+        );
+        assert!(
+            source.contains("public struct SavedDeviceCapabilities")
+                && source.contains("public func savedDeviceCapabilities()"),
+            "Swift bindings must expose production saved-device capabilities"
         );
         assert!(
             source.contains("setSavedDeviceLabel"),

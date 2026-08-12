@@ -34,8 +34,12 @@ class SavedDeviceCoreContractBindingHygieneTest {
 		}
 
 		assertTrue(
-			source.contains("initializeWithExperimentalSavedDevices"),
-			"experimental saved-device initializer must remain public",
+			source.contains("initializeWithLimitsAndNetworkConfig"),
+			"production protected initializer must remain public",
+		)
+		assertTrue(source.contains("public data class SavedDeviceCapabilities ("))
+		assertTrue(
+			source.contains("public expect fun `savedDeviceCapabilities`(): SavedDeviceCapabilities"),
 		)
 		assertTrue(
 			source.contains("SavedDevice"),

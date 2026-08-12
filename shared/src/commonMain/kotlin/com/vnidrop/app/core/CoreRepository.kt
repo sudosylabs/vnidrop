@@ -455,7 +455,7 @@ private object ProtectedCoreFactory : CoreFactory {
 		appDataDir: String,
 		eventSink: CoreEventSink,
 		relaySettings: RelaySettings,
-	): VnidropCore = VnidropCore.initializeWithExperimentalSavedDevices(
+	): VnidropCore = VnidropCore.initializeWithLimitsAndNetworkConfig(
 		appDataDir,
 		eventSink,
 		defaultCoreLimits(),

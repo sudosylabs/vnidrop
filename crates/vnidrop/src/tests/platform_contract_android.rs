@@ -14,6 +14,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use data_encoding::HEXLOWER;
+use iroh::SecretKey;
 use tempfile::TempDir;
 
 use crate::{
@@ -157,6 +159,36 @@ struct AndroidContractNode {
 }
 
 impl AndroidContractNode {
+    fn new_with_legacy(identity: &SecretKey) -> Self {
+        let no_backup = TempDir::new().unwrap();
+        let data_dir = TempDir::new().unwrap();
+        std::fs::write(
+            data_dir.path().join("iroh.secret"),
+            HEXLOWER.encode(&identity.to_bytes()),
+        )
+        .unwrap();
+        let keystore = Arc::new(FakeAndroidKeystore::default());
+        let android_store =
+            AndroidSecureSecretStore::new(no_backup.path(), keystore.clone()).unwrap();
+        let store = Arc::new(RelationshipGatedStore::new(Arc::new(android_store)));
+        let sink = Arc::new(RecordingSink {
+            events: Mutex::new(Vec::new()),
+        });
+        let core = VnidropCore::initialize_with_test_secret_store(
+            data_dir.path().to_string_lossy().into_owned(),
+            sink.clone(),
+            store.clone(),
+        )
+        .expect("Android legacy migration");
+        Self {
+            _no_backup: no_backup,
+            data_dir,
+            keystore,
+            store,
+            sink,
+            core: Some(core),
+        }
+    }
     fn new() -> Self {
         let no_backup = TempDir::new().unwrap();
         let data_dir = TempDir::new().unwrap();
@@ -228,6 +260,17 @@ impl AndroidContractNode {
             Err(error) => Err(error),
         }
     }
+}
+
+#[test]
+fn android_adapter_protects_identity_before_plaintext_removal() {
+    let identity = SecretKey::generate();
+    let mut node = AndroidContractNode::new_with_legacy(&identity);
+    assert!(!node.data_dir.path().join("iroh.secret").exists());
+    let endpoint = node.core().status().endpoint_id;
+    assert_eq!(endpoint, identity.public().to_string());
+    node.restart();
+    assert_eq!(node.core().status().endpoint_id, endpoint);
 }
 
 impl Drop for AndroidContractNode {

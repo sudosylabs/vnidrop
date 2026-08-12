@@ -5,9 +5,8 @@ use std::{
 };
 
 use crate::{
-    experimental_saved_device_capabilities, secure_secret::FaultInjectingSecretStore, CoreEvent,
-    CoreEventSink, ShareMetadataInput, ShareSource, SourceKind, TransferAccessMode, VnidropCore,
-    VnidropError,
+    saved_device_capabilities, secure_secret::FaultInjectingSecretStore, CoreEvent, CoreEventSink,
+    ShareMetadataInput, ShareSource, SourceKind, TransferAccessMode, VnidropCore, VnidropError,
 };
 
 struct RecordingSink {
@@ -164,7 +163,7 @@ fn completed_authenticated_transfer_creates_pairing_eligibility_on_both_sides() 
     wait_for_eligibility(&sender.core, &receiver_id);
     wait_for_eligibility(&receiver.core, &sender_id);
 
-    let protocol = experimental_saved_device_capabilities().relationship_protocol_version;
+    let protocol = saved_device_capabilities().relationship_protocol_version;
     let sender_entry = sender
         .core
         .list_pairing_eligibilities()

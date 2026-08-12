@@ -1,6 +1,6 @@
 use std::{collections::HashSet, fmt, io, path::Path, sync::Arc, time::Duration};
 
-#[cfg(test)]
+#[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
 use std::{collections::HashMap, sync::Mutex};
 
 use data_encoding::HEXLOWER;
@@ -20,6 +20,8 @@ mod platform;
 #[cfg(any(test, target_os = "windows"))]
 pub(crate) mod windows;
 
+#[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
+pub(crate) use platform::install_platform_secret_store_for_test;
 #[cfg(test)]
 pub(crate) use platform::scope_store;
 #[cfg(test)]
@@ -477,9 +479,7 @@ impl SecretCustody {
                                 .to_string(),
                         });
                     }
-                    tokio::fs::remove_file(legacy_path)
-                        .await
-                        .map_err(VnidropError::filesystem)?;
+                    remove_legacy_identity_durably(legacy_path).await?;
                 }
                 Err(VnidropError::SecureStorageMissing { .. }) => {}
                 Err(error) => return Err(error),
@@ -496,9 +496,7 @@ impl SecretCustody {
                 Some(endpoint_id.as_str()),
             )
             .await?;
-        tokio::fs::remove_file(legacy_path)
-            .await
-            .map_err(VnidropError::filesystem)?;
+        remove_legacy_identity_durably(legacy_path).await?;
         Ok(handle)
     }
 
@@ -595,6 +593,11 @@ impl SecretCustody {
                     if validate_material(entry.kind, &material, entry.expected_identity.as_deref())
                         .is_err()
                     {
+                        if entry.kind == SecretKind::EndpointIdentity {
+                            return Err(VnidropError::SecureStorageCorrupted {
+                                reason: "protected endpoint identity is corrupted".to_string(),
+                            });
+                        }
                         self.metadata.disable(&entry.handle).await?;
                         self.delete_if_present(&entry.handle).await?;
                         summary.disabled += 1;
@@ -603,7 +606,12 @@ impl SecretCustody {
                         summary.staged_activated += 1;
                     }
                 }
-                Err(SecureSecretStoreError::Missing | SecureSecretStoreError::Corrupted) => {
+                Err(
+                    error @ (SecureSecretStoreError::Missing | SecureSecretStoreError::Corrupted),
+                ) => {
+                    if entry.kind == SecretKind::EndpointIdentity {
+                        return Err(map_store_error(error));
+                    }
                     self.metadata.disable(&entry.handle).await?;
                     self.delete_if_present(&entry.handle).await?;
                     summary.disabled += 1;
@@ -700,6 +708,32 @@ impl SecretCustody {
     }
 }
 
+async fn remove_legacy_identity_durably(path: &Path) -> Result<(), VnidropError> {
+    let path = path.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        match std::fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(VnidropError::filesystem(error)),
+        }
+        #[cfg(unix)]
+        {
+            let parent = path.parent().ok_or_else(|| {
+                VnidropError::filesystem(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "legacy identity path has no parent",
+                ))
+            })?;
+            std::fs::File::open(parent)
+                .and_then(|directory| directory.sync_all())
+                .map_err(VnidropError::filesystem)?;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(VnidropError::internal)?
+}
+
 async fn read_legacy_endpoint_identity(path: &Path) -> Result<SecretMaterial, VnidropError> {
     let encoded = match tokio::fs::read_to_string(path).await {
         Ok(encoded) => encoded,
@@ -725,7 +759,7 @@ pub(crate) struct ReconciliationSummary {
     pub(crate) disabled: u64,
 }
 
-#[cfg(test)]
+#[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CustodyCrashPoint {
     StoreWrite,
@@ -762,14 +796,14 @@ fn map_store_error(error: SecureSecretStoreError) -> VnidropError {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ReferenceStoreFailure {
     Locked,
     Unavailable,
 }
 
-#[cfg(test)]
+#[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
 #[derive(Default)]
 pub(crate) struct FaultInjectingSecretStore {
     values: Mutex<HashMap<SecretHandle, SecretMaterial>>,
@@ -777,7 +811,7 @@ pub(crate) struct FaultInjectingSecretStore {
     corrupted: Mutex<Vec<SecretHandle>>,
 }
 
-#[cfg(test)]
+#[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
 impl FaultInjectingSecretStore {
     pub(crate) fn fail_with(&self, failure: Option<ReferenceStoreFailure>) {
         *self.failure.lock().unwrap() = failure;
@@ -812,7 +846,7 @@ impl FaultInjectingSecretStore {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
 impl SecureSecretStore for FaultInjectingSecretStore {
     fn put(
         &self,

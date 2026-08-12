@@ -62,7 +62,6 @@ use crate::{
     invitation::Repository,
     logging::init_logging,
     pairing_eligibility::PairingEligibilityService,
-    secret::load_or_create_secret,
     secure_secret::{start_endpoint_identity, ProfileLock, SecureSecretStore},
     targeted_transfer::{TargetedOfferInbox, TargetedTransferProtocol},
     ticket::ticket_matches_relay_profile,
@@ -138,7 +137,6 @@ pub(super) struct ActiveTransfer {
 }
 
 pub(super) enum IdentityMode {
-    Legacy,
     Protected {
         store: Arc<dyn SecureSecretStore>,
         profile_lock: ProfileLock,
@@ -161,7 +159,6 @@ impl CoreInner {
         let targeted_transfers = stores.targeted.clone();
         let blocked_devices = stores.blocked.clone();
         let (secret_key, secret_custody, profile_lock) = match identity_mode {
-            IdentityMode::Legacy => (load_or_create_secret(&app_data_dir).await?, None, None),
             IdentityMode::Protected {
                 store,
                 profile_lock,

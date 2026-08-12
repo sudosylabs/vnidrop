@@ -20,6 +20,8 @@ use crate::{
     CoreEvent, CoreEventSink, DeviceRelationshipState, ShareMetadataInput, ShareSource, SourceKind,
     TargetedTransferState, TransferAccessMode, VnidropCore, VnidropError,
 };
+use data_encoding::HEXLOWER;
+use iroh::SecretKey;
 
 #[cfg(target_os = "windows")]
 use crate::{CoreLimits, CoreNetworkConfig};
@@ -48,6 +50,31 @@ struct WindowsContractNode {
 }
 
 impl WindowsContractNode {
+    fn new_with_legacy(identity: &SecretKey) -> Self {
+        let data_dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            data_dir.path().join("iroh.secret"),
+            HEXLOWER.encode(&identity.to_bytes()),
+        )
+        .unwrap();
+        let api = Arc::new(FakeWindowsDpapiApi::new());
+        let sink = Arc::new(RecordingSink {
+            events: Mutex::new(Vec::new()),
+        });
+        let store = windows_scoped_store(data_dir.path(), api.clone());
+        let core = VnidropCore::initialize_with_test_secret_store(
+            data_dir.path().to_string_lossy().into_owned(),
+            sink.clone(),
+            store,
+        )
+        .expect("Windows legacy migration");
+        Self {
+            data_dir,
+            api,
+            sink,
+            core: Some(core),
+        }
+    }
     fn new() -> Self {
         let data_dir = tempfile::tempdir().unwrap();
         let api = Arc::new(FakeWindowsDpapiApi::new());
@@ -91,6 +118,17 @@ impl WindowsContractNode {
         self.core = Some(core.clone());
         core
     }
+}
+
+#[test]
+fn windows_adapter_protects_identity_before_plaintext_removal() {
+    let identity = SecretKey::generate();
+    let mut node = WindowsContractNode::new_with_legacy(&identity);
+    assert!(!node.data_dir.path().join("iroh.secret").exists());
+    let endpoint = node.core().status().endpoint_id;
+    assert_eq!(endpoint, identity.public().to_string());
+    let restarted = node.restart();
+    assert_eq!(restarted.status().endpoint_id, endpoint);
 }
 
 impl Drop for WindowsContractNode {
@@ -283,7 +321,7 @@ fn real_windows_dpapi_experimental_init_preserves_identity() {
     let sink = Arc::new(RecordingSink {
         events: Mutex::new(Vec::new()),
     });
-    let core = VnidropCore::initialize_with_experimental_saved_devices(
+    let core = VnidropCore::initialize_with_limits_and_network_config(
         path.clone(),
         sink,
         CoreLimits::default(),
@@ -297,7 +335,7 @@ fn real_windows_dpapi_experimental_init_preserves_identity() {
     let sink = Arc::new(RecordingSink {
         events: Mutex::new(Vec::new()),
     });
-    let restarted = VnidropCore::initialize_with_experimental_saved_devices(
+    let restarted = VnidropCore::initialize_with_limits_and_network_config(
         path,
         sink,
         CoreLimits::default(),

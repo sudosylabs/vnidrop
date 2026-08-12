@@ -22,10 +22,7 @@ use super::{
     state_as_str, TargetedTransferRole, TargetedTransferStore,
 };
 use crate::{
-    api::{
-        experimental_saved_device_capabilities, CoreRelayMode, PendingTargetedOffer,
-        TargetedTransferState,
-    },
+    api::{saved_device_capabilities, CoreRelayMode, PendingTargetedOffer, TargetedTransferState},
     device_relationship::{DeviceRelationshipService, WireProof},
     error::VnidropError,
     grant::Challenge,
@@ -105,7 +102,7 @@ impl TargetedTransferProtocol {
         challenge: &Challenge,
         offer: SubmitTargetedOffer,
     ) -> WireOfferResponse {
-        let expected = experimental_saved_device_capabilities().targeted_transfer_protocol_version;
+        let expected = saved_device_capabilities().targeted_transfer_protocol_version;
         if self.inbox.cooldown().is_cooling(remote_endpoint_id) {
             return WireOfferResponse::Refused {
                 reason: "identity-cooldown".to_string(),
@@ -275,7 +272,7 @@ impl TargetedTransferProtocol {
                 && row.total_size == auth.total_size
                 && row.blob_ticket.as_deref() == Some(auth.blob_ticket.as_str())
                 && auth.protocol_version
-                    == experimental_saved_device_capabilities().targeted_transfer_protocol_version
+                    == saved_device_capabilities().targeted_transfer_protocol_version
             {
                 return DeliverAuthorizationResponse::Stored;
             }
@@ -421,7 +418,7 @@ impl TargetedTransferProtocol {
             || auth.total_size != completion.verified_bytes
             || row.blob_ticket.as_deref() != Some(auth.blob_ticket.as_str())
             || auth.protocol_version
-                != experimental_saved_device_capabilities().targeted_transfer_protocol_version
+                != saved_device_capabilities().targeted_transfer_protocol_version
         {
             return CompletionResponse::Rejected;
         }

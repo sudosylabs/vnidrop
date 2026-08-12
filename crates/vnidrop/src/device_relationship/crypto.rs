@@ -93,7 +93,7 @@ fn relationship_mac(
 #[cfg(test)]
 mod grant_vectors {
     use super::*;
-    use crate::api::experimental_saved_device_capabilities;
+    use crate::api::saved_device_capabilities;
     use data_encoding::HEXLOWER;
 
     #[test]
@@ -103,7 +103,7 @@ mod grant_vectors {
                 .unwrap();
         let grant_id = GrantId::decode("0123456789abcdef0123456789abcdef").unwrap();
         let challenge = Challenge::from_bytes([9u8; 32]);
-        let protocol = experimental_saved_device_capabilities().relationship_protocol_version;
+        let protocol = saved_device_capabilities().relationship_protocol_version;
         let proof = prove_relationship_grant(
             grant_id, &secret, &challenge, "issuer", "holder", 1, protocol,
         );

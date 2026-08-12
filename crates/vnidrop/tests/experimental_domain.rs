@@ -2,16 +2,16 @@ mod support;
 
 use support::TestNode;
 use vnidrop::{
-    experimental_saved_device_capabilities, DeviceRelationship, DeviceRelationshipState,
-    ExperimentalSavedDeviceCapabilities, SavedDevice, ShareMetadataInput, ShareSource, SourceKind,
-    TargetedTransfer, TargetedTransferState, TransferAccessMode, VnidropError,
+    saved_device_capabilities, DeviceRelationship, DeviceRelationshipState, SavedDevice,
+    SavedDeviceCapabilities, ShareMetadataInput, ShareSource, SourceKind, TargetedTransfer,
+    TargetedTransferState, TransferAccessMode, VnidropError,
 };
 
 #[test]
 fn saved_device_protocols_are_explicitly_experimental_and_versioned() {
     assert_eq!(
-        experimental_saved_device_capabilities(),
-        ExperimentalSavedDeviceCapabilities {
+        saved_device_capabilities(),
+        SavedDeviceCapabilities {
             domain_contract_version: 1,
             relationship_protocol_version: 1,
             targeted_transfer_protocol_version: 3,

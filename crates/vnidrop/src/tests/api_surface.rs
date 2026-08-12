@@ -59,6 +59,7 @@ fn public_api_exposes_saved_device_surface_without_prototype_contact_entry_point
         "fn share_files(",
         "fn receive(",
         "experimental_saved_device_capabilities",
+        "saved_device_capabilities",
     ] {
         assert!(
             facade.contains(required) || api.contains(required) || lib.contains(required),
@@ -66,7 +67,7 @@ fn public_api_exposes_saved_device_surface_without_prototype_contact_entry_point
         );
     }
 
-    let caps = crate::experimental_saved_device_capabilities();
+    let caps = crate::saved_device_capabilities();
     assert_eq!(caps.domain_contract_version, 1);
     assert_eq!(caps.relationship_protocol_version, 1);
     assert_eq!(caps.targeted_transfer_protocol_version, 3);

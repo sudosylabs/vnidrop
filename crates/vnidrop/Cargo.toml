@@ -8,6 +8,9 @@ license = "Apache-2.0"
 name = "vnidrop"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
+[features]
+integration-test-store = []
+
 [dependencies]
 anyhow = "1.0.102"
 async-channel = "2.5.0"

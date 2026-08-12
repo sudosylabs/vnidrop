@@ -332,13 +332,9 @@ async fn first_install_identity_is_protected_once_and_never_silently_replaced() 
     store.remove_for_test(&handle);
     drop(custody);
     let stores = persistence::open_all(temp.path()).await.unwrap();
-    let (custody, summary) = SecretCustody::start(stores.secrets.clone(), store.clone())
-        .await
-        .unwrap();
-    assert_eq!(summary.disabled, 1);
     assert!(matches!(
-        custody.initialize_endpoint_identity(&legacy_path).await,
-        Err(VnidropError::SecureStorageUnavailable { .. })
+        SecretCustody::start(stores.secrets.clone(), store.clone()).await,
+        Err(VnidropError::SecureStorageMissing { .. })
     ));
     assert!(store.list_handles().unwrap().is_empty());
 }

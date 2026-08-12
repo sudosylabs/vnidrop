@@ -13,6 +13,34 @@ use super::{
 };
 use crate::error::VnidropError;
 
+#[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
+static TEST_STORES: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<std::path::PathBuf, Arc<dyn SecureSecretStore>>>,
+> = std::sync::OnceLock::new();
+
+#[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
+pub(crate) fn install_platform_secret_store_for_test(
+    app_data_dir: &Path,
+    store: Arc<dyn SecureSecretStore>,
+) {
+    TEST_STORES
+        .get_or_init(Default::default)
+        .lock()
+        .expect("test stores")
+        .entry(app_data_dir.to_path_buf())
+        .or_insert_with(|| scope_store(app_data_dir, store));
+}
+
+#[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
+fn platform_secret_store_for_test(app_data_dir: &Path) -> Option<Arc<dyn SecureSecretStore>> {
+    TEST_STORES
+        .get_or_init(Default::default)
+        .lock()
+        .expect("test stores")
+        .get(app_data_dir)
+        .cloned()
+}
+
 struct ScopedSecretStore {
     inner: Arc<dyn SecureSecretStore>,
     physical_prefix: String,
@@ -157,6 +185,10 @@ pub(crate) fn scope_store(
 pub(crate) fn platform_secret_store(
     app_data_dir: &Path,
 ) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
+    #[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
+    if let Some(store) = platform_secret_store_for_test(app_data_dir) {
+        return Ok(store);
+    }
     Ok(scope_store(
         app_data_dir,
         Arc::new(super::apple::AppleKeychainSecretStore::new()),
@@ -167,6 +199,10 @@ pub(crate) fn platform_secret_store(
 pub(crate) fn platform_secret_store(
     app_data_dir: &Path,
 ) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
+    #[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
+    if let Some(store) = platform_secret_store_for_test(app_data_dir) {
+        return Ok(store);
+    }
     super::android::native::create_store_from_android_runtime()
         .map(|store| scope_store(app_data_dir, store))
         .map_err(map_store_error)
@@ -176,6 +212,10 @@ pub(crate) fn platform_secret_store(
 pub(crate) fn platform_secret_store(
     app_data_dir: &Path,
 ) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
+    #[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
+    if let Some(store) = platform_secret_store_for_test(app_data_dir) {
+        return Ok(store);
+    }
     super::windows::WindowsDpapiSecretStore::new(app_data_dir.join("protected-secrets-v1"))
         .map(|store| scope_store(app_data_dir, Arc::new(store)))
         .map_err(map_store_error)
@@ -185,6 +225,10 @@ pub(crate) fn platform_secret_store(
 pub(crate) fn platform_secret_store(
     app_data_dir: &Path,
 ) -> Result<Arc<dyn SecureSecretStore>, VnidropError> {
+    #[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
+    if let Some(store) = platform_secret_store_for_test(app_data_dir) {
+        return Ok(store);
+    }
     super::linux::LinuxSecretServiceStore::connect()
         .map(|store| scope_store(app_data_dir, Arc::new(store)))
         .map_err(map_store_error)

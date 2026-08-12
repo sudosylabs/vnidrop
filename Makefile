@@ -83,30 +83,30 @@ check-release: ## Validate coordinated release scripts and workflow YAML.
 
 check-rust: ## Run Rust formatting, lint, tests, and documentation checks.
 	cd $(ROOT) && $(CARGO) fmt --all -- --check
-	cd $(ROOT) && $(CARGO) clippy --workspace --all-targets -- -D warnings
-	cd $(ROOT) && $(CARGO) test --workspace --all-targets
+	cd $(ROOT) && $(CARGO) clippy --workspace --all-targets --features integration-test-store -- -D warnings
+	cd $(ROOT) && $(CARGO) test --workspace --all-targets --features integration-test-store
 	cd $(ROOT) && RUSTDOCFLAGS='-D warnings' $(CARGO) doc --workspace --no-deps
 
 audit-rust: ## Audit Rust dependencies (requires cargo-audit).
 	cd $(ROOT) && $(CARGO) audit
 
 test-rust: ## Run the focused Rust core suite.
-	cd $(ROOT) && $(CARGO) test -p vnidrop
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store
 
 test-rust-all: ## Run every Rust workspace test target.
-	cd $(ROOT) && $(CARGO) test --workspace --all-targets
+	cd $(ROOT) && $(CARGO) test --workspace --all-targets --features integration-test-store
 
 test-rust-transfer: ## Run Rust transfer integration tests.
-	cd $(ROOT) && $(CARGO) test -p vnidrop --test transfer
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --test transfer
 
 test-rust-approval: ## Run Rust approval integration tests.
-	cd $(ROOT) && $(CARGO) test -p vnidrop --test approval
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --test approval
 
 test-rust-lifecycle: ## Run Rust lifecycle integration tests.
-	cd $(ROOT) && $(CARGO) test -p vnidrop --test lifecycle
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --test lifecycle
 
 test-rust-output-sink: ## Run Rust output-sink integration tests.
-	cd $(ROOT) && $(CARGO) test -p vnidrop --test output_sink
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --test output_sink
 
 check-shared: ## Test and compile the shared Android/JVM module.
 	cd $(ROOT) && $(GRADLE) :shared:jvmTest :shared:compileKotlinJvm $(GRADLE_FLAGS)

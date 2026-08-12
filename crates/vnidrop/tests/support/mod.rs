@@ -41,6 +41,17 @@ pub struct CoreGuard(Arc<VnidropCore>);
 
 impl CoreGuard {
     pub fn start(path: &Path, sink: Arc<dyn CoreEventSink>) -> Self {
+        #[cfg(feature = "integration-test-store")]
+        return Self(
+            VnidropCore::initialize_for_integration_test(
+                path.to_string_lossy().to_string(),
+                sink,
+                CoreLimits::default(),
+                CoreNetworkConfig::default(),
+            )
+            .expect("test core should initialize"),
+        );
+        #[cfg(not(feature = "integration-test-store"))]
         Self(
             VnidropCore::initialize(path.to_string_lossy().to_string(), sink)
                 .expect("test core should initialize"),
@@ -52,6 +63,17 @@ impl CoreGuard {
         sink: Arc<dyn CoreEventSink>,
         limits: CoreLimits,
     ) -> Self {
+        #[cfg(feature = "integration-test-store")]
+        return Self(
+            VnidropCore::initialize_for_integration_test(
+                path.to_string_lossy().to_string(),
+                sink,
+                limits,
+                CoreNetworkConfig::default(),
+            )
+            .expect("test core should initialize with limits"),
+        );
+        #[cfg(not(feature = "integration-test-store"))]
         Self(
             VnidropCore::initialize_with_limits(path.to_string_lossy().to_string(), sink, limits)
                 .expect("test core should initialize with limits"),
@@ -63,6 +85,17 @@ impl CoreGuard {
         sink: Arc<dyn CoreEventSink>,
         network_config: CoreNetworkConfig,
     ) -> Self {
+        #[cfg(feature = "integration-test-store")]
+        return Self(
+            VnidropCore::initialize_for_integration_test(
+                path.to_string_lossy().to_string(),
+                sink,
+                CoreLimits::default(),
+                network_config,
+            )
+            .expect("test core should initialize with network config"),
+        );
+        #[cfg(not(feature = "integration-test-store"))]
         Self(
             VnidropCore::initialize_with_network_config(
                 path.to_string_lossy().to_string(),

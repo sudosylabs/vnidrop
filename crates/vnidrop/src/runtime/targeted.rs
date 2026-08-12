@@ -9,8 +9,8 @@ use uuid::Uuid;
 use super::{receive::ReceiveTarget, targeted_tag_name, CoreInner};
 use crate::{
     api::{
-        experimental_saved_device_capabilities, PendingTargetedOffer, ShareSource,
-        TargetedOfferResponse, TargetedTransfer, TargetedTransferState, TransferAccessMode,
+        saved_device_capabilities, PendingTargetedOffer, ShareSource, TargetedOfferResponse,
+        TargetedTransfer, TargetedTransferState, TransferAccessMode,
     },
     error::VnidropError,
     secure_secret::{SecretHandle, SecretKind},
@@ -610,8 +610,7 @@ impl CoreInner {
             }
         };
 
-        let protocol_version =
-            experimental_saved_device_capabilities().targeted_transfer_protocol_version;
+        let protocol_version = saved_device_capabilities().targeted_transfer_protocol_version;
         if let Err(error) = store
             .set_state(
                 &transfer_uuid,
@@ -1214,8 +1213,7 @@ impl CoreInner {
                 content_hash: row.content_hash.clone(),
                 file_count: row.file_count,
                 total_size: row.total_size,
-                protocol_version: experimental_saved_device_capabilities()
-                    .targeted_transfer_protocol_version,
+                protocol_version: saved_device_capabilities().targeted_transfer_protocol_version,
                 transfer_name: row.transfer_name.clone(),
                 blob_ticket: blob_ticket.clone(),
             },

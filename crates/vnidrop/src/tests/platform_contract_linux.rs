@@ -21,6 +21,8 @@ use crate::{
     CoreEvent, CoreEventSink, DeviceRelationshipState, ShareMetadataInput, ShareSource, SourceKind,
     TargetedTransferState, TransferAccessMode, VnidropCore, VnidropError,
 };
+use data_encoding::HEXLOWER;
+use iroh::SecretKey;
 
 #[cfg(target_os = "linux")]
 use crate::{CoreLimits, CoreNetworkConfig};
@@ -54,6 +56,31 @@ struct SecretServiceNode {
 }
 
 impl SecretServiceNode {
+    fn new_with_legacy(identity: &SecretKey) -> Self {
+        let data_dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            data_dir.path().join("iroh.secret"),
+            HEXLOWER.encode(&identity.to_bytes()),
+        )
+        .unwrap();
+        let sink = Arc::new(RecordingSink {
+            events: Mutex::new(Vec::new()),
+        });
+        let api = Arc::new(ControllableSecretService::default());
+        let store = Arc::new(LinuxSecretServiceStore::with_api(api.clone()));
+        let core = VnidropCore::initialize_with_test_secret_store(
+            data_dir.path().to_string_lossy().into_owned(),
+            sink.clone(),
+            store,
+        )
+        .expect("Linux legacy migration");
+        Self {
+            data_dir,
+            api,
+            sink,
+            core: Some(core),
+        }
+    }
     fn new() -> Self {
         let data_dir = tempfile::tempdir().unwrap();
         let sink = Arc::new(RecordingSink {
@@ -205,6 +232,17 @@ impl FaultNode {
             }
         }
     }
+}
+
+#[test]
+fn linux_adapter_protects_identity_before_plaintext_removal() {
+    let identity = SecretKey::generate();
+    let node = SecretServiceNode::new_with_legacy(&identity);
+    assert!(!node.data_dir.path().join("iroh.secret").exists());
+    let endpoint = node.core().status().endpoint_id;
+    assert_eq!(endpoint, identity.public().to_string());
+    let node = node.restart();
+    assert_eq!(node.core().status().endpoint_id, endpoint);
 }
 
 impl Drop for FaultNode {
@@ -516,7 +554,7 @@ fn experimental_secret_service_identity_survives_core_restart_on_linux() {
     let sink = Arc::new(RecordingSink {
         events: Mutex::new(Vec::new()),
     });
-    let core = VnidropCore::initialize_with_experimental_saved_devices(
+    let core = VnidropCore::initialize_with_limits_and_network_config(
         data_dir.path().to_string_lossy().into_owned(),
         sink,
         CoreLimits::default(),
@@ -535,7 +573,7 @@ fn experimental_secret_service_identity_survives_core_restart_on_linux() {
     });
     let started = Instant::now();
     let restarted = loop {
-        match VnidropCore::initialize_with_experimental_saved_devices(
+        match VnidropCore::initialize_with_limits_and_network_config(
             path.clone(),
             sink.clone(),
             CoreLimits::default(),
@@ -803,7 +841,7 @@ fn linux_public_bindings_omit_raw_secrets_and_generic_mutation() {
         }
     }
     assert!(
-        public_facade.contains("initialize_with_experimental_saved_devices"),
+        public_facade.contains("initialize_with_limits_and_network_config"),
         "facade must expose experimental saved-device init"
     );
     assert!(

@@ -21,6 +21,8 @@ use crate::{
     ShareMetadataInput, ShareSource, SourceKind, TargetedTransferState, TransferAccessMode,
     VnidropCore, VnidropError,
 };
+use data_encoding::HEXLOWER;
+use iroh::SecretKey;
 
 const ERR_SEC_INTERACTION_NOT_ALLOWED: i32 = -25_308;
 const ERR_SEC_ITEM_NOT_FOUND: i32 = -25_300;
@@ -47,7 +49,7 @@ impl RecordingSink {
 
 /// Node backed by the Apple Keychain adapter (injectable API for headless cargo).
 ///
-/// Production `initialize_with_experimental_saved_devices` uses the same
+/// Production standard constructors use the same
 /// `AppleKeychainSecretStore` + profile scoping. CLI unit tests lack the app
 /// Keychain entitlement, so the system Keychain returns Unavailable; the
 /// injectable API exercises the identical adapter path. Swift XCTest covers
@@ -118,6 +120,34 @@ impl AppleKeychainApi for RecordingKeychain {
 }
 
 impl KeychainNode {
+    fn new_with_legacy(identity: &SecretKey) -> Self {
+        let data_dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            data_dir.path().join("iroh.secret"),
+            HEXLOWER.encode(&identity.to_bytes()),
+        )
+        .unwrap();
+        let sink = Arc::new(RecordingSink {
+            events: Mutex::new(Vec::new()),
+        });
+        let api = RecordingKeychain::default();
+        let store = crate::secure_secret::scope_store(
+            data_dir.path(),
+            Arc::new(AppleKeychainSecretStore::with_api(api.clone())),
+        );
+        let core = VnidropCore::initialize_with_test_secret_store(
+            data_dir.path().to_string_lossy().into_owned(),
+            sink.clone(),
+            store,
+        )
+        .expect("Apple legacy migration");
+        Self {
+            data_dir,
+            api,
+            sink,
+            core: Some(core),
+        }
+    }
     fn new() -> Self {
         let data_dir = tempfile::tempdir().unwrap();
         let sink = Arc::new(RecordingSink {
@@ -179,7 +209,7 @@ impl Drop for KeychainNode {
 }
 
 fn try_experimental_keychain_init(app_data_dir: &Path) -> Result<Arc<VnidropCore>, VnidropError> {
-    VnidropCore::initialize_with_experimental_saved_devices(
+    VnidropCore::initialize_with_limits_and_network_config(
         app_data_dir.to_string_lossy().into_owned(),
         Arc::new(RecordingSink {
             events: Mutex::new(Vec::new()),
@@ -262,6 +292,17 @@ impl FaultNode {
             }
         }
     }
+}
+
+#[test]
+fn apple_adapter_protects_identity_before_plaintext_removal() {
+    let identity = SecretKey::generate();
+    let node = KeychainNode::new_with_legacy(&identity);
+    assert!(!node.data_dir.path().join("iroh.secret").exists());
+    let endpoint = node.core().status().endpoint_id;
+    assert_eq!(endpoint, identity.public().to_string());
+    let node = node.restart();
+    assert_eq!(node.core().status().endpoint_id, endpoint);
 }
 
 impl Drop for FaultNode {

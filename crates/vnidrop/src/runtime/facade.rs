@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use std::{future::Future, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
@@ -28,6 +30,30 @@ pub struct VnidropCore {
 }
 
 impl VnidropCore {
+    fn initialize_protected(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        limits: CoreLimits,
+        network_config: CoreNetworkConfig,
+    ) -> Result<Arc<Self>, VnidropError> {
+        let app_data_path = PathBuf::from(app_data_dir);
+        std::fs::create_dir_all(&app_data_path).map_err(VnidropError::filesystem)?;
+        let app_data_path =
+            std::fs::canonicalize(app_data_path).map_err(VnidropError::filesystem)?;
+        let profile_lock = lock_profile(&app_data_path)?;
+        let store = platform_secret_store(&app_data_path)?;
+        Self::initialize_with_identity_mode(
+            app_data_path.to_string_lossy().into_owned(),
+            event_sink,
+            limits,
+            network_config,
+            IdentityMode::Protected {
+                store,
+                profile_lock,
+            },
+        )
+    }
+
     /// Drive work on this core's multi-thread runtime from a sync API boundary.
     ///
     /// Uses [`tokio::runtime::Handle::block_on`] rather than exclusive
@@ -63,8 +89,40 @@ impl VnidropCore {
                 relay_urls,
                 identity_mode,
             ))
-            .map_err(VnidropError::initialization)?;
+            .map_err(|error| match error.downcast::<VnidropError>() {
+                Ok(error) => error,
+                Err(error) => VnidropError::initialization(error),
+            })?;
         Ok(Arc::new(Self { runtime, inner }))
+    }
+}
+
+#[cfg(all(feature = "integration-test-store", debug_assertions))]
+impl VnidropCore {
+    /// Non-production Rust test harness entry that selects protected in-memory custody.
+    #[doc(hidden)]
+    pub fn initialize_for_integration_test(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        limits: CoreLimits,
+        network_config: CoreNetworkConfig,
+    ) -> Result<Arc<Self>, VnidropError> {
+        let path = std::fs::canonicalize(&app_data_dir)
+            .or_else(|_| {
+                std::fs::create_dir_all(&app_data_dir)?;
+                std::fs::canonicalize(&app_data_dir)
+            })
+            .map_err(VnidropError::filesystem)?;
+        crate::secure_secret::install_platform_secret_store_for_test(
+            &path,
+            Arc::new(crate::secure_secret::FaultInjectingSecretStore::default()),
+        );
+        Self::initialize_with_limits_and_network_config(
+            path.to_string_lossy().into_owned(),
+            event_sink,
+            limits,
+            network_config,
+        )
     }
 }
 
@@ -259,6 +317,7 @@ impl VnidropCore {
     }
 }
 
+#[allow(deprecated)]
 #[uniffi::export]
 impl VnidropCore {
     #[uniffi::constructor]
@@ -309,16 +368,11 @@ impl VnidropCore {
         limits: CoreLimits,
         network_config: CoreNetworkConfig,
     ) -> Result<Arc<Self>, VnidropError> {
-        Self::initialize_with_identity_mode(
-            app_data_dir,
-            event_sink,
-            limits,
-            network_config,
-            IdentityMode::Legacy,
-        )
+        Self::initialize_protected(app_data_dir, event_sink, limits, network_config)
     }
 
-    /// Starts the experimental saved-device core with a platform-protected identity.
+    /// Compatibility constructor retained during the protected-initialization expand phase.
+    #[deprecated(note = "use initialize_with_limits_and_network_config")]
     #[uniffi::constructor]
     pub fn initialize_with_experimental_saved_devices(
         app_data_dir: String,
@@ -326,22 +380,7 @@ impl VnidropCore {
         limits: CoreLimits,
         network_config: CoreNetworkConfig,
     ) -> Result<Arc<Self>, VnidropError> {
-        let app_data_path = PathBuf::from(app_data_dir);
-        std::fs::create_dir_all(&app_data_path).map_err(VnidropError::filesystem)?;
-        let app_data_path =
-            std::fs::canonicalize(app_data_path).map_err(VnidropError::filesystem)?;
-        let profile_lock = lock_profile(&app_data_path)?;
-        let store = platform_secret_store(&app_data_path)?;
-        Self::initialize_with_identity_mode(
-            app_data_path.to_string_lossy().into_owned(),
-            event_sink,
-            limits,
-            network_config,
-            IdentityMode::Protected {
-                store,
-                profile_lock,
-            },
-        )
+        Self::initialize_protected(app_data_dir, event_sink, limits, network_config)
     }
 
     pub fn status(&self) -> RuntimeStatus {

@@ -14,7 +14,7 @@ mod store;
 pub(crate) use store::PairingEligibilityStore;
 
 use crate::{
-    api::{experimental_saved_device_capabilities, PairingEligibilitySummary},
+    api::{saved_device_capabilities, PairingEligibilitySummary},
     device_relationship::DeviceRelationshipStore,
     error::VnidropError,
     event_hub::EventHub,
@@ -113,8 +113,7 @@ impl PairingEligibilityService {
             return Ok(());
         }
 
-        let protocol_version =
-            experimental_saved_device_capabilities().relationship_protocol_version;
+        let protocol_version = saved_device_capabilities().relationship_protocol_version;
         let capability = derive_capability(
             approval_token,
             &self.local_endpoint_id,

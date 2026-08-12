@@ -12,8 +12,8 @@ use tokio::sync::Mutex as TokioMutex;
 
 use crate::{
     api::{
-        experimental_saved_device_capabilities, CoreRelayMode, DeviceRelationship,
-        DeviceRelationshipState, SavedDevice,
+        saved_device_capabilities, CoreRelayMode, DeviceRelationship, DeviceRelationshipState,
+        SavedDevice,
     },
     blocked_devices::BlockStore,
     error::VnidropError,
@@ -499,7 +499,7 @@ impl DeviceRelationshipService {
             Ok(capability) => capability,
             Err(_) => return PairingRequestResponse::Rejected,
         };
-        let local_protocol = experimental_saved_device_capabilities().relationship_protocol_version;
+        let local_protocol = saved_device_capabilities().relationship_protocol_version;
         // Peers without a compatible saved-device protocol cannot pair; they
         // retain ordinary invitation flow outside this ALPN.
         if request.protocol_version != local_protocol {

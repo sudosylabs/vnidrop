@@ -55,7 +55,11 @@ src/
     lifecycle.rs  # cancel share, delete, status, access mode, shutdown
     provider.rs   # provider messages, per-peer transfer progress
     saved_devices.rs # saved-device pairing, forget, block
-    targeted.rs   # saved-device targeted transfers
+    targeted.rs   # targeted lifecycle and restart restoration
+    targeted_create.rs # targeted import, offer, and sender approval
+    targeted_receive.rs # targeted download, resume, and completion
+    targeted_payload.rs # targeted blob fetch and export bridge
+    targeted_reconciliation.rs # durable delivery and cleanup retries
   persistence.rs  # AppDataStores / persistence open (domain stores)
   invitation/     # invitation-transfer domain store (type name: Repository)
   pairing_eligibility/ # eligibility service + store

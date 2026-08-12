@@ -35,6 +35,9 @@ async fn open_all_returns_all_domain_stores_and_schemas() {
         "protected_secret_refs",
         "blocked_endpoints",
         "targeted_transfers",
+        "targeted_accepted_offer_intents",
+        "targeted_authorization_delivery_outbox",
+        "targeted_schema_migrations",
         "targeted_completion_outbox",
         "targeted_payload_release_outbox",
         "transfers",
@@ -51,6 +54,68 @@ async fn open_all_returns_all_domain_stores_and_schemas() {
             "{table} must exist after open_all"
         );
     }
+}
+
+#[tokio::test]
+async fn approved_sender_rows_backfill_authorization_delivery_once() {
+    let temp = tempfile::tempdir().unwrap();
+    let stores = persistence::open_all(temp.path()).await.unwrap();
+    let now = crate::util::now_ms();
+    stores
+        .targeted
+        .insert(&crate::targeted_transfer::TargetedTransferRow {
+            id: "legacy-approved".to_string(),
+            protocol_transfer_id: 991,
+            sender_endpoint_id: "sender".to_string(),
+            receiver_endpoint_id: "receiver".to_string(),
+            manifest_id: "manifest".to_string(),
+            content_hash: "content".to_string(),
+            transfer_name: "legacy".to_string(),
+            file_count: 1,
+            total_size: 4,
+            verified_bytes: 0,
+            blob_ticket: Some("ticket".to_string()),
+            authorization_secret_handle: Some("handle".to_string()),
+            role: crate::targeted_transfer::TargetedTransferRole::Sender,
+            state: crate::TargetedTransferState::Approved,
+            created_at: now,
+            updated_at: now,
+        })
+        .await
+        .unwrap();
+    let pool = open_profile_pool(temp.path()).await;
+    sqlx::query(
+        "DELETE FROM targeted_schema_migrations WHERE name = 'authorization-delivery-outbox-v1'",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    drop(pool);
+
+    drop(stores);
+    let stores = persistence::open_all(temp.path()).await.unwrap();
+    assert_eq!(
+        stores
+            .targeted
+            .list_pending_authorization_deliveries()
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    stores
+        .targeted
+        .clear_pending_authorization_delivery("legacy-approved")
+        .await
+        .unwrap();
+    drop(stores);
+    let stores = persistence::open_all(temp.path()).await.unwrap();
+    assert!(stores
+        .targeted
+        .list_pending_authorization_deliveries()
+        .await
+        .unwrap()
+        .is_empty());
 }
 
 #[tokio::test]

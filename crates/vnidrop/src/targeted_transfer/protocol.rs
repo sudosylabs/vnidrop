@@ -43,10 +43,15 @@ pub(crate) struct TargetedTransferProtocol {
     access_policy: std::sync::Arc<crate::access_policy::AccessPolicy>,
     cleanup:
         std::sync::Arc<dyn Fn(super::TargetedTransferRow) -> TargetedCleanupFuture + Send + Sync>,
+    persist_authorization: std::sync::Arc<
+        dyn Fn(TargetedAuthorization) -> TargetedAuthorizationPersistFuture + Send + Sync,
+    >,
 }
 
 pub(crate) type TargetedCleanupFuture =
     Pin<Box<dyn Future<Output = Result<(), VnidropError>> + Send>>;
+pub(crate) type TargetedAuthorizationPersistFuture =
+    Pin<Box<dyn Future<Output = Result<bool, VnidropError>> + Send>>;
 
 impl fmt::Debug for TargetedTransferProtocol {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -71,6 +76,9 @@ impl TargetedTransferProtocol {
         cleanup: std::sync::Arc<
             dyn Fn(super::TargetedTransferRow) -> TargetedCleanupFuture + Send + Sync,
         >,
+        persist_authorization: std::sync::Arc<
+            dyn Fn(TargetedAuthorization) -> TargetedAuthorizationPersistFuture + Send + Sync,
+        >,
     ) -> Self {
         Self {
             relationships,
@@ -83,6 +91,7 @@ impl TargetedTransferProtocol {
             event_hub,
             access_policy,
             cleanup,
+            persist_authorization,
         }
     }
 
@@ -251,6 +260,14 @@ impl TargetedTransferProtocol {
         remote_endpoint_id: &str,
         delivery: DeliverTargetedAuthorization,
     ) -> DeliverAuthorizationResponse {
+        if self
+            .relationships
+            .require_saved(remote_endpoint_id)
+            .await
+            .is_err()
+        {
+            return DeliverAuthorizationResponse::Rejected;
+        }
         let Ok(auth) = TargetedAuthorization::decode(&delivery.authorization) else {
             return DeliverAuthorizationResponse::Rejected;
         };
@@ -260,57 +277,23 @@ impl TargetedTransferProtocol {
         {
             return DeliverAuthorizationResponse::Rejected;
         }
-        if let Ok(Some(row)) = self.store.get_row(&delivery.transfer_id).await {
-            if row.authorization_secret_handle.is_some()
-                && row.protocol_transfer_id == auth.protocol_transfer_id
-                && row.sender_endpoint_id == auth.sender_endpoint_id
-                && row.receiver_endpoint_id == auth.receiver_endpoint_id
-                && row.manifest_id == auth.manifest_id
-                && row.content_hash == auth.content_hash
-                && row.transfer_name == auth.transfer_name
-                && row.file_count == auth.file_count
-                && row.total_size == auth.total_size
-                && row.blob_ticket.as_deref() == Some(auth.blob_ticket.as_str())
-                && auth.protocol_version
-                    == saved_device_capabilities().targeted_transfer_protocol_version
-            {
-                return DeliverAuthorizationResponse::Stored;
-            }
-            if row.authorization_secret_handle.is_some() {
-                return DeliverAuthorizationResponse::Rejected;
-            }
-        }
-        if !self.inbox.authorization_matches_pending(&auth).await {
+        if auth.protocol_version != saved_device_capabilities().targeted_transfer_protocol_version {
             return DeliverAuthorizationResponse::Rejected;
         }
-        if self
-            .inbox
-            .deliver_authorization(&delivery.transfer_id, delivery.authorization)
-            .await
-        {
-            let deadline = tokio::time::Instant::now()
-                + std::time::Duration::from_millis(self.limits.offer_timeout_ms);
-            loop {
-                if let Ok(Some(row)) = self.store.get_row(&delivery.transfer_id).await {
-                    if row.authorization_secret_handle.is_some() {
-                        return DeliverAuthorizationResponse::Stored;
-                    }
-                    if matches!(
-                        row.state,
-                        TargetedTransferState::Failed
-                            | TargetedTransferState::Cancelled
-                            | TargetedTransferState::Deleted
-                    ) {
-                        return DeliverAuthorizationResponse::Rejected;
-                    }
-                }
-                if tokio::time::Instant::now() >= deadline {
-                    return DeliverAuthorizationResponse::Rejected;
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(25)).await;
-            }
-        } else {
+        let Ok(ticket) = auth.blob_ticket.parse::<iroh_blobs::ticket::BlobTicket>() else {
+            return DeliverAuthorizationResponse::Rejected;
+        };
+        if ticket.hash().to_string() != auth.manifest_id || auth.manifest_id != auth.content_hash {
+            return DeliverAuthorizationResponse::Rejected;
+        }
+        if (self.persist_authorization)(auth).await.is_err() {
             DeliverAuthorizationResponse::Rejected
+        } else {
+            let _ = self
+                .inbox
+                .deliver_authorization(&delivery.transfer_id, delivery.authorization)
+                .await;
+            DeliverAuthorizationResponse::Stored
         }
     }
 
@@ -324,6 +307,14 @@ impl TargetedTransferProtocol {
                 return CancelWireOfferResponse::Rejected;
             }
             self.inbox.discard(&cancel.transfer_id).await;
+            if self
+                .store
+                .clear_accepted_offer_intent(&cancel.transfer_id)
+                .await
+                .is_err()
+            {
+                return CancelWireOfferResponse::Rejected;
+            }
             return CancelWireOfferResponse::Cancelled;
         }
         if let Ok(Some(row)) = self.store.get_row(&cancel.transfer_id).await {
@@ -381,6 +372,14 @@ impl TargetedTransferProtocol {
                 }
             }
             return CancelWireOfferResponse::Cancelled;
+        }
+        if self
+            .store
+            .clear_accepted_intent_if_sender(&cancel.transfer_id, remote_endpoint_id)
+            .await
+            .is_err()
+        {
+            return CancelWireOfferResponse::Rejected;
         }
         CancelWireOfferResponse::Cancelled
     }

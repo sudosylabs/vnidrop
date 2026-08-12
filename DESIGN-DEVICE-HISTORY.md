@@ -1,11 +1,11 @@
 # Design — Saved devices and targeted transfers
 
-Status: **experimental foundation for the 0.3.x line**.
+Status: **production Rust core capability; product UI graduation is deferred**.
 
 The unreleased contact/held-offer/polling prototype has been removed. The
 implementation on this branch is the versioned saved-device, device-relationship,
-and targeted-transfer foundation described below. Its wire protocol is
-experimental and versioned; product UI remains deferred.
+and targeted-transfer core described below. Its wire protocol and public core
+surface are production contracts; KMP and Apple product UI remain deferred.
 
 The feature lets two VniDrop installations remember one another after a
 successful transfer, with explicit consent on both devices. A saved device can
@@ -432,8 +432,8 @@ state after reconnect or restart.
 ### 13.1 Pairing and targeted-transfer event catalog
 
 Canonical kinds emitted on `CoreEvent` (phase → kind). Treat every event as a
-wake-up: refresh durable state via list/get APIs. Mid-transfer progress polish
-(live `verified_bytes` updates) may follow; this catalog is the readiness bar.
+wake-up: refresh durable state via list/get APIs. Targeted progress persists
+monotonic `verified_bytes`; event payloads remain advisory.
 
 **`pairing`**
 
@@ -510,8 +510,10 @@ capabilities. A peer without compatible support cannot be paired or receive a
 targeted transfer and falls back to the existing invitation flow. A targeted
 transfer must never be reinterpreted as an ordinary share for compatibility.
 
-The feature is gated as experimental in the 0.3.x line. The wire protocol is
-versioned from its first merge. Removing the experimental gate requires:
+The Rust core feature has passed its production release gate. Its wire protocol
+is versioned from its first merge. KMP and Apple Saved-device UI graduation,
+including their existing experimental preference gates, is a separate release
+decision. Future core protocol revisions continue to require:
 
 - Stable migrations from every released database version.
 - Compatible Apple, Android, Windows, and Linux credential-store adapters.

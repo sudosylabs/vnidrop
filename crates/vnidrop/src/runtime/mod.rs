@@ -18,6 +18,10 @@ mod saved_devices;
 mod share;
 mod storage;
 mod targeted;
+mod targeted_create;
+mod targeted_payload;
+mod targeted_receive;
+mod targeted_reconciliation;
 
 pub use facade::VnidropCore;
 #[cfg(test)]
@@ -122,13 +126,17 @@ pub(super) struct CoreInner {
     pub(super) provider_task: TokioMutex<Option<JoinHandle<()>>>,
     pub(super) delivery_receipt_notify: Notify,
     pub(super) delivery_receipt_task: TokioMutex<Option<JoinHandle<()>>>,
-    pub(super) targeted_completion_task: TokioMutex<Option<JoinHandle<()>>>,
+    pub(super) targeted_reconciliation_task: TokioMutex<Option<JoinHandle<()>>>,
     pub(super) shutdown_started: AtomicBool,
     /// Test-only log of peers passed to [`Self::cancel_targeted_transfers_for_peer`].
     #[cfg(test)]
     targeted_cancel_log: std::sync::Mutex<Vec<String>>,
     #[cfg(test)]
     suppress_targeted_completion: AtomicBool,
+    #[cfg(test)]
+    suppress_targeted_authorization_delivery: AtomicBool,
+    #[cfg(test)]
+    targeted_authorization_delivery_attempts: std::sync::atomic::AtomicU64,
 }
 
 pub(super) struct ActiveTransfer {
@@ -398,6 +406,15 @@ impl CoreInner {
             limits.max_saved_devices,
             limits.pairing_timeout_ms,
         ));
+        if let Some(custody) = &secret_custody {
+            let referenced = targeted_transfers.authorization_secret_handles().await?;
+            let removed = custody
+                .remove_orphaned_targeted_authorizations(&referenced)
+                .await?;
+            if removed > 0 {
+                tracing::warn!(removed, "removed orphaned targeted authorization secrets");
+            }
+        }
         let active_transfers =
             Arc::new(std::sync::Mutex::new(HashMap::<u64, ActiveTransfer>::new()));
         let active_targeted_transfers = Arc::new(std::sync::Mutex::new(HashMap::<
@@ -449,6 +466,125 @@ impl CoreInner {
                     Ok(())
                 }) as crate::targeted_transfer::protocol::TargetedCleanupFuture
             });
+        let authorization_custody = secret_custody.clone();
+        let authorization_store = targeted_transfers.clone();
+        let authorization_repository = repository.clone();
+        let authorization_events = event_hub.clone();
+        let persist_targeted_authorization = Arc::new(
+            move |authorization: crate::targeted_transfer::TargetedAuthorization| {
+                let custody = authorization_custody.clone();
+                let transfers = authorization_store.clone();
+                let repository = authorization_repository.clone();
+                let events = authorization_events.clone();
+                Box::pin(async move {
+                    let custody = custody.ok_or_else(|| {
+                        crate::error::VnidropError::SecureStorageUnavailable {
+                            reason: "targeted authorization requires protected custody".to_string(),
+                        }
+                    })?;
+                    if let Some(row) = transfers.get_row(&authorization.transfer_id).await? {
+                        let exact = row.role
+                            == crate::targeted_transfer::TargetedTransferRole::Receiver
+                            && matches!(
+                                row.state,
+                                crate::api::TargetedTransferState::Approved
+                                    | crate::api::TargetedTransferState::Connecting
+                                    | crate::api::TargetedTransferState::Transferring
+                                    | crate::api::TargetedTransferState::Interrupted
+                                    | crate::api::TargetedTransferState::Completed
+                            )
+                            && row.protocol_transfer_id == authorization.protocol_transfer_id
+                            && row.sender_endpoint_id == authorization.sender_endpoint_id
+                            && row.receiver_endpoint_id == authorization.receiver_endpoint_id
+                            && row.manifest_id == authorization.manifest_id
+                            && row.content_hash == authorization.content_hash
+                            && row.transfer_name == authorization.transfer_name
+                            && row.file_count == authorization.file_count
+                            && row.total_size == authorization.total_size
+                            && row.blob_ticket.as_deref()
+                                == Some(authorization.blob_ticket.as_str());
+                        let Some(handle) = row.authorization_secret_handle else {
+                            return Err(crate::error::VnidropError::SecureStorageMissing {
+                                reason: "receiver authorization handle is missing".to_string(),
+                            });
+                        };
+                        if !exact {
+                            return Err(crate::error::VnidropError::permission(anyhow::anyhow!(
+                                "targeted authorization conflicts with receiver state"
+                            )));
+                        }
+                        let material = custody
+                            .load(&crate::secure_secret::SecretHandle::from_stored(handle))
+                            .await?;
+                        let rebuilt = crate::targeted_transfer::reconstruct_authorization(
+                            crate::targeted_transfer::TargetedAuthorizationDraft {
+                                transfer_id: row.id,
+                                protocol_transfer_id: row.protocol_transfer_id,
+                                sender_endpoint_id: row.sender_endpoint_id,
+                                receiver_endpoint_id: row.receiver_endpoint_id,
+                                manifest_id: row.manifest_id,
+                                content_hash: row.content_hash,
+                                file_count: row.file_count,
+                                total_size: row.total_size,
+                                protocol_version: authorization.protocol_version,
+                                transfer_name: row.transfer_name,
+                                blob_ticket: row.blob_ticket.expect("checked blob ticket"),
+                            },
+                            &material,
+                        )?;
+                        if rebuilt.encode()? != authorization.encode()? {
+                            return Err(crate::error::VnidropError::permission(anyhow::anyhow!(
+                                "protected receiver authorization does not match delivery"
+                            )));
+                        }
+                        return Ok(false);
+                    }
+                    let invitation_collision = repository
+                        .list_transfers()
+                        .await
+                        .map_err(crate::error::VnidropError::repository)?
+                        .into_iter()
+                        .any(|transfer| transfer.transfer_id == authorization.protocol_transfer_id);
+                    if invitation_collision {
+                        return Err(crate::error::VnidropError::invalid_input(anyhow::anyhow!(
+                            "targeted transfer protocol id collides with invitation work"
+                        )));
+                    }
+                    let handle = custody
+                        .protect(
+                            crate::secure_secret::SecretKind::TargetedAuthorization,
+                            crate::targeted_transfer::auth_secret_material(&authorization)?,
+                            None,
+                        )
+                        .await?;
+                    let created = match transfers
+                        .persist_receiver_authorization_and_consume_intent(
+                            &authorization,
+                            handle.as_str(),
+                        )
+                        .await
+                    {
+                        Ok(created) => created,
+                        Err(error) => {
+                            if let Err(cleanup_error) = custody.remove(&handle).await {
+                                tracing::warn!(%cleanup_error, "failed to roll back receiver authorization secret");
+                            }
+                            return Err(error);
+                        }
+                    };
+                    if created {
+                        // Protocol callbacks are durable wake-ups, including restart recovery.
+                        events.emit_endpoint(
+                            "targeted_transfer",
+                            "approved",
+                            serde_json::json!({ "targeted_transfer_id": authorization.transfer_id }),
+                        );
+                    }
+                    Ok(created)
+                })
+                    as crate::targeted_transfer::protocol::TargetedAuthorizationPersistFuture
+            },
+        );
         let router = Router::builder(endpoint.clone())
             .accept(iroh_blobs::ALPN, blobs)
             .accept(HandshakeService::ALPN, handshake)
@@ -469,6 +605,7 @@ impl CoreInner {
                     event_hub.clone(),
                     access_policy.clone(),
                     targeted_cleanup,
+                    persist_targeted_authorization,
                 ),
             )
             .spawn();
@@ -501,12 +638,16 @@ impl CoreInner {
             provider_task: TokioMutex::new(None),
             delivery_receipt_notify: Notify::new(),
             delivery_receipt_task: TokioMutex::new(None),
-            targeted_completion_task: TokioMutex::new(None),
+            targeted_reconciliation_task: TokioMutex::new(None),
             shutdown_started: AtomicBool::new(false),
             #[cfg(test)]
             targeted_cancel_log: std::sync::Mutex::new(Vec::new()),
             #[cfg(test)]
             suppress_targeted_completion: AtomicBool::new(false),
+            #[cfg(test)]
+            suppress_targeted_authorization_delivery: AtomicBool::new(false),
+            #[cfg(test)]
+            targeted_authorization_delivery_attempts: std::sync::atomic::AtomicU64::new(0),
         });
 
         // In-flight connecting/transferring transfers become Interrupted across restart.
@@ -536,7 +677,7 @@ impl CoreInner {
         );
         inner.spawn_provider_event_task(event_rx).await;
         inner.spawn_delivery_receipt_task().await;
-        inner.spawn_targeted_completion_task().await;
+        inner.spawn_targeted_reconciliation_task().await;
         if let Err(error) = inner.pairing_eligibility.reconcile().await {
             tracing::warn!(%error, "failed to reconcile pairing eligibility");
         }

@@ -191,7 +191,7 @@ impl CoreInner {
             task.abort();
             let _ = task.await;
         }
-        if let Some(task) = self.targeted_completion_task.lock().await.take() {
+        if let Some(task) = self.targeted_reconciliation_task.lock().await.take() {
             task.abort();
             let _ = task.await;
         }

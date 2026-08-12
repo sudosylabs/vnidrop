@@ -419,6 +419,19 @@ impl SecretCustody {
         Ok(handle)
     }
 
+    #[cfg(test)]
+    pub(crate) async fn create_orphaned_targeted_authorization_for_test(
+        &self,
+    ) -> Result<(), VnidropError> {
+        self.protect(
+            SecretKind::TargetedAuthorization,
+            SecretMaterial::new(vec![7; 32])?,
+            None,
+        )
+        .await?;
+        Ok(())
+    }
+
     pub(crate) async fn load(&self, handle: &SecretHandle) -> Result<SecretMaterial, VnidropError> {
         let metadata = self.metadata.find(handle).await?.ok_or_else(|| {
             VnidropError::SecureStorageMissing {
@@ -629,6 +642,24 @@ impl SecretCustody {
         Ok(summary)
     }
 
+    pub(crate) async fn remove_orphaned_targeted_authorizations(
+        &self,
+        referenced_handles: &HashSet<String>,
+    ) -> Result<u64, VnidropError> {
+        let entries = self.metadata.list().await?;
+        let mut removed = 0;
+        for entry in entries {
+            if entry.kind == SecretKind::TargetedAuthorization
+                && entry.state == SecretMetadataState::Active
+                && !referenced_handles.contains(entry.handle.as_str())
+            {
+                self.remove(&entry.handle).await?;
+                removed += 1;
+            }
+        }
+        Ok(removed)
+    }
+
     async fn delete_if_present(&self, handle: &SecretHandle) -> Result<(), VnidropError> {
         match self.store_delete_raw(handle.clone()).await? {
             Ok(()) | Err(SecureSecretStoreError::Missing) => Ok(()),
@@ -823,6 +854,10 @@ impl FaultInjectingSecretStore {
 
     pub(crate) fn corrupt_for_test(&self, handle: &SecretHandle) {
         self.corrupted.lock().unwrap().push(handle.clone());
+    }
+
+    pub(crate) fn stored_value_count_for_test(&self) -> usize {
+        self.values.lock().unwrap().len()
     }
 
     pub(crate) fn only_handle_for_test(&self) -> SecretHandle {

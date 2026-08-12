@@ -6,8 +6,10 @@
 mod auth;
 pub(crate) mod inbox;
 pub(crate) mod protocol;
+mod schema;
 mod state;
 mod store;
+mod store_outbox;
 
 pub(crate) use auth::{
     auth_secret_material, reconstruct_authorization, TargetedAuthorization,
@@ -15,6 +17,7 @@ pub(crate) use auth::{
 };
 pub(crate) use inbox::{RespondError, TargetedOfferInbox};
 pub(crate) use protocol::TargetedTransferProtocol;
+pub(crate) use schema::ensure_schema;
 pub(crate) use store::{
-    ensure_schema, state_as_str, TargetedTransferRole, TargetedTransferRow, TargetedTransferStore,
+    state_as_str, TargetedTransferRole, TargetedTransferRow, TargetedTransferStore,
 };

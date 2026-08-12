@@ -19,12 +19,12 @@ class CoreNativeLoadTest {
 					override fun onEvent(event: CoreEvent) = Unit
 				},
 			)
-		} catch (_: VnidropException.SecureStorageUnavailable) {
+		} catch (error: VnidropException.SecureStorageUnavailable) {
 			coreDir.toFile().deleteRecursively()
-			return
-		} catch (_: VnidropException.SecureStorageLocked) {
+			skipWhenHostCredentialStoreIsUnavailable(error)
+		} catch (error: VnidropException.SecureStorageLocked) {
 			coreDir.toFile().deleteRecursively()
-			return
+			skipWhenHostCredentialStoreIsUnavailable(error)
 		}
 
 		try {

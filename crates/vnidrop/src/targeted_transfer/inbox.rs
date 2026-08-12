@@ -218,6 +218,7 @@ impl TargetedOfferInbox {
             .map(|entry| entry.offer.clone())
     }
 
+    #[cfg(test)]
     pub(crate) async fn authorization_matches_pending(
         &self,
         auth: &crate::targeted_transfer::TargetedAuthorization,
@@ -271,16 +272,14 @@ impl TargetedOfferInbox {
         let Some(sender_endpoint_id) = sender_endpoint_id else {
             return Err(RespondError::Unknown);
         };
-        let waiter = {
-            let decisions = self.decisions.lock().await;
-            decisions
-                .get(transfer_id)
-                .map(|entry| entry.decision.clone())
-        };
-        let Some(decision_tx) = waiter else {
-            return Err(RespondError::Unknown);
-        };
         if !accepted {
+            let decision_tx = {
+                let decisions = self.decisions.lock().await;
+                decisions
+                    .get(transfer_id)
+                    .map(|entry| entry.decision.clone())
+                    .ok_or(RespondError::Unknown)?
+            };
             let _ = decision_tx.send(Some(false));
             self.discard(transfer_id).await;
             self.cooldown.record_decline(&sender_endpoint_id);
@@ -298,17 +297,52 @@ impl TargetedOfferInbox {
             return Ok(None);
         }
 
-        let (auth_tx, mut auth_rx) = watch::channel(None);
+        self.accept_live(transfer_id).await?;
+        self.wait_for_authorization(transfer_id).await
+    }
+
+    pub(crate) async fn pending_for_acceptance(
+        &self,
+        transfer_id: &str,
+    ) -> Option<PendingTargetedOffer> {
+        self.get_pending(transfer_id).await
+    }
+
+    pub(crate) async fn accept_live(&self, transfer_id: &str) -> Result<(), RespondError> {
+        let decision_tx = {
+            let decisions = self.decisions.lock().await;
+            decisions
+                .get(transfer_id)
+                .map(|entry| entry.decision.clone())
+                .ok_or(RespondError::Unknown)?
+        };
+        let (auth_tx, auth_rx) = watch::channel(None);
         self.auths
             .lock()
             .await
             .insert(transfer_id.to_string(), AuthWaiter { auth: auth_tx });
         if decision_tx.send(Some(true)).is_err() {
             self.auths.lock().await.remove(transfer_id);
-            self.discard(transfer_id).await;
             return Err(RespondError::SenderGone);
         }
+        drop(auth_rx);
+        Ok(())
+    }
 
+    pub(crate) async fn wait_for_authorization(
+        &self,
+        transfer_id: &str,
+    ) -> Result<Option<String>, RespondError> {
+        if let Some(auth) = self.settled_authorization(transfer_id).await {
+            return Ok(Some(auth));
+        }
+        let mut auth_rx = {
+            let auths = self.auths.lock().await;
+            auths
+                .get(transfer_id)
+                .map(|entry| entry.auth.subscribe())
+                .ok_or(RespondError::Unknown)?
+        };
         let wait_auth = async {
             loop {
                 if let Some(auth) = auth_rx.borrow_and_update().clone() {
@@ -333,7 +367,7 @@ impl TargetedOfferInbox {
                 Ok(Some(auth))
             }
             Ok(Err(())) | Err(_) => {
-                self.discard(transfer_id).await;
+                self.auths.lock().await.remove(transfer_id);
                 Err(RespondError::AuthorizationTimeout)
             }
         }

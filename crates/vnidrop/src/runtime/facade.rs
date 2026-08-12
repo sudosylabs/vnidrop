@@ -186,6 +186,135 @@ impl VnidropCore {
             .store(suppress, std::sync::atomic::Ordering::SeqCst);
     }
 
+    pub(crate) fn suppress_targeted_authorization_delivery_for_test(&self, suppress: bool) {
+        self.inner
+            .suppress_targeted_authorization_delivery
+            .store(suppress, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    pub(crate) fn accept_targeted_offer_without_waiting_for_test(
+        &self,
+        id: String,
+    ) -> Result<(), VnidropError> {
+        self.block_on(async {
+            let offer = self
+                .inner
+                .targeted_offers
+                .pending_for_acceptance(&id)
+                .await
+                .ok_or_else(|| {
+                    VnidropError::invalid_input(anyhow::anyhow!("unknown targeted offer"))
+                })?;
+            self.inner
+                .targeted_store()
+                .persist_accepted_offer_intent(&offer)
+                .await?;
+            self.inner
+                .targeted_offers
+                .accept_live(&id)
+                .await
+                .map_err(|_| {
+                    VnidropError::device_unavailable(anyhow::anyhow!(
+                        "sender disconnected before acceptance"
+                    ))
+                })
+        })
+    }
+
+    pub(crate) fn persist_block_without_cleanup_for_test(
+        &self,
+        endpoint_id: String,
+    ) -> Result<(), VnidropError> {
+        self.block_on(async {
+            self.inner
+                .blocked_devices
+                .block_endpoint(&endpoint_id, crate::util::now_ms())
+                .await
+                .map_err(VnidropError::repository)
+        })
+    }
+
+    pub(crate) fn corrupt_targeted_content_hash_for_test(
+        &self,
+        id: String,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .targeted_store()
+                .corrupt_content_hash_for_test(&id),
+        )
+    }
+
+    pub(crate) fn create_orphaned_targeted_authorization_for_test(
+        &self,
+    ) -> Result<(), VnidropError> {
+        self.block_on(async {
+            let custody = self.inner.secret_custody.as_ref().ok_or_else(|| {
+                VnidropError::SecureStorageUnavailable {
+                    reason: "test custody unavailable".to_string(),
+                }
+            })?;
+            custody
+                .create_orphaned_targeted_authorization_for_test()
+                .await
+        })
+    }
+
+    pub(crate) fn targeted_authorization_handle_count_for_test(
+        &self,
+    ) -> Result<usize, VnidropError> {
+        self.block_on(async {
+            let custody = self.inner.secret_custody.as_ref().ok_or_else(|| {
+                VnidropError::SecureStorageUnavailable {
+                    reason: "test custody unavailable".to_string(),
+                }
+            })?;
+            Ok(custody
+                .list_active_handles(crate::secure_secret::SecretKind::TargetedAuthorization)
+                .await?
+                .len())
+        })
+    }
+
+    pub(crate) fn redeliver_targeted_authorization_for_test(
+        &self,
+        id: String,
+    ) -> Result<bool, VnidropError> {
+        self.block_on(async {
+            let row = self
+                .inner
+                .targeted_store()
+                .get_row(&id)
+                .await?
+                .ok_or_else(|| VnidropError::invalid_input(anyhow::anyhow!("unknown transfer")))?;
+            self.inner.deliver_stored_targeted_authorization(&row).await
+        })
+    }
+
+    pub(crate) fn targeted_authorization_delivery_attempts_for_test(&self) -> u64 {
+        self.inner
+            .targeted_authorization_delivery_attempts
+            .load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    pub(crate) fn hold_all_transfer_slots_for_test(&self) -> tokio::sync::oneshot::Sender<()> {
+        let inner = self.inner.clone();
+        let permits = inner.limits.max_concurrent_transfers as u32;
+        let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
+        let (release_tx, release_rx) = tokio::sync::oneshot::channel();
+        self.runtime.handle().spawn(async move {
+            let _permits = inner
+                .transfer_slots
+                .acquire_many(permits)
+                .await
+                .expect("transfer limiter open");
+            ready_tx.send(()).expect("slot holder ready");
+            let _ = release_rx.await;
+        });
+        ready_rx.recv().expect("slot holder started");
+        release_tx
+    }
+
     pub(crate) fn targeted_payload_is_registered_for_test(
         &self,
         id: String,
@@ -639,7 +768,7 @@ impl VnidropCore {
         ))
     }
 
-    /// Offline-only pending offers awaiting explicit local approval.
+    /// Ticket-free pending offers awaiting explicit local approval.
     pub fn list_pending_targeted_offers(&self) -> Vec<crate::api::PendingTargetedOffer> {
         self.block_on(self.inner.list_pending_targeted_offers())
     }

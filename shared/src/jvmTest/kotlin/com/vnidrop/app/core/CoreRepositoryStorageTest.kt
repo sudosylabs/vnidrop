@@ -1,5 +1,6 @@
 package com.vnidrop.app.core
 
+import com.vnidrop.app.skipWhenHostCredentialStoreIsUnavailable
 import java.nio.file.Files
 import kotlin.io.path.createTempDirectory
 import kotlinx.coroutines.test.runTest
@@ -35,7 +36,7 @@ class CoreRepositoryStorageTest {
 				initializationError is VnidropException.SecureStorageUnavailable ||
 				initializationError is VnidropException.SecureStorageLocked
 			) {
-				return@runTest
+				skipWhenHostCredentialStoreIsUnavailable(initializationError)
 			}
 			initialized.getOrThrow()
 			val endpointId = repository.state.value.status?.endpointId

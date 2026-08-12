@@ -79,7 +79,8 @@ bytes through Kotlin memory.
 ### Pairing and targeted-transfer event catalog
 
 Treat every event as a wake-up: refresh durable state via list/get APIs.
-Mid-transfer progress polish may follow.
+Targeted progress updates persist monotonic `verified_bytes`; event payloads are
+advisory and the durable targeted-transfer snapshot is authoritative.
 
 **`pairing`:** `eligibility-available`, `eligibility-removed`,
 `relationship-changed`, `relationship-grant-rotated`, `saved-device-forgotten`,

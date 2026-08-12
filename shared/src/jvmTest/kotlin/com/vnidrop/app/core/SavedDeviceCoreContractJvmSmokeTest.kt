@@ -1,5 +1,6 @@
 package com.vnidrop.app.core
 
+import com.vnidrop.app.skipWhenHostCredentialStoreIsUnavailable
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -41,12 +42,12 @@ class SavedDeviceCoreContractJvmSmokeTest {
 				sink,
 				network,
 			)
-		} catch (_: VnidropException.SecureStorageUnavailable) {
+		} catch (error: VnidropException.SecureStorageUnavailable) {
 			coreDir.toFile().deleteRecursively()
-			return
-		} catch (_: VnidropException.SecureStorageLocked) {
+			skipWhenHostCredentialStoreIsUnavailable(error)
+		} catch (error: VnidropException.SecureStorageLocked) {
 			coreDir.toFile().deleteRecursively()
-			return
+			skipWhenHostCredentialStoreIsUnavailable(error)
 		}
 		val endpointId = try {
 			val id = first.status().endpointId
@@ -94,14 +95,14 @@ class SavedDeviceCoreContractJvmSmokeTest {
 				defaultCoreLimits(),
 				network,
 			)
-		} catch (_: VnidropException.SecureStorageUnavailable) {
+		} catch (error: VnidropException.SecureStorageUnavailable) {
 			// Desktop hosts may lack a usable credential store; Android Keystore
 			// restart is covered by crates/vnidrop platform_contract_android.
 			coreDir.toFile().deleteRecursively()
-			return
-		} catch (_: VnidropException.SecureStorageLocked) {
+			skipWhenHostCredentialStoreIsUnavailable(error)
+		} catch (error: VnidropException.SecureStorageLocked) {
 			coreDir.toFile().deleteRecursively()
-			return
+			skipWhenHostCredentialStoreIsUnavailable(error)
 		}
 
 		try {

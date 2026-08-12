@@ -30,6 +30,10 @@ extension Error {
 				return .resource(L10n.Error.storageFull)
 			case .Network:
 				return .resource(L10n.Error.network)
+			case .DeviceUnavailable, .RelayPolicyIncompatible:
+				return .resource(L10n.Error.network)
+			case .OfferTimeout, .ProtocolIncompatible:
+				return .resource(L10n.Error.transfer)
 			case .Transfer(let reason):
 				return transferUiText(reason)
 			case .Repository:
@@ -88,6 +92,8 @@ extension Error {
 			switch vni {
 			case .Initialization(let r), .Ticket(let r), .Filesystem(let r), .FilesystemPermission(let r),
 				 .DestinationExists(let r), .StorageFull(let r), .Network(let r),
+				 .DeviceUnavailable(let r), .OfferTimeout(let r),
+				 .RelayPolicyIncompatible(let r), .ProtocolIncompatible(let r),
 				 .Transfer(let r), .Permission(let r), .Repository(let r), .Cancelled(let r),
 				 .InvalidInput(let r), .InvalidTransition(let r), .SecureStorageLocked(let r),
 				 .SecureStorageMissing(let r), .SecureStorageCorrupted(let r),

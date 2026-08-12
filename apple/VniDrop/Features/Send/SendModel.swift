@@ -353,7 +353,7 @@ final class SendModel: ObservableObject {
 				senderName: current.senderName.trimmingCharacters(in: .whitespacesAndNewlines),
 				destination: .invitation(accessPolicy: current.accessPolicy)
 			)
-			switch result.map(\.share) {
+			switch result {
 			case .success(let share):
 				await fileSystemService.discardPickedFiles(current.selectedFiles)
 				if let thumb = current.selectedFiles.compactMap(\.thumbnailData).first {

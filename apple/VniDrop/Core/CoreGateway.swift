@@ -47,3 +47,4 @@ protocol CoreGateway: AnyObject {
 	func receiverRequests(transferId: UInt64) async -> Result<[ReceiverRequestModel], Error>
 	func respondReceiverRequest(requestId: String, accepted: Bool, reason: String?) async -> Result<Void, Error>
 	func refresh() async -> Result<Void, Error>
+}

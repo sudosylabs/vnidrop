@@ -99,6 +99,31 @@ impl VnidropCore {
         )
     }
 
+    pub(crate) fn targeted_blob_ticket_for_test(
+        &self,
+        id: String,
+    ) -> Result<(u64, String), VnidropError> {
+        self.block_on(async {
+            let row = self
+                .inner
+                .targeted_store()
+                .get_row(&id)
+                .await?
+                .ok_or_else(|| VnidropError::invalid_input(anyhow::anyhow!("unknown transfer")))?;
+            let encoded = self
+                .inner
+                .load_stored_authorization(&row)
+                .await?
+                .ok_or_else(|| {
+                    VnidropError::invalid_input(anyhow::anyhow!("authorization unavailable"))
+                })?;
+            Ok((
+                row.protocol_transfer_id,
+                crate::targeted_transfer::TargetedAuthorization::decode(&encoded)?.blob_ticket,
+            ))
+        })
+    }
+
     pub(crate) fn initialize_with_test_secret_store_limits_and_network(
         app_data_dir: String,
         event_sink: Arc<dyn CoreEventSink>,

@@ -77,6 +77,20 @@ impl TargetedTransferStore {
         Self { pool }
     }
 
+    pub(crate) async fn contains_protocol_id(
+        &self,
+        protocol_transfer_id: u64,
+    ) -> Result<bool, VnidropError> {
+        let row = sqlx::query(
+            "SELECT EXISTS(SELECT 1 FROM targeted_transfers WHERE protocol_transfer_id = ?1)",
+        )
+        .bind(protocol_transfer_id as i64)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(row.get::<i64, _>(0) != 0)
+    }
+
     pub(crate) async fn insert(&self, transfer: &TargetedTransferRow) -> Result<(), VnidropError> {
         sqlx::query(
             r#"
@@ -346,6 +360,32 @@ impl TargetedTransferStore {
         Ok(rows
             .into_iter()
             .map(|row| row.get::<i64, _>(0) as u64)
+            .collect())
+    }
+
+    pub(crate) async fn sender_payloads_for_peer(
+        &self,
+        peer_endpoint_id: &str,
+    ) -> Result<Vec<(String, u64)>, VnidropError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, protocol_transfer_id FROM targeted_transfers
+            WHERE role = 'sender'
+              AND (sender_endpoint_id = ?1 OR receiver_endpoint_id = ?1)
+            "#,
+        )
+        .bind(peer_endpoint_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                (
+                    row.get("id"),
+                    row.get::<i64, _>("protocol_transfer_id") as u64,
+                )
+            })
             .collect())
     }
 

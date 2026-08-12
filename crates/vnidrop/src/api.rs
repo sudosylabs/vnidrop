@@ -33,6 +33,7 @@ pub fn experimental_saved_device_capabilities() -> ExperimentalSavedDeviceCapabi
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
 pub struct PairingEligibilitySummary {
     pub peer_endpoint_id: String,
+    pub remote_display_name: Option<String>,
     pub session_id: String,
     pub protocol_version: u16,
     pub created_at: i64,

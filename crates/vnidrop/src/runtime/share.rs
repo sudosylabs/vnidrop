@@ -61,6 +61,17 @@ impl CoreInner {
         self.limits
             .validate_metadata_text("sender name", metadata.sender_name.as_deref())
             .map_err(VnidropError::invalid_input)?;
+        if self
+            .targeted_store()
+            .contains_protocol_id(metadata.transfer_id)
+            .await
+            .map_err(anyhow::Error::new)?
+        {
+            return Err(VnidropError::invalid_input(anyhow::anyhow!(
+                "transfer id is already reserved by a targeted transfer"
+            ))
+            .into());
+        }
         self.repository
             .insert_transfer(TransferUpsert {
                 transfer_id,
@@ -68,6 +79,7 @@ impl CoreInner {
                 direction: TransferDirection::Send,
                 status: TransferStatus::Importing,
                 transfer_name: metadata.transfer_name.as_deref(),
+                sender_name: metadata.sender_name.as_deref(),
                 content_hash: None,
                 ticket: None,
                 file_count: 0,
@@ -149,6 +161,7 @@ impl CoreInner {
             import.file_count,
             import.total_size,
         );
+        let sender_name = ticket_metadata.sender_name.clone();
         let ticket = VnidropTicket::new_with_relay_urls(
             blob_ticket,
             ticket_metadata,
@@ -182,6 +195,7 @@ impl CoreInner {
                 direction: TransferDirection::Send,
                 status: TransferStatus::Sharing,
                 transfer_name: Some(&transfer_name),
+                sender_name: sender_name.as_deref(),
                 content_hash: Some(&content_hash),
                 ticket: Some(&ticket),
                 file_count: import.file_count,

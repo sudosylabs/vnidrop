@@ -58,11 +58,12 @@ impl ApprovalService {
             )
             .await
         {
-            Ok(()) => {
+            Ok(remote_display_name) => {
                 if let Some(eligibility) = &self.pairing_eligibility {
                     if let Err(error) = eligibility
                         .activate_after_completed_transfer(
                             &remote_endpoint_id,
+                            remote_display_name.as_deref(),
                             &receipt.request_id,
                             &receipt.token,
                         )
@@ -313,6 +314,11 @@ impl ApprovalService {
             request_id,
             token,
             expires_at,
+            sender_name: self
+                .repository
+                .send_sender_name(request.transfer_id, &request.transfer_hash)
+                .await
+                .unwrap_or(None),
         }
     }
 
@@ -408,6 +414,11 @@ impl ApprovalService {
                     request_id: decision.request_id,
                     token,
                     expires_at,
+                    sender_name: self
+                        .repository
+                        .send_sender_name(request.transfer_id, &request.transfer_hash)
+                        .await
+                        .unwrap_or(None),
                 }
             }
             Ok(Ok(decision)) => {

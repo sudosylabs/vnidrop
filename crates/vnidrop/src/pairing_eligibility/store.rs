@@ -23,6 +23,7 @@ impl PairingEligibilityStore {
             CREATE TABLE IF NOT EXISTS pairing_eligibilities (
                 session_id TEXT PRIMARY KEY,
                 peer_endpoint_id TEXT NOT NULL,
+                remote_display_name TEXT,
                 protocol_version INTEGER NOT NULL,
                 secret_handle TEXT NOT NULL UNIQUE,
                 created_at INTEGER NOT NULL,
@@ -32,6 +33,17 @@ impl PairingEligibilityStore {
         )
         .execute(pool)
         .await?;
+        let columns = sqlx::query("PRAGMA table_info(pairing_eligibilities)")
+            .fetch_all(pool)
+            .await?;
+        if !columns
+            .iter()
+            .any(|row| row.get::<String, _>(1) == "remote_display_name")
+        {
+            sqlx::query("ALTER TABLE pairing_eligibilities ADD COLUMN remote_display_name TEXT")
+                .execute(pool)
+                .await?;
+        }
         sqlx::query(
             r#"
             CREATE INDEX IF NOT EXISTS pairing_eligibilities_peer
@@ -50,12 +62,14 @@ impl PairingEligibilityStore {
         sqlx::query(
             r#"
             INSERT INTO pairing_eligibilities (
-                session_id, peer_endpoint_id, protocol_version, secret_handle, created_at, expires_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                session_id, peer_endpoint_id, remote_display_name, protocol_version,
+                secret_handle, created_at, expires_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
             "#,
         )
         .bind(entry.session_id)
         .bind(entry.peer_endpoint_id)
+        .bind(entry.remote_display_name)
         .bind(i64::from(entry.protocol_version))
         .bind(entry.secret_handle)
         .bind(entry.created_at)
@@ -71,7 +85,8 @@ impl PairingEligibilityStore {
     ) -> Result<Vec<PairingEligibilitySummary>, VnidropError> {
         let rows = sqlx::query(
             r#"
-            SELECT peer_endpoint_id, session_id, protocol_version, created_at, expires_at
+            SELECT peer_endpoint_id, remote_display_name, session_id, protocol_version,
+                   created_at, expires_at
             FROM pairing_eligibilities
             ORDER BY created_at DESC
             "#,
@@ -83,6 +98,7 @@ impl PairingEligibilityStore {
             .into_iter()
             .map(|row| PairingEligibilitySummary {
                 peer_endpoint_id: row.get("peer_endpoint_id"),
+                remote_display_name: row.get("remote_display_name"),
                 session_id: row.get("session_id"),
                 protocol_version: row.get::<i64, _>("protocol_version") as u16,
                 created_at: row.get("created_at"),
@@ -94,7 +110,8 @@ impl PairingEligibilityStore {
     pub(crate) async fn list_records(&self) -> Result<Vec<PairingEligibilityRecord>, VnidropError> {
         let rows = sqlx::query(
             r#"
-            SELECT peer_endpoint_id, session_id, protocol_version, secret_handle, created_at, expires_at
+            SELECT peer_endpoint_id, remote_display_name, session_id, protocol_version,
+                   secret_handle, created_at, expires_at
             FROM pairing_eligibilities
             "#,
         )
@@ -110,7 +127,8 @@ impl PairingEligibilityStore {
     ) -> Result<Vec<PairingEligibilityRecord>, VnidropError> {
         let rows = sqlx::query(
             r#"
-            SELECT peer_endpoint_id, session_id, protocol_version, secret_handle, created_at, expires_at
+            SELECT peer_endpoint_id, remote_display_name, session_id, protocol_version,
+                   secret_handle, created_at, expires_at
             FROM pairing_eligibilities
             WHERE peer_endpoint_id = ?1
             "#,
@@ -128,7 +146,8 @@ impl PairingEligibilityStore {
     ) -> Result<Vec<PairingEligibilityRecord>, VnidropError> {
         let rows = sqlx::query(
             r#"
-            SELECT peer_endpoint_id, session_id, protocol_version, secret_handle, created_at, expires_at
+            SELECT peer_endpoint_id, remote_display_name, session_id, protocol_version,
+                   secret_handle, created_at, expires_at
             FROM pairing_eligibilities
             WHERE expires_at <= ?1
             "#,
@@ -146,7 +165,8 @@ impl PairingEligibilityStore {
     ) -> Result<Option<PairingEligibilityRecord>, VnidropError> {
         let row = sqlx::query(
             r#"
-            SELECT peer_endpoint_id, session_id, protocol_version, secret_handle, created_at, expires_at
+            SELECT peer_endpoint_id, remote_display_name, session_id, protocol_version,
+                   secret_handle, created_at, expires_at
             FROM pairing_eligibilities
             WHERE session_id = ?1
             "#,
@@ -186,6 +206,7 @@ impl PairingEligibilityStore {
 fn row_to_record(row: sqlx::sqlite::SqliteRow) -> PairingEligibilityRecord {
     PairingEligibilityRecord {
         peer_endpoint_id: row.get("peer_endpoint_id"),
+        remote_display_name: row.get("remote_display_name"),
         session_id: row.get("session_id"),
         protocol_version: row.get::<i64, _>("protocol_version") as u16,
         secret_handle: row.get("secret_handle"),

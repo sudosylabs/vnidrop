@@ -54,6 +54,8 @@ pub(super) struct RelationshipUpsert<'a> {
     pub(super) generation: u64,
     pub(super) minimum_protocol_version: u16,
     pub(super) session_id: Option<&'a str>,
+    pub(super) remote_display_name: Option<&'a str>,
+    pub(super) last_authenticated_at: Option<i64>,
     pub(super) issued_grant_handle: Option<&'a str>,
     pub(super) held_grant_handle: Option<&'a str>,
     pub(super) issued_grant_id: Option<&'a str>,
@@ -84,6 +86,8 @@ impl DeviceRelationshipStore {
                 generation INTEGER NOT NULL,
                 minimum_protocol_version INTEGER NOT NULL,
                 session_id TEXT,
+                remote_display_name TEXT,
+                last_authenticated_at INTEGER,
                 issued_grant_handle TEXT,
                 held_grant_handle TEXT,
                 issued_grant_id TEXT,
@@ -115,6 +119,18 @@ impl DeviceRelationshipStore {
             sqlx::query("ALTER TABLE device_relationships ADD COLUMN local_label TEXT")
                 .execute(pool)
                 .await?;
+        }
+        if !has("remote_display_name") {
+            sqlx::query("ALTER TABLE device_relationships ADD COLUMN remote_display_name TEXT")
+                .execute(pool)
+                .await?;
+        }
+        if !has("last_authenticated_at") {
+            sqlx::query(
+                "ALTER TABLE device_relationships ADD COLUMN last_authenticated_at INTEGER",
+            )
+            .execute(pool)
+            .await?;
         }
         sqlx::query(
             r#"
@@ -182,10 +198,11 @@ impl DeviceRelationshipStore {
         rows.into_iter().map(row_to_relationship).collect()
     }
 
-    pub(super) async fn list_saved_devices(&self) -> Result<Vec<SavedDevice>, VnidropError> {
+    pub(crate) async fn list_saved_devices(&self) -> Result<Vec<SavedDevice>, VnidropError> {
         let rows = sqlx::query(
             r#"
-            SELECT remote_endpoint_id, local_label, created_at, updated_at
+            SELECT remote_endpoint_id, local_label, remote_display_name, created_at,
+                   last_authenticated_at
             FROM device_relationships
             WHERE state = 'saved'
             ORDER BY updated_at DESC
@@ -199,11 +216,35 @@ impl DeviceRelationshipStore {
             .map(|row| SavedDevice {
                 endpoint_id: row.get("remote_endpoint_id"),
                 local_label: row.get("local_label"),
-                remote_display_name: None,
+                remote_display_name: row.get("remote_display_name"),
                 created_at: row.get("created_at"),
-                last_authenticated_at: Some(row.get("updated_at")),
+                last_authenticated_at: row.get("last_authenticated_at"),
             })
             .collect())
+    }
+
+    pub(crate) async fn refresh_authenticated_peer(
+        &self,
+        peer_endpoint_id: &str,
+        remote_display_name: Option<&str>,
+        authenticated_at: i64,
+    ) -> Result<bool, VnidropError> {
+        let result = sqlx::query(
+            r#"
+            UPDATE device_relationships
+            SET remote_display_name = COALESCE(?2, remote_display_name),
+                last_authenticated_at = ?3,
+                updated_at = ?3
+            WHERE remote_endpoint_id = ?1 AND state = 'saved'
+            "#,
+        )
+        .bind(peer_endpoint_id)
+        .bind(remote_display_name)
+        .bind(authenticated_at)
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(result.rows_affected() > 0)
     }
 
     pub(super) async fn set_saved_device_label(
@@ -377,14 +418,18 @@ impl DeviceRelationshipStore {
             r#"
             INSERT INTO device_relationships (
                 remote_endpoint_id, state, generation, minimum_protocol_version, session_id,
+                remote_display_name,
+                last_authenticated_at,
                 issued_grant_handle, held_grant_handle, issued_grant_id, held_grant_id,
                 peer_ack, local_ack, created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
             ON CONFLICT(remote_endpoint_id) DO UPDATE SET
                 state = excluded.state,
                 generation = excluded.generation,
                 minimum_protocol_version = excluded.minimum_protocol_version,
                 session_id = excluded.session_id,
+                remote_display_name = COALESCE(excluded.remote_display_name, device_relationships.remote_display_name),
+                last_authenticated_at = COALESCE(excluded.last_authenticated_at, device_relationships.last_authenticated_at),
                 issued_grant_handle = COALESCE(excluded.issued_grant_handle, device_relationships.issued_grant_handle),
                 held_grant_handle = COALESCE(excluded.held_grant_handle, device_relationships.held_grant_handle),
                 issued_grant_id = COALESCE(excluded.issued_grant_id, device_relationships.issued_grant_id),
@@ -399,6 +444,8 @@ impl DeviceRelationshipStore {
         .bind(entry.generation as i64)
         .bind(i64::from(entry.minimum_protocol_version))
         .bind(entry.session_id)
+        .bind(entry.remote_display_name)
+        .bind(entry.last_authenticated_at)
         .bind(entry.issued_grant_handle)
         .bind(entry.held_grant_handle)
         .bind(entry.issued_grant_id)

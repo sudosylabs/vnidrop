@@ -6,12 +6,11 @@ use anyhow::{Context, Result};
 use iroh_blobs::{ticket::BlobTicket, BlobFormat};
 use uuid::Uuid;
 
-use super::{receive::ReceiveTarget, CoreInner};
+use super::{receive::ReceiveTarget, targeted_tag_name, CoreInner};
 use crate::{
     api::{
-        experimental_saved_device_capabilities, PendingTargetedOffer, ShareMetadataInput,
-        ShareSource, TargetedOfferResponse, TargetedTransfer, TargetedTransferState,
-        TransferAccessMode, TransferMetadata,
+        experimental_saved_device_capabilities, PendingTargetedOffer, ShareSource,
+        TargetedOfferResponse, TargetedTransfer, TargetedTransferState, TransferAccessMode,
     },
     error::VnidropError,
     secure_secret::{SecretHandle, SecretKind},
@@ -24,7 +23,6 @@ use crate::{
         reconstruct_authorization, TargetedAuthorization, TargetedAuthorizationDraft,
         TargetedTransferRole, TargetedTransferRow,
     },
-    ticket::VnidropTicket,
     util::{non_empty, now_ms},
 };
 
@@ -59,10 +57,55 @@ impl CoreInner {
     }
 
     pub(crate) async fn restore_targeted_transfer_access(&self) -> Result<(), VnidropError> {
+        let mut active_tags = std::collections::HashSet::new();
         for row in self.targeted_store().list_resumable_sender_rows().await? {
+            let root_hash = row
+                .content_hash
+                .parse::<iroh_blobs::Hash>()
+                .map_err(|error| VnidropError::transfer(anyhow::anyhow!(error)))?;
+            let collection =
+                iroh_blobs::format::collection::Collection::load(root_hash, self.store.as_ref())
+                    .await
+                    .map_err(VnidropError::transfer)?;
+            let tag_name = targeted_tag_name(&row.id);
+            self.store
+                .tags()
+                .set(&tag_name, (root_hash, iroh_blobs::BlobFormat::HashSeq))
+                .await
+                .map_err(VnidropError::transfer)?;
+            self.register_share_hashes(
+                row.protocol_transfer_id,
+                std::iter::once(root_hash).chain(collection.iter().map(|(_, hash)| *hash)),
+            )
+            .await;
+            self.access_policy
+                .set_mode(
+                    row.protocol_transfer_id,
+                    TransferAccessMode::ApprovalRequired,
+                )
+                .await;
             self.access_policy
                 .approve_endpoint_until(row.protocol_transfer_id, row.receiver_endpoint_id, None)
                 .await;
+            active_tags.insert(tag_name);
+        }
+        use futures_lite::StreamExt as _;
+        let mut tags = self
+            .store
+            .tags()
+            .list_prefix("vnidrop/targeted/")
+            .await
+            .map_err(VnidropError::transfer)?;
+        while let Some(tag) = tags.next().await {
+            let tag = tag.map_err(VnidropError::transfer)?;
+            let name = String::from_utf8_lossy(tag.name.as_ref()).to_string();
+            if !active_tags.contains(&name) {
+                self.store
+                    .tags()
+                    .delete(name)
+                    .await
+                    .map_err(VnidropError::transfer)?;
+            }
         }
         Ok(())
     }
@@ -84,12 +127,21 @@ impl CoreInner {
             .targeted_store()
             .protocol_ids_for_peer(peer_endpoint_id)
             .await?;
+        let sender_payloads = self
+            .targeted_store()
+            .sender_payloads_for_peer(peer_endpoint_id)
+            .await?;
         // Signal active transfers synchronously before awaiting share teardown.
         for protocol_transfer_id in &protocol_ids {
             let _ = self.take_active_transfer(*protocol_transfer_id);
         }
         for protocol_transfer_id in &protocol_ids {
-            let _ = self.cancel_idle_or_share(*protocol_transfer_id).await;
+            self.teardown_targeted_payload(*protocol_transfer_id, None)
+                .await;
+        }
+        for (id, protocol_transfer_id) in sender_payloads {
+            self.teardown_targeted_payload(protocol_transfer_id, Some(&id))
+                .await;
         }
         self.targeted_store().cancel_by_peer(peer_endpoint_id).await
     }
@@ -111,7 +163,8 @@ impl CoreInner {
         self.access_policy
             .remove_transfer(row.protocol_transfer_id)
             .await;
-        let _ = self.cancel_idle_or_share(row.protocol_transfer_id).await;
+        self.teardown_targeted_payload(row.protocol_transfer_id, Some(&row.id))
+            .await;
         if !matches!(
             row.state,
             TargetedTransferState::Completed
@@ -164,7 +217,8 @@ impl CoreInner {
         self.access_policy
             .remove_transfer(row.protocol_transfer_id)
             .await;
-        let _ = self.cancel_idle_or_share(row.protocol_transfer_id).await;
+        self.teardown_targeted_payload(row.protocol_transfer_id, Some(&row.id))
+            .await;
         if let Some(handle) = &row.authorization_secret_handle {
             if let Some(custody) = &self.secret_custody {
                 let _ = custody
@@ -251,23 +305,69 @@ impl CoreInner {
             .require_saved(&receiver_endpoint_id)
             .await?;
 
-        let transfer_uuid = Uuid::new_v4().to_string();
-        let protocol_transfer_id = allocate_protocol_transfer_id(&transfer_uuid);
+        let (transfer_uuid, protocol_transfer_id) = loop {
+            let transfer_uuid = Uuid::new_v4().to_string();
+            let protocol_transfer_id = allocate_protocol_transfer_id(&transfer_uuid);
+            let invitation_collision = self
+                .repository
+                .list_transfers()
+                .await
+                .map_err(VnidropError::repository)?
+                .into_iter()
+                .any(|transfer| transfer.transfer_id == protocol_transfer_id);
+            if !invitation_collision
+                && !self
+                    .targeted_store()
+                    .contains_protocol_id(protocol_transfer_id)
+                    .await?
+            {
+                break (transfer_uuid, protocol_transfer_id);
+            }
+        };
         let sender_endpoint_id = self.endpoint.id().to_string();
         let now = now_ms();
 
-        let share = self
-            .share_files(
-                sources,
-                ShareMetadataInput {
-                    transfer_id: protocol_transfer_id,
-                    transfer_name: transfer_name.clone(),
-                    sender_name: None,
-                    access_mode: TransferAccessMode::ApprovalRequired,
-                },
+        if sources.is_empty() {
+            return Err(VnidropError::invalid_input(anyhow::anyhow!(
+                "at least one source is required"
+            )));
+        }
+        if sources.len() as u64 > self.limits.max_sources {
+            return Err(VnidropError::invalid_input(anyhow::anyhow!(
+                "source count {} exceeds limit {}",
+                sources.len(),
+                self.limits.max_sources
+            )));
+        }
+        self.limits
+            .validate_metadata_text("transfer name", transfer_name.as_deref())
+            .map_err(VnidropError::invalid_input)?;
+        let import = self
+            .import_sources(protocol_transfer_id, sources)
+            .await
+            .map_err(VnidropError::transfer)?;
+        let payload_name = transfer_name
+            .and_then(non_empty)
+            .unwrap_or_else(|| import.default_name.clone());
+        let blob_ticket =
+            BlobTicket::new(self.endpoint.addr(), import.root_hash, BlobFormat::HashSeq);
+        self.store
+            .tags()
+            .set(
+                targeted_tag_name(&transfer_uuid),
+                (import.root_hash, BlobFormat::HashSeq),
             )
             .await
             .map_err(VnidropError::transfer)?;
+        self.register_share_hashes(
+            protocol_transfer_id,
+            std::iter::once(import.root_hash).chain(import.member_hashes.iter().copied()),
+        )
+        .await;
+        self.access_policy
+            .set_mode(protocol_transfer_id, TransferAccessMode::ApprovalRequired)
+            .await;
+        drop(import.tag);
 
         let store = self.targeted_store();
         let row = TargetedTransferRow {
@@ -275,11 +375,11 @@ impl CoreInner {
             protocol_transfer_id,
             sender_endpoint_id: sender_endpoint_id.clone(),
             receiver_endpoint_id: receiver_endpoint_id.clone(),
-            manifest_id: share.hash.clone(),
-            content_hash: share.hash.clone(),
-            transfer_name: share.transfer_name.clone(),
-            file_count: share.file_count,
-            total_size: share.total_size,
+            manifest_id: blob_ticket.hash().to_string(),
+            content_hash: blob_ticket.hash().to_string(),
+            transfer_name: payload_name.clone(),
+            file_count: import.file_count,
+            total_size: import.total_size,
             verified_bytes: 0,
             blob_ticket: None,
             authorization_secret_handle: None,
@@ -288,19 +388,43 @@ impl CoreInner {
             created_at: now,
             updated_at: now,
         };
-        store.insert(&row).await?;
-        store
+        if let Err(error) = store.insert(&row).await {
+            self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                .await;
+            return Err(error);
+        }
+        if let Err(error) = store
             .set_state(
                 &transfer_uuid,
                 TargetedTransferState::Preparing,
                 TargetedTransferState::Offering,
             )
-            .await?;
+            .await
+        {
+            self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                .await;
+            return Err(error);
+        }
 
-        let addr = self
+        let addr = match self
             .device_relationships
             .peer_addr(&receiver_endpoint_id)
-            .await?;
+            .await
+        {
+            Ok(addr) => addr,
+            Err(error) => {
+                let _ = store
+                    .set_state(
+                        &transfer_uuid,
+                        TargetedTransferState::Offering,
+                        TargetedTransferState::Failed,
+                    )
+                    .await;
+                self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                    .await;
+                return Err(error);
+            }
+        };
         let client = TargetedTransferProtocol::client(self.endpoint.clone(), addr);
         let challenge =
             match tokio::time::timeout(self.connection_timeout(), client.request_challenge()).await
@@ -314,7 +438,8 @@ impl CoreInner {
                             TargetedTransferState::Failed,
                         )
                         .await;
-                    let _ = self.cancel_idle_or_share(protocol_transfer_id).await;
+                    self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                        .await;
                     return Err(map_connect_failure(error));
                 }
                 Err(_) => {
@@ -325,27 +450,48 @@ impl CoreInner {
                             TargetedTransferState::Failed,
                         )
                         .await;
-                    let _ = self.cancel_idle_or_share(protocol_transfer_id).await;
+                    self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                        .await;
                     return Err(VnidropError::device_unavailable(anyhow::anyhow!(
                         "device did not answer in time"
                     )));
                 }
             };
 
-        let (proof, generation, relationship_protocol_version) = self
+        let (proof, generation, relationship_protocol_version) = match self
             .device_relationships
             .prove_saved_possession(&receiver_endpoint_id, &challenge)
-            .await?;
+            .await
+        {
+            Ok(proof) => proof,
+            Err(error) => {
+                let _ = store
+                    .set_state(
+                        &transfer_uuid,
+                        TargetedTransferState::Offering,
+                        TargetedTransferState::Failed,
+                    )
+                    .await;
+                self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                    .await;
+                return Err(error);
+            }
+        };
 
         let protocol_version =
             experimental_saved_device_capabilities().targeted_transfer_protocol_version;
-        store
+        if let Err(error) = store
             .set_state(
                 &transfer_uuid,
                 TargetedTransferState::Offering,
                 TargetedTransferState::AwaitingApproval,
             )
-            .await?;
+            .await
+        {
+            self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                .await;
+            return Err(error);
+        }
 
         let response = match tokio::time::timeout(
             self.connection_timeout() + self.offer_wait_timeout(),
@@ -357,11 +503,11 @@ impl CoreInner {
                 transfer_id: transfer_uuid.clone(),
                 sender_endpoint_id: sender_endpoint_id.clone(),
                 receiver_endpoint_id: receiver_endpoint_id.clone(),
-                manifest_id: share.hash.clone(),
-                content_hash: share.hash.clone(),
-                transfer_name: share.transfer_name.clone(),
-                file_count: share.file_count,
-                total_size: share.total_size,
+                manifest_id: blob_ticket.hash().to_string(),
+                content_hash: blob_ticket.hash().to_string(),
+                transfer_name: payload_name.clone(),
+                file_count: import.file_count,
+                total_size: import.total_size,
                 relay_mode: self.relay_mode,
                 relay_urls: self
                     .custom_relay_urls
@@ -381,7 +527,8 @@ impl CoreInner {
                         TargetedTransferState::Failed,
                     )
                     .await;
-                let _ = self.cancel_idle_or_share(protocol_transfer_id).await;
+                self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                    .await;
                 return Err(map_connect_failure(error));
             }
             Err(_) => {
@@ -392,7 +539,8 @@ impl CoreInner {
                         TargetedTransferState::Failed,
                     )
                     .await;
-                let _ = self.cancel_idle_or_share(protocol_transfer_id).await;
+                self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                    .await;
                 return Err(VnidropError::offer_timeout(anyhow::anyhow!(
                     "offer timed out"
                 )));
@@ -409,7 +557,8 @@ impl CoreInner {
                         TargetedTransferState::Declined,
                     )
                     .await;
-                let _ = self.cancel_idle_or_share(protocol_transfer_id).await;
+                self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                    .await;
                 return Err(VnidropError::permission(anyhow::anyhow!(
                     "targeted offer declined: {reason}"
                 )));
@@ -422,7 +571,8 @@ impl CoreInner {
                         TargetedTransferState::Failed,
                     )
                     .await;
-                let _ = self.cancel_idle_or_share(protocol_transfer_id).await;
+                self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                    .await;
                 return Err(map_offer_refuse_reason(&reason));
             }
         }
@@ -432,38 +582,71 @@ impl CoreInner {
             .approve_endpoint_until(protocol_transfer_id, receiver_endpoint_id.clone(), None)
             .await;
 
-        let parsed = crate::ticket::parse_transfer_ticket_with_limits(&share.ticket, &self.limits)
-            .map_err(VnidropError::ticket)?;
-        let blob_ticket = BlobTicket::new(
-            parsed.blob_ticket.addr().clone(),
-            parsed.blob_ticket.hash(),
-            BlobFormat::HashSeq,
-        );
-        let authorization = TargetedAuthorization::issue(TargetedAuthorizationDraft {
+        let authorization = match TargetedAuthorization::issue(TargetedAuthorizationDraft {
             transfer_id: transfer_uuid.clone(),
             protocol_transfer_id,
             sender_endpoint_id,
             receiver_endpoint_id,
-            manifest_id: share.hash.clone(),
-            content_hash: share.hash.clone(),
-            file_count: share.file_count,
-            total_size: share.total_size,
+            manifest_id: blob_ticket.hash().to_string(),
+            content_hash: blob_ticket.hash().to_string(),
+            file_count: import.file_count,
+            total_size: import.total_size,
             protocol_version,
-            transfer_name: share.transfer_name.clone(),
+            transfer_name: payload_name,
             blob_ticket: blob_ticket.to_string(),
-        })?;
-        self.persist_authorization_secret(&transfer_uuid, &authorization)
-            .await?;
-        let encoded = authorization.encode()?;
+        }) {
+            Ok(authorization) => authorization,
+            Err(error) => {
+                let _ = store
+                    .set_state_from_any(&transfer_uuid, TargetedTransferState::Failed)
+                    .await;
+                self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                    .await;
+                return Err(error);
+            }
+        };
+        if let Err(error) = self
+            .persist_authorization_secret(&transfer_uuid, &authorization)
+            .await
+        {
+            let _ = store
+                .set_state_from_any(&transfer_uuid, TargetedTransferState::Failed)
+                .await;
+            self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                .await;
+            return Err(error);
+        }
+        let encoded = match authorization.encode() {
+            Ok(encoded) => encoded,
+            Err(error) => {
+                let _ = store
+                    .set_state_from_any(&transfer_uuid, TargetedTransferState::Failed)
+                    .await;
+                self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                    .await;
+                return Err(error);
+            }
+        };
 
-        let deliver = client
+        let deliver = match client
             .deliver_authorization(DeliverTargetedAuthorization {
                 transfer_id: transfer_uuid.clone(),
                 authorization: encoded,
             })
             .await
             .context("failed to deliver targeted authorization")
-            .map_err(VnidropError::network)?;
+            .map_err(VnidropError::network)
+        {
+            Ok(deliver) => deliver,
+            Err(error) => {
+                let _ = store
+                    .set_state_from_any(&transfer_uuid, TargetedTransferState::Failed)
+                    .await;
+                self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                    .await;
+                return Err(error);
+            }
+        };
         if deliver != crate::targeted_transfer::protocol::DeliverAuthorizationResponse::Stored {
             let _ = store
                 .set_state(
@@ -471,6 +654,8 @@ impl CoreInner {
                     TargetedTransferState::AwaitingApproval,
                     TargetedTransferState::Failed,
                 )
+                .await;
+            self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                 .await;
             return Err(VnidropError::network(anyhow::anyhow!(
                 "receiver rejected authorization delivery"
@@ -489,6 +674,18 @@ impl CoreInner {
             .get(&transfer_uuid)
             .await?
             .ok_or_else(|| VnidropError::internal(anyhow::anyhow!("targeted transfer missing")))
+    }
+
+    async fn teardown_targeted_payload(&self, protocol_transfer_id: u64, id: Option<&str>) {
+        self.unregister_transfer_hashes(protocol_transfer_id).await;
+        self.access_policy
+            .remove_transfer(protocol_transfer_id)
+            .await;
+        if let Some(id) = id {
+            if let Err(error) = self.store.tags().delete(targeted_tag_name(id)).await {
+                tracing::warn!(%error, transfer_id = id, "failed to release targeted payload tag");
+            }
+        }
     }
 
     pub(super) async fn receive_targeted_transfer(
@@ -652,20 +849,9 @@ impl CoreInner {
 
         let blob_ticket = BlobTicket::from_str_compat(&auth.blob_ticket)
             .map_err(|error| VnidropError::ticket(anyhow::anyhow!(error)))?;
-        let metadata = TransferMetadata::new(
-            auth.protocol_transfer_id,
-            non_empty(auth.transfer_name.clone()).unwrap_or_else(|| "transfer".to_string()),
-            None,
-            blob_ticket.hash(),
-            auth.file_count,
-            auth.total_size,
-        );
-        let ticket =
-            VnidropTicket::new_with_relay_urls(blob_ticket, metadata, &self.custom_relay_urls)
-                .encode()
-                .map_err(VnidropError::ticket)?;
-
-        let receive_result = self.receive_to_target(ticket, target, None).await;
+        let receive_result = self
+            .receive_targeted_payload(auth.protocol_transfer_id, blob_ticket, target)
+            .await;
 
         match receive_result {
             Ok(()) => {
@@ -752,7 +938,7 @@ impl CoreInner {
             .await
     }
 
-    async fn load_stored_authorization(
+    pub(crate) async fn load_stored_authorization(
         &self,
         row: &TargetedTransferRow,
     ) -> Result<Option<String>, VnidropError> {

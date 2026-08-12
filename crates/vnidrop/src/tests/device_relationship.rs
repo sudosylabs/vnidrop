@@ -22,6 +22,7 @@ impl CoreEventSink for RecordingSink {
 struct ProtectedNode {
     _data_dir: tempfile::TempDir,
     core: Arc<VnidropCore>,
+    store: Arc<FaultInjectingSecretStore>,
 }
 
 impl ProtectedNode {
@@ -34,12 +35,13 @@ impl ProtectedNode {
         let core = VnidropCore::initialize_with_test_secret_store(
             data_dir.path().to_string_lossy().into_owned(),
             sink,
-            store,
+            store.clone(),
         )
         .expect("protected test core");
         Self {
             _data_dir: data_dir,
             core,
+            store,
         }
     }
 }
@@ -51,6 +53,15 @@ impl Drop for ProtectedNode {
 }
 
 fn share_path(core: &VnidropCore, source: &Path, transfer_id: u64) -> crate::ShareResult {
+    share_path_named(core, source, transfer_id, "sender")
+}
+
+fn share_path_named(
+    core: &VnidropCore,
+    source: &Path,
+    transfer_id: u64,
+    sender_name: &str,
+) -> crate::ShareResult {
     core.share_files(
         vec![ShareSource {
             kind: SourceKind::Path,
@@ -61,7 +72,7 @@ fn share_path(core: &VnidropCore, source: &Path, transfer_id: u64) -> crate::Sha
         ShareMetadataInput {
             transfer_id,
             transfer_name: Some("hello.txt".to_string()),
-            sender_name: Some("sender".to_string()),
+            sender_name: Some(sender_name.to_string()),
             access_mode: TransferAccessMode::ApprovalRequired,
         },
     )
@@ -88,17 +99,27 @@ fn wait_for_receiver_request(sender: &VnidropCore, transfer_id: u64) -> crate::R
 }
 
 fn complete_transfer(sender: &ProtectedNode, receiver: &ProtectedNode, transfer_id: u64) {
+    complete_transfer_named(sender, receiver, transfer_id, "sender", "receiver")
+}
+
+fn complete_transfer_named(
+    sender: &ProtectedNode,
+    receiver: &ProtectedNode,
+    transfer_id: u64,
+    sender_name: &str,
+    receiver_name: &str,
+) {
     let source_dir = tempfile::tempdir().unwrap();
     let output_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join("hello.txt");
     std::fs::write(&source_path, b"mutual consent").unwrap();
-    let share = share_path(&sender.core, &source_path, transfer_id);
+    let share = share_path_named(&sender.core, &source_path, transfer_id, sender_name);
     let output_dir = output_dir.path().to_string_lossy().to_string();
     let receiver_core = receiver.core.clone();
     let ticket = share.ticket.clone();
-    let handle = std::thread::spawn(move || {
-        receiver_core.receive(ticket, output_dir, Some("receiver".to_string()))
-    });
+    let receiver_name = receiver_name.to_string();
+    let handle =
+        std::thread::spawn(move || receiver_core.receive(ticket, output_dir, Some(receiver_name)));
     let request = wait_for_receiver_request(&sender.core, share.transfer_id);
     sender
         .core
@@ -106,6 +127,15 @@ fn complete_transfer(sender: &ProtectedNode, receiver: &ProtectedNode, transfer_
         .unwrap();
     handle.join().unwrap().unwrap();
 
+    if sender
+        .core
+        .list_saved_devices()
+        .unwrap()
+        .iter()
+        .any(|device| device.endpoint_id == receiver.core.status().endpoint_id)
+    {
+        return;
+    }
     let started = Instant::now();
     let peer = receiver.core.status().endpoint_id.clone();
     loop {
@@ -194,8 +224,13 @@ fn mutual_consent_reaches_saved_after_both_grants_and_acknowledgement() {
     let bob_saved = bob.core.list_saved_devices().unwrap();
     assert_eq!(alice_saved.len(), 1);
     assert_eq!(alice_saved[0].endpoint_id, bob_id);
+    assert_eq!(
+        alice_saved[0].remote_display_name.as_deref(),
+        Some("receiver")
+    );
     assert_eq!(bob_saved.len(), 1);
     assert_eq!(bob_saved[0].endpoint_id, alice_id);
+    assert_eq!(bob_saved[0].remote_display_name.as_deref(), Some("sender"));
 }
 
 #[test]
@@ -569,6 +604,82 @@ fn saved_device_local_label_survives_listing_and_rejects_non_saved_peers() {
         .set_saved_device_label("unknown-peer".to_string(), Some("x".to_string()))
         .unwrap_err();
     assert!(matches!(err, crate::VnidropError::InvalidInput { .. }));
+}
+
+#[test]
+fn later_authenticated_invitation_refreshes_saved_name_without_new_eligibility() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    let alice_id = alice.core.status().endpoint_id.clone();
+    let bob_id = bob.core.status().endpoint_id.clone();
+    reach_saved(&alice, &bob, 90_060);
+
+    let authenticated_before_label =
+        alice.core.list_saved_devices().unwrap()[0].last_authenticated_at;
+    alice
+        .core
+        .set_saved_device_label(bob_id.clone(), Some("My tablet".to_string()))
+        .unwrap();
+    let before = alice.core.list_saved_devices().unwrap().remove(0);
+    assert_eq!(before.last_authenticated_at, authenticated_before_label);
+    std::thread::sleep(Duration::from_millis(2));
+    complete_transfer_named(&alice, &bob, 90_061, "Alice refreshed", "Bob refreshed");
+
+    let started = Instant::now();
+    loop {
+        let refreshed = alice.core.list_saved_devices().unwrap()[0]
+            .remote_display_name
+            .as_deref()
+            == Some("Bob refreshed");
+        if refreshed {
+            break;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "saved name never refreshed"
+        );
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    let alice_saved = alice.core.list_saved_devices().unwrap().remove(0);
+    let bob_saved = bob.core.list_saved_devices().unwrap().remove(0);
+    assert_eq!(alice_saved.local_label.as_deref(), Some("My tablet"));
+    assert_eq!(
+        alice_saved.remote_display_name.as_deref(),
+        Some("Bob refreshed")
+    );
+    assert_eq!(
+        bob_saved.remote_display_name.as_deref(),
+        Some("Alice refreshed")
+    );
+    assert!(alice_saved.last_authenticated_at > before.last_authenticated_at);
+    assert!(alice.core.list_pairing_eligibilities().unwrap().is_empty());
+    assert!(bob.core.list_pairing_eligibilities().unwrap().is_empty());
+    assert_eq!(alice_id, bob_saved.endpoint_id);
+}
+
+#[test]
+fn saved_remote_name_and_local_label_survive_restart() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    let bob_id = bob.core.status().endpoint_id.clone();
+    reach_saved(&alice, &bob, 90_062);
+    alice
+        .core
+        .set_saved_device_label(bob_id.clone(), Some("My tablet".to_string()))
+        .unwrap();
+    let expected = alice.core.list_saved_devices().unwrap();
+
+    alice.core.shutdown();
+    let restarted = VnidropCore::initialize_with_test_secret_store(
+        alice._data_dir.path().to_string_lossy().into_owned(),
+        Arc::new(RecordingSink {
+            events: Mutex::new(Vec::new()),
+        }),
+        alice.store.clone(),
+    )
+    .unwrap();
+    assert_eq!(restarted.list_saved_devices().unwrap(), expected);
+    restarted.shutdown();
 }
 
 #[test]

@@ -181,6 +181,14 @@ fn completed_authenticated_transfer_creates_pairing_eligibility_on_both_sides() 
         .unwrap();
 
     assert_eq!(sender_entry.session_id, receiver_entry.session_id);
+    assert_eq!(
+        sender_entry.remote_display_name.as_deref(),
+        Some("receiver")
+    );
+    assert_eq!(
+        receiver_entry.remote_display_name.as_deref(),
+        Some("sender")
+    );
     assert_eq!(sender_entry.protocol_version, protocol);
     assert_eq!(receiver_entry.protocol_version, protocol);
     assert!(sender_entry.expires_at > sender_entry.created_at);
@@ -201,6 +209,36 @@ fn completed_authenticated_transfer_creates_pairing_eligibility_on_both_sides() 
             .iter()
             .any(|event| event.data_json.contains("capability")),
         "events must not expose the eligibility capability"
+    );
+}
+
+#[test]
+fn receiver_eligibility_uses_sender_authenticated_name_not_edited_ticket_metadata() {
+    let source_dir = tempfile::tempdir().unwrap();
+    let output_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("hello.txt");
+    std::fs::write(&source_path, b"canonical sender name").unwrap();
+    let sender = ProtectedNode::new();
+    let receiver = ProtectedNode::new();
+    let sender_id = sender.core.status().endpoint_id.clone();
+    let share = share_path(&sender.core, &source_path, 70_002);
+    let edited_ticket =
+        crate::ticket::rewrite_sender_name_for_test(&share.ticket, "Attacker").unwrap();
+
+    receive_with_response(
+        &sender.core,
+        share.transfer_id,
+        receiver.core.clone(),
+        edited_ticket,
+        output_dir.path(),
+        true,
+    )
+    .unwrap();
+    wait_for_eligibility(&receiver.core, &sender_id);
+    let eligibility = receiver.core.list_pairing_eligibilities().unwrap();
+    assert_eq!(
+        eligibility[0].remote_display_name.as_deref(),
+        Some("sender")
     );
 }
 

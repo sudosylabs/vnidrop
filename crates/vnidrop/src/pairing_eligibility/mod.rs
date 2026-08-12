@@ -15,6 +15,7 @@ pub(crate) use store::PairingEligibilityStore;
 
 use crate::{
     api::{experimental_saved_device_capabilities, PairingEligibilitySummary},
+    device_relationship::DeviceRelationshipStore,
     error::VnidropError,
     event_hub::EventHub,
     secure_secret::{SecretCustody, SecretHandle, SecretKind, SecretMaterial},
@@ -27,6 +28,7 @@ const CAPABILITY_CONTEXT: &str = "vnidrop-pairing-eligibility-v1";
 #[derive(Clone)]
 pub(crate) struct PairingEligibilityService {
     store: PairingEligibilityStore,
+    relationships: DeviceRelationshipStore,
     custody: Option<Arc<SecretCustody>>,
     event_hub: Arc<EventHub>,
     local_endpoint_id: String,
@@ -35,12 +37,14 @@ pub(crate) struct PairingEligibilityService {
 impl PairingEligibilityService {
     pub(crate) fn new(
         store: PairingEligibilityStore,
+        relationships: DeviceRelationshipStore,
         custody: Option<Arc<SecretCustody>>,
         event_hub: Arc<EventHub>,
         local_endpoint_id: String,
     ) -> Self {
         Self {
             store,
+            relationships,
             custody,
             event_hub,
             local_endpoint_id,
@@ -83,6 +87,7 @@ impl PairingEligibilityService {
     pub(crate) async fn activate_after_completed_transfer(
         &self,
         peer_endpoint_id: &str,
+        remote_display_name: Option<&str>,
         session_id: &str,
         approval_token: &str,
     ) -> Result<(), VnidropError> {
@@ -90,6 +95,18 @@ impl PairingEligibilityService {
             return Ok(());
         };
         if peer_endpoint_id.is_empty() || session_id.is_empty() || approval_token.is_empty() {
+            return Ok(());
+        }
+        let remote_display_name = remote_display_name
+            .map(str::trim)
+            .filter(|name| !name.is_empty());
+        let authenticated_at = now_ms();
+        if self
+            .relationships
+            .refresh_authenticated_peer(peer_endpoint_id, remote_display_name, authenticated_at)
+            .await?
+        {
+            self.remove_for_peer(peer_endpoint_id).await?;
             return Ok(());
         }
         if self.store.find_by_session(session_id).await?.is_some() {
@@ -111,12 +128,13 @@ impl PairingEligibilityService {
         let handle = custody
             .protect(SecretKind::PairingEligibility, capability, None)
             .await?;
-        let created_at = now_ms();
+        let created_at = authenticated_at;
         let expires_at = created_at + ELIGIBILITY_TTL_MS;
         if let Err(error) = self
             .store
             .insert(PairingEligibilityInsert {
                 peer_endpoint_id,
+                remote_display_name,
                 session_id,
                 protocol_version,
                 secret_handle: handle.as_str(),
@@ -189,6 +207,8 @@ impl PairingEligibilityService {
         Ok(Some(TakenEligibility {
             session_id: entry.session_id,
             protocol_version: entry.protocol_version,
+            remote_display_name: entry.remote_display_name,
+            authenticated_at: entry.created_at,
             capability,
         }))
     }
@@ -327,6 +347,7 @@ impl PairingEligibilityService {
 
 pub(crate) struct PairingEligibilityInsert<'a> {
     pub(crate) peer_endpoint_id: &'a str,
+    pub(crate) remote_display_name: Option<&'a str>,
     pub(crate) session_id: &'a str,
     pub(crate) protocol_version: u16,
     pub(crate) secret_handle: &'a str,
@@ -338,12 +359,15 @@ pub(crate) struct PairingEligibilityInsert<'a> {
 pub(crate) struct TakenEligibility {
     pub(crate) session_id: String,
     pub(crate) protocol_version: u16,
+    pub(crate) remote_display_name: Option<String>,
+    pub(crate) authenticated_at: i64,
     pub(crate) capability: SecretMaterial,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PairingEligibilityRecord {
     pub(crate) peer_endpoint_id: String,
+    pub(crate) remote_display_name: Option<String>,
     pub(crate) session_id: String,
     pub(crate) protocol_version: u16,
     pub(crate) secret_handle: String,

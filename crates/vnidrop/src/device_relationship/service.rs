@@ -242,6 +242,8 @@ impl DeviceRelationshipService {
                         generation,
                         minimum_protocol_version: taken.protocol_version,
                         session_id: Some(&taken.session_id),
+                        remote_display_name: taken.remote_display_name.as_deref(),
+                        last_authenticated_at: Some(taken.authenticated_at),
                         issued_grant_handle: None,
                         held_grant_handle: None,
                         issued_grant_id: None,
@@ -271,6 +273,8 @@ impl DeviceRelationshipService {
                 generation,
                 minimum_protocol_version: taken.protocol_version,
                 session_id: Some(&taken.session_id),
+                remote_display_name: taken.remote_display_name.as_deref(),
+                last_authenticated_at: Some(taken.authenticated_at),
                 issued_grant_handle: None,
                 held_grant_handle: None,
                 issued_grant_id: None,
@@ -501,17 +505,17 @@ impl DeviceRelationshipService {
         if request.protocol_version != local_protocol {
             return PairingRequestResponse::Rejected;
         }
-        let accepted = match self
+        let local_observation = match self
             .eligibility
             .validate_presented_capability(&remote_endpoint_id, &request.session_id, &capability)
             .await
         {
-            Ok(Some(_)) => true,
-            Ok(None) | Err(_) => false,
+            Ok(Some(entry)) => Some(entry.remote_display_name),
+            Ok(None) | Err(_) => None,
         };
-        if !accepted {
+        let Some(remote_display_name) = local_observation else {
             return PairingRequestResponse::Rejected;
-        }
+        };
 
         match self.can_create_new_relationship(&remote_endpoint_id).await {
             Ok(true) => {}
@@ -527,6 +531,8 @@ impl DeviceRelationshipService {
                 generation: request.generation,
                 minimum_protocol_version: request.protocol_version,
                 session_id: Some(&request.session_id),
+                remote_display_name: remote_display_name.as_deref(),
+                last_authenticated_at: Some(now),
                 issued_grant_handle: None,
                 held_grant_handle: None,
                 issued_grant_id: None,

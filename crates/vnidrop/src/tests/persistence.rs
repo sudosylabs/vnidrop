@@ -50,3 +50,46 @@ async fn open_all_returns_all_domain_stores_and_schemas() {
         );
     }
 }
+
+#[tokio::test]
+async fn open_all_migrates_name_columns_without_losing_existing_local_labels() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("vnidrop.sqlite3");
+    let options = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(&db)
+        .create_if_missing(true);
+    let pool = sqlx::SqlitePool::connect_with(options).await.unwrap();
+    sqlx::query(
+        r#"
+        CREATE TABLE device_relationships (
+            remote_endpoint_id TEXT PRIMARY KEY, state TEXT NOT NULL,
+            generation INTEGER NOT NULL, minimum_protocol_version INTEGER NOT NULL,
+            session_id TEXT, issued_grant_handle TEXT, held_grant_handle TEXT,
+            issued_grant_id TEXT, held_grant_id TEXT, peer_ack INTEGER NOT NULL,
+            local_ack INTEGER NOT NULL, created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL, local_label TEXT
+        )
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        r#"
+        INSERT INTO device_relationships (
+            remote_endpoint_id, state, generation, minimum_protocol_version,
+            peer_ack, local_ack, created_at, updated_at, local_label
+        ) VALUES ('peer', 'saved', 1, 1, 1, 1, 10, 20, 'My tablet')
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    drop(pool);
+
+    let stores = persistence::open_all(temp.path()).await.unwrap();
+    let saved = stores.relationships.list_saved_devices().await.unwrap();
+    assert_eq!(saved[0].local_label.as_deref(), Some("My tablet"));
+    assert_eq!(saved[0].remote_display_name, None);
+    assert_eq!(saved[0].last_authenticated_at, None);
+}

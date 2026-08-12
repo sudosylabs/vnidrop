@@ -311,6 +311,15 @@ fn complete_invitation_transfer(
         .unwrap();
     handle.join().unwrap().unwrap();
 
+    if sender
+        .core()
+        .list_saved_devices()
+        .unwrap()
+        .iter()
+        .any(|device| device.endpoint_id == receiver.core().status().endpoint_id)
+    {
+        return;
+    }
     let started = Instant::now();
     let peer = receiver.core().status().endpoint_id.clone();
     loop {

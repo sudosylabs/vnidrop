@@ -44,6 +44,7 @@ pub(crate) struct TransferUpsert<'a> {
     pub(crate) direction: TransferDirection,
     pub(crate) status: TransferStatus,
     pub(crate) transfer_name: Option<&'a str>,
+    pub(crate) sender_name: Option<&'a str>,
     pub(crate) content_hash: Option<&'a str>,
     pub(crate) ticket: Option<&'a str>,
     pub(crate) file_count: u64,
@@ -136,6 +137,7 @@ impl Repository {
                 direction TEXT NOT NULL,
                 status TEXT NOT NULL,
                 transfer_name TEXT,
+                sender_name TEXT,
                 content_hash TEXT,
                 ticket TEXT,
                 file_count INTEGER NOT NULL DEFAULT 0,
@@ -155,6 +157,14 @@ impl Repository {
         let has_access_mode = columns
             .iter()
             .any(|row| row.get::<String, _>(1) == "access_mode");
+        if !columns
+            .iter()
+            .any(|row| row.get::<String, _>(1) == "sender_name")
+        {
+            sqlx::query("ALTER TABLE transfers ADD COLUMN sender_name TEXT")
+                .execute(&self.pool)
+                .await?;
+        }
         if !has_access_mode {
             sqlx::query(
                 "ALTER TABLE transfers ADD COLUMN access_mode TEXT NOT NULL DEFAULT 'approval_required'",
@@ -501,19 +511,21 @@ impl Repository {
             UPDATE transfers
             SET status = ?1,
                 transfer_name = ?2,
-                content_hash = ?3,
-                ticket = ?4,
-                file_count = ?5,
-                total_size = ?6,
-                access_mode = ?7,
-                updated_at = ?8
-            WHERE transfer_id = ?9
+                sender_name = ?3,
+                content_hash = ?4,
+                ticket = ?5,
+                file_count = ?6,
+                total_size = ?7,
+                access_mode = ?8,
+                updated_at = ?9
+            WHERE transfer_id = ?10
               AND direction = 'send'
               AND status = 'importing'
             "#,
         )
         .bind(transfer.status.as_str())
         .bind(transfer.transfer_name)
+        .bind(transfer.sender_name)
         .bind(transfer.content_hash)
         .bind(transfer.ticket)
         .bind(to_db_id(transfer.file_count)?)
@@ -910,7 +922,7 @@ impl Repository {
         transfer_id: u64,
         remote_endpoint_id: &str,
         token_hash: &str,
-    ) -> Result<()> {
+    ) -> Result<Option<String>> {
         let result = sqlx::query(
             r#"
             UPDATE receiver_requests
@@ -926,16 +938,34 @@ impl Repository {
         .bind(token_hash)
         .execute(&self.pool)
         .await?;
-        if result.rows_affected() == 1 {
-            return Ok(());
-        }
-        let already_recorded = sqlx::query(
-            r#"
+        if result.rows_affected() != 1 {
+            let already_recorded = sqlx::query(
+                r#"
             SELECT EXISTS(
                 SELECT 1 FROM receiver_requests
                 WHERE id = ?1 AND transfer_id = ?2 AND remote_endpoint_id = ?3
                   AND receipt_token_hash = ?4 AND status = 'completed'
             )
+            "#,
+            )
+            .bind(id)
+            .bind(to_db_id(transfer_id)?)
+            .bind(remote_endpoint_id)
+            .bind(token_hash)
+            .fetch_one(&self.pool)
+            .await?
+            .get::<i64, _>(0)
+                != 0;
+            if !already_recorded {
+                anyhow::bail!("delivery receipt did not match an accepted receiver request");
+            }
+        }
+        let row = sqlx::query(
+            r#"
+            SELECT receiver_name, receiver_device_name
+            FROM receiver_requests
+            WHERE id = ?1 AND transfer_id = ?2 AND remote_endpoint_id = ?3
+              AND receipt_token_hash = ?4 AND status = 'completed'
             "#,
         )
         .bind(id)
@@ -943,14 +973,10 @@ impl Repository {
         .bind(remote_endpoint_id)
         .bind(token_hash)
         .fetch_one(&self.pool)
-        .await?
-        .get::<i64, _>(0)
-            != 0;
-        if already_recorded {
-            Ok(())
-        } else {
-            anyhow::bail!("delivery receipt did not match an accepted receiver request")
-        }
+        .await?;
+        Ok(row
+            .get::<Option<String>, _>("receiver_device_name")
+            .or_else(|| row.get("receiver_name")))
     }
 
     pub(crate) async fn fail_receiver_delivery(
@@ -1055,6 +1081,25 @@ impl Repository {
         .fetch_one(&self.pool)
         .await?;
         Ok(row.get::<i64, _>(0) != 0)
+    }
+
+    pub(crate) async fn send_sender_name(
+        &self,
+        transfer_id: u64,
+        content_hash: &str,
+    ) -> Result<Option<String>> {
+        let row = sqlx::query(
+            r#"
+            SELECT sender_name FROM transfers
+            WHERE transfer_id = ?1 AND content_hash = ?2
+              AND direction = 'send' AND status = 'sharing'
+            "#,
+        )
+        .bind(to_db_id(transfer_id)?)
+        .bind(content_hash)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.and_then(|row| row.get("sender_name")))
     }
 
     pub(crate) async fn list_transfers(&self) -> Result<Vec<StoredTransfer>> {

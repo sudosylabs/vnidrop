@@ -359,6 +359,7 @@ impl CoreInner {
         }
         let pairing_eligibility = PairingEligibilityService::new(
             stores.eligibility.clone(),
+            stores.relationships.clone(),
             secret_custody.clone(),
             event_hub.clone(),
             endpoint.id().to_string(),
@@ -574,4 +575,8 @@ fn relay_mode_label(relay_mode: CoreRelayMode) -> &'static str {
 
 pub(super) fn share_tag_name(local_id: &str) -> String {
     format!("vnidrop/share/{local_id}")
+}
+
+pub(super) fn targeted_tag_name(transfer_id: &str) -> String {
+    format!("vnidrop/targeted/{transfer_id}")
 }

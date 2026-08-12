@@ -43,7 +43,7 @@ pub(super) enum ReceiveTarget {
 #[derive(Clone, Copy)]
 struct ReceivedTransfer<'a> {
     protocol_id: u64,
-    local_id: &'a str,
+    local_id: Option<&'a str>,
 }
 
 pub(super) struct OutputSinkFile<'a> {
@@ -180,6 +180,117 @@ impl CoreInner {
             receiver_name,
         )
         .await
+    }
+
+    pub(super) async fn receive_targeted_payload(
+        self: &Arc<Self>,
+        transfer_id: u64,
+        mut blob_ticket: BlobTicket,
+        target: ReceiveTarget,
+    ) -> Result<()> {
+        let _permit = self
+            .transfer_slots
+            .acquire()
+            .await
+            .context("transfer limiter is closed")
+            .map_err(VnidropError::internal)?;
+        let sender_addr = filter_peer_addr_for_relay_mode(
+            blob_ticket.addr(),
+            self.relay_mode,
+            &self.custom_relay_urls,
+        )
+        .map_err(VnidropError::network)?;
+        blob_ticket = BlobTicket::new(sender_addr, blob_ticket.hash(), blob_ticket.format());
+        let (cancel, mut cancelled) = oneshot::channel();
+        self.active_transfers
+            .lock()
+            .expect("active_transfers")
+            .insert(
+                transfer_id,
+                ActiveTransfer {
+                    direction: TransferDirection::Receive,
+                    cancel,
+                },
+            );
+        let result = tokio::select! {
+            result = self.download_targeted_payload(transfer_id, blob_ticket, target) => result,
+            _ = &mut cancelled => Err(VnidropError::cancelled("transfer cancelled").into()),
+        };
+        self.active_transfers
+            .lock()
+            .expect("active_transfers")
+            .remove(&transfer_id);
+        result
+    }
+
+    async fn download_targeted_payload(
+        &self,
+        transfer_id: u64,
+        blob_ticket: BlobTicket,
+        target: ReceiveTarget,
+    ) -> Result<()> {
+        if let ReceiveTarget::Directory(output_dir) = &target {
+            tokio::fs::create_dir_all(output_dir)
+                .await
+                .map_err(VnidropError::filesystem)?;
+        }
+        let connection = self
+            .endpoint
+            .connect(blob_ticket.addr().clone(), iroh_blobs::ALPN)
+            .await
+            .map_err(VnidropError::network)?;
+        let hash_and_format = blob_ticket.hash_and_format();
+        let (_hash_seq, sizes) =
+            get_hash_seq_and_sizes(&connection, &hash_and_format.hash, 1024 * 1024 * 32, None)
+                .await
+                .context("failed to get targeted payload sizes")
+                .map_err(VnidropError::network)?;
+        let total_size = sizes
+            .iter()
+            .try_fold(0u64, |total, size| total.checked_add(*size))
+            .context("remote collection size overflow")?;
+        let total_files = sizes.len().saturating_sub(1) as u64;
+        if total_files > self.limits.max_collection_files {
+            anyhow::bail!(
+                "remote collection has {total_files} files, limit is {}",
+                self.limits.max_collection_files
+            );
+        }
+        if total_size > self.limits.max_total_bytes {
+            anyhow::bail!(
+                "remote collection size {total_size} exceeds limit {}",
+                self.limits.max_total_bytes
+            );
+        }
+        let download_tag = self.store.tags().temp_tag(hash_and_format).await?;
+        let get = self.store.remote().fetch(connection, hash_and_format);
+        let mut stream = get.stream();
+        loop {
+            let Some(item) = stream.next().await else {
+                anyhow::bail!("targeted download ended without completion");
+            };
+            match item {
+                GetProgressItem::Progress(downloaded) => self.emit_transfer(
+                    transfer_id,
+                    "receive",
+                    "download",
+                    "progress",
+                    json!({ "downloaded": downloaded, "total_size": total_size }),
+                ),
+                GetProgressItem::Done(_) => break,
+                GetProgressItem::Error(error) => {
+                    return Err(VnidropError::network(anyhow::anyhow!(
+                        "targeted download failed: {error}"
+                    ))
+                    .into());
+                }
+            }
+        }
+        let collection = Collection::load(hash_and_format.hash, self.store.as_ref()).await?;
+        self.export_collection_untracked(transfer_id, total_files, target, collection)
+            .await?;
+        drop(download_tag);
+        Ok(())
     }
 
     pub(super) async fn receive_to_target(
@@ -328,7 +439,7 @@ impl CoreInner {
 
         self.emit_transfer(transfer_id, "receive", "network", "connecting", json!({}));
         // Every VniDrop ticket carries metadata and must complete the handshake.
-        let delivery_receipt = self
+        let (delivery_receipt, authenticated_sender_name) = self
             .request_transfer_approval(
                 transfer_id,
                 sender_addr.clone(),
@@ -424,6 +535,7 @@ impl CoreInner {
             .pairing_eligibility
             .activate_after_completed_transfer(
                 &peer_endpoint_id,
+                authenticated_sender_name.as_deref(),
                 &delivery_receipt.request_id,
                 &delivery_receipt.token,
             )
@@ -455,6 +567,7 @@ impl CoreInner {
                 direction: TransferDirection::Receive,
                 status: TransferStatus::Receiving,
                 transfer_name: Some(parsed.metadata.transfer_name.as_str()),
+                sender_name: parsed.metadata.sender_name.as_deref(),
                 content_hash: Some(parsed.metadata.content_hash.as_str()),
                 ticket: None,
                 file_count: parsed.metadata.file_count,
@@ -484,7 +597,7 @@ impl CoreInner {
         addr: iroh::EndpointAddr,
         metadata: &TransferMetadata,
         receiver_name: Option<&str>,
-    ) -> Result<DeliveryReceipt> {
+    ) -> Result<(DeliveryReceipt, Option<String>)> {
         self.emit_transfer(
             local_transfer_id,
             "receive",
@@ -507,6 +620,7 @@ impl CoreInner {
                 request_id,
                 token,
                 expires_at,
+                sender_name,
             } => {
                 self.emit_transfer(
                     local_transfer_id,
@@ -518,11 +632,14 @@ impl CoreInner {
                         "expires_at": expires_at,
                     }),
                 );
-                Ok(DeliveryReceipt {
-                    request_id,
-                    transfer_id: metadata.transfer_id,
-                    token,
-                })
+                Ok((
+                    DeliveryReceipt {
+                        request_id,
+                        transfer_id: metadata.transfer_id,
+                        token,
+                    },
+                    sender_name,
+                ))
             }
             HandshakeResponse::Denied { reason } => Err(VnidropError::permission(anyhow::anyhow!(
                 "transfer request was denied by sender: {reason}"
@@ -545,7 +662,58 @@ impl CoreInner {
             .map_err(VnidropError::repository)?;
         let received_transfer = ReceivedTransfer {
             protocol_id: transfer_id,
-            local_id: &transfer_local_id,
+            local_id: Some(&transfer_local_id),
+        };
+        for (i, (name, hash)) in collection.iter().enumerate() {
+            match &target {
+                ReceiveTarget::Directory(output_dir) => {
+                    self.export_blob_to_directory(
+                        received_transfer,
+                        total_files,
+                        i as u64,
+                        output_dir,
+                        name.as_ref(),
+                        *hash,
+                    )
+                    .await?;
+                }
+                ReceiveTarget::OutputSink(output_sink) => {
+                    self.export_blob_to_sink(
+                        transfer_id,
+                        total_files,
+                        i as u64,
+                        output_sink.as_ref(),
+                        name.as_ref(),
+                        *hash,
+                    )
+                    .await?;
+                }
+                ReceiveTarget::OutputSinkV2(output_sink) => {
+                    self.export_blob_to_sink_v2(
+                        received_transfer,
+                        total_files,
+                        i as u64,
+                        output_sink.as_ref(),
+                        name.as_ref(),
+                        *hash,
+                    )
+                    .await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn export_collection_untracked(
+        &self,
+        transfer_id: u64,
+        total_files: u64,
+        target: ReceiveTarget,
+        collection: Collection,
+    ) -> Result<()> {
+        let received_transfer = ReceivedTransfer {
+            protocol_id: transfer_id,
+            local_id: None,
         };
         for (i, (name, hash)) in collection.iter().enumerate() {
             match &target {
@@ -656,17 +824,19 @@ impl CoreInner {
             .map_err(VnidropError::filesystem)?;
         let locator = pending_file.target().to_string_lossy().to_string();
         pending_file.commit().map_err(VnidropError::filesystem)?;
-        self.repository
-            .record_received_artifact(ReceivedArtifactInsert {
-                transfer_local_id: transfer.local_id,
-                protocol_transfer_id: transfer.protocol_id,
-                relative_path,
-                locator_kind: ReceivedLocatorKind::FilesystemPath,
-                locator: &locator,
-                logical_size: exported,
-            })
-            .await
-            .map_err(VnidropError::repository)?;
+        if let Some(local_id) = transfer.local_id {
+            self.repository
+                .record_received_artifact(ReceivedArtifactInsert {
+                    transfer_local_id: local_id,
+                    protocol_transfer_id: transfer.protocol_id,
+                    relative_path,
+                    locator_kind: ReceivedLocatorKind::FilesystemPath,
+                    locator: &locator,
+                    logical_size: exported,
+                })
+                .await
+                .map_err(VnidropError::repository)?;
+        }
         Ok(())
     }
 
@@ -784,17 +954,19 @@ impl CoreInner {
         }
 
         let published = output_file.finish()?;
-        self.repository
-            .record_received_artifact(ReceivedArtifactInsert {
-                transfer_local_id: transfer.local_id,
-                protocol_transfer_id: transfer.protocol_id,
-                relative_path: &relative_path,
-                locator_kind: published.locator_kind,
-                locator: &published.locator,
-                logical_size: exported,
-            })
-            .await
-            .map_err(VnidropError::repository)?;
+        if let Some(local_id) = transfer.local_id {
+            self.repository
+                .record_received_artifact(ReceivedArtifactInsert {
+                    transfer_local_id: local_id,
+                    protocol_transfer_id: transfer.protocol_id,
+                    relative_path: &relative_path,
+                    locator_kind: published.locator_kind,
+                    locator: &published.locator,
+                    logical_size: exported,
+                })
+                .await
+                .map_err(VnidropError::repository)?;
+        }
         Ok(())
     }
 }

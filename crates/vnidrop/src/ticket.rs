@@ -57,6 +57,13 @@ impl VnidropTicket {
     }
 }
 
+#[cfg(test)]
+pub(crate) fn rewrite_sender_name_for_test(value: &str, sender_name: &str) -> Result<String> {
+    let mut ticket = VnidropTicket::decode(value)?;
+    ticket.metadata.sender_name = Some(sender_name.to_string());
+    ticket.encode()
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct ParsedTransferTicket {
     pub(crate) blob_ticket: BlobTicket,

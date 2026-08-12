@@ -1,8 +1,12 @@
 use std::{
     path::Path,
+    str::FromStr,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
+
+use iroh::{endpoint::presets, Endpoint};
+use iroh_blobs::{get::request::get_hash_seq_and_sizes, ticket::BlobTicket};
 
 use crate::{
     secure_secret::FaultInjectingSecretStore, CoreEvent, CoreEventSink, CoreNetworkConfig,
@@ -242,6 +246,13 @@ fn create_targeted_transfer_is_immutable_and_saved_only() {
     let bob_id = bob.core().status().endpoint_id.clone();
     let stranger_id = stranger.core().status().endpoint_id.clone();
     establish_saved(&alice, &bob, 10_001);
+    let invitation_history_before = alice
+        .core()
+        .list_transfers()
+        .unwrap()
+        .into_iter()
+        .map(|transfer| (transfer.local_id, transfer.ticket))
+        .collect::<Vec<_>>();
 
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join("payload.txt");
@@ -279,6 +290,17 @@ fn create_targeted_transfer_is_immutable_and_saved_only() {
         crate::TargetedOfferResponse::Approved { transfer_id }
             if transfer_id == transfer.id
     ));
+    assert_eq!(
+        alice
+            .core()
+            .list_transfers()
+            .unwrap()
+            .into_iter()
+            .map(|transfer| (transfer.local_id, transfer.ticket))
+            .collect::<Vec<_>>(),
+        invitation_history_before,
+        "targeted payloads must not become invitation transfers"
+    );
 
     assert_eq!(
         transfer.sender_endpoint_id,
@@ -386,6 +408,10 @@ fn explicit_approval_gates_content_and_binds_authorization_to_receiver() {
     let charlie = ProtectedNode::new();
     let bob_id = bob.core().status().endpoint_id.clone();
     establish_saved(&alice, &bob, 10_020);
+    let alice_invitation_count = alice.core().list_transfers().unwrap().len();
+    let bob_invitation_count = bob.core().list_transfers().unwrap().len();
+    let alice_eligibility_count = alice.core().list_pairing_eligibilities().unwrap().len();
+    let bob_eligibility_count = bob.core().list_pairing_eligibilities().unwrap().len();
 
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join("payload.txt");
@@ -466,6 +492,22 @@ fn explicit_approval_gates_content_and_binds_authorization_to_receiver() {
         std::fs::read(output.path().join("payload.txt")).unwrap(),
         payload
     );
+    assert_eq!(
+        alice.core().list_transfers().unwrap().len(),
+        alice_invitation_count
+    );
+    assert_eq!(
+        bob.core().list_transfers().unwrap().len(),
+        bob_invitation_count
+    );
+    assert_eq!(
+        alice.core().list_pairing_eligibilities().unwrap().len(),
+        alice_eligibility_count
+    );
+    assert_eq!(
+        bob.core().list_pairing_eligibilities().unwrap().len(),
+        bob_eligibility_count
+    );
 
     let charlie_output = tempfile::tempdir().unwrap();
     let leaked = charlie.core().receive_targeted_transfer(
@@ -476,6 +518,59 @@ fn explicit_approval_gates_content_and_binds_authorization_to_receiver() {
         leaked.is_err(),
         "another endpoint must not pull by the same transfer id"
     );
+}
+
+#[test]
+fn unrelated_endpoint_cannot_fetch_a_leaked_targeted_blob_ticket() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 10_025);
+    let transfer = approve_one(&alice, &bob, b"private payload", "payload.txt");
+    let (protocol_transfer_id, leaked) = alice
+        .core()
+        .targeted_blob_ticket_for_test(transfer.id)
+        .unwrap();
+    let collision_source_dir = tempfile::tempdir().unwrap();
+    let collision_source = collision_source_dir.path().join("public.txt");
+    std::fs::write(&collision_source, b"unrelated public payload").unwrap();
+    let collision = alice.core().share_files(
+        vec![targeted_source(&collision_source)],
+        ShareMetadataInput {
+            transfer_id: protocol_transfer_id,
+            transfer_name: Some("public.txt".to_string()),
+            sender_name: Some("sender".to_string()),
+            access_mode: TransferAccessMode::Public,
+        },
+    );
+    assert!(
+        collision.is_err(),
+        "an invitation transfer must not reuse a targeted ACL identity"
+    );
+    let ticket = BlobTicket::from_str(&leaked).unwrap();
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async move {
+        let attacker = Endpoint::builder(presets::Minimal).bind().await.unwrap();
+        let connection = attacker
+            .connect(ticket.addr().clone(), iroh_blobs::ALPN)
+            .await
+            .unwrap();
+        let result = get_hash_seq_and_sizes(
+            &connection,
+            &ticket.hash_and_format().hash,
+            1024 * 1024 * 32,
+            None,
+        )
+        .await;
+        assert!(
+            result.is_err(),
+            "a leaked targeted blob ticket must not authorize another endpoint"
+        );
+        attacker.close().await;
+    });
 }
 
 #[test]
@@ -785,6 +880,34 @@ fn delete_removes_authorization_and_resumable_state() {
         .unwrap()
         .unwrap();
     assert_eq!(sender_deleted.state, TargetedTransferState::Deleted);
+}
+
+#[test]
+fn sender_delete_revokes_receiver_bound_payload_access() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_055);
+    let transfer = approve_one(&alice, &bob, b"delete at sender", "payload.txt");
+
+    alice
+        .core()
+        .delete_targeted_transfer(transfer.id.clone())
+        .unwrap();
+    let deleted = alice
+        .core()
+        .get_targeted_transfer(transfer.id.clone())
+        .unwrap()
+        .unwrap();
+    assert_eq!(deleted.state, TargetedTransferState::Deleted);
+
+    let output = tempfile::tempdir().unwrap();
+    let receive = bob
+        .core()
+        .receive_targeted_transfer(transfer.id, output.path().to_string_lossy().into_owned());
+    assert!(
+        receive.is_err(),
+        "sender deletion must revoke the receiver's provider access"
+    );
 }
 
 #[test]

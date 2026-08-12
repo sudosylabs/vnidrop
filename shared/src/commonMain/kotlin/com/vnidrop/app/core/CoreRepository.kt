@@ -589,6 +589,7 @@ private fun ReceiverRequest.toModel(): ReceiverRequestModel = ReceiverRequestMod
 
 private fun PairingEligibilitySummary.toModel(): PairingEligibilityModel = PairingEligibilityModel(
 	peerEndpointId = peerEndpointId,
+	remoteDisplayName = remoteDisplayName,
 	sessionId = sessionId,
 	protocolVersion = protocolVersion,
 	createdAt = createdAt,
@@ -638,6 +639,7 @@ private fun TargetedTransfer.toModel(): TargetedTransferModel = TargetedTransfer
 	senderEndpointId = senderEndpointId,
 	receiverEndpointId = receiverEndpointId,
 	manifestId = manifestId,
+	transferName = transferName,
 	fileCount = fileCount,
 	totalSize = totalSize,
 	verifiedBytes = verifiedBytes,

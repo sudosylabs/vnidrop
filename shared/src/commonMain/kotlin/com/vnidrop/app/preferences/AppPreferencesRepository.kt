@@ -27,8 +27,6 @@ data class AppPreferences(
 	/** Stable anonymous install id for bug-report correlation; never an account or advertising id. */
 	val diagnosticsInstallId: String = "",
 	val relaySettings: RelaySettings = RelaySettings(),
-	/** Experimental saved-devices / targeted-transfer UI (Android). Default off. */
-	val experimentalSavedDevicesEnabled: Boolean = false,
 )
 
 class AppPreferencesDefaults(
@@ -36,7 +34,6 @@ class AppPreferencesDefaults(
 	val receiveFolder: ReceiveFolder,
 	val themeMode: ThemeMode,
 	val notificationsEnabled: Boolean = false,
-	val experimentalSavedDevicesEnabled: Boolean = false,
 )
 
 interface PreferencesRepository {
@@ -47,7 +44,6 @@ interface PreferencesRepository {
 	suspend fun setThemeMode(mode: ThemeMode)
 	suspend fun setNotificationsEnabled(enabled: Boolean)
 	suspend fun setRelaySettings(settings: RelaySettings)
-	suspend fun setExperimentalSavedDevicesEnabled(enabled: Boolean)
 	/** Ensures a durable install id exists and returns it. */
 	suspend fun ensureDiagnosticsInstallId(): String
 }
@@ -88,8 +84,6 @@ class AppPreferencesRepository(
 					mode = relayMode,
 					relayUrls = relayUrls,
 				),
-				experimentalSavedDevicesEnabled = prefs[PreferenceKeys.ExperimentalSavedDevicesEnabled]
-					?: defaults.experimentalSavedDevicesEnabled,
 			)
 		}
 
@@ -120,12 +114,6 @@ class AppPreferencesRepository(
 	override suspend fun setNotificationsEnabled(enabled: Boolean) {
 		dataStore.edit { prefs ->
 			prefs[PreferenceKeys.NotificationsEnabled] = enabled
-		}
-	}
-
-	override suspend fun setExperimentalSavedDevicesEnabled(enabled: Boolean) {
-		dataStore.edit { prefs ->
-			prefs[PreferenceKeys.ExperimentalSavedDevicesEnabled] = enabled
 		}
 	}
 
@@ -161,7 +149,6 @@ private object PreferenceKeys {
 	val ReceiveFolderDisplayName = stringPreferencesKey("receive_folder_display_name")
 	val ThemeMode = stringPreferencesKey("theme_mode")
 	val NotificationsEnabled = booleanPreferencesKey("notifications_enabled")
-	val ExperimentalSavedDevicesEnabled = booleanPreferencesKey("experimental_saved_devices_enabled")
 	val DiagnosticsInstallId = stringPreferencesKey("diagnostics_install_id")
 	val RelayMode = stringPreferencesKey("relay_mode")
 	val RelayUrls = stringPreferencesKey("relay_urls")

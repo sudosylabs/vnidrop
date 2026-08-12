@@ -10,6 +10,7 @@ import com.vnidrop.app.core.FolderAccessStatus
 import com.vnidrop.app.core.PairingEligibilityModel
 import com.vnidrop.app.core.PendingTargetedOfferModel
 import com.vnidrop.app.core.PickedShareFile
+import com.vnidrop.app.core.PickedShareSourceAdapter
 import com.vnidrop.app.core.ReceiveFolder
 import com.vnidrop.app.core.ReceivedArtifactModel
 import com.vnidrop.app.core.ReceivedStorageInspection
@@ -334,9 +335,6 @@ class FakePreferencesRepository(
 	override suspend fun resetReceiveFolder() = Unit
 	override suspend fun setThemeMode(mode: ThemeMode) { mutablePreferences.value = mutablePreferences.value.copy(themeMode = mode) }
 	override suspend fun setNotificationsEnabled(enabled: Boolean) { mutablePreferences.value = mutablePreferences.value.copy(notificationsEnabled = enabled) }
-	override suspend fun setExperimentalSavedDevicesEnabled(enabled: Boolean) {
-		mutablePreferences.value = mutablePreferences.value.copy(experimentalSavedDevicesEnabled = enabled)
-	}
 	override suspend fun setRelaySettings(settings: RelaySettings) {
 		mutablePreferences.value = mutablePreferences.value.copy(relaySettings = settings)
 	}
@@ -378,7 +376,6 @@ class FakeFileSystemService(
 	var reclaimTemporaryStorageCount = 0
 	var revealFolderResult: Result<Unit> = Result.success(Unit)
 	val revealedFolders = mutableListOf<ReceiveFolder>()
-	val discardedPickedFiles = mutableListOf<PickedShareFile>()
 	override val supportsCustomReceiveFolders: Boolean get() = supportsCustomFolders
 	override fun defaultReceiveFolder() = folder
 	override fun effectiveReceiveFolder(configuredFolder: ReceiveFolder) =
@@ -397,42 +394,33 @@ class FakeFileSystemService(
 		revealedFolders += folder
 		return revealFolderResult
 	}
-	override suspend fun discardPickedFiles(files: List<PickedShareFile>) {
-		discardedPickedFiles += files
-	}
-	override suspend fun sharePickedFiles(
-		repository: CoreGateway,
+}
+
+internal class FakePickedShareSourceAdapter : PickedShareSourceAdapter {
+	val discardedPickedFiles = mutableListOf<PickedShareFile>()
+	var adaptResult: Result<Unit> = Result.success(Unit)
+	var beforeOperation: suspend () -> Unit = {}
+
+	override suspend fun <T> withShareSources(
 		files: List<PickedShareFile>,
-		transferName: String,
-		senderName: String,
-		accessPolicy: ShareAccessPolicy,
-	): Result<Share> {
-		val sources = files.map { file ->
-			uniffi.vnidrop.ShareSource(
-				kind = uniffi.vnidrop.SourceKind.PATH,
-				value = file.value,
-				displayName = file.displayName,
-				isDirectory = false,
-			)
-		}
-		return repository.shareSources(sources, transferName, senderName, accessPolicy)
+		operation: suspend (List<uniffi.vnidrop.ShareSource>) -> T,
+	): Result<T> = runCatching {
+		adaptResult.getOrThrow()
+		beforeOperation()
+		operation(
+			files.map { file ->
+				uniffi.vnidrop.ShareSource(
+					kind = uniffi.vnidrop.SourceKind.PATH,
+					value = file.value,
+					displayName = file.displayName,
+					isDirectory = file.isDirectory,
+				)
+			},
+		)
 	}
 
-	override suspend fun createTargetedTransferFromPickedFiles(
-		repository: CoreGateway,
-		receiverEndpointId: String,
-		files: List<PickedShareFile>,
-		transferName: String?,
-	): Result<TargetedTransferModel> {
-		val sources = files.map { file ->
-			uniffi.vnidrop.ShareSource(
-				kind = uniffi.vnidrop.SourceKind.PATH,
-				value = file.value,
-				displayName = file.displayName,
-				isDirectory = false,
-			)
-		}
-		return repository.createTargetedTransfer(receiverEndpointId, sources, transferName)
+	override suspend fun discardPickedFiles(files: List<PickedShareFile>) {
+		discardedPickedFiles += files.filter(PickedShareFile::isTemporaryCopy)
 	}
 }
 

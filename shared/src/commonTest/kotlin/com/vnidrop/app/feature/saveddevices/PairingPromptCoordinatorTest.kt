@@ -3,13 +3,8 @@ package com.vnidrop.app.feature.saveddevices
 import com.vnidrop.app.core.DeviceRelationshipModel
 import com.vnidrop.app.core.DeviceRelationshipStateModel
 import com.vnidrop.app.core.PairingEligibilityModel
-import com.vnidrop.app.core.ReceiveFolder
-import com.vnidrop.app.core.ReceiveFolderKind
-import com.vnidrop.app.preferences.AppPreferences
 import com.vnidrop.app.support.FakeCoreGateway
-import com.vnidrop.app.support.FakePreferencesRepository
 import com.vnidrop.app.ui.feedback.UiMessageController
-import com.vnidrop.app.ui.theme.ThemeMode
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -24,24 +19,8 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class PairingPromptCoordinatorTest {
 	@Test
-	fun experimentalOffDoesNotPromptOnEligibility() = runTest {
-		val core = initializedCore().apply {
-			pairingEligibilities = listOf(eligibility("peer-a"))
-		}
-		val coordinator = PairingPromptCoordinator(
-			core,
-			preferences(enabled = false),
-			UiMessageController(),
-			backgroundScope,
-		)
-		runCurrent()
-		advanceUntilIdle()
-		assertNull(coordinator.state.value.prompt)
-	}
-
-	@Test
 	fun waitsForCoreInitializeBeforeRefreshing() = runTest {
-		// Regression: experimental prefs emit before AppViewModel initialize finishes.
+		// The coordinator must not query domain state before AppViewModel initializes the core.
 		val core = FakeCoreGateway().apply {
 			pairingEligibilities = listOf(eligibility("peer-a"))
 		}
@@ -52,7 +31,6 @@ class PairingPromptCoordinatorTest {
 		}
 		val coordinator = PairingPromptCoordinator(
 			core,
-			preferences(enabled = true),
 			messages,
 			backgroundScope,
 		)
@@ -66,7 +44,7 @@ class PairingPromptCoordinatorTest {
 		runCurrent()
 		advanceUntilIdle()
 		assertEquals(1, core.listDeviceRelationshipsCount)
-		assertEquals(PairingPrompt.Eligibility("peer-a"), coordinator.state.value.prompt)
+		assertEquals(PairingPrompt.Eligibility("peer-a", "Remote device"), coordinator.state.value.prompt)
 		assertTrue(seen.isEmpty())
 	}
 
@@ -77,13 +55,12 @@ class PairingPromptCoordinatorTest {
 		}
 		val coordinator = PairingPromptCoordinator(
 			core,
-			preferences(enabled = true),
 			UiMessageController(),
 			backgroundScope,
 		)
 		runCurrent()
 		advanceUntilIdle()
-		assertEquals(PairingPrompt.Eligibility("peer-a"), coordinator.state.value.prompt)
+		assertEquals(PairingPrompt.Eligibility("peer-a", "Remote device"), coordinator.state.value.prompt)
 
 		coordinator.accept()
 		runCurrent()
@@ -98,7 +75,6 @@ class PairingPromptCoordinatorTest {
 		}
 		val coordinator = PairingPromptCoordinator(
 			core,
-			preferences(enabled = true),
 			UiMessageController(),
 			backgroundScope,
 		)
@@ -119,7 +95,6 @@ class PairingPromptCoordinatorTest {
 		}
 		val coordinator = PairingPromptCoordinator(
 			core,
-			preferences(enabled = true),
 			UiMessageController(),
 			backgroundScope,
 		)
@@ -139,7 +114,6 @@ class PairingPromptCoordinatorTest {
 		}
 		val coordinator = PairingPromptCoordinator(
 			core,
-			preferences(enabled = true),
 			UiMessageController(),
 			backgroundScope,
 		)
@@ -159,6 +133,7 @@ class PairingPromptCoordinatorTest {
 
 	private fun eligibility(peer: String) = PairingEligibilityModel(
 		peerEndpointId = peer,
+		remoteDisplayName = "Remote device",
 		sessionId = "session",
 		protocolVersion = 1u,
 		createdAt = 1L,
@@ -172,15 +147,5 @@ class PairingPromptCoordinatorTest {
 		minimumProtocolVersion = 1u,
 		createdAt = 1L,
 		updatedAt = 1L,
-	)
-
-	private fun preferences(enabled: Boolean) = FakePreferencesRepository(
-		AppPreferences(
-			username = "User",
-			receiveFolder = ReceiveFolder(ReceiveFolderKind.FileSystemPath, "/tmp", "tmp"),
-			themeMode = ThemeMode.System,
-			notificationsEnabled = false,
-			experimentalSavedDevicesEnabled = enabled,
-		),
 	)
 }

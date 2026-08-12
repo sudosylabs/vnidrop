@@ -3,14 +3,11 @@ package com.vnidrop.app.feature.saveddevices
 import com.vnidrop.app.core.CoreGateway
 import com.vnidrop.app.core.CoreSignal
 import com.vnidrop.app.core.DeviceRelationshipStateModel
-import com.vnidrop.app.preferences.PreferencesRepository
 import com.vnidrop.app.ui.feedback.UiMessageController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -18,14 +15,13 @@ import kotlinx.coroutines.launch
 
 sealed interface PairingPrompt {
 	/** Local eligibility after a completed invitation transfer — user may remember the peer. */
-	data class Eligibility(val peerEndpointId: String) : PairingPrompt
+	data class Eligibility(val peerEndpointId: String, val remoteDisplayName: String?) : PairingPrompt
 
 	/** Peer requested pairing; user may accept or decline mutual consent. */
-	data class IncomingRequest(val peerEndpointId: String) : PairingPrompt
+	data class IncomingRequest(val peerEndpointId: String, val remoteDisplayName: String?) : PairingPrompt
 }
 
 data class PairingPromptState(
-	val enabled: Boolean = false,
 	val prompt: PairingPrompt? = null,
 	val busy: Boolean = false,
 )
@@ -36,7 +32,6 @@ data class PairingPromptState(
  */
 class PairingPromptCoordinator(
 	private val repository: CoreGateway,
-	private val preferencesRepository: PreferencesRepository,
 	private val messages: UiMessageController,
 	private val scope: CoroutineScope,
 ) {
@@ -48,26 +43,17 @@ class PairingPromptCoordinator(
 
 	init {
 		scope.launch {
-			// Preferences can emit before AppViewModel finishes core initialize.
-			// Hitting the gateway then surfaces "Initialize the core first" snackbars.
-			combine(
-				preferencesRepository.preferences.map { it.experimentalSavedDevicesEnabled },
-				repository.state.map { it.isInitialized },
-			) { enabled, initialized -> enabled to initialized }
+			repository.state.map { it.isInitialized }
 				.distinctUntilChanged()
-				.collectLatest { (enabled, initialized) ->
-					_state.update { it.copy(enabled = enabled) }
-					when {
-						enabled && initialized -> refresh()
-						!enabled -> _state.update { it.copy(prompt = null, busy = false) }
-					}
+				.collect { initialized ->
+					if (initialized) refresh()
 				}
 		}
 		scope.launch {
 			repository.signals.collect { signal ->
 				when (signal) {
 					CoreSignal.PairingChanged -> {
-						if (_state.value.enabled && repository.state.value.isInitialized) refresh()
+						if (repository.state.value.isInitialized) refresh()
 					}
 					is CoreSignal.ApprovalChanged,
 					is CoreSignal.ReceiverHistoryChanged,
@@ -124,15 +110,27 @@ class PairingPromptCoordinator(
 	}
 
 	private suspend fun refresh() {
-		if (!_state.value.enabled || _state.value.busy) return
+		if (_state.value.busy) return
 		val relationships = repository.listDeviceRelationships().getOrElse {
 			messages.error(it)
 			return
 		}
 		val incoming = relationships.firstOrNull { it.state == DeviceRelationshipStateModel.PendingIncoming }
 		if (incoming != null) {
+			val remoteDisplayName = repository.listPairingEligibilities()
+				.getOrElse {
+					messages.error(it)
+					emptyList()
+				}
+				.firstOrNull { eligibility -> eligibility.peerEndpointId == incoming.remoteEndpointId }
+				?.remoteDisplayName
 			_state.update {
-				it.copy(prompt = PairingPrompt.IncomingRequest(incoming.remoteEndpointId))
+				it.copy(
+					prompt = PairingPrompt.IncomingRequest(
+						incoming.remoteEndpointId,
+						remoteDisplayName,
+					),
+				)
 			}
 			return
 		}
@@ -142,7 +140,11 @@ class PairingPromptCoordinator(
 		}
 		val eligibility = eligibilities.firstOrNull { it.peerEndpointId !in dismissedEligibility }
 		_state.update {
-			it.copy(prompt = eligibility?.let { row -> PairingPrompt.Eligibility(row.peerEndpointId) })
+			it.copy(
+				prompt = eligibility?.let { row ->
+					PairingPrompt.Eligibility(row.peerEndpointId, row.remoteDisplayName)
+				},
+			)
 		}
 	}
 }

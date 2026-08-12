@@ -100,9 +100,6 @@
     <string name="error_starting_up">VniDrop démarre encore. Rouvrez l’invitation dans un instant.</string>
     <string name="error_storage_full">L’espace de stockage est insuffisant pour enregistrer ce transfert. Libérez de l’espace et réessayez.</string>
     <string name="error_transfer">Les données du transfert n’ont pas pu être traitées. Demandez à l’expéditeur de les partager à nouveau.</string>
-    <string name="experimental_saved_devices_description">Remember devices after a transfer and send to them again without a new invitation. Experimental and may change.</string>
-    <string name="experimental_saved_devices_title">Saved devices</string>
-    <string name="experimental_settings_title">Experimental</string>
     <string name="field_receiver_name">Nom du destinataire</string>
     <string name="field_sender_name">Nom de l’expéditeur</string>
     <string name="field_transfer_name">Nom du transfert</string>
@@ -115,6 +112,7 @@
     <string name="metadata_size">Taille</string>
     <string name="metadata_status">Statut</string>
     <string name="nav_receive">Recevoir</string>
+    <string name="nav_saved_devices">Appareils</string>
     <string name="nav_send">Envoyer</string>
     <string name="nav_settings">Réglages</string>
     <string name="network_title">Réseau</string>
@@ -221,6 +219,7 @@
     <string name="send_new_transfer_description">Créer un nouveau transfert</string>
     <string name="send_new_transfer_title">Nouveau transfert</string>
     <string name="send_review_title">Vérifier le transfert</string>
+    <string name="send_default_transfer_name">%1$d fichiers</string>
     <string name="send_selected_files_count">%1$d fichiers sélectionnés</string>
     <string name="send_stop_sharing">Arrêter le partage</string>
     <string name="send_stop_sharing_description">Cela arrête le transfert et interrompt toute personne en train de le télécharger. Il reste dans votre historique en tant qu’Arrêté.</string>
@@ -320,10 +319,21 @@
     <string name="offer_body">%1$s souhaite vous envoyer « %2$s ».</string>
     <string name="offer_accept">Recevoir</string>
     <string name="offer_decline">Refuser</string>
+    <string name="saved_devices_authenticated_name">Nom distant : %1$s</string>
+    <string name="saved_devices_block_confirm_body">Bloquer %1$s et refuser les futurs transferts d’appareil enregistré ?</string>
+    <string name="saved_devices_block_confirm_title">Bloquer l’appareil ?</string>
+    <string name="saved_devices_description">Envoyez directement aux appareils de confiance, sans partager une nouvelle invitation.</string>
+    <string name="saved_devices_endpoint">ID de l’appareil : %1$s</string>
     <string name="saved_devices_empty">No saved devices yet. Finish a transfer, then remember a device.</string>
+    <string name="saved_devices_forget_confirm_body">Oublier %1$s ? Vous devrez tous les deux approuver à nouveau l’enregistrement avant un autre transfert direct.</string>
+    <string name="saved_devices_forget_confirm_title">Oublier l’appareil ?</string>
     <string name="saved_devices_eligibility_title">Ready to remember</string>
     <string name="saved_devices_pending_title">Pending pairing</string>
     <string name="saved_devices_list_title">Saved devices</string>
+    <string name="saved_devices_load_failed">Impossible de charger les appareils enregistrés.</string>
+    <string name="saved_devices_loading">Chargement des appareils enregistrés…</string>
+    <string name="saved_devices_more_actions">Plus d’actions pour %1$s</string>
+    <string name="saved_devices_no_pending">Aucune demande d’association ne nécessite votre attention.</string>
     <string name="saved_devices_unnamed">Saved device</string>
     <string name="saved_devices_remember_action">Remember</string>
     <string name="saved_devices_decline_action">Decline</string>

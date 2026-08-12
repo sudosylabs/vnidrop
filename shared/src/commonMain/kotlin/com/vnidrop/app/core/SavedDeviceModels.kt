@@ -1,9 +1,9 @@
 package com.vnidrop.app.core
 
 /**
- * App-facing models for experimental saved devices and targeted transfers.
- * Maps UniFFI types; features must not depend on `uniffi.vnidrop` for these flows
- * except share sources / output sinks already used by invitation receive.
+ * App-facing models for saved devices and targeted transfers. Maps UniFFI types;
+ * features must not depend on `uniffi.vnidrop` for these flows except share
+ * sources / output sinks already used by invitation receive.
  */
 
 data class SavedDeviceModel(
@@ -33,6 +33,7 @@ data class DeviceRelationshipModel(
 
 data class PairingEligibilityModel(
 	val peerEndpointId: String,
+	val remoteDisplayName: String?,
 	val sessionId: String,
 	val protocolVersion: UShort,
 	val createdAt: Long,
@@ -72,6 +73,7 @@ data class TargetedTransferModel(
 	val senderEndpointId: String,
 	val receiverEndpointId: String,
 	val manifestId: String,
+	val transferName: String,
 	val fileCount: ULong,
 	val totalSize: ULong,
 	val verifiedBytes: ULong,

@@ -100,9 +100,6 @@
     <string name="error_starting_up">VniDrop is nog aan het opstarten. Open de uitnodiging zo meteen opnieuw.</string>
     <string name="error_storage_full">Er is onvoldoende opslagruimte om deze overdracht op te slaan. Maak ruimte vrij en probeer het opnieuw.</string>
     <string name="error_transfer">De overdrachtsgegevens konden niet worden verwerkt. Vraag de afzender ze opnieuw te delen.</string>
-    <string name="experimental_saved_devices_description">Remember devices after a transfer and send to them again without a new invitation. Experimental and may change.</string>
-    <string name="experimental_saved_devices_title">Saved devices</string>
-    <string name="experimental_settings_title">Experimental</string>
     <string name="field_receiver_name">Naam van ontvanger</string>
     <string name="field_sender_name">Naam van afzender</string>
     <string name="field_transfer_name">Naam van overdracht</string>
@@ -115,6 +112,7 @@
     <string name="metadata_size">Grootte</string>
     <string name="metadata_status">Status</string>
     <string name="nav_receive">Ontvangen</string>
+    <string name="nav_saved_devices">Apparaten</string>
     <string name="nav_send">Versturen</string>
     <string name="nav_settings">Instellingen</string>
     <string name="network_title">Netwerk</string>
@@ -221,6 +219,7 @@
     <string name="send_new_transfer_description">Een nieuwe overdracht aanmaken</string>
     <string name="send_new_transfer_title">Nieuwe overdracht</string>
     <string name="send_review_title">Overdracht controleren</string>
+    <string name="send_default_transfer_name">%1$d bestanden</string>
     <string name="send_selected_files_count">%1$d bestanden geselecteerd</string>
     <string name="send_stop_sharing">Stoppen met delen</string>
     <string name="send_stop_sharing_description">Hiermee stopt de overdracht en wordt iedereen die deze op dit moment downloadt onderbroken. De overdracht blijft in uw geschiedenis staan als Gestopt.</string>
@@ -320,10 +319,21 @@
     <string name="offer_body">%1$s wil je “%2$s” sturen.</string>
     <string name="offer_accept">Ontvangen</string>
     <string name="offer_decline">Weigeren</string>
+    <string name="saved_devices_authenticated_name">Externe naam: %1$s</string>
+    <string name="saved_devices_block_confirm_body">%1$s blokkeren en toekomstige overdrachten van opgeslagen apparaten weigeren?</string>
+    <string name="saved_devices_block_confirm_title">Apparaat blokkeren?</string>
+    <string name="saved_devices_description">Stuur rechtstreeks naar vertrouwde apparaten zonder opnieuw een uitnodiging te delen.</string>
+    <string name="saved_devices_endpoint">Apparaat-ID: %1$s</string>
     <string name="saved_devices_empty">No saved devices yet. Finish a transfer, then remember a device.</string>
+    <string name="saved_devices_forget_confirm_body">%1$s vergeten? Jullie moeten het opslaan allebei opnieuw goedkeuren voor een volgende directe overdracht.</string>
+    <string name="saved_devices_forget_confirm_title">Apparaat vergeten?</string>
     <string name="saved_devices_eligibility_title">Ready to remember</string>
     <string name="saved_devices_pending_title">Pending pairing</string>
     <string name="saved_devices_list_title">Saved devices</string>
+    <string name="saved_devices_load_failed">Opgeslagen apparaten konden niet worden geladen.</string>
+    <string name="saved_devices_loading">Opgeslagen apparaten laden…</string>
+    <string name="saved_devices_more_actions">Meer acties voor %1$s</string>
+    <string name="saved_devices_no_pending">Er zijn geen koppelverzoeken die aandacht nodig hebben.</string>
     <string name="saved_devices_unnamed">Saved device</string>
     <string name="saved_devices_remember_action">Remember</string>
     <string name="saved_devices_decline_action">Decline</string>

@@ -58,7 +58,6 @@ enum class SettingsSection {
 	Network,
 	Notifications,
 	Storage,
-	Experimental,
 	About,
 	BugReport,
 }
@@ -98,7 +97,6 @@ data class SettingsState(
 	val hasActiveNetworkWork: Boolean = false,
 	val endpointId: String? = null,
 	val notificationsEnabled: Boolean = false,
-	val experimentalSavedDevicesEnabled: Boolean = false,
 	val notificationPermission: NotificationPermission = NotificationPermission.NotDetermined,
 	val deviceInfo: DeviceInfo? = null,
 	val appVersion: String = "",
@@ -162,7 +160,6 @@ class SettingsViewModel(
 						receiveFolder = receiveFolder,
 						themeMode = preferences.themeMode,
 						notificationsEnabled = preferences.notificationsEnabled,
-						experimentalSavedDevicesEnabled = preferences.experimentalSavedDevicesEnabled,
 						savedRelaySettings = preferences.relaySettings,
 						relayMode = if (hasLocalRelayDraft) current.relayMode else preferences.relaySettings.mode,
 						relayUrls = if (hasLocalRelayDraft) {
@@ -568,12 +565,6 @@ class SettingsViewModel(
 				_state.update { it.copy(isSubmittingBugReport = false) }
 				messages.show(UiMessage(UiText.Resource(Res.string.bug_report_submit_failed), UiMessageTone.Error))
 			}
-		}
-	}
-
-	fun setExperimentalSavedDevicesEnabled(enabled: Boolean) {
-		viewModelScope.launch {
-			preferencesRepository.setExperimentalSavedDevicesEnabled(enabled)
 		}
 	}
 

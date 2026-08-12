@@ -29,7 +29,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.vnidrop.app.core.PickedShareFile
 import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.ui.components.Field
 import com.vnidrop.app.ui.components.PrimaryButton
@@ -62,26 +61,27 @@ import vnidrop.shared.generated.resources.send_file_size_unknown
 import vnidrop.shared.generated.resources.send_folder_label
 import vnidrop.shared.generated.resources.send_review_title
 import vnidrop.shared.generated.resources.send_selected_files_count
+import vnidrop.shared.generated.resources.saved_devices_send_action
 
 @Composable
 internal fun TransferComposer(
 	coreInitialized: Boolean,
-	state: SendState,
+	state: TransferDraftState,
 	windowClass: WindowClass,
 	onSelectFile: () -> Unit,
 	onSelectFolder: () -> Unit,
 	onClearFile: () -> Unit,
-	onRemoveFile: (String) -> Unit,
+	onRemoveFile: (DraftSourceId) -> Unit,
 	onTransferNameChanged: (String) -> Unit,
 	onSenderNameChanged: (String) -> Unit,
 	onAccessPolicyChanged: (ShareAccessPolicy) -> Unit,
-	onCreateShare: () -> Unit,
+	onSubmit: () -> Unit,
 ) {
 	Column(
 		modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp),
 		verticalArrangement = Arrangement.spacedBy(16.dp),
 	) {
-		if (state.selectedFiles.isEmpty()) {
+		if (state.sources.isEmpty()) {
 			ChooseFileStep(onSelectFile, onSelectFolder)
 		} else {
 			ReviewFileStep(
@@ -94,7 +94,7 @@ internal fun TransferComposer(
 				onTransferNameChanged = onTransferNameChanged,
 				onSenderNameChanged = onSenderNameChanged,
 				onAccessPolicyChanged = onAccessPolicyChanged,
-				onCreateShare = onCreateShare,
+				onSubmit = onSubmit,
 				coreInitialized = coreInitialized,
 			)
 		}
@@ -124,73 +124,83 @@ private fun ChooseFileStep(onSelectFile: () -> Unit, onSelectFolder: () -> Unit)
 
 @Composable
 private fun ReviewFileStep(
-	state: SendState,
+	state: TransferDraftState,
 	windowClass: WindowClass,
 	onSelectFile: () -> Unit,
 	onSelectFolder: () -> Unit,
 	onClearFile: () -> Unit,
-	onRemoveFile: (String) -> Unit,
+	onRemoveFile: (DraftSourceId) -> Unit,
 	onTransferNameChanged: (String) -> Unit,
 	onSenderNameChanged: (String) -> Unit,
 	onAccessPolicyChanged: (ShareAccessPolicy) -> Unit,
-	onCreateShare: () -> Unit,
+	onSubmit: () -> Unit,
 	coreInitialized: Boolean,
 ) {
 	Text(stringResource(Res.string.send_review_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-	if (state.selectedFiles.size > 1) {
+	if (state.sources.size > 1) {
 		Text(
-			stringResource(Res.string.send_selected_files_count, state.selectedFiles.size),
+			stringResource(Res.string.send_selected_files_count, state.sources.size),
 			color = LocalVniDropColors.current.foregroundLighter,
 			style = MaterialTheme.typography.bodyMedium,
 		)
 	}
-	state.selectedFiles.forEach { file ->
+	state.sources.forEach { file ->
 		SelectedFileCard(
 			file = file,
-			canRemove = state.selectedFiles.size > 1 && !state.isSharing,
-			onRemove = { onRemoveFile(file.value) },
+			canRemove = state.sources.size > 1 && !state.isSubmitting,
+			onRemove = { onRemoveFile(file.id) },
 		)
 	}
-	Field(state.transferName, onTransferNameChanged, stringResource(Res.string.field_transfer_name))
-	Field(state.senderName, onSenderNameChanged, stringResource(Res.string.field_sender_name))
-	Text(stringResource(Res.string.send_access_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-	PolicyOption(
-		icon = AppIcon.Shield,
-		title = stringResource(Res.string.send_access_approval),
-		description = stringResource(Res.string.send_access_approval_description),
-		selected = state.accessPolicy == ShareAccessPolicy.RequireApproval,
-		onClick = { onAccessPolicyChanged(ShareAccessPolicy.RequireApproval) },
-	)
-	PolicyOption(
-		icon = AppIcon.Globe,
-		title = stringResource(Res.string.send_access_anyone),
-		description = stringResource(Res.string.send_access_anyone_description),
-		selected = state.accessPolicy == ShareAccessPolicy.AnyoneWithTransfer,
-		onClick = { onAccessPolicyChanged(ShareAccessPolicy.AnyoneWithTransfer) },
-	)
-	if (state.accessPolicy == ShareAccessPolicy.AnyoneWithTransfer) {
-		Text(
-			stringResource(Res.string.send_access_anyone_warning),
-			color = LocalVniDropColors.current.destructiveDefault,
-			style = MaterialTheme.typography.bodySmall,
+	Field(state.transferName, onTransferNameChanged, stringResource(Res.string.field_transfer_name), enabled = !state.isSubmitting)
+	when (val destination = state.destination) {
+		TransferDraftDestination.Invitation -> {
+			Field(state.senderName, onSenderNameChanged, stringResource(Res.string.field_sender_name), enabled = !state.isSubmitting)
+			Text(stringResource(Res.string.send_access_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+			PolicyOption(
+				icon = AppIcon.Shield,
+				title = stringResource(Res.string.send_access_approval),
+				description = stringResource(Res.string.send_access_approval_description),
+				selected = state.accessPolicy == ShareAccessPolicy.RequireApproval,
+				onClick = { onAccessPolicyChanged(ShareAccessPolicy.RequireApproval) },
+			)
+			PolicyOption(
+				icon = AppIcon.Globe,
+				title = stringResource(Res.string.send_access_anyone),
+				description = stringResource(Res.string.send_access_anyone_description),
+				selected = state.accessPolicy == ShareAccessPolicy.AnyoneWithTransfer,
+				onClick = { onAccessPolicyChanged(ShareAccessPolicy.AnyoneWithTransfer) },
+			)
+			if (state.accessPolicy == ShareAccessPolicy.AnyoneWithTransfer) {
+				Text(
+					stringResource(Res.string.send_access_anyone_warning),
+					color = LocalVniDropColors.current.destructiveDefault,
+					style = MaterialTheme.typography.bodySmall,
+				)
+			}
+		}
+		is TransferDraftDestination.Targeted -> Text(
+			destination.receiver.displayName,
+			style = MaterialTheme.typography.titleMedium,
+			fontWeight = FontWeight.SemiBold,
 		)
+		null -> Unit
 	}
 	Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-		ShareButton(state, coreInitialized, onCreateShare, Modifier.fillMaxWidth())
+		SubmitButton(state, coreInitialized, onSubmit, Modifier.fillMaxWidth())
 		Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
 			SourceButton(
 				text = stringResource(Res.string.button_change_files),
 				icon = AppIcon.File,
 				onClick = onSelectFile,
 				modifier = Modifier.weight(1f),
-				enabled = !state.isSharing,
+				enabled = !state.isSubmitting,
 			)
 			SourceButton(
 				text = stringResource(Res.string.button_choose_folder),
 				icon = AppIcon.Folder,
 				onClick = onSelectFolder,
 				modifier = Modifier.weight(1f),
-				enabled = !state.isSharing,
+				enabled = !state.isSubmitting,
 			)
 			if (windowClass != WindowClass.Phone) {
 				SourceButton(
@@ -198,7 +208,7 @@ private fun ReviewFileStep(
 					icon = AppIcon.Close,
 					onClick = onClearFile,
 					modifier = Modifier.weight(1f),
-					enabled = !state.isSharing,
+					enabled = !state.isSubmitting,
 				)
 			}
 		}
@@ -221,18 +231,23 @@ private fun SourceButton(
 }
 
 @Composable
-private fun ShareButton(state: SendState, coreInitialized: Boolean, onCreateShare: () -> Unit, modifier: Modifier = Modifier) {
+private fun SubmitButton(state: TransferDraftState, coreInitialized: Boolean, onSubmit: () -> Unit, modifier: Modifier = Modifier) {
+	val targeted = state.destination is TransferDraftDestination.Targeted
 	PrimaryButton(
-		if (state.isSharing) stringResource(Res.string.button_sharing_file) else stringResource(Res.string.button_share_file),
-		onClick = onCreateShare,
+		when {
+			state.isSubmitting -> stringResource(Res.string.button_sharing_file)
+			targeted -> stringResource(Res.string.saved_devices_send_action)
+			else -> stringResource(Res.string.button_share_file)
+		},
+		onClick = onSubmit,
 		modifier = modifier,
-		enabled = state.canCreateShare(coreInitialized),
+		enabled = state.canSubmit(coreInitialized),
 	)
 }
 
 @Composable
 private fun SelectedFileCard(
-	file: PickedShareFile,
+	file: TransferDraftSource,
 	canRemove: Boolean,
 	onRemove: () -> Unit,
 ) {

@@ -100,9 +100,6 @@
     <string name="error_starting_up">O VniDrop ainda está a iniciar. Abra o convite novamente dentro de momentos.</string>
     <string name="error_storage_full">Não existe espaço de armazenamento suficiente para guardar esta transferência. Liberte espaço e tente novamente.</string>
     <string name="error_transfer">Não foi possível processar os dados da transferência. Peça ao remetente para os partilhar novamente.</string>
-    <string name="experimental_saved_devices_description">Remember devices after a transfer and send to them again without a new invitation. Experimental and may change.</string>
-    <string name="experimental_saved_devices_title">Saved devices</string>
-    <string name="experimental_settings_title">Experimental</string>
     <string name="field_receiver_name">Nome do destinatário</string>
     <string name="field_sender_name">Nome do remetente</string>
     <string name="field_transfer_name">Nome da transferência</string>
@@ -115,6 +112,7 @@
     <string name="metadata_size">Tamanho</string>
     <string name="metadata_status">Estado</string>
     <string name="nav_receive">Receber</string>
+    <string name="nav_saved_devices">Dispositivos</string>
     <string name="nav_send">Enviar</string>
     <string name="nav_settings">Definições</string>
     <string name="network_title">Rede</string>
@@ -221,6 +219,7 @@
     <string name="send_new_transfer_description">Criar uma nova transferência</string>
     <string name="send_new_transfer_title">Nova transferência</string>
     <string name="send_review_title">Rever transferência</string>
+    <string name="send_default_transfer_name">%1$d ficheiros</string>
     <string name="send_selected_files_count">%1$d ficheiros selecionados</string>
     <string name="send_stop_sharing">Parar de partilhar</string>
     <string name="send_stop_sharing_description">Isto para a transferência e interrompe quem estiver a descarregá-la. Permanece no seu histórico como Parada.</string>
@@ -320,10 +319,21 @@
     <string name="offer_body">%1$s quer enviar-lhe “%2$s”.</string>
     <string name="offer_accept">Receber</string>
     <string name="offer_decline">Recusar</string>
+    <string name="saved_devices_authenticated_name">Nome remoto: %1$s</string>
+    <string name="saved_devices_block_confirm_body">Bloquear %1$s e rejeitar futuras transferências de dispositivos guardados?</string>
+    <string name="saved_devices_block_confirm_title">Bloquear dispositivo?</string>
+    <string name="saved_devices_description">Envie diretamente para dispositivos de confiança sem partilhar outro convite.</string>
+    <string name="saved_devices_endpoint">ID do dispositivo: %1$s</string>
     <string name="saved_devices_empty">No saved devices yet. Finish a transfer, then remember a device.</string>
+    <string name="saved_devices_forget_confirm_body">Esquecer %1$s? Ambos terão de voltar a aprovar antes de outra transferência direta.</string>
+    <string name="saved_devices_forget_confirm_title">Esquecer dispositivo?</string>
     <string name="saved_devices_eligibility_title">Ready to remember</string>
     <string name="saved_devices_pending_title">Pending pairing</string>
     <string name="saved_devices_list_title">Saved devices</string>
+    <string name="saved_devices_load_failed">Não foi possível carregar os dispositivos guardados.</string>
+    <string name="saved_devices_loading">A carregar dispositivos guardados…</string>
+    <string name="saved_devices_more_actions">Mais ações para %1$s</string>
+    <string name="saved_devices_no_pending">Não existem pedidos de emparelhamento a aguardar atenção.</string>
     <string name="saved_devices_unnamed">Saved device</string>
     <string name="saved_devices_remember_action">Remember</string>
     <string name="saved_devices_decline_action">Decline</string>

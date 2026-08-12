@@ -4,6 +4,10 @@ Local peer-to-peer file transfer. This glossary is the product/core ubiquitous l
 
 ## Transfers
 
+**Transfer draft**:
+A temporary, local selection of files or one folder, an editable transfer name, and a destination intent before a transfer is created. A draft may produce an Invitation transfer or a Targeted transfer; it is neither until creation succeeds.
+_Avoid_: pending transfer, temporary transfer, share draft
+
 **Invitation transfer**:
 A share anyone with the ticket can request, subject to approval and access policy. Ordinary multi-recipient send/receive.
 _Avoid_: contact send, held offer, reusable share offer

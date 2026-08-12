@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import com.vnidrop.app.core.CoreState
 import com.vnidrop.app.core.ReceiverDeliveryStatus
-import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.ui.components.AdaptiveDrawer
@@ -23,15 +22,6 @@ fun SendScreen(
 	windowClass: WindowClass,
 	shareActions: TransferShareActions = UnavailableTransferShareActions,
 	onOpenComposer: () -> Unit,
-	onDismissComposer: () -> Unit,
-	onSelectFile: () -> Unit,
-	onSelectFolder: () -> Unit = {},
-	onClearFile: () -> Unit,
-	onRemoveFile: (String) -> Unit = {},
-	onTransferNameChanged: (String) -> Unit,
-	onSenderNameChanged: (String) -> Unit,
-	onAccessPolicyChanged: (ShareAccessPolicy) -> Unit,
-	onCreateShare: () -> Unit,
 	onTransferSelected: (ULong) -> Unit,
 	onShareTransfer: (ULong) -> Unit = {},
 	onStopSharing: (ULong) -> Unit = {},
@@ -83,24 +73,6 @@ fun SendScreen(
 				onShare = onShareTransfer,
 				onStopSharing = onStopSharing,
 				onDelete = onRequestDeleteTransfer,
-			)
-		}
-	}
-
-	if (state.isComposerOpen) {
-		AdaptiveDrawer(windowClass = windowClass, onDismissRequest = onDismissComposer) {
-			TransferComposer(
-				coreInitialized = coreState.isInitialized,
-				state = state,
-				windowClass = windowClass,
-				onSelectFile = onSelectFile,
-				onSelectFolder = onSelectFolder,
-				onClearFile = onClearFile,
-				onRemoveFile = onRemoveFile,
-				onTransferNameChanged = onTransferNameChanged,
-				onSenderNameChanged = onSenderNameChanged,
-				onAccessPolicyChanged = onAccessPolicyChanged,
-				onCreateShare = onCreateShare,
 			)
 		}
 	}

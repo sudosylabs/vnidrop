@@ -197,7 +197,7 @@ interface CoreGateway {
 	suspend fun respondReceiverRequest(requestId: String, accepted: Boolean, reason: String? = null): Result<Unit>
 	suspend fun refresh(): Result<Unit>
 
-	// Experimental saved devices / targeted transfers
+	// Saved devices / targeted transfers
 	suspend fun listPairingEligibilities(): Result<List<PairingEligibilityModel>>
 	suspend fun declinePairingEligibility(peerEndpointId: String): Result<Unit>
 	suspend fun requestSavedDevicePairing(peerEndpointId: String): Result<Boolean>

@@ -14,18 +14,18 @@ platforms use the native SwiftUI app under `apple/`.
 
 ---
 
-## Compose skill (required for UI work)
+## VniDrop KMP UI skill (required for UI work)
 
 For screens, components, theme, navigation, resources, ViewModel↔UI wiring,
 lists, animation, accessibility:
 
 1. Load [`.codex/skills/compose-skill/SKILL.md`](../.codex/skills/compose-skill/SKILL.md).
-2. Follow its workflow and defaults.
+2. Follow its VniDrop-specific workflow and defaults.
 3. Open **at most one** file under `.codex/skills/compose-skill/references/` when
-   the skill’s Quick Routing table says you need deeper guidance.
+   the skill links to it for the current task.
 4. Do **not** invent a parallel Compose style guide.
 
-### Project policy (overrides generic skill defaults)
+### Project policy
 
 | Topic | Do this |
 |-------|---------|
@@ -37,7 +37,13 @@ lists, animation, accessibility:
 | Platform | `androidMain` / `jvmMain` for pickers, SAF, NFC/QR, and desktop integration. |
 | Dependencies | Before adding Jetpack/AndroidX to `commonMain`, verify multiplatform artifacts for all targets. |
 
-compose-skill “Existing Project Policy”: adapt to this repo; do not force-migrate.
+The skill is repository-specific. Do not substitute a generic Compose/MVI style guide.
+
+Platform-native presentation is more important than maximizing shared UI code.
+Use Material icons and conventions on Android, Fluent on Windows, and the existing
+Lucide/desktop conventions on Linux. Repeated platform presentation code is
+acceptable when sharing would make a platform feel foreign; domain behavior and
+state machines must remain shared.
 
 ---
 
@@ -82,7 +88,8 @@ src/
 
 - **Android share:** open content URIs as FDs; expand **folder trees** to per-file
   documents with relative `displayName` paths before calling Rust
-  (`FileSystemService.android.kt` / `expandShareDirectory`).
+  (`PickedShareSourceAdapter.android.kt` / `expandShareDirectory`). Transfer creation
+  uses the focused `PickedShareSourceAdapter`; `FileSystemService` owns receive storage.
 - **Android receive:** MediaStore Downloads sink and/or SAF tree write sink.
 - **Apple:** lives outside this module under `apple/`; do not add Apple platform
   behavior back to KMP.

@@ -12,7 +12,6 @@ import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.theme.ThemeMode
 import org.jetbrains.compose.resources.stringResource
 import vnidrop.shared.generated.resources.Res
-import vnidrop.shared.generated.resources.experimental_settings_title
 import vnidrop.shared.generated.resources.notifications_title
 import vnidrop.shared.generated.resources.preferences_title
 import vnidrop.shared.generated.resources.relay_mode_automatic
@@ -33,7 +32,6 @@ internal fun SettingsOverview(
 	state: SettingsState,
 	onSectionSelected: (SettingsSection) -> Unit,
 	largeTitle: Boolean,
-	showExperimental: Boolean = false,
 ) {
 	Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
 		Text(
@@ -81,16 +79,6 @@ internal fun SettingsOverview(
 				selected = state.selectedSection == SettingsSection.Network,
 				onClick = { onSectionSelected(SettingsSection.Network) },
 			)
-		}
-		if (showExperimental) {
-			SettingsGroup {
-				SettingsRow(
-					icon = AppIcon.Lock,
-					title = stringResource(Res.string.experimental_settings_title),
-					selected = state.selectedSection == SettingsSection.Experimental,
-					onClick = { onSectionSelected(SettingsSection.Experimental) },
-				)
-			}
 		}
 		SettingsGroup {
 			SettingsRow(

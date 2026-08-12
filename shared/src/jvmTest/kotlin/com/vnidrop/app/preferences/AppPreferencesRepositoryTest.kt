@@ -130,15 +130,6 @@ class AppPreferencesRepositoryTest {
 	}
 
 	@Test
-	fun experimentalSavedDevicesOptInIsDisabledByDefaultAndPersisted() = runBlocking {
-		val repository = repositoryForTest()
-
-		assertEquals(false, repository.preferences.first().experimentalSavedDevicesEnabled)
-		repository.setExperimentalSavedDevicesEnabled(true)
-		assertEquals(true, repository.preferences.first().experimentalSavedDevicesEnabled)
-	}
-
-	@Test
 	fun legacyAndroidAppDownloadsPathIsPromotedToDefault() = runBlocking {
 		val publicDefault = ReceiveFolder(
 			kind = ReceiveFolderKind.AndroidPublicDownloads,

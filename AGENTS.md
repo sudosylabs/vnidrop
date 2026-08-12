@@ -199,7 +199,7 @@ For UI and presentation work, **load and follow** the in-repo skill:
 .codex/skills/compose-skill/SKILL.md
 ```
 
-- Open at most one `references/*.md` file when the skill’s Quick Routing requires it.
+- Open at most one `references/*.md` file when the skill links to it for the current task.
 - Do not invent a second Compose style guide.
 - VniDrop uses **MVVM-style** ViewModels (`*State` + `StateFlow` + named methods),
   not a forced MVI `onEvent` base — adapt, do not rewrite.
@@ -279,7 +279,7 @@ branch from updated `master`.
 
 | Task | Start here |
 |------|------------|
-| Share / multi-file / folders | `runtime/share.rs`, `filesystem.rs`, platform `FileSystemService.*` |
+| Share / multi-file / folders | `runtime/share.rs`, `filesystem.rs`, platform `PickedShareSourceAdapter.*` |
 | Receive / export / sinks | `runtime/receive.rs` |
 | Cancel / delete / stop share | `runtime/lifecycle.rs`, `facade.rs` |
 | Per-receiver send progress | `runtime/provider.rs`, `ui/state/AppUiModels.kt` |

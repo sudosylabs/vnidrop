@@ -3,6 +3,7 @@ package com.vnidrop.app.feature.saveddevices
 import com.vnidrop.app.core.PendingTargetedOfferModel
 import com.vnidrop.app.core.ReceiveFolder
 import com.vnidrop.app.core.ReceiveFolderKind
+import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.core.TargetedOfferResponseModel
 import com.vnidrop.app.preferences.AppPreferences
 import com.vnidrop.app.support.FakeCoreGateway
@@ -22,6 +23,34 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class TargetedOfferCoordinatorTest {
 	@Test
+	fun pendingOfferUsesTheSavedDevicesDisplayNamePolicy() = runTest {
+		val core = initializedCore().apply {
+			pendingTargetedOffers = listOf(offer("named-transfer"))
+			savedDevices = listOf(
+				SavedDeviceModel(
+					endpointId = "sender",
+					localLabel = "Office PC",
+					remoteDisplayName = "Amira's laptop",
+					createdAt = 1,
+					lastAuthenticatedAt = 2,
+				),
+			)
+		}
+		val coordinator = TargetedOfferCoordinator(
+			core,
+			FakeFileSystemService(ReceiveFolder(ReceiveFolderKind.FileSystemPath, "/tmp", "tmp")),
+			preferences(),
+			UiMessageController(),
+			backgroundScope,
+		)
+
+		runCurrent()
+		advanceUntilIdle()
+
+		assertEquals("Office PC", coordinator.state.value.currentSenderDisplayName)
+	}
+
+	@Test
 	fun acceptApprovesAndPullsByTransferId() = runTest {
 		val core = initializedCore().apply {
 			pendingTargetedOffers = listOf(offer("transfer-1"))
@@ -31,7 +60,7 @@ class TargetedOfferCoordinatorTest {
 		val coordinator = TargetedOfferCoordinator(
 			core,
 			FakeFileSystemService(ReceiveFolder(ReceiveFolderKind.FileSystemPath, "/tmp", "tmp")),
-			preferences(enabled = true),
+			preferences(),
 			UiMessageController(),
 			backgroundScope,
 		)
@@ -67,7 +96,7 @@ class TargetedOfferCoordinatorTest {
 				ReceiveFolder(ReceiveFolderKind.AndroidPublicDownloads, "downloads", "Downloads"),
 				receiveOutputSink = sink,
 			),
-			preferences(enabled = true),
+			preferences(),
 			UiMessageController(),
 			backgroundScope,
 		)
@@ -89,7 +118,7 @@ class TargetedOfferCoordinatorTest {
 		val coordinator = TargetedOfferCoordinator(
 			core,
 			FakeFileSystemService(ReceiveFolder(ReceiveFolderKind.FileSystemPath, "/tmp", "tmp")),
-			preferences(enabled = true),
+			preferences(),
 			UiMessageController(),
 			backgroundScope,
 		)
@@ -103,23 +132,6 @@ class TargetedOfferCoordinatorTest {
 	}
 
 	@Test
-	fun experimentalOffIgnoresPendingOffers() = runTest {
-		val core = initializedCore().apply {
-			pendingTargetedOffers = listOf(offer("transfer-3"))
-		}
-		val coordinator = TargetedOfferCoordinator(
-			core,
-			FakeFileSystemService(ReceiveFolder(ReceiveFolderKind.FileSystemPath, "/tmp", "tmp")),
-			preferences(enabled = false),
-			UiMessageController(),
-			backgroundScope,
-		)
-		runCurrent()
-		advanceUntilIdle()
-		assertTrue(coordinator.state.value.pending.isEmpty())
-	}
-
-	@Test
 	fun waitsForCoreInitializeBeforeListingOffers() = runTest {
 		val core = FakeCoreGateway().apply {
 			pendingTargetedOffers = listOf(offer("transfer-late"))
@@ -127,7 +139,7 @@ class TargetedOfferCoordinatorTest {
 		val coordinator = TargetedOfferCoordinator(
 			core,
 			FakeFileSystemService(ReceiveFolder(ReceiveFolderKind.FileSystemPath, "/tmp", "tmp")),
-			preferences(enabled = true),
+			preferences(),
 			UiMessageController(),
 			backgroundScope,
 		)
@@ -160,13 +172,12 @@ class TargetedOfferCoordinatorTest {
 		receivedAt = 1L,
 	)
 
-	private fun preferences(enabled: Boolean) = FakePreferencesRepository(
+	private fun preferences() = FakePreferencesRepository(
 		AppPreferences(
 			username = "User",
 			receiveFolder = ReceiveFolder(ReceiveFolderKind.FileSystemPath, "/tmp", "tmp"),
 			themeMode = ThemeMode.System,
 			notificationsEnabled = false,
-			experimentalSavedDevicesEnabled = enabled,
 		),
 	)
 }

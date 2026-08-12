@@ -36,7 +36,7 @@ actual fun rememberShareFilePicker(
 					JvmFilePickerBackend.XdgPortal -> scope.launch {
 						try {
 							val selected = withContext(Dispatchers.IO) { pickShareFilesWithPortal() }
-							if (selected.isNotEmpty()) onFilesPicked(selected)
+							onFilesPicked(selected)
 						} catch (error: CancellationException) {
 							throw error
 						} catch (error: Throwable) {
@@ -48,7 +48,7 @@ actual fun rememberShareFilePicker(
 						scope.launch {
 							try {
 								val selected = withContext(Dispatchers.IO) { pickWindowsFiles(owner) }
-								if (selected.isNotEmpty()) onFilesPicked(selected)
+								onFilesPicked(selected)
 							} catch (error: CancellationException) {
 								throw error
 							} catch (error: Throwable) {
@@ -58,7 +58,7 @@ actual fun rememberShareFilePicker(
 					}
 					JvmFilePickerBackend.AwtSwing -> openPicker(onError) {
 						val selected = pickShareFiles()
-						if (selected.isNotEmpty()) onFilesPicked(selected)
+						onFilesPicked(selected)
 					}
 				}
 			}
@@ -69,8 +69,8 @@ actual fun rememberShareFilePicker(
 						try {
 							val selected = withContext(Dispatchers.IO) {
 								pickDirectoryWithPortal("Select folder to share")?.toPickedShareFile(isDirectory = true)
-							} ?: return@launch
-							onFilesPicked(listOf(selected))
+							}
+							onFilesPicked(selected?.let(::listOf).orEmpty())
 						} catch (error: CancellationException) {
 							throw error
 						} catch (error: Throwable) {
@@ -83,8 +83,8 @@ actual fun rememberShareFilePicker(
 							try {
 								val selected = withContext(Dispatchers.IO) {
 									pickWindowsFolder("Select folder to share", owner)
-								} ?: return@launch
-								onFilesPicked(listOf(selected.toPickedShareFile(isDirectory = true)))
+								}
+								onFilesPicked(selected?.let { listOf(it.toPickedShareFile(isDirectory = true)) }.orEmpty())
 							} catch (error: CancellationException) {
 								throw error
 							} catch (error: Throwable) {
@@ -93,8 +93,8 @@ actual fun rememberShareFilePicker(
 						}
 					}
 					JvmFilePickerBackend.AwtSwing -> openPicker(onError) {
-						val selected = pickDirectory(title = "Select folder to share") ?: return@openPicker
-						onFilesPicked(listOf(selected.toPickedShareFile(isDirectory = true)))
+						val selected = pickDirectory(title = "Select folder to share")
+						onFilesPicked(selected?.let { listOf(it.toPickedShareFile(isDirectory = true)) }.orEmpty())
 					}
 				}
 			}

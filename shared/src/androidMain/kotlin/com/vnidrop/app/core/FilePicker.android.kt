@@ -21,7 +21,10 @@ actual fun rememberShareFilePicker(
 ): ShareFilePicker {
 	val context = LocalContext.current
 	val filesLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-		if (uris.isEmpty()) return@rememberLauncherForActivityResult
+		if (uris.isEmpty()) {
+			onFilesPicked(emptyList())
+			return@rememberLauncherForActivityResult
+		}
 		runCatching {
 			uris.map { uri -> context.pickedShareFile(uri) }
 		}.fold(
@@ -30,7 +33,10 @@ actual fun rememberShareFilePicker(
 		)
 	}
 	val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-		if (uri == null) return@rememberLauncherForActivityResult
+		if (uri == null) {
+			onFilesPicked(emptyList())
+			return@rememberLauncherForActivityResult
+		}
 		runCatching {
 			// Read permission only — we expand the tree into file FDs at share time.
 			context.contentResolver.takePersistableUriPermission(

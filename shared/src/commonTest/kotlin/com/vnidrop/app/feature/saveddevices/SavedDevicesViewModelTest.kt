@@ -1,17 +1,8 @@
 package com.vnidrop.app.feature.saveddevices
 
-import com.vnidrop.app.core.PickedShareFile
-import com.vnidrop.app.core.ReceiveFolder
-import com.vnidrop.app.core.ReceiveFolderKind
 import com.vnidrop.app.core.SavedDeviceModel
-import com.vnidrop.app.core.TargetedTransferModel
-import com.vnidrop.app.core.TargetedTransferStateModel
-import com.vnidrop.app.preferences.AppPreferences
 import com.vnidrop.app.support.FakeCoreGateway
-import com.vnidrop.app.support.FakeFileSystemService
-import com.vnidrop.app.support.FakePreferencesRepository
 import com.vnidrop.app.ui.feedback.UiMessageController
-import com.vnidrop.app.ui.theme.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -34,17 +25,31 @@ class SavedDevicesViewModelTest {
 	}
 
 	@Test
+	fun loadsSavedDevicesWithoutAnExperimentalPreferenceGate() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val core = FakeCoreGateway().apply {
+			mutableState.value = mutableState.value.copy(isInitialized = true)
+			savedDevices = listOf(device("peer-always-visible", label = null))
+		}
+		val viewModel = SavedDevicesViewModel(core, UiMessageController())
+
+		runCurrent()
+		advanceUntilIdle()
+
+		assertEquals("peer-always-visible", viewModel.state.value.savedDevices.single().endpointId)
+		assertEquals(false, viewModel.state.value.isLoading)
+		assertEquals(false, viewModel.state.value.loadFailed)
+	}
+
+	@Test
 	fun labelForgetAndBlockUpdateGateway() = runTest {
 		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 		val core = FakeCoreGateway().apply {
 			mutableState.value = mutableState.value.copy(isInitialized = true)
 			savedDevices = listOf(device("peer-1", label = null))
 		}
-		val preferences = preferences(enabled = true)
 		val viewModel = SavedDevicesViewModel(
 			core,
-			FakeFileSystemService(ReceiveFolder(ReceiveFolderKind.FileSystemPath, "/tmp", "tmp")),
-			preferences,
 			UiMessageController(),
 		)
 		runCurrent()
@@ -79,61 +84,11 @@ class SavedDevicesViewModelTest {
 		assertEquals(listOf("peer-2"), core.blockedPeers.toList())
 	}
 
-	@Test
-	fun sendFromSavedDeviceCreatesTargetedTransfer() = runTest {
-		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-		val core = FakeCoreGateway().apply {
-			mutableState.value = mutableState.value.copy(isInitialized = true)
-			savedDevices = listOf(device("peer-3", label = "Kitchen"))
-			createTargetedResult = Result.success(
-				TargetedTransferModel(
-					id = "t1",
-					senderEndpointId = "me",
-					receiverEndpointId = "peer-3",
-					manifestId = "m",
-					fileCount = 1u,
-					totalSize = 1u,
-					verifiedBytes = 0u,
-					state = TargetedTransferStateModel.Offering,
-					createdAt = 1L,
-					updatedAt = 1L,
-				),
-			)
-		}
-		val viewModel = SavedDevicesViewModel(
-			core,
-			FakeFileSystemService(ReceiveFolder(ReceiveFolderKind.FileSystemPath, "/tmp", "tmp")),
-			preferences(enabled = true),
-			UiMessageController(),
-		)
-		runCurrent()
-		advanceUntilIdle()
-		viewModel.startSend("peer-3")
-		viewModel.onFilesPicked(
-			listOf(PickedShareFile(value = "/tmp/a.txt", displayName = "a.txt", sizeBytes = 1u)),
-		)
-		runCurrent()
-		advanceUntilIdle()
-		assertEquals(1, core.createdTargetedTransfers.size)
-		assertEquals("peer-3", core.createdTargetedTransfers.single().first)
-		assertNull(viewModel.state.value.sendTargetPeerId)
-	}
-
 	private fun device(id: String, label: String?) = SavedDeviceModel(
 		endpointId = id,
 		localLabel = label,
 		remoteDisplayName = null,
 		createdAt = 1L,
 		lastAuthenticatedAt = null,
-	)
-
-	private fun preferences(enabled: Boolean) = FakePreferencesRepository(
-		AppPreferences(
-			username = "User",
-			receiveFolder = ReceiveFolder(ReceiveFolderKind.FileSystemPath, "/tmp", "tmp"),
-			themeMode = ThemeMode.System,
-			notificationsEnabled = false,
-			experimentalSavedDevicesEnabled = enabled,
-		),
 	)
 }

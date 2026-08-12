@@ -100,9 +100,6 @@
     <string name="error_starting_up">VniDrop is still starting. Open the invitation again in a moment.</string>
     <string name="error_storage_full">There is not enough storage space to save this transfer. Free up space and try again.</string>
     <string name="error_transfer">The transfer data could not be processed. Ask the sender to share it again.</string>
-    <string name="experimental_saved_devices_description">Remember devices after a transfer and send to them again without a new invitation. Experimental and may change.</string>
-    <string name="experimental_saved_devices_title">Saved devices</string>
-    <string name="experimental_settings_title">Experimental</string>
     <string name="field_receiver_name">Receiver name</string>
     <string name="field_sender_name">Sender name</string>
     <string name="field_transfer_name">Transfer name</string>
@@ -115,6 +112,7 @@
     <string name="metadata_size">Size</string>
     <string name="metadata_status">Status</string>
     <string name="nav_receive">Receive</string>
+    <string name="nav_saved_devices">Devices</string>
     <string name="nav_send">Send</string>
     <string name="nav_settings">Settings</string>
     <string name="network_title">Network</string>
@@ -221,6 +219,7 @@
     <string name="send_new_transfer_description">Create a new transfer</string>
     <string name="send_new_transfer_title">New transfer</string>
     <string name="send_review_title">Review transfer</string>
+    <string name="send_default_transfer_name">%1$d files</string>
     <string name="send_selected_files_count">%1$d files selected</string>
     <string name="send_stop_sharing">Stop sharing</string>
     <string name="send_stop_sharing_description">This stops the transfer and interrupts anyone currently downloading it. It stays in your history as Stopped.</string>
@@ -320,10 +319,21 @@
     <string name="offer_body">%1$s wants to send you “%2$s”.</string>
     <string name="offer_accept">Receive</string>
     <string name="offer_decline">Decline</string>
+    <string name="saved_devices_authenticated_name">Remote name: %1$s</string>
+    <string name="saved_devices_block_confirm_body">Block %1$s and reject future saved-device transfers?</string>
+    <string name="saved_devices_block_confirm_title">Block device?</string>
+    <string name="saved_devices_description">Send directly to devices you trust, without sharing another invitation.</string>
+    <string name="saved_devices_endpoint">Device ID: %1$s</string>
     <string name="saved_devices_empty">No saved devices yet. Finish a transfer, then remember a device.</string>
+    <string name="saved_devices_forget_confirm_body">Forget %1$s? You will both need to approve saving again before another direct transfer.</string>
+    <string name="saved_devices_forget_confirm_title">Forget device?</string>
     <string name="saved_devices_eligibility_title">Ready to remember</string>
     <string name="saved_devices_pending_title">Pending pairing</string>
     <string name="saved_devices_list_title">Saved devices</string>
+    <string name="saved_devices_load_failed">Saved devices could not be loaded.</string>
+    <string name="saved_devices_loading">Loading saved devices…</string>
+    <string name="saved_devices_more_actions">More actions for %1$s</string>
+    <string name="saved_devices_no_pending">No pairing requests need your attention.</string>
     <string name="saved_devices_unnamed">Saved device</string>
     <string name="saved_devices_remember_action">Remember</string>
     <string name="saved_devices_decline_action">Decline</string>

@@ -25,12 +25,15 @@ import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.receive_completed
 
 data class TargetedOfferState(
-	val enabled: Boolean = false,
 	val pending: List<PendingTargetedOfferModel> = emptyList(),
+	val senderDisplayNames: Map<String, String> = emptyMap(),
 	val respondingIds: Set<String> = emptySet(),
 ) {
 	val current: PendingTargetedOfferModel?
 		get() = pending.firstOrNull()
+
+	val currentSenderDisplayName: String?
+		get() = current?.senderEndpointId?.let(senderDisplayNames::get)
 }
 
 /**
@@ -61,19 +64,14 @@ class TargetedOfferCoordinator(
 				.distinctUntilChanged()
 				.collectLatest { (preferences, initialized) ->
 					receiveFolder = fileSystemService.effectiveReceiveFolder(preferences.receiveFolder)
-					val enabled = preferences.experimentalSavedDevicesEnabled
-					_state.update { it.copy(enabled = enabled) }
-					when {
-						enabled && initialized -> refresh()
-						!enabled -> _state.update { it.copy(pending = emptyList()) }
-					}
+					if (initialized) refresh()
 				}
 		}
 		scope.launch {
 			repository.signals.collect { signal ->
 				when (signal) {
 					CoreSignal.TargetedTransferChanged -> {
-						if (_state.value.enabled && repository.state.value.isInitialized) refresh()
+						if (repository.state.value.isInitialized) refresh()
 					}
 					CoreSignal.PairingChanged,
 					is CoreSignal.ApprovalChanged,
@@ -125,14 +123,24 @@ class TargetedOfferCoordinator(
 	}
 
 	private suspend fun refresh() {
-		if (!_state.value.enabled) return
-		repository.listPendingTargetedOffers().fold(
-			onSuccess = { offers ->
-				_state.update {
-					it.copy(pending = offers.sortedBy(PendingTargetedOfferModel::receivedAt))
-				}
-			},
-			onFailure = messages::error,
-		)
+		val offers = repository.listPendingTargetedOffers().getOrElse {
+			messages.error(it)
+			return
+		}
+		val savedDevices = repository.listSavedDevices().getOrElse {
+			messages.error(it)
+			return
+		}
+		_state.update {
+			it.copy(
+				pending = offers.sortedBy(PendingTargetedOfferModel::receivedAt),
+				senderDisplayNames = savedDevices.associate { device ->
+					device.endpointId to (
+						device.localLabel?.takeIf(String::isNotBlank)
+							?: device.remoteDisplayName?.takeIf(String::isNotBlank)
+					).orEmpty()
+				}.filterValues(String::isNotBlank),
+			)
+		}
 	}
 }

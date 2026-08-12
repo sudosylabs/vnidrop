@@ -14,14 +14,6 @@ enum class UiPlatform {
 val UiPlatform.isDesktop: Boolean
 	get() = this != UiPlatform.Android
 
-/** Experimental saved-devices Settings chrome for Android + Windows/Linux Compose. */
-fun showsExperimentalSavedDevices(uiPlatform: UiPlatform): Boolean = when (uiPlatform) {
-	UiPlatform.Android,
-	UiPlatform.Windows,
-	UiPlatform.Linux -> true
-	UiPlatform.Desktop -> false
-}
-
 data class PlatformEnvironment(
 	val name: String,
 	val appVersion: String,

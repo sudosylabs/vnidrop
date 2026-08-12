@@ -41,11 +41,11 @@ fun TargetedOfferModalHost(
 	onAccept: (String) -> Unit,
 	onDecline: (String) -> Unit,
 ) {
-	if (!state.enabled) return
 	val offer = state.current ?: return
 	val busy = offer.transferId in state.respondingIds
 	val colors = LocalVniDropColors.current
-	val device = shortEndpoint(offer.senderEndpointId)
+	val device = state.currentSenderDisplayName?.takeIf(String::isNotBlank)
+		?: shortEndpoint(offer.senderEndpointId)
 	Dialog(
 		onDismissRequest = {},
 		properties = DialogProperties(

@@ -62,7 +62,6 @@ class AppGraph(
 	)
 	val pairingPromptCoordinator = PairingPromptCoordinator(
 		repository = coreRepository,
-		preferencesRepository = preferencesRepository,
 		messages = messages,
 		scope = applicationScope,
 	)

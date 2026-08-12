@@ -44,10 +44,10 @@ fun PairingPromptHost(
 	onDecline: () -> Unit,
 	onDismiss: () -> Unit,
 ) {
-	if (!state.enabled) return
 	val prompt = state.prompt ?: return
 	val colors = LocalVniDropColors.current
-	val deviceLabel = shortDeviceLabel(prompt.peerEndpointId())
+	val deviceLabel = prompt.remoteDisplayName()?.takeIf(String::isNotBlank)
+		?: shortDeviceLabel(prompt.peerEndpointId())
 	Dialog(
 		onDismissRequest = onDismiss,
 		properties = DialogProperties(
@@ -150,6 +150,11 @@ private fun PromptActions(
 private fun PairingPrompt.peerEndpointId(): String = when (this) {
 	is PairingPrompt.Eligibility -> peerEndpointId
 	is PairingPrompt.IncomingRequest -> peerEndpointId
+}
+
+private fun PairingPrompt.remoteDisplayName(): String? = when (this) {
+	is PairingPrompt.Eligibility -> remoteDisplayName
+	is PairingPrompt.IncomingRequest -> remoteDisplayName
 }
 
 private fun shortDeviceLabel(endpointId: String): String =

@@ -122,10 +122,13 @@ pub(super) struct CoreInner {
     pub(super) provider_task: TokioMutex<Option<JoinHandle<()>>>,
     pub(super) delivery_receipt_notify: Notify,
     pub(super) delivery_receipt_task: TokioMutex<Option<JoinHandle<()>>>,
+    pub(super) targeted_completion_task: TokioMutex<Option<JoinHandle<()>>>,
     pub(super) shutdown_started: AtomicBool,
     /// Test-only log of peers passed to [`Self::cancel_targeted_transfers_for_peer`].
     #[cfg(test)]
     targeted_cancel_log: std::sync::Mutex<Vec<String>>,
+    #[cfg(test)]
+    suppress_targeted_completion: AtomicBool,
 }
 
 pub(super) struct ActiveTransfer {
@@ -445,9 +448,12 @@ impl CoreInner {
             provider_task: TokioMutex::new(None),
             delivery_receipt_notify: Notify::new(),
             delivery_receipt_task: TokioMutex::new(None),
+            targeted_completion_task: TokioMutex::new(None),
             shutdown_started: AtomicBool::new(false),
             #[cfg(test)]
             targeted_cancel_log: std::sync::Mutex::new(Vec::new()),
+            #[cfg(test)]
+            suppress_targeted_completion: AtomicBool::new(false),
         });
 
         // In-flight connecting/transferring transfers become Interrupted across restart.
@@ -470,6 +476,7 @@ impl CoreInner {
         );
         inner.spawn_provider_event_task(event_rx).await;
         inner.spawn_delivery_receipt_task().await;
+        inner.spawn_targeted_completion_task().await;
         if let Err(error) = inner.pairing_eligibility.reconcile().await {
             tracing::warn!(%error, "failed to reconcile pairing eligibility");
         }

@@ -213,8 +213,9 @@ impl CoreInner {
                 },
             );
         let result = tokio::select! {
-            result = self.download_targeted_payload(transfer_id, blob_ticket, target) => result,
+            biased;
             _ = &mut cancelled => Err(VnidropError::cancelled("transfer cancelled").into()),
+            result = self.download_targeted_payload(transfer_id, blob_ticket, target) => result,
         };
         self.active_transfers
             .lock()

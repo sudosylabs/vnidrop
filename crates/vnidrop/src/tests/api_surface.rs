@@ -69,5 +69,5 @@ fn public_api_exposes_saved_device_surface_without_prototype_contact_entry_point
     let caps = crate::experimental_saved_device_capabilities();
     assert_eq!(caps.domain_contract_version, 1);
     assert_eq!(caps.relationship_protocol_version, 1);
-    assert_eq!(caps.targeted_transfer_protocol_version, 1);
+    assert_eq!(caps.targeted_transfer_protocol_version, 2);
 }

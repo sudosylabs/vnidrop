@@ -218,6 +218,27 @@ impl TargetedOfferInbox {
             .map(|entry| entry.offer.clone())
     }
 
+    pub(crate) async fn authorization_matches_pending(
+        &self,
+        auth: &crate::targeted_transfer::TargetedAuthorization,
+    ) -> bool {
+        self.pending
+            .lock()
+            .await
+            .get(&auth.transfer_id)
+            .is_some_and(|entry| {
+                let offer = &entry.offer;
+                offer.sender_endpoint_id == auth.sender_endpoint_id
+                    && offer.receiver_endpoint_id == auth.receiver_endpoint_id
+                    && offer.manifest_id == auth.manifest_id
+                    && offer.content_hash == auth.content_hash
+                    && offer.transfer_name == auth.transfer_name
+                    && offer.file_count == auth.file_count
+                    && offer.total_size == auth.total_size
+                    && offer.protocol_version == auth.protocol_version
+            })
+    }
+
     pub(crate) async fn settled_authorization(&self, transfer_id: &str) -> Option<String> {
         match self.settled.lock().await.get(transfer_id) {
             Some(SettledOfferResult::Accepted {
@@ -370,6 +391,7 @@ fn offers_equivalent(left: &PendingTargetedOffer, right: &PendingTargetedOffer) 
         && left.receiver_endpoint_id == right.receiver_endpoint_id
         && left.manifest_id == right.manifest_id
         && left.content_hash == right.content_hash
+        && left.transfer_name == right.transfer_name
         && left.file_count == right.file_count
         && left.total_size == right.total_size
         && left.protocol_version == right.protocol_version

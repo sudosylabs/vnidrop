@@ -412,6 +412,7 @@ fn explicit_approval_gates_content_and_binds_authorization_to_receiver() {
     let bob_invitation_count = bob.core().list_transfers().unwrap().len();
     let alice_eligibility_count = alice.core().list_pairing_eligibilities().unwrap().len();
     let bob_eligibility_count = bob.core().list_pairing_eligibilities().unwrap().len();
+    let bob_artifacts_before = bob.core().list_received_artifacts().unwrap();
 
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join("payload.txt");
@@ -507,6 +508,10 @@ fn explicit_approval_gates_content_and_binds_authorization_to_receiver() {
     assert_eq!(
         bob.core().list_pairing_eligibilities().unwrap().len(),
         bob_eligibility_count
+    );
+    assert_eq!(
+        bob.core().list_received_artifacts().unwrap().len(),
+        bob_artifacts_before.len()
     );
 
     let charlie_output = tempfile::tempdir().unwrap();
@@ -788,6 +793,127 @@ fn approved_transfer_resumes_after_restart_without_reapproval() {
         .unwrap();
     assert_eq!(completed.state, TargetedTransferState::Completed);
     assert_eq!(completed.verified_bytes, b"resume me please".len() as u64);
+    let sender_completed = alice
+        .core()
+        .get_targeted_transfer(completed.id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(sender_completed.state, TargetedTransferState::Completed);
+    let started = Instant::now();
+    while alice
+        .core()
+        .targeted_payload_is_registered_for_test(sender_completed.id.clone())
+        .unwrap()
+    {
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "completed sender payload access was not released"
+        );
+        std::thread::sleep(Duration::from_millis(25));
+    }
+}
+
+#[test]
+fn completion_retries_after_receiver_restart_without_failing_published_receive() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_025);
+    let transfer = approve_one(&alice, &bob, b"eventual completion", "payload.txt");
+    bob.core().suppress_targeted_completion_for_test(true);
+
+    let output = tempfile::tempdir().unwrap();
+    bob.core()
+        .receive_targeted_transfer(
+            transfer.id.clone(),
+            output.path().to_string_lossy().into_owned(),
+        )
+        .unwrap();
+    assert_eq!(
+        std::fs::read(output.path().join("payload.txt")).unwrap(),
+        b"eventual completion"
+    );
+    assert_eq!(
+        bob.core()
+            .get_targeted_transfer(transfer.id.clone())
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Completed
+    );
+    assert_eq!(
+        alice
+            .core()
+            .get_targeted_transfer(transfer.id.clone())
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Approved
+    );
+
+    let bob = bob.restart();
+    let started = Instant::now();
+    loop {
+        if alice
+            .core()
+            .get_targeted_transfer(transfer.id.clone())
+            .unwrap()
+            .is_some_and(|entry| entry.state == TargetedTransferState::Completed)
+        {
+            break;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(15),
+            "completion outbox was not retried after restart"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert_eq!(
+        bob.core()
+            .get_targeted_transfer(transfer.id)
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Completed
+    );
+}
+
+#[test]
+fn targeted_path_receive_preserves_no_overwrite_and_resumes_elsewhere() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_026);
+    let transfer = approve_one(&alice, &bob, b"new payload", "payload.txt");
+    let occupied = tempfile::tempdir().unwrap();
+    std::fs::write(occupied.path().join("payload.txt"), b"keep me").unwrap();
+
+    assert!(bob
+        .core()
+        .receive_targeted_transfer(
+            transfer.id.clone(),
+            occupied.path().to_string_lossy().into_owned(),
+        )
+        .is_err());
+    assert_eq!(
+        std::fs::read(occupied.path().join("payload.txt")).unwrap(),
+        b"keep me"
+    );
+    assert_eq!(
+        bob.core()
+            .get_targeted_transfer(transfer.id.clone())
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Interrupted
+    );
+
+    let clean = tempfile::tempdir().unwrap();
+    bob.core()
+        .resume_targeted_transfer(transfer.id, clean.path().to_string_lossy().into_owned())
+        .unwrap();
+    assert_eq!(
+        std::fs::read(clean.path().join("payload.txt")).unwrap(),
+        b"new payload"
+    );
 }
 
 #[test]
@@ -1258,6 +1384,131 @@ struct MemoryOutputSink {
     files: Mutex<std::collections::HashMap<String, Vec<u8>>>,
 }
 
+#[derive(Default)]
+struct FailingFinishSink {
+    starts: std::sync::atomic::AtomicUsize,
+    finishes: std::sync::atomic::AtomicUsize,
+    aborts: std::sync::atomic::AtomicUsize,
+}
+
+#[derive(Default)]
+struct GatedSink {
+    gate: (Mutex<bool>, std::sync::Condvar),
+    entered: std::sync::atomic::AtomicBool,
+    finishes: std::sync::atomic::AtomicUsize,
+    aborts: std::sync::atomic::AtomicUsize,
+}
+
+impl GatedSink {
+    fn wait_until_entered(&self) {
+        let started = Instant::now();
+        while !self.entered.load(std::sync::atomic::Ordering::SeqCst) {
+            assert!(started.elapsed() < Duration::from_secs(10));
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    fn release(&self) {
+        let (lock, wake) = &self.gate;
+        *lock.lock().unwrap() = true;
+        wake.notify_all();
+    }
+}
+
+impl ReceiveOutputSink for GatedSink {
+    fn start_file(&self, _relative_path: String) -> Result<(), VnidropError> {
+        Ok(())
+    }
+
+    fn write_chunk(&self, _relative_path: String, _bytes: Vec<u8>) -> Result<(), VnidropError> {
+        self.entered
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        let (lock, wake) = &self.gate;
+        let mut released = lock.lock().unwrap();
+        while !*released {
+            released = wake.wait(released).unwrap();
+        }
+        Ok(())
+    }
+
+    fn finish_file(&self, _relative_path: String) -> Result<(), VnidropError> {
+        self.finishes
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn abort_file(&self, _relative_path: String, _reason: String) -> Result<(), VnidropError> {
+        self.aborts
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(())
+    }
+}
+
+impl ReceiveOutputSinkV2 for GatedSink {
+    fn start_file(&self, relative_path: String) -> Result<(), VnidropError> {
+        ReceiveOutputSink::start_file(self, relative_path)
+    }
+
+    fn write_chunk(&self, relative_path: String, bytes: Vec<u8>) -> Result<(), VnidropError> {
+        ReceiveOutputSink::write_chunk(self, relative_path, bytes)
+    }
+
+    fn finish_file(&self, relative_path: String) -> Result<PublishedOutput, VnidropError> {
+        ReceiveOutputSink::finish_file(self, relative_path.clone())?;
+        Ok(PublishedOutput {
+            locator_kind: ReceivedLocatorKind::FilesystemPath,
+            locator: format!("memory://{relative_path}"),
+        })
+    }
+
+    fn abort_file(&self, relative_path: String, reason: String) -> Result<(), VnidropError> {
+        ReceiveOutputSink::abort_file(self, relative_path, reason)
+    }
+}
+
+impl ReceiveOutputSink for FailingFinishSink {
+    fn start_file(&self, _relative_path: String) -> Result<(), VnidropError> {
+        self.starts
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn write_chunk(&self, _relative_path: String, _bytes: Vec<u8>) -> Result<(), VnidropError> {
+        Ok(())
+    }
+
+    fn finish_file(&self, _relative_path: String) -> Result<(), VnidropError> {
+        self.finishes
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Err(VnidropError::filesystem(anyhow::anyhow!("finish failed")))
+    }
+
+    fn abort_file(&self, _relative_path: String, _reason: String) -> Result<(), VnidropError> {
+        self.aborts
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(())
+    }
+}
+
+impl ReceiveOutputSinkV2 for FailingFinishSink {
+    fn start_file(&self, relative_path: String) -> Result<(), VnidropError> {
+        ReceiveOutputSink::start_file(self, relative_path)
+    }
+
+    fn write_chunk(&self, relative_path: String, bytes: Vec<u8>) -> Result<(), VnidropError> {
+        ReceiveOutputSink::write_chunk(self, relative_path, bytes)
+    }
+
+    fn finish_file(&self, relative_path: String) -> Result<PublishedOutput, VnidropError> {
+        ReceiveOutputSink::finish_file(self, relative_path)?;
+        unreachable!()
+    }
+
+    fn abort_file(&self, relative_path: String, reason: String) -> Result<(), VnidropError> {
+        ReceiveOutputSink::abort_file(self, relative_path, reason)
+    }
+}
+
 impl MemoryOutputSink {
     fn file(&self, relative_path: &str) -> Vec<u8> {
         self.files.lock().unwrap()[relative_path].clone()
@@ -1348,6 +1599,86 @@ fn targeted_receive_and_resume_through_output_sinks() {
             .state,
         TargetedTransferState::Completed
     );
+}
+
+#[test]
+fn targeted_sink_finish_failure_is_the_only_terminal_callback() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_075);
+
+    for use_v2 in [false, true] {
+        let transfer = approve_one(&alice, &bob, b"sink failure", "sink.txt");
+        let sink = Arc::new(FailingFinishSink::default());
+        let result = if use_v2 {
+            bob.core()
+                .receive_targeted_transfer_with_output_sink_v2(transfer.id, sink.clone())
+        } else {
+            bob.core()
+                .receive_targeted_transfer_with_output_sink(transfer.id, sink.clone())
+        };
+        assert!(result.is_err());
+        assert_eq!(sink.starts.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(sink.finishes.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(sink.aborts.load(std::sync::atomic::Ordering::SeqCst), 0);
+    }
+}
+
+#[test]
+fn targeted_receive_rejects_a_concurrent_second_pull() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_076);
+    let transfer = approve_one(&alice, &bob, b"concurrent pull", "sink.txt");
+    let sink = Arc::new(GatedSink::default());
+    let bob_core = bob.core();
+    let transfer_id = transfer.id.clone();
+    let sink_for_thread = sink.clone();
+    let receive = std::thread::spawn(move || {
+        bob_core.receive_targeted_transfer_with_output_sink(transfer_id, sink_for_thread)
+    });
+    sink.wait_until_entered();
+    let second = bob.core().resume_targeted_transfer(
+        transfer.id,
+        tempfile::tempdir()
+            .unwrap()
+            .path()
+            .to_string_lossy()
+            .into_owned(),
+    );
+    assert!(matches!(
+        second,
+        Err(VnidropError::InvalidTransition { .. })
+    ));
+    sink.release();
+    receive.join().unwrap().unwrap();
+}
+
+#[test]
+fn targeted_cancel_aborts_each_sink_exactly_once() {
+    for use_v2 in [false, true] {
+        let alice = ProtectedNode::new();
+        let bob = ProtectedNode::new();
+        establish_saved(&alice, &bob, if use_v2 { 11_078 } else { 11_077 });
+        let transfer = approve_one(&alice, &bob, b"cancel sink", "sink.txt");
+        let sink = Arc::new(GatedSink::default());
+        let bob_core = bob.core();
+        let transfer_id = transfer.id.clone();
+        let sink_for_thread = sink.clone();
+        let receive = std::thread::spawn(move || {
+            if use_v2 {
+                bob_core.receive_targeted_transfer_with_output_sink_v2(transfer_id, sink_for_thread)
+            } else {
+                bob_core.receive_targeted_transfer_with_output_sink(transfer_id, sink_for_thread)
+            }
+        });
+        sink.wait_until_entered();
+        bob.core().cancel_targeted_transfer(transfer.id).unwrap();
+        sink.release();
+        assert!(receive.join().unwrap().is_err());
+        assert_eq!(sink.finishes.load(std::sync::atomic::Ordering::SeqCst), 0);
+        assert_eq!(sink.aborts.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
 }
 
 #[test]

@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     auth::TargetedAuthorization,
     inbox::{TargetedOfferDecision, TargetedOfferInbox},
-    state_as_str, TargetedTransferStore,
+    state_as_str, TargetedTransferRole, TargetedTransferStore,
 };
 use crate::{
     api::{
@@ -50,7 +50,7 @@ impl fmt::Debug for TargetedTransferProtocol {
 }
 
 impl TargetedTransferProtocol {
-    pub(crate) const ALPN: &'static [u8] = b"/vnidrop/targeted-transfer/1";
+    pub(crate) const ALPN: &'static [u8] = b"/vnidrop/targeted-transfer/2";
 
     pub(crate) fn new(
         relationships: std::sync::Arc<DeviceRelationshipService>,
@@ -248,18 +248,45 @@ impl TargetedTransferProtocol {
         }
         if let Ok(Some(row)) = self.store.get_row(&delivery.transfer_id).await {
             if row.authorization_secret_handle.is_some()
+                && row.protocol_transfer_id == auth.protocol_transfer_id
+                && row.sender_endpoint_id == auth.sender_endpoint_id
+                && row.receiver_endpoint_id == auth.receiver_endpoint_id
                 && row.manifest_id == auth.manifest_id
                 && row.content_hash == auth.content_hash
+                && row.transfer_name == auth.transfer_name
+                && row.file_count == auth.file_count
+                && row.total_size == auth.total_size
+                && row.blob_ticket.as_deref() == Some(auth.blob_ticket.as_str())
+                && auth.protocol_version
+                    == experimental_saved_device_capabilities().targeted_transfer_protocol_version
             {
                 return DeliverAuthorizationResponse::Stored;
             }
+            if row.authorization_secret_handle.is_some() {
+                return DeliverAuthorizationResponse::Rejected;
+            }
+        }
+        if !self.inbox.authorization_matches_pending(&auth).await {
+            return DeliverAuthorizationResponse::Rejected;
         }
         if self
             .inbox
             .deliver_authorization(&delivery.transfer_id, delivery.authorization)
             .await
         {
-            DeliverAuthorizationResponse::Stored
+            let deadline = tokio::time::Instant::now()
+                + std::time::Duration::from_millis(self.limits.offer_timeout_ms);
+            loop {
+                if let Ok(Some(row)) = self.store.get_row(&delivery.transfer_id).await {
+                    if row.authorization_secret_handle.is_some() {
+                        return DeliverAuthorizationResponse::Stored;
+                    }
+                }
+                if tokio::time::Instant::now() >= deadline {
+                    return DeliverAuthorizationResponse::Rejected;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+            }
         } else {
             DeliverAuthorizationResponse::Rejected
         }
@@ -284,6 +311,65 @@ impl TargetedTransferProtocol {
             return CancelWireOfferResponse::Cancelled;
         }
         CancelWireOfferResponse::Cancelled
+    }
+
+    async fn handle_completion(
+        &self,
+        remote_endpoint_id: &str,
+        completion: CompleteTargetedTransfer,
+    ) -> CompletionResponse {
+        if self
+            .relationships
+            .require_saved(remote_endpoint_id)
+            .await
+            .is_err()
+        {
+            return CompletionResponse::Rejected;
+        }
+        let Ok(Some(row)) = self.store.get_row(&completion.transfer_id).await else {
+            return CompletionResponse::Rejected;
+        };
+        let Ok(auth) = TargetedAuthorization::decode(&completion.authorization) else {
+            return CompletionResponse::Rejected;
+        };
+        if row.role != TargetedTransferRole::Sender
+            || row.receiver_endpoint_id != remote_endpoint_id
+            || auth.receiver_endpoint_id != remote_endpoint_id
+            || auth.sender_endpoint_id != self.local_endpoint_id
+            || auth.transfer_id != row.id
+            || auth.protocol_transfer_id != row.protocol_transfer_id
+            || auth.manifest_id != row.manifest_id
+            || auth.content_hash != row.content_hash
+            || auth.transfer_name != row.transfer_name
+            || auth.file_count != row.file_count
+            || auth.total_size != row.total_size
+            || auth.total_size != completion.verified_bytes
+            || row.blob_ticket.as_deref() != Some(auth.blob_ticket.as_str())
+            || auth.protocol_version
+                != experimental_saved_device_capabilities().targeted_transfer_protocol_version
+        {
+            return CompletionResponse::Rejected;
+        }
+        if row.state == TargetedTransferState::Completed {
+            return CompletionResponse::Recorded;
+        }
+        if matches!(
+            row.state,
+            TargetedTransferState::Cancelled
+                | TargetedTransferState::Declined
+                | TargetedTransferState::Failed
+                | TargetedTransferState::Deleted
+        ) {
+            return CompletionResponse::Rejected;
+        }
+        match self
+            .store
+            .mark_sender_completed(&completion.transfer_id)
+            .await
+        {
+            Ok(()) => CompletionResponse::Recorded,
+            Err(_) => CompletionResponse::Rejected,
+        }
     }
 }
 
@@ -318,6 +404,11 @@ impl ProtocolHandler for TargetedTransferProtocol {
                 TargetedTransferMessage::CancelTargetedOffer(message) => {
                     let WithChannels { inner, tx, .. } = message;
                     let response = self.handle_cancel(&remote_endpoint_id, inner).await;
+                    let _ = tx.send(response).await;
+                }
+                TargetedTransferMessage::CompleteTargetedTransfer(message) => {
+                    let WithChannels { inner, tx, .. } = message;
+                    let response = self.handle_completion(&remote_endpoint_id, inner).await;
                     let _ = tx.send(response).await;
                 }
             }
@@ -356,6 +447,13 @@ impl TargetedTransferClient {
         cancel: CancelTargetedOffer,
     ) -> Result<CancelWireOfferResponse, irpc::Error> {
         self.inner.rpc(cancel).await
+    }
+
+    pub(crate) async fn complete_transfer(
+        &self,
+        completion: CompleteTargetedTransfer,
+    ) -> Result<CompletionResponse, irpc::Error> {
+        self.inner.rpc(completion).await
     }
 }
 
@@ -415,6 +513,19 @@ pub(crate) enum CancelWireOfferResponse {
     Rejected,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct CompleteTargetedTransfer {
+    pub(crate) transfer_id: String,
+    pub(crate) verified_bytes: u64,
+    pub(crate) authorization: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) enum CompletionResponse {
+    Recorded,
+    Rejected,
+}
+
 #[rpc_requests(message = TargetedTransferMessage)]
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(
@@ -430,6 +541,8 @@ enum TargetedTransferMessages {
     DeliverTargetedAuthorization(DeliverTargetedAuthorization),
     #[rpc(tx = oneshot::Sender<CancelWireOfferResponse>)]
     CancelTargetedOffer(CancelTargetedOffer),
+    #[rpc(tx = oneshot::Sender<CompletionResponse>)]
+    CompleteTargetedTransfer(CompleteTargetedTransfer),
 }
 
 fn parse_offer_relay_urls(values: &[String]) -> Result<Vec<RelayUrl>, ()> {

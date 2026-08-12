@@ -191,6 +191,10 @@ impl CoreInner {
             task.abort();
             let _ = task.await;
         }
+        if let Some(task) = self.targeted_completion_task.lock().await.take() {
+            task.abort();
+            let _ = task.await;
+        }
         if let Err(error) = self.router.shutdown().await {
             self.emit_endpoint(
                 "shutdown",

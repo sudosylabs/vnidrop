@@ -23,7 +23,7 @@ pub fn experimental_saved_device_capabilities() -> ExperimentalSavedDeviceCapabi
     ExperimentalSavedDeviceCapabilities {
         domain_contract_version: 1,
         relationship_protocol_version: 1,
-        targeted_transfer_protocol_version: 1,
+        targeted_transfer_protocol_version: 2,
     }
 }
 

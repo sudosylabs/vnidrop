@@ -17,8 +17,9 @@ use crate::{
     targeted_transfer::{
         auth_secret_material,
         protocol::{
-            map_offer_refuse_reason, CancelTargetedOffer, DeliverTargetedAuthorization,
-            SubmitTargetedOffer, TargetedTransferProtocol, WireOfferResponse,
+            map_offer_refuse_reason, CancelTargetedOffer, CompleteTargetedTransfer,
+            CompletionResponse, DeliverTargetedAuthorization, SubmitTargetedOffer,
+            TargetedTransferProtocol, WireOfferResponse,
         },
         reconstruct_authorization, TargetedAuthorization, TargetedAuthorizationDraft,
         TargetedTransferRole, TargetedTransferRow,
@@ -33,6 +34,71 @@ impl CoreInner {
 
     fn offer_wait_timeout(&self) -> std::time::Duration {
         std::time::Duration::from_millis(self.limits.offer_timeout_ms)
+    }
+
+    pub(super) async fn spawn_targeted_completion_task(self: &Arc<Self>) {
+        let core = self.clone();
+        let task = tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                interval.tick().await;
+                core.release_completed_targeted_payloads().await;
+                core.retry_targeted_completions().await;
+            }
+        });
+        *self.targeted_completion_task.lock().await = Some(task);
+    }
+
+    async fn retry_targeted_completions(&self) {
+        let Ok(rows) = self.targeted_store().list_pending_completions().await else {
+            return;
+        };
+        for row in rows.into_iter().take(1) {
+            let Ok(Some(encoded)) = self.load_stored_authorization(&row).await else {
+                let _ = self
+                    .targeted_store()
+                    .defer_pending_completion(&row.id, now_ms() + 30_000)
+                    .await;
+                continue;
+            };
+            let Ok(auth) = TargetedAuthorization::decode(&encoded) else {
+                let _ = self
+                    .targeted_store()
+                    .defer_pending_completion(&row.id, now_ms() + 30_000)
+                    .await;
+                continue;
+            };
+            if self.acknowledge_targeted_completion(&auth).await.is_ok() {
+                let _ = self
+                    .targeted_store()
+                    .clear_pending_completion(&row.id)
+                    .await;
+            } else {
+                let _ = self
+                    .targeted_store()
+                    .defer_pending_completion(&row.id, now_ms() + 5_000)
+                    .await;
+            }
+        }
+    }
+
+    async fn release_completed_targeted_payloads(&self) {
+        let Ok(rows) = self.targeted_store().list_completed_sender_rows().await else {
+            return;
+        };
+        for row in rows {
+            if self
+                .try_teardown_targeted_payload(row.protocol_transfer_id, Some(&row.id))
+                .await
+                .is_ok()
+            {
+                let _ = self
+                    .targeted_store()
+                    .clear_pending_payload_release(&row.id)
+                    .await;
+            }
+        }
     }
 
     pub(super) fn targeted_store(&self) -> crate::targeted_transfer::TargetedTransferStore {
@@ -628,6 +694,19 @@ impl CoreInner {
             }
         };
 
+        if let Err(error) = store
+            .set_state(
+                &transfer_uuid,
+                TargetedTransferState::AwaitingApproval,
+                TargetedTransferState::Approved,
+            )
+            .await
+        {
+            self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
+                .await;
+            return Err(error);
+        }
+
         let deliver = match client
             .deliver_authorization(DeliverTargetedAuthorization {
                 transfer_id: transfer_uuid.clone(),
@@ -649,11 +728,7 @@ impl CoreInner {
         };
         if deliver != crate::targeted_transfer::protocol::DeliverAuthorizationResponse::Stored {
             let _ = store
-                .set_state(
-                    &transfer_uuid,
-                    TargetedTransferState::AwaitingApproval,
-                    TargetedTransferState::Failed,
-                )
+                .set_state_from_any(&transfer_uuid, TargetedTransferState::Failed)
                 .await;
             self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                 .await;
@@ -663,29 +738,37 @@ impl CoreInner {
         }
 
         store
-            .set_state(
-                &transfer_uuid,
-                TargetedTransferState::AwaitingApproval,
-                TargetedTransferState::Approved,
-            )
-            .await?;
-
-        store
             .get(&transfer_uuid)
             .await?
             .ok_or_else(|| VnidropError::internal(anyhow::anyhow!("targeted transfer missing")))
     }
 
     async fn teardown_targeted_payload(&self, protocol_transfer_id: u64, id: Option<&str>) {
+        if let Err(error) = self
+            .try_teardown_targeted_payload(protocol_transfer_id, id)
+            .await
+        {
+            tracing::warn!(%error, "failed to release targeted payload");
+        }
+    }
+
+    async fn try_teardown_targeted_payload(
+        &self,
+        protocol_transfer_id: u64,
+        id: Option<&str>,
+    ) -> Result<(), VnidropError> {
         self.unregister_transfer_hashes(protocol_transfer_id).await;
         self.access_policy
             .remove_transfer(protocol_transfer_id)
             .await;
         if let Some(id) = id {
-            if let Err(error) = self.store.tags().delete(targeted_tag_name(id)).await {
-                tracing::warn!(%error, transfer_id = id, "failed to release targeted payload tag");
-            }
+            self.store
+                .tags()
+                .delete(targeted_tag_name(id))
+                .await
+                .map_err(VnidropError::transfer)?;
         }
+        Ok(())
     }
 
     pub(super) async fn receive_targeted_transfer(
@@ -693,11 +776,10 @@ impl CoreInner {
         transfer_id: String,
         output_dir: String,
     ) -> Result<(), VnidropError> {
-        self.receive_targeted_to_target(
-            transfer_id,
-            ReceiveTarget::Directory(std::path::PathBuf::from(output_dir)),
-        )
-        .await
+        let output_dir =
+            crate::filesystem::platform_path(&output_dir).map_err(VnidropError::filesystem)?;
+        self.receive_targeted_to_target(transfer_id, ReceiveTarget::Directory(output_dir))
+            .await
     }
 
     pub(super) async fn receive_targeted_transfer_with_output_sink(
@@ -723,11 +805,10 @@ impl CoreInner {
         id: String,
         output_dir: String,
     ) -> Result<(), VnidropError> {
-        self.resume_targeted_to_target(
-            id,
-            ReceiveTarget::Directory(std::path::PathBuf::from(output_dir)),
-        )
-        .await
+        let output_dir =
+            crate::filesystem::platform_path(&output_dir).map_err(VnidropError::filesystem)?;
+        self.resume_targeted_to_target(id, ReceiveTarget::Directory(output_dir))
+            .await
     }
 
     pub(super) async fn resume_targeted_transfer_with_output_sink(
@@ -826,16 +907,11 @@ impl CoreInner {
                         )
                         .await?;
                 }
-                TargetedTransferState::Connecting => {
-                    store
-                        .set_state(
-                            &auth.transfer_id,
-                            TargetedTransferState::Connecting,
-                            TargetedTransferState::Transferring,
-                        )
-                        .await?;
+                TargetedTransferState::Connecting | TargetedTransferState::Transferring => {
+                    return Err(VnidropError::InvalidTransition {
+                        reason: "targeted receive is already active".to_string(),
+                    });
                 }
-                TargetedTransferState::Transferring => {}
                 other => {
                     return Err(VnidropError::InvalidTransition {
                         reason: format!(
@@ -855,17 +931,14 @@ impl CoreInner {
 
         match receive_result {
             Ok(()) => {
-                if let Ok(Some(row)) = store.get_row(&auth.transfer_id).await {
-                    let _ = store
-                        .set_verified_bytes(&auth.transfer_id, row.total_size)
-                        .await;
-                    let _ = store
-                        .set_state(
-                            &auth.transfer_id,
-                            TargetedTransferState::Transferring,
-                            TargetedTransferState::Completed,
-                        )
-                        .await;
+                let row = store.get_row(&auth.transfer_id).await?.ok_or_else(|| {
+                    VnidropError::internal(anyhow::anyhow!("targeted transfer missing"))
+                })?;
+                store
+                    .complete_receiver_and_enqueue(&auth.transfer_id, row.total_size)
+                    .await?;
+                if self.acknowledge_targeted_completion(auth).await.is_ok() {
+                    store.clear_pending_completion(&auth.transfer_id).await?;
                 }
                 Ok(())
             }
@@ -886,6 +959,43 @@ impl CoreInner {
                 Err(VnidropError::transfer(error))
             }
         }
+    }
+
+    async fn acknowledge_targeted_completion(
+        &self,
+        auth: &TargetedAuthorization,
+    ) -> Result<(), VnidropError> {
+        #[cfg(test)]
+        if self
+            .suppress_targeted_completion
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            return Err(VnidropError::device_unavailable(anyhow::anyhow!(
+                "completion delivery suppressed by test"
+            )));
+        }
+        let addr = self
+            .device_relationships
+            .peer_addr(&auth.sender_endpoint_id)
+            .await?;
+        let client = TargetedTransferProtocol::client(self.endpoint.clone(), addr);
+        let response = tokio::time::timeout(
+            self.connection_timeout(),
+            client.complete_transfer(CompleteTargetedTransfer {
+                transfer_id: auth.transfer_id.clone(),
+                verified_bytes: auth.total_size,
+                authorization: auth.encode()?,
+            }),
+        )
+        .await
+        .map_err(|_| VnidropError::device_unavailable(anyhow::anyhow!("completion timed out")))?
+        .map_err(|error| VnidropError::network(anyhow::anyhow!(error)))?;
+        if response != CompletionResponse::Recorded {
+            return Err(VnidropError::permission(anyhow::anyhow!(
+                "sender rejected targeted completion"
+            )));
+        }
+        Ok(())
     }
 
     async fn persist_authorization_secret(

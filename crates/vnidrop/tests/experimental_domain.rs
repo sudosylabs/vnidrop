@@ -14,7 +14,7 @@ fn saved_device_protocols_are_explicitly_experimental_and_versioned() {
         ExperimentalSavedDeviceCapabilities {
             domain_contract_version: 1,
             relationship_protocol_version: 1,
-            targeted_transfer_protocol_version: 1,
+            targeted_transfer_protocol_version: 2,
         }
     );
 }

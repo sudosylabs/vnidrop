@@ -36,6 +36,42 @@ pub(crate) async fn ensure_schema(pool: &SqlitePool) -> anyhow::Result<()> {
     )
     .execute(pool)
     .await?;
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS targeted_completion_outbox (
+            transfer_id TEXT PRIMARY KEY,
+            created_at INTEGER NOT NULL,
+            next_attempt_at INTEGER NOT NULL,
+            FOREIGN KEY(transfer_id) REFERENCES targeted_transfers(id) ON DELETE CASCADE
+        );
+        "#,
+    )
+    .execute(pool)
+    .await?;
+    let completion_columns = sqlx::query("PRAGMA table_info(targeted_completion_outbox)")
+        .fetch_all(pool)
+        .await?;
+    if !completion_columns
+        .iter()
+        .any(|row| row.get::<String, _>(1) == "next_attempt_at")
+    {
+        sqlx::query(
+            "ALTER TABLE targeted_completion_outbox ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0",
+        )
+        .execute(pool)
+        .await?;
+    }
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS targeted_payload_release_outbox (
+            transfer_id TEXT PRIMARY KEY,
+            created_at INTEGER NOT NULL,
+            FOREIGN KEY(transfer_id) REFERENCES targeted_transfers(id) ON DELETE CASCADE
+        );
+        "#,
+    )
+    .execute(pool)
+    .await?;
     let columns = sqlx::query("PRAGMA table_info(targeted_transfers)")
         .fetch_all(pool)
         .await?;
@@ -190,24 +226,153 @@ impl TargetedTransferStore {
         Ok(())
     }
 
-    pub(crate) async fn set_verified_bytes(
+    pub(crate) async fn mark_sender_completed(&self, id: &str) -> Result<(), VnidropError> {
+        let mut transaction = self.pool.begin().await.map_err(VnidropError::repository)?;
+        let result = sqlx::query(
+            r#"
+            UPDATE targeted_transfers
+            SET state = 'completed', verified_bytes = total_size, updated_at = ?2
+            WHERE id = ?1 AND role = 'sender'
+              AND state IN ('approved', 'connecting', 'transferring', 'interrupted')
+            "#,
+        )
+        .bind(id)
+        .bind(now_ms())
+        .execute(&mut *transaction)
+        .await
+        .map_err(VnidropError::repository)?;
+        if result.rows_affected() == 0 {
+            return Err(VnidropError::InvalidTransition {
+                reason: "sender transfer cannot be completed".to_string(),
+            });
+        }
+        sqlx::query(
+            "INSERT OR IGNORE INTO targeted_payload_release_outbox (transfer_id, created_at) VALUES (?1, ?2)",
+        )
+        .bind(id)
+        .bind(now_ms())
+        .execute(&mut *transaction)
+        .await
+        .map_err(VnidropError::repository)?;
+        transaction
+            .commit()
+            .await
+            .map_err(VnidropError::repository)?;
+        Ok(())
+    }
+
+    pub(crate) async fn complete_receiver_and_enqueue(
         &self,
         id: &str,
         verified_bytes: u64,
     ) -> Result<(), VnidropError> {
-        sqlx::query(
+        let mut transaction = self.pool.begin().await.map_err(VnidropError::repository)?;
+        let result = sqlx::query(
             r#"
             UPDATE targeted_transfers
-            SET verified_bytes = ?2, updated_at = ?3
-            WHERE id = ?1
+            SET state = 'completed', verified_bytes = ?2, updated_at = ?3
+            WHERE id = ?1 AND role = 'receiver' AND state = 'transferring'
             "#,
         )
         .bind(id)
         .bind(verified_bytes as i64)
         .bind(now_ms())
+        .execute(&mut *transaction)
+        .await
+        .map_err(VnidropError::repository)?;
+        if result.rows_affected() == 0 {
+            return Err(VnidropError::InvalidTransition {
+                reason: "receiver transfer cannot be completed".to_string(),
+            });
+        }
+        sqlx::query(
+            "INSERT OR IGNORE INTO targeted_completion_outbox (transfer_id, created_at, next_attempt_at) VALUES (?1, ?2, ?2)",
+        )
+        .bind(id)
+        .bind(now_ms())
+        .execute(&mut *transaction)
+        .await
+        .map_err(VnidropError::repository)?;
+        transaction
+            .commit()
+            .await
+            .map_err(VnidropError::repository)?;
+        Ok(())
+    }
+
+    pub(crate) async fn list_pending_completions(
+        &self,
+    ) -> Result<Vec<TargetedTransferRow>, VnidropError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT t.id, t.protocol_transfer_id, t.sender_endpoint_id, t.receiver_endpoint_id,
+                   t.manifest_id, t.content_hash, t.transfer_name, t.file_count, t.total_size,
+                   t.verified_bytes, t.blob_ticket, t.authorization_secret_handle, t.role,
+                   t.state, t.created_at, t.updated_at
+            FROM targeted_transfers t
+            INNER JOIN targeted_completion_outbox o ON o.transfer_id = t.id
+            WHERE t.role = 'receiver' AND t.state = 'completed' AND o.next_attempt_at <= ?1
+            ORDER BY o.next_attempt_at, o.created_at
+            "#,
+        )
+        .bind(now_ms())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        rows.into_iter().map(row_to_full).collect()
+    }
+
+    pub(crate) async fn clear_pending_completion(&self, id: &str) -> Result<(), VnidropError> {
+        sqlx::query("DELETE FROM targeted_completion_outbox WHERE transfer_id = ?1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(VnidropError::repository)?;
+        Ok(())
+    }
+
+    pub(crate) async fn defer_pending_completion(
+        &self,
+        id: &str,
+        next_attempt_at: i64,
+    ) -> Result<(), VnidropError> {
+        sqlx::query(
+            "UPDATE targeted_completion_outbox SET next_attempt_at = ?2 WHERE transfer_id = ?1",
+        )
+        .bind(id)
+        .bind(next_attempt_at)
         .execute(&self.pool)
         .await
         .map_err(VnidropError::repository)?;
+        Ok(())
+    }
+
+    pub(crate) async fn list_completed_sender_rows(
+        &self,
+    ) -> Result<Vec<TargetedTransferRow>, VnidropError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT t.id, t.protocol_transfer_id, t.sender_endpoint_id, t.receiver_endpoint_id,
+                   t.manifest_id, t.content_hash, t.transfer_name, t.file_count, t.total_size,
+                   t.verified_bytes, t.blob_ticket, t.authorization_secret_handle, t.role,
+                   t.state, t.created_at, t.updated_at
+            FROM targeted_transfers t
+            INNER JOIN targeted_payload_release_outbox o ON o.transfer_id = t.id
+            WHERE t.role = 'sender' AND t.state = 'completed'
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        rows.into_iter().map(row_to_full).collect()
+    }
+
+    pub(crate) async fn clear_pending_payload_release(&self, id: &str) -> Result<(), VnidropError> {
+        sqlx::query("DELETE FROM targeted_payload_release_outbox WHERE transfer_id = ?1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(VnidropError::repository)?;
         Ok(())
     }
 
@@ -237,6 +402,17 @@ impl TargetedTransferStore {
     }
 
     pub(crate) async fn clear_authorization(&self, id: &str) -> Result<(), VnidropError> {
+        let mut transaction = self.pool.begin().await.map_err(VnidropError::repository)?;
+        sqlx::query("DELETE FROM targeted_completion_outbox WHERE transfer_id = ?1")
+            .bind(id)
+            .execute(&mut *transaction)
+            .await
+            .map_err(VnidropError::repository)?;
+        sqlx::query("DELETE FROM targeted_payload_release_outbox WHERE transfer_id = ?1")
+            .bind(id)
+            .execute(&mut *transaction)
+            .await
+            .map_err(VnidropError::repository)?;
         sqlx::query(
             r#"
             UPDATE targeted_transfers
@@ -249,9 +425,13 @@ impl TargetedTransferStore {
         )
         .bind(id)
         .bind(now_ms())
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(VnidropError::repository)?;
+        transaction
+            .commit()
+            .await
+            .map_err(VnidropError::repository)?;
         Ok(())
     }
 

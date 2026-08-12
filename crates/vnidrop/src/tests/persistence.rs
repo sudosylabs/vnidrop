@@ -35,6 +35,8 @@ async fn open_all_returns_all_domain_stores_and_schemas() {
         "protected_secret_refs",
         "blocked_endpoints",
         "targeted_transfers",
+        "targeted_completion_outbox",
+        "targeted_payload_release_outbox",
         "transfers",
     ] {
         let row = sqlx::query(&format!(
@@ -49,6 +51,38 @@ async fn open_all_returns_all_domain_stores_and_schemas() {
             "{table} must exist after open_all"
         );
     }
+}
+
+#[tokio::test]
+async fn open_all_migrates_targeted_completion_retry_schedule() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("vnidrop.sqlite3");
+    let options = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(&db)
+        .create_if_missing(true);
+    let pool = sqlx::SqlitePool::connect_with(options).await.unwrap();
+    sqlx::query(
+        r#"
+        CREATE TABLE targeted_completion_outbox (
+            transfer_id TEXT PRIMARY KEY,
+            created_at INTEGER NOT NULL
+        )
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    drop(pool);
+
+    let _stores = persistence::open_all(temp.path()).await.unwrap();
+    let pool = open_profile_pool(temp.path()).await;
+    let columns = sqlx::query("PRAGMA table_info(targeted_completion_outbox)")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    assert!(columns
+        .iter()
+        .any(|row| row.get::<String, _>("name") == "next_attempt_at"));
 }
 
 #[tokio::test]

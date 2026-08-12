@@ -124,6 +124,35 @@ impl VnidropCore {
         })
     }
 
+    pub(crate) fn suppress_targeted_completion_for_test(&self, suppress: bool) {
+        self.inner
+            .suppress_targeted_completion
+            .store(suppress, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    pub(crate) fn targeted_payload_is_registered_for_test(
+        &self,
+        id: String,
+    ) -> Result<bool, VnidropError> {
+        self.block_on(async {
+            let row = self
+                .inner
+                .targeted_store()
+                .get_row(&id)
+                .await?
+                .ok_or_else(|| VnidropError::invalid_input(anyhow::anyhow!("unknown transfer")))?;
+            let hash = row
+                .content_hash
+                .parse::<iroh_blobs::Hash>()
+                .map_err(|error| VnidropError::invalid_input(anyhow::anyhow!(error)))?;
+            Ok(self
+                .inner
+                .transfer_ids_for_hash(hash)
+                .await
+                .contains(&row.protocol_transfer_id))
+        })
+    }
+
     pub(crate) fn initialize_with_test_secret_store_limits_and_network(
         app_data_dir: String,
         event_sink: Arc<dyn CoreEventSink>,

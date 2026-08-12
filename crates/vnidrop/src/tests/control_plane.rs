@@ -9,12 +9,74 @@ use crate::{
     invitation::Repository,
     secure_secret::FaultInjectingSecretStore,
     targeted_transfer::inbox::{TargetedOfferDecision, TargetedOfferInbox},
+    targeted_transfer::{TargetedAuthorization, TargetedAuthorizationDraft},
     CoreNetworkConfig, DeviceRelationshipState, ShareMetadataInput, ShareSource, SourceKind,
     TransferAccessMode, VnidropCore, VnidropError,
 };
 
 struct RecordingSink {
     events: Mutex<Vec<CoreEvent>>,
+}
+
+#[tokio::test]
+async fn delivered_authorization_must_match_the_approved_offer_projection() {
+    let (inbox, _) = inbox_with_limits(1, 60_000, 5).await;
+    let offer = sample_offer("bound-offer", "sender-a");
+    let submit = {
+        let inbox = inbox.clone();
+        let offer = offer.clone();
+        tokio::spawn(async move { inbox.submit(offer).await })
+    };
+    let started = std::time::Instant::now();
+    while inbox.list().await.is_empty() {
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    }
+
+    let exact = TargetedAuthorization::issue(TargetedAuthorizationDraft {
+        transfer_id: offer.transfer_id.clone(),
+        protocol_transfer_id: 42,
+        sender_endpoint_id: offer.sender_endpoint_id.clone(),
+        receiver_endpoint_id: offer.receiver_endpoint_id.clone(),
+        manifest_id: offer.manifest_id.clone(),
+        content_hash: offer.content_hash.clone(),
+        file_count: offer.file_count,
+        total_size: offer.total_size,
+        protocol_version: offer.protocol_version,
+        transfer_name: offer.transfer_name.clone(),
+        blob_ticket: "blob-a".to_string(),
+    })
+    .unwrap();
+    assert!(inbox.authorization_matches_pending(&exact).await);
+
+    let substituted = TargetedAuthorization::issue(TargetedAuthorizationDraft {
+        manifest_id: "replacement-manifest".to_string(),
+        content_hash: "replacement-hash".to_string(),
+        transfer_name: "replacement.txt".to_string(),
+        total_size: 99,
+        blob_ticket: "blob-b".to_string(),
+        ..TargetedAuthorizationDraft {
+            transfer_id: offer.transfer_id,
+            protocol_transfer_id: 42,
+            sender_endpoint_id: offer.sender_endpoint_id,
+            receiver_endpoint_id: offer.receiver_endpoint_id,
+            manifest_id: offer.manifest_id,
+            content_hash: offer.content_hash,
+            file_count: offer.file_count,
+            total_size: offer.total_size,
+            protocol_version: offer.protocol_version,
+            transfer_name: offer.transfer_name,
+            blob_ticket: "blob-a".to_string(),
+        }
+    })
+    .unwrap();
+    assert!(!inbox.authorization_matches_pending(&substituted).await);
+    assert!(
+        inbox.list().await.len() == 1,
+        "rejection keeps the approved offer pending"
+    );
+    inbox.discard("bound-offer").await;
+    let _ = submit.await;
 }
 
 impl CoreEventSink for RecordingSink {

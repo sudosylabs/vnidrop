@@ -14,7 +14,7 @@ fn saved_device_protocols_are_explicitly_experimental_and_versioned() {
         ExperimentalSavedDeviceCapabilities {
             domain_contract_version: 1,
             relationship_protocol_version: 1,
-            targeted_transfer_protocol_version: 2,
+            targeted_transfer_protocol_version: 3,
         }
     );
 }
@@ -41,6 +41,7 @@ fn saved_devices_relationships_and_targeted_transfers_are_distinct_contracts() {
         sender_endpoint_id: "sender-endpoint".to_string(),
         receiver_endpoint_id: device.endpoint_id.clone(),
         manifest_id: "immutable-manifest-id".to_string(),
+        transfer_name: "Holiday photos".to_string(),
         file_count: 2,
         total_size: 42,
         verified_bytes: 0,

@@ -112,12 +112,13 @@ pub(super) struct CoreInner {
     pub(super) access_policy: Arc<AccessPolicy>,
     /// Sync mutex so cancel can remove + signal without awaiting (and without
     /// holding a Tokio lock across repository I/O).
-    pub(super) active_transfers: std::sync::Mutex<HashMap<u64, ActiveTransfer>>,
+    pub(super) active_transfers: Arc<std::sync::Mutex<HashMap<u64, ActiveTransfer>>>,
+    pub(super) active_targeted_transfers: Arc<std::sync::Mutex<HashMap<String, ActiveTransfer>>>,
     // Active shares are protected by persistent Iroh tags.
     pub(super) active_shares: TokioMutex<HashMap<u64, ()>>,
     /// Content hash → active share transfer ids (root and collection members).
     /// Multiple transfers can share the same content-addressed hash.
-    pub(super) hash_to_transfer: TokioMutex<HashMap<String, HashSet<u64>>>,
+    pub(super) hash_to_transfer: Arc<TokioMutex<HashMap<String, HashSet<u64>>>>,
     pub(super) connection_endpoints: TokioMutex<HashMap<u64, String>>,
     pub(super) provider_task: TokioMutex<Option<JoinHandle<()>>>,
     pub(super) delivery_receipt_notify: Notify,
@@ -400,6 +401,57 @@ impl CoreInner {
             limits.max_saved_devices,
             limits.pairing_timeout_ms,
         ));
+        let active_transfers =
+            Arc::new(std::sync::Mutex::new(HashMap::<u64, ActiveTransfer>::new()));
+        let active_targeted_transfers = Arc::new(std::sync::Mutex::new(HashMap::<
+            String,
+            ActiveTransfer,
+        >::new()));
+        let hash_to_transfer = Arc::new(TokioMutex::new(restored_hashes));
+        let cleanup_targeted = active_targeted_transfers.clone();
+        let cleanup_hashes = hash_to_transfer.clone();
+        let cleanup_store = store.clone();
+        let cleanup_custody = secret_custody.clone();
+        let cleanup_targeted_store = targeted_transfers.clone();
+        let targeted_cleanup =
+            Arc::new(move |row: crate::targeted_transfer::TargetedTransferRow| {
+                let targeted = cleanup_targeted.clone();
+                let hashes = cleanup_hashes.clone();
+                let blobs = cleanup_store.clone();
+                let custody = cleanup_custody.clone();
+                let transfers = cleanup_targeted_store.clone();
+                Box::pin(async move {
+                    let active_targeted = targeted
+                        .lock()
+                        .expect("active_targeted_transfers")
+                        .remove(&row.id);
+                    if let Some(active_targeted) = active_targeted {
+                        let _ = active_targeted.cancel.send(());
+                    }
+                    {
+                        let mut hashes = hashes.lock().await;
+                        hashes.retain(|_, owners| {
+                            owners.remove(&row.protocol_transfer_id);
+                            !owners.is_empty()
+                        });
+                    }
+                    if row.role == crate::targeted_transfer::TargetedTransferRole::Sender {
+                        blobs
+                            .tags()
+                            .delete(targeted_tag_name(&row.id))
+                            .await
+                            .map_err(crate::error::VnidropError::transfer)?;
+                    } else if let Some(handle) = row.authorization_secret_handle {
+                        if let Some(custody) = custody {
+                            custody
+                                .remove(&crate::secure_secret::SecretHandle::from_stored(handle))
+                                .await?;
+                        }
+                        transfers.clear_authorization(&row.id).await?;
+                    }
+                    Ok(())
+                }) as crate::targeted_transfer::protocol::TargetedCleanupFuture
+            });
         let router = Router::builder(endpoint.clone())
             .accept(iroh_blobs::ALPN, blobs)
             .accept(HandshakeService::ALPN, handshake)
@@ -417,6 +469,9 @@ impl CoreInner {
                     endpoint.id().to_string(),
                     relay_mode,
                     relay_urls.clone(),
+                    event_hub.clone(),
+                    access_policy.clone(),
+                    targeted_cleanup,
                 ),
             )
             .spawn();
@@ -441,9 +496,10 @@ impl CoreInner {
             transfer_slots: Semaphore::new(limits.max_concurrent_transfers as usize),
             limits,
             access_policy,
-            active_transfers: std::sync::Mutex::new(HashMap::new()),
+            active_transfers,
+            active_targeted_transfers,
             active_shares: TokioMutex::new(restored_active_shares),
-            hash_to_transfer: TokioMutex::new(restored_hashes),
+            hash_to_transfer,
             connection_endpoints: TokioMutex::new(HashMap::new()),
             provider_task: TokioMutex::new(None),
             delivery_receipt_notify: Notify::new(),
@@ -457,8 +513,15 @@ impl CoreInner {
         });
 
         // In-flight connecting/transferring transfers become Interrupted across restart.
-        if let Err(error) = inner.targeted_store().mark_interrupted_in_flight().await {
-            tracing::warn!(%error, "failed to mark in-flight targeted transfers interrupted");
+        match inner.targeted_store().mark_interrupted_in_flight().await {
+            Ok(ids) => {
+                for id in ids {
+                    inner.emit_targeted_lifecycle(&id, "interrupted");
+                }
+            }
+            Err(error) => {
+                tracing::warn!(%error, "failed to mark in-flight targeted transfers interrupted");
+            }
         }
         // Restore permanent receiver ACLs for approved targeted shares.
         if let Err(error) = inner.restore_targeted_transfer_access().await {

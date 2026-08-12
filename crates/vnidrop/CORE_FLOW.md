@@ -56,7 +56,10 @@ Mid-transfer progress polish may follow.
 `relationship-changed`, `relationship-grant-rotated`, `saved-device-forgotten`,
 `device-blocked`.
 
-**`targeted_transfer`:** `offer-received`, `offer-accepted`, `offer-declined`.
+**`targeted_transfer`:** `offer-received`, `approved`, `offer-declined`,
+`created`, `offering`, `awaiting-approval`, `connecting`, `transferring`,
+`progress`, `interrupted`, `completed`, `cancelled`, `failed`, `deleted`.
+Lifecycle payloads identify the durable row with `targeted_transfer_id`.
 
 ## Platform File Rules
 

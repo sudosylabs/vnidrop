@@ -28,6 +28,14 @@ use crate::{
 };
 
 impl CoreInner {
+    pub(crate) fn emit_targeted_lifecycle(&self, transfer_id: &str, kind: &str) {
+        self.emit_endpoint(
+            "targeted_transfer",
+            kind,
+            serde_json::json!({ "targeted_transfer_id": transfer_id }),
+        );
+    }
+
     fn connection_timeout(&self) -> std::time::Duration {
         std::time::Duration::from_millis(self.limits.connection_timeout_ms)
     }
@@ -197,9 +205,16 @@ impl CoreInner {
             .targeted_store()
             .sender_payloads_for_peer(peer_endpoint_id)
             .await?;
-        // Signal active transfers synchronously before awaiting share teardown.
-        for protocol_transfer_id in &protocol_ids {
-            let _ = self.take_active_transfer(*protocol_transfer_id);
+        let active_ids = self.targeted_store().ids_for_peer(peer_endpoint_id).await?;
+        for id in active_ids {
+            let _ = self.signal_targeted_transfer_cancel_by_id(&id);
+        }
+        let cancelled = self
+            .targeted_store()
+            .cancel_by_peer(peer_endpoint_id)
+            .await?;
+        for id in &cancelled {
+            self.emit_targeted_lifecycle(id, "cancelled");
         }
         for protocol_transfer_id in &protocol_ids {
             self.teardown_targeted_payload(*protocol_transfer_id, None)
@@ -209,12 +224,15 @@ impl CoreInner {
             self.teardown_targeted_payload(protocol_transfer_id, Some(&id))
                 .await;
         }
-        self.targeted_store().cancel_by_peer(peer_endpoint_id).await
+        Ok(cancelled.len() as u64)
     }
 
-    /// Synchronously stop streaming for one transfer (facade calls this first).
-    pub(super) fn signal_targeted_transfer_cancel(&self, protocol_transfer_id: u64) -> bool {
-        self.take_active_transfer(protocol_transfer_id).is_some()
+    pub(super) fn signal_targeted_transfer_cancel_by_id(&self, id: &str) -> bool {
+        self.active_targeted_transfers
+            .lock()
+            .expect("active_targeted_transfers")
+            .remove(id)
+            .is_some_and(|active| active.cancel.send(()).is_ok())
     }
 
     pub(super) async fn cancel_targeted_transfer(&self, id: String) -> Result<(), VnidropError> {
@@ -224,42 +242,41 @@ impl CoreInner {
             self.targeted_offers.discard(&id).await;
             return Ok(());
         };
-        let _ = self.take_active_transfer(row.protocol_transfer_id);
         self.targeted_offers.discard(&id).await;
+        let changed = store
+            .transition_terminal(&id, TargetedTransferState::Cancelled, false)
+            .await?;
+        if changed {
+            self.emit_targeted_lifecycle(&id, "cancelled");
+        }
         self.access_policy
             .remove_transfer(row.protocol_transfer_id)
             .await;
         self.teardown_targeted_payload(row.protocol_transfer_id, Some(&row.id))
             .await;
-        if !matches!(
-            row.state,
-            TargetedTransferState::Completed
-                | TargetedTransferState::Declined
-                | TargetedTransferState::Cancelled
-                | TargetedTransferState::Failed
-                | TargetedTransferState::Deleted
-        ) {
-            let _ = store
-                .set_state_from_any(&id, TargetedTransferState::Cancelled)
-                .await;
+        if row.role == TargetedTransferRole::Receiver {
+            if let Some(handle) = &row.authorization_secret_handle {
+                if let Some(custody) = &self.secret_custody {
+                    custody
+                        .remove(&SecretHandle::from_stored(handle.clone()))
+                        .await?;
+                }
+                store.clear_authorization(&id).await?;
+            }
         }
-        // Best-effort remote withdraw of an unapproved live offer.
-        if row.role == TargetedTransferRole::Sender
-            && matches!(
-                row.state,
-                TargetedTransferState::Offering | TargetedTransferState::AwaitingApproval
-            )
-        {
-            if let Ok(addr) = self
-                .device_relationships
-                .peer_addr(&row.receiver_endpoint_id)
-                .await
-            {
+        // Best-effort idempotent peer teardown for both pre- and post-approval work.
+        let peer_id = match row.role {
+            TargetedTransferRole::Sender => &row.receiver_endpoint_id,
+            TargetedTransferRole::Receiver => &row.sender_endpoint_id,
+        };
+        if row.state != TargetedTransferState::Deleted {
+            if let Ok(addr) = self.device_relationships.peer_addr(peer_id).await {
                 let client = TargetedTransferProtocol::client(self.endpoint.clone(), addr);
                 let _ = tokio::time::timeout(
                     self.connection_timeout(),
                     client.cancel_offer(CancelTargetedOffer {
                         transfer_id: id.clone(),
+                        terminal: Some(TargetedTransferState::Cancelled),
                     }),
                 )
                 .await;
@@ -277,8 +294,27 @@ impl CoreInner {
             self.targeted_offers.discard(&id).await;
             return Ok(());
         };
-        // Durable local denial first — remote cleanup is best-effort.
-        let _ = self.take_active_transfer(row.protocol_transfer_id);
+        let already_deleted = row.state == TargetedTransferState::Deleted;
+        if already_deleted && row.authorization_secret_handle.is_none() && row.blob_ticket.is_none()
+        {
+            self.targeted_offers.discard(&id).await;
+            return Ok(());
+        }
+        // Signal first, then commit denial before any fallible remote or blob cleanup.
+        let peer_id = match row.role {
+            TargetedTransferRole::Sender => &row.receiver_endpoint_id,
+            TargetedTransferRole::Receiver => &row.sender_endpoint_id,
+        };
+        let changed = if already_deleted {
+            false
+        } else {
+            store
+                .transition_terminal(&id, TargetedTransferState::Deleted, false)
+                .await?
+        };
+        if changed {
+            self.emit_targeted_lifecycle(&id, "deleted");
+        }
         self.targeted_offers.discard(&id).await;
         self.access_policy
             .remove_transfer(row.protocol_transfer_id)
@@ -287,27 +323,26 @@ impl CoreInner {
             .await;
         if let Some(handle) = &row.authorization_secret_handle {
             if let Some(custody) = &self.secret_custody {
-                let _ = custody
+                custody
                     .remove(&SecretHandle::from_stored(handle.clone()))
-                    .await;
+                    .await?;
+                store.clear_authorization(&id).await?;
             }
+        } else {
+            store.clear_authorization(&id).await?;
         }
-        store.clear_authorization(&id).await?;
-        if row.state != TargetedTransferState::Deleted {
-            if !matches!(
-                row.state,
-                TargetedTransferState::Completed
-                    | TargetedTransferState::Declined
-                    | TargetedTransferState::Cancelled
-                    | TargetedTransferState::Failed
-            ) {
-                let _ = store
-                    .set_state_from_any(&id, TargetedTransferState::Cancelled)
-                    .await;
-            }
-            let _ = store
-                .set_state_from_any(&id, TargetedTransferState::Deleted)
+        if !already_deleted {
+            if let Ok(addr) = self.device_relationships.peer_addr(peer_id).await {
+                let client = TargetedTransferProtocol::client(self.endpoint.clone(), addr);
+                let _ = tokio::time::timeout(
+                    self.connection_timeout(),
+                    client.cancel_offer(CancelTargetedOffer {
+                        transfer_id: id.clone(),
+                        terminal: Some(TargetedTransferState::Deleted),
+                    }),
+                )
                 .await;
+            }
         }
         Ok(())
     }
@@ -340,10 +375,23 @@ impl CoreInner {
         }
 
         match self.targeted_offers.respond(&transfer_id, accepted).await {
-            Ok(Some(auth)) => {
-                self.persist_receiver_authorization(&auth).await?;
-                Ok(TargetedOfferResponse::Approved { transfer_id })
-            }
+            Ok(Some(auth)) => match self.persist_receiver_authorization(&auth).await {
+                Ok(()) => {
+                    self.emit_targeted_lifecycle(&transfer_id, "approved");
+                    Ok(TargetedOfferResponse::Approved { transfer_id })
+                }
+                Err(error) => {
+                    if self
+                        .targeted_store()
+                        .set_state_from_any(&transfer_id, TargetedTransferState::Failed)
+                        .await
+                        .is_ok()
+                    {
+                        self.emit_targeted_lifecycle(&transfer_id, "failed");
+                    }
+                    Err(error)
+                }
+            },
             Ok(None) => Ok(TargetedOfferResponse::Declined),
             Err(crate::targeted_transfer::RespondError::Unknown) => Err(
                 VnidropError::invalid_input(anyhow::anyhow!("unknown targeted offer")),
@@ -459,6 +507,7 @@ impl CoreInner {
                 .await;
             return Err(error);
         }
+        self.emit_targeted_lifecycle(&transfer_uuid, "created");
         if let Err(error) = store
             .set_state(
                 &transfer_uuid,
@@ -471,6 +520,7 @@ impl CoreInner {
                 .await;
             return Err(error);
         }
+        self.emit_targeted_lifecycle(&transfer_uuid, "offering");
 
         let addr = match self
             .device_relationships
@@ -479,13 +529,17 @@ impl CoreInner {
         {
             Ok(addr) => addr,
             Err(error) => {
-                let _ = store
+                if store
                     .set_state(
                         &transfer_uuid,
                         TargetedTransferState::Offering,
                         TargetedTransferState::Failed,
                     )
-                    .await;
+                    .await
+                    .is_ok()
+                {
+                    self.emit_targeted_lifecycle(&transfer_uuid, "failed");
+                }
                 self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                     .await;
                 return Err(error);
@@ -497,25 +551,33 @@ impl CoreInner {
             {
                 Ok(Ok(challenge)) => challenge,
                 Ok(Err(error)) => {
-                    let _ = store
+                    if store
                         .set_state(
                             &transfer_uuid,
                             TargetedTransferState::Offering,
                             TargetedTransferState::Failed,
                         )
-                        .await;
+                        .await
+                        .is_ok()
+                    {
+                        self.emit_targeted_lifecycle(&transfer_uuid, "failed");
+                    }
                     self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                         .await;
                     return Err(map_connect_failure(error));
                 }
                 Err(_) => {
-                    let _ = store
+                    if store
                         .set_state(
                             &transfer_uuid,
                             TargetedTransferState::Offering,
                             TargetedTransferState::Failed,
                         )
-                        .await;
+                        .await
+                        .is_ok()
+                    {
+                        self.emit_targeted_lifecycle(&transfer_uuid, "failed");
+                    }
                     self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                         .await;
                     return Err(VnidropError::device_unavailable(anyhow::anyhow!(
@@ -531,13 +593,17 @@ impl CoreInner {
         {
             Ok(proof) => proof,
             Err(error) => {
-                let _ = store
+                if store
                     .set_state(
                         &transfer_uuid,
                         TargetedTransferState::Offering,
                         TargetedTransferState::Failed,
                     )
-                    .await;
+                    .await
+                    .is_ok()
+                {
+                    self.emit_targeted_lifecycle(&transfer_uuid, "failed");
+                }
                 self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                     .await;
                 return Err(error);
@@ -558,6 +624,7 @@ impl CoreInner {
                 .await;
             return Err(error);
         }
+        self.emit_targeted_lifecycle(&transfer_uuid, "awaiting-approval");
 
         let response = match tokio::time::timeout(
             self.connection_timeout() + self.offer_wait_timeout(),
@@ -586,25 +653,33 @@ impl CoreInner {
         {
             Ok(Ok(response)) => response,
             Ok(Err(error)) => {
-                let _ = store
+                if store
                     .set_state(
                         &transfer_uuid,
                         TargetedTransferState::AwaitingApproval,
                         TargetedTransferState::Failed,
                     )
-                    .await;
+                    .await
+                    .is_ok()
+                {
+                    self.emit_targeted_lifecycle(&transfer_uuid, "failed");
+                }
                 self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                     .await;
                 return Err(map_connect_failure(error));
             }
             Err(_) => {
-                let _ = store
+                if store
                     .set_state(
                         &transfer_uuid,
                         TargetedTransferState::AwaitingApproval,
                         TargetedTransferState::Failed,
                     )
-                    .await;
+                    .await
+                    .is_ok()
+                {
+                    self.emit_targeted_lifecycle(&transfer_uuid, "failed");
+                }
                 self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                     .await;
                 return Err(VnidropError::offer_timeout(anyhow::anyhow!(
@@ -616,13 +691,17 @@ impl CoreInner {
         match response {
             WireOfferResponse::Accepted => {}
             WireOfferResponse::Declined { reason } => {
-                let _ = store
+                if store
                     .set_state(
                         &transfer_uuid,
                         TargetedTransferState::AwaitingApproval,
                         TargetedTransferState::Declined,
                     )
-                    .await;
+                    .await
+                    .is_ok()
+                {
+                    self.emit_targeted_lifecycle(&transfer_uuid, "offer-declined");
+                }
                 self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                     .await;
                 return Err(VnidropError::permission(anyhow::anyhow!(
@@ -630,13 +709,17 @@ impl CoreInner {
                 )));
             }
             WireOfferResponse::Refused { reason } => {
-                let _ = store
+                if store
                     .set_state(
                         &transfer_uuid,
                         TargetedTransferState::AwaitingApproval,
                         TargetedTransferState::Failed,
                     )
-                    .await;
+                    .await
+                    .is_ok()
+                {
+                    self.emit_targeted_lifecycle(&transfer_uuid, "failed");
+                }
                 self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                     .await;
                 return Err(map_offer_refuse_reason(&reason));
@@ -663,9 +746,13 @@ impl CoreInner {
         }) {
             Ok(authorization) => authorization,
             Err(error) => {
-                let _ = store
+                if store
                     .set_state_from_any(&transfer_uuid, TargetedTransferState::Failed)
-                    .await;
+                    .await
+                    .is_ok()
+                {
+                    self.emit_targeted_lifecycle(&transfer_uuid, "failed");
+                }
                 self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                     .await;
                 return Err(error);
@@ -675,9 +762,13 @@ impl CoreInner {
             .persist_authorization_secret(&transfer_uuid, &authorization)
             .await
         {
-            let _ = store
+            if store
                 .set_state_from_any(&transfer_uuid, TargetedTransferState::Failed)
-                .await;
+                .await
+                .is_ok()
+            {
+                self.emit_targeted_lifecycle(&transfer_uuid, "failed");
+            }
             self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                 .await;
             return Err(error);
@@ -685,9 +776,13 @@ impl CoreInner {
         let encoded = match authorization.encode() {
             Ok(encoded) => encoded,
             Err(error) => {
-                let _ = store
+                if store
                     .set_state_from_any(&transfer_uuid, TargetedTransferState::Failed)
-                    .await;
+                    .await
+                    .is_ok()
+                {
+                    self.emit_targeted_lifecycle(&transfer_uuid, "failed");
+                }
                 self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                     .await;
                 return Err(error);
@@ -706,6 +801,7 @@ impl CoreInner {
                 .await;
             return Err(error);
         }
+        self.emit_targeted_lifecycle(&transfer_uuid, "approved");
 
         let deliver = match client
             .deliver_authorization(DeliverTargetedAuthorization {
@@ -718,18 +814,26 @@ impl CoreInner {
         {
             Ok(deliver) => deliver,
             Err(error) => {
-                let _ = store
+                if store
                     .set_state_from_any(&transfer_uuid, TargetedTransferState::Failed)
-                    .await;
+                    .await
+                    .is_ok()
+                {
+                    self.emit_targeted_lifecycle(&transfer_uuid, "failed");
+                }
                 self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                     .await;
                 return Err(error);
             }
         };
         if deliver != crate::targeted_transfer::protocol::DeliverAuthorizationResponse::Stored {
-            let _ = store
+            if store
                 .set_state_from_any(&transfer_uuid, TargetedTransferState::Failed)
-                .await;
+                .await
+                .is_ok()
+            {
+                self.emit_targeted_lifecycle(&transfer_uuid, "failed");
+            }
             self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                 .await;
             return Err(VnidropError::network(anyhow::anyhow!(
@@ -899,6 +1003,7 @@ impl CoreInner {
                             TargetedTransferState::Connecting,
                         )
                         .await?;
+                    self.emit_targeted_lifecycle(&auth.transfer_id, "connecting");
                     store
                         .set_state(
                             &auth.transfer_id,
@@ -906,6 +1011,7 @@ impl CoreInner {
                             TargetedTransferState::Transferring,
                         )
                         .await?;
+                    self.emit_targeted_lifecycle(&auth.transfer_id, "transferring");
                 }
                 TargetedTransferState::Connecting | TargetedTransferState::Transferring => {
                     return Err(VnidropError::InvalidTransition {
@@ -926,7 +1032,14 @@ impl CoreInner {
         let blob_ticket = BlobTicket::from_str_compat(&auth.blob_ticket)
             .map_err(|error| VnidropError::ticket(anyhow::anyhow!(error)))?;
         let receive_result = self
-            .receive_targeted_payload(auth.protocol_transfer_id, blob_ticket, target)
+            .receive_targeted_payload(
+                &auth.transfer_id,
+                auth.protocol_transfer_id,
+                auth.file_count,
+                auth.total_size,
+                blob_ticket,
+                target,
+            )
             .await;
 
         match receive_result {
@@ -937,6 +1050,7 @@ impl CoreInner {
                 store
                     .complete_receiver_and_enqueue(&auth.transfer_id, row.total_size)
                     .await?;
+                self.emit_targeted_lifecycle(&auth.transfer_id, "completed");
                 if self.acknowledge_targeted_completion(auth).await.is_ok() {
                     store.clear_pending_completion(&auth.transfer_id).await?;
                 }
@@ -947,13 +1061,12 @@ impl CoreInner {
                     if matches!(
                         row.state,
                         TargetedTransferState::Connecting | TargetedTransferState::Transferring
-                    ) {
-                        let _ = store
-                            .set_state_from_any(
-                                &auth.transfer_id,
-                                TargetedTransferState::Interrupted,
-                            )
-                            .await;
+                    ) && store
+                        .set_state_from_any(&auth.transfer_id, TargetedTransferState::Interrupted)
+                        .await
+                        .is_ok()
+                    {
+                        self.emit_targeted_lifecycle(&auth.transfer_id, "interrupted");
                     }
                 }
                 Err(VnidropError::transfer(error))
@@ -1013,15 +1126,39 @@ impl CoreInner {
         let handle = custody
             .protect(SecretKind::TargetedAuthorization, material, None)
             .await?;
-        self.targeted_store()
+        if let Err(error) = self
+            .targeted_store()
             .store_authorization(transfer_id, &authorization.blob_ticket, handle.as_str())
             .await
+        {
+            if let Err(cleanup_error) = custody.remove(&handle).await {
+                tracing::warn!(%cleanup_error, "failed to roll back targeted authorization secret");
+            }
+            return Err(error);
+        }
+        Ok(())
     }
 
     async fn persist_receiver_authorization(&self, encoded: &str) -> Result<(), VnidropError> {
         let auth = TargetedAuthorization::decode(encoded)?;
         let store = self.targeted_store();
         if store.get_row(&auth.transfer_id).await?.is_none() {
+            let invitation_collision = self
+                .repository
+                .list_transfers()
+                .await
+                .map_err(VnidropError::repository)?
+                .into_iter()
+                .any(|transfer| transfer.transfer_id == auth.protocol_transfer_id);
+            if invitation_collision
+                || store
+                    .contains_protocol_id(auth.protocol_transfer_id)
+                    .await?
+            {
+                return Err(VnidropError::invalid_input(anyhow::anyhow!(
+                    "targeted transfer protocol id collides with local work"
+                )));
+            }
             let now = now_ms();
             store
                 .insert(&TargetedTransferRow {

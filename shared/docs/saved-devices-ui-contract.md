@@ -21,7 +21,10 @@ Use **saved device**, **device relationship**, **targeted transfer**, **invitati
 Relevant kinds:
 
 - **pairing:** `eligibility-available`, `eligibility-removed`, `relationship-changed`, `relationship-grant-rotated`, `saved-device-forgotten`, `device-blocked`
-- **targeted_transfer:** `offer-received`, `offer-accepted`, `offer-declined`
+- **targeted_transfer:** `offer-received`, `approved`, `offer-declined`, `created`,
+  `offering`, `awaiting-approval`, `connecting`, `transferring`, `progress`,
+  `interrupted`, `completed`, `cancelled`, `failed`, `deleted`. Durable-row
+  wake-ups include `targeted_transfer_id`; refresh list/get after each event.
 
 ## Pairing
 

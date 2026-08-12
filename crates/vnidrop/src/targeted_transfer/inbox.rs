@@ -148,7 +148,7 @@ impl TargetedOfferInbox {
             "targeted_transfer",
             "offer-received",
             json!({
-                "transfer_id": offer.transfer_id,
+                "targeted_transfer_id": offer.transfer_id,
                 "sender_endpoint_id": offer.sender_endpoint_id,
                 "file_count": offer.file_count,
                 "total_size": offer.total_size,
@@ -293,7 +293,7 @@ impl TargetedOfferInbox {
             self.event_hub.emit_endpoint(
                 "targeted_transfer",
                 "offer-declined",
-                json!({ "transfer_id": transfer_id }),
+                json!({ "targeted_transfer_id": transfer_id }),
             );
             return Ok(None);
         }
@@ -329,11 +329,6 @@ impl TargetedOfferInbox {
                     SettledOfferResult::Accepted {
                         authorization: Some(auth.clone()),
                     },
-                );
-                self.event_hub.emit_endpoint(
-                    "targeted_transfer",
-                    "offer-accepted",
-                    json!({ "transfer_id": transfer_id }),
                 );
                 Ok(Some(auth))
             }

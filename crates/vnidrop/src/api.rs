@@ -23,7 +23,7 @@ pub fn experimental_saved_device_capabilities() -> ExperimentalSavedDeviceCapabi
     ExperimentalSavedDeviceCapabilities {
         domain_contract_version: 1,
         relationship_protocol_version: 1,
-        targeted_transfer_protocol_version: 2,
+        targeted_transfer_protocol_version: 3,
     }
 }
 
@@ -95,6 +95,7 @@ pub struct TargetedTransfer {
     pub sender_endpoint_id: String,
     pub receiver_endpoint_id: String,
     pub manifest_id: String,
+    pub transfer_name: String,
     pub file_count: u64,
     pub total_size: u64,
     /// Bytes verified so far; survives interruption for resume.

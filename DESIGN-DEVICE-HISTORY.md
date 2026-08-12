@@ -451,8 +451,15 @@ wake-up: refresh durable state via list/get APIs. Mid-transfer progress polish
 | Kind | Meaning |
 |---|---|
 | `offer-received` | A pre-approval offer is pending local approve/decline. |
-| `offer-accepted` | Local approval completed; authorization is in core custody. |
+| `approved` | Local approval completed; authorization is in core custody. |
 | `offer-declined` | Local decline completed. |
+| `created`, `offering`, `awaiting-approval` | Sender-side durable setup and offer lifecycle changed. |
+| `connecting`, `transferring`, `progress`, `interrupted` | Receiver-side pull lifecycle or verified payload progress changed. |
+| `completed`, `cancelled`, `failed`, `deleted` | A durable targeted-transfer terminal snapshot changed. |
+
+Lifecycle payloads use `targeted_transfer_id`; consumers refresh the corresponding
+snapshot after receiving the wake-up. Progress payloads remain advisory and the
+durable snapshot is authoritative.
 
 Failures remain typed where callers can act differently, including:
 

@@ -4,6 +4,7 @@
 //! summary and relationship proof only — never a reusable share ticket.
 
 use std::fmt;
+use std::{future::Future, pin::Pin};
 
 use anyhow::Result;
 use iroh::{
@@ -41,7 +42,14 @@ pub(crate) struct TargetedTransferProtocol {
     local_endpoint_id: String,
     relay_mode: CoreRelayMode,
     custom_relay_urls: Vec<RelayUrl>,
+    event_hub: std::sync::Arc<crate::event_hub::EventHub>,
+    access_policy: std::sync::Arc<crate::access_policy::AccessPolicy>,
+    cleanup:
+        std::sync::Arc<dyn Fn(super::TargetedTransferRow) -> TargetedCleanupFuture + Send + Sync>,
 }
+
+pub(crate) type TargetedCleanupFuture =
+    Pin<Box<dyn Future<Output = Result<(), VnidropError>> + Send>>;
 
 impl fmt::Debug for TargetedTransferProtocol {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -50,8 +58,9 @@ impl fmt::Debug for TargetedTransferProtocol {
 }
 
 impl TargetedTransferProtocol {
-    pub(crate) const ALPN: &'static [u8] = b"/vnidrop/targeted-transfer/2";
+    pub(crate) const ALPN: &'static [u8] = b"/vnidrop/targeted-transfer/3";
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         relationships: std::sync::Arc<DeviceRelationshipService>,
         inbox: TargetedOfferInbox,
@@ -60,6 +69,11 @@ impl TargetedTransferProtocol {
         local_endpoint_id: String,
         relay_mode: CoreRelayMode,
         custom_relay_urls: Vec<RelayUrl>,
+        event_hub: std::sync::Arc<crate::event_hub::EventHub>,
+        access_policy: std::sync::Arc<crate::access_policy::AccessPolicy>,
+        cleanup: std::sync::Arc<
+            dyn Fn(super::TargetedTransferRow) -> TargetedCleanupFuture + Send + Sync,
+        >,
     ) -> Self {
         Self {
             relationships,
@@ -69,6 +83,9 @@ impl TargetedTransferProtocol {
             local_endpoint_id,
             relay_mode,
             custom_relay_urls,
+            event_hub,
+            access_policy,
+            cleanup,
         }
     }
 
@@ -281,6 +298,14 @@ impl TargetedTransferProtocol {
                     if row.authorization_secret_handle.is_some() {
                         return DeliverAuthorizationResponse::Stored;
                     }
+                    if matches!(
+                        row.state,
+                        TargetedTransferState::Failed
+                            | TargetedTransferState::Cancelled
+                            | TargetedTransferState::Deleted
+                    ) {
+                        return DeliverAuthorizationResponse::Rejected;
+                    }
                 }
                 if tokio::time::Instant::now() >= deadline {
                     return DeliverAuthorizationResponse::Rejected;
@@ -305,8 +330,58 @@ impl TargetedTransferProtocol {
             return CancelWireOfferResponse::Cancelled;
         }
         if let Ok(Some(row)) = self.store.get_row(&cancel.transfer_id).await {
-            if row.sender_endpoint_id != remote_endpoint_id {
+            let remote_is_peer = match row.role {
+                TargetedTransferRole::Sender => row.receiver_endpoint_id == remote_endpoint_id,
+                TargetedTransferRole::Receiver => row.sender_endpoint_id == remote_endpoint_id,
+            };
+            if !remote_is_peer {
                 return CancelWireOfferResponse::Rejected;
+            }
+            if let Some(terminal) = cancel.terminal {
+                if matches!(
+                    terminal,
+                    TargetedTransferState::Cancelled | TargetedTransferState::Deleted
+                ) {
+                    if row.role == TargetedTransferRole::Sender {
+                        self.access_policy
+                            .remove_transfer(row.protocol_transfer_id)
+                            .await;
+                    }
+                    let changed = if row.state == TargetedTransferState::Cancelled {
+                        false
+                    } else if matches!(
+                        row.state,
+                        TargetedTransferState::Completed
+                            | TargetedTransferState::Declined
+                            | TargetedTransferState::Failed
+                            | TargetedTransferState::Deleted
+                    ) {
+                        return CancelWireOfferResponse::Cancelled;
+                    } else {
+                        let Ok(changed) = self
+                            .store
+                            .transition_terminal(
+                                &cancel.transfer_id,
+                                TargetedTransferState::Cancelled,
+                                false,
+                            )
+                            .await
+                        else {
+                            return CancelWireOfferResponse::Rejected;
+                        };
+                        changed
+                    };
+                    if changed {
+                        self.event_hub.emit_endpoint(
+                            "targeted_transfer",
+                            "cancelled",
+                            serde_json::json!({ "targeted_transfer_id": cancel.transfer_id }),
+                        );
+                    }
+                    if (self.cleanup)(row.clone()).await.is_err() {
+                        return CancelWireOfferResponse::Rejected;
+                    }
+                }
             }
             return CancelWireOfferResponse::Cancelled;
         }
@@ -367,7 +442,16 @@ impl TargetedTransferProtocol {
             .mark_sender_completed(&completion.transfer_id)
             .await
         {
-            Ok(()) => CompletionResponse::Recorded,
+            Ok(changed) => {
+                if changed {
+                    self.event_hub.emit_endpoint(
+                        "targeted_transfer",
+                        "completed",
+                        serde_json::json!({ "targeted_transfer_id": completion.transfer_id }),
+                    );
+                }
+                CompletionResponse::Recorded
+            }
             Err(_) => CompletionResponse::Rejected,
         }
     }
@@ -505,6 +589,7 @@ pub(crate) enum DeliverAuthorizationResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct CancelTargetedOffer {
     pub(crate) transfer_id: String,
+    pub(crate) terminal: Option<TargetedTransferState>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

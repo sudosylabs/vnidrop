@@ -5,6 +5,9 @@ impl TargetedTransferState {
     pub fn validate_transition_to(self, next: Self) -> Result<(), VnidropError> {
         let allowed = matches!(
             (self, next),
+            (state, Self::Deleted) if state != Self::Deleted
+        ) || matches!(
+            (self, next),
             (
                 Self::Preparing,
                 Self::Offering | Self::Cancelled | Self::Failed
@@ -16,7 +19,7 @@ impl TargetedTransferState {
                 Self::Approved | Self::Declined | Self::Cancelled | Self::Failed
             ) | (
                 Self::Approved,
-                Self::Connecting | Self::Cancelled | Self::Failed | Self::Deleted
+                Self::Connecting | Self::Cancelled | Self::Failed
             ) | (
                 Self::Connecting,
                 Self::Transferring | Self::Interrupted | Self::Cancelled | Self::Failed
@@ -25,10 +28,7 @@ impl TargetedTransferState {
                 Self::Completed | Self::Interrupted | Self::Cancelled | Self::Failed
             ) | (
                 Self::Interrupted,
-                Self::Connecting | Self::Cancelled | Self::Failed | Self::Deleted
-            ) | (
-                Self::Completed | Self::Declined | Self::Cancelled | Self::Failed,
-                Self::Deleted
+                Self::Connecting | Self::Cancelled | Self::Failed
             )
         );
         if allowed {

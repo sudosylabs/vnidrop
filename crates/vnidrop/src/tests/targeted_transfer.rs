@@ -9,10 +9,11 @@ use iroh::{endpoint::presets, Endpoint};
 use iroh_blobs::{get::request::get_hash_seq_and_sizes, ticket::BlobTicket};
 
 use crate::{
-    secure_secret::FaultInjectingSecretStore, CoreEvent, CoreEventSink, CoreNetworkConfig,
-    CoreRelayMode, DeviceRelationshipState, PendingTargetedOffer, PublishedOutput,
-    ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedLocatorKind, ShareMetadataInput, ShareSource,
-    SourceKind, TargetedTransferState, TransferAccessMode, VnidropCore, VnidropError,
+    secure_secret::{FaultInjectingSecretStore, ReferenceStoreFailure},
+    CoreEvent, CoreEventSink, CoreNetworkConfig, CoreRelayMode, DeviceRelationshipState,
+    PendingTargetedOffer, PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2,
+    ReceivedLocatorKind, ShareMetadataInput, ShareSource, SourceKind, TargetedTransferState,
+    TransferAccessMode, VnidropCore, VnidropError,
 };
 
 struct RecordingSink {
@@ -30,6 +31,7 @@ struct ProtectedNode {
     secret_store: Arc<FaultInjectingSecretStore>,
     network_config: CoreNetworkConfig,
     core: Option<Arc<VnidropCore>>,
+    sink: Arc<RecordingSink>,
 }
 
 impl ProtectedNode {
@@ -45,7 +47,7 @@ impl ProtectedNode {
         let store = Arc::new(FaultInjectingSecretStore::default());
         let core = VnidropCore::initialize_with_test_secret_store_and_network(
             data_dir.path().to_string_lossy().into_owned(),
-            sink,
+            sink.clone(),
             store.clone(),
             network_config.clone(),
         )
@@ -55,6 +57,7 @@ impl ProtectedNode {
             secret_store: store,
             network_config,
             core: Some(core),
+            sink,
         }
     }
 
@@ -71,12 +74,13 @@ impl ProtectedNode {
         });
         let core = VnidropCore::initialize_with_test_secret_store_and_network(
             self.data_dir.path().to_string_lossy().into_owned(),
-            sink,
+            sink.clone(),
             self.secret_store.clone(),
             self.network_config.clone(),
         )
         .expect("restarted protected test core");
         self.core = Some(core);
+        self.sink = sink;
         self
     }
 }
@@ -309,6 +313,7 @@ fn create_targeted_transfer_is_immutable_and_saved_only() {
     assert_eq!(transfer.receiver_endpoint_id, bob_id);
     assert_eq!(transfer.file_count, 1);
     assert_eq!(transfer.total_size, b"immutable payload".len() as u64);
+    assert_eq!(transfer.transfer_name, "payload.txt");
     assert!(!transfer.id.is_empty());
     assert!(!transfer.manifest_id.is_empty());
     assert!(matches!(
@@ -328,6 +333,7 @@ fn create_targeted_transfer_is_immutable_and_saved_only() {
     assert_eq!(listed.sender_endpoint_id, transfer.sender_endpoint_id);
     assert_eq!(listed.receiver_endpoint_id, transfer.receiver_endpoint_id);
     assert_eq!(listed.manifest_id, transfer.manifest_id);
+    assert_eq!(listed.transfer_name, transfer.transfer_name);
     assert_eq!(listed.file_count, transfer.file_count);
     assert_eq!(listed.total_size, transfer.total_size);
 }
@@ -905,7 +911,20 @@ fn targeted_path_receive_preserves_no_overwrite_and_resumes_elsewhere() {
             .state,
         TargetedTransferState::Interrupted
     );
+    let interrupted = bob
+        .core()
+        .get_targeted_transfer(transfer.id.clone())
+        .unwrap()
+        .unwrap();
+    assert_eq!(interrupted.verified_bytes, interrupted.total_size);
 
+    let bob = bob.restart();
+    let restored = bob
+        .core()
+        .get_targeted_transfer(transfer.id.clone())
+        .unwrap()
+        .unwrap();
+    assert_eq!(restored.verified_bytes, interrupted.verified_bytes);
     let clean = tempfile::tempdir().unwrap();
     bob.core()
         .resume_targeted_transfer(transfer.id, clean.path().to_string_lossy().into_owned())
@@ -1009,6 +1028,52 @@ fn delete_removes_authorization_and_resumable_state() {
 }
 
 #[test]
+fn delete_keeps_durable_denial_and_retries_secure_secret_cleanup() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_051);
+    let transfer = approve_one(&alice, &bob, b"delete retry", "payload.txt");
+
+    bob.secret_store
+        .fail_with(Some(ReferenceStoreFailure::Unavailable));
+    assert!(bob
+        .core()
+        .delete_targeted_transfer(transfer.id.clone())
+        .is_err());
+    let denied = bob
+        .core()
+        .get_targeted_transfer(transfer.id.clone())
+        .unwrap()
+        .unwrap();
+    assert_eq!(denied.state, TargetedTransferState::Deleted);
+
+    bob.secret_store.fail_with(None);
+    bob.core()
+        .delete_targeted_transfer(transfer.id.clone())
+        .unwrap();
+    let retried = bob
+        .core()
+        .get_targeted_transfer(transfer.id.clone())
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        retried, denied,
+        "private cleanup must not mutate the public snapshot"
+    );
+    assert!(bob
+        .core()
+        .resume_targeted_transfer(
+            transfer.id,
+            tempfile::tempdir()
+                .unwrap()
+                .path()
+                .to_string_lossy()
+                .into_owned(),
+        )
+        .is_err());
+}
+
+#[test]
 fn sender_delete_revokes_receiver_bound_payload_access() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();
@@ -1043,18 +1108,37 @@ fn concurrent_independent_transfers_between_same_devices_are_isolated() {
     establish_saved(&alice, &bob, 11_060);
 
     // Design allows only one unresolved offer per sender; approve sequentially,
-    // then prove independent approved transfers do not corrupt each other.
+    // then overlap the independent pulls.
     let first = approve_one(&alice, &bob, b"alpha", "one.txt");
     let second = approve_one(&alice, &bob, b"beta-payload", "two.txt");
     assert_ne!(first.id, second.id);
 
-    alice
-        .core()
+    let first_sink = Arc::new(GatedSink::default());
+    let second_sink = Arc::new(GatedSink::default());
+    let first_core = bob.core();
+    let first_id = first.id.clone();
+    let first_thread_sink = first_sink.clone();
+    let first_receive = std::thread::spawn(move || {
+        first_core.receive_targeted_transfer_with_output_sink(first_id, first_thread_sink)
+    });
+    let second_core = bob.core();
+    let second_id = second.id.clone();
+    let second_thread_sink = second_sink.clone();
+    let second_receive = std::thread::spawn(move || {
+        second_core.receive_targeted_transfer_with_output_sink(second_id, second_thread_sink)
+    });
+    first_sink.wait_until_entered();
+    second_sink.wait_until_entered();
+
+    bob.core()
         .cancel_targeted_transfer(first.id.clone())
         .unwrap();
+    first_sink.release();
+    second_sink.release();
+    assert!(first_receive.join().unwrap().is_err());
+    second_receive.join().unwrap().unwrap();
     assert_eq!(
-        alice
-            .core()
+        bob.core()
             .get_targeted_transfer(first.id.clone())
             .unwrap()
             .unwrap()
@@ -1062,35 +1146,23 @@ fn concurrent_independent_transfers_between_same_devices_are_isolated() {
         TargetedTransferState::Cancelled
     );
     assert_eq!(
-        alice
-            .core()
+        bob.core()
             .get_targeted_transfer(second.id.clone())
             .unwrap()
             .unwrap()
             .state,
-        TargetedTransferState::Approved
+        TargetedTransferState::Completed
     );
-
-    let output = tempfile::tempdir().unwrap();
-    bob.core()
-        .receive_targeted_transfer(
-            second.id.clone(),
-            output.path().to_string_lossy().into_owned(),
-        )
-        .unwrap();
     assert_eq!(
-        std::fs::read(output.path().join("two.txt")).unwrap(),
-        b"beta-payload"
+        first_sink.aborts.load(std::sync::atomic::Ordering::SeqCst),
+        1
     );
-
-    let cancelled_output = tempfile::tempdir().unwrap();
-    assert!(bob
-        .core()
-        .receive_targeted_transfer(
-            first.id,
-            cancelled_output.path().to_string_lossy().into_owned(),
-        )
-        .is_err());
+    assert_eq!(
+        second_sink
+            .finishes
+            .load(std::sync::atomic::Ordering::SeqCst),
+        1
+    );
 }
 
 fn complete_targeted_roundtrip(alice: &ProtectedNode, bob: &ProtectedNode, transfer_id: u64) {
@@ -1682,6 +1754,71 @@ fn targeted_cancel_aborts_each_sink_exactly_once() {
 }
 
 #[test]
+fn forgetting_saved_sender_aborts_active_targeted_receive() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_079);
+    let transfer = approve_one(&alice, &bob, b"forget during receive", "sink.txt");
+    let sink = Arc::new(GatedSink::default());
+    let bob_core = bob.core();
+    let transfer_id = transfer.id.clone();
+    let receive_sink = sink.clone();
+    let receive = std::thread::spawn(move || {
+        bob_core.receive_targeted_transfer_with_output_sink(transfer_id, receive_sink)
+    });
+    sink.wait_until_entered();
+
+    bob.core()
+        .forget_saved_device(alice.core().status().endpoint_id)
+        .unwrap();
+    sink.release();
+    assert!(receive.join().unwrap().is_err());
+    assert_eq!(sink.finishes.load(std::sync::atomic::Ordering::SeqCst), 0);
+    assert_eq!(sink.aborts.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert_eq!(
+        bob.core()
+            .get_targeted_transfer(transfer.id)
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Cancelled
+    );
+}
+
+#[test]
+fn sender_cancel_stops_online_receiver_before_publish() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_080);
+    let transfer = approve_one(&alice, &bob, b"sender cancel", "sink.txt");
+    let sink = Arc::new(GatedSink::default());
+    let bob_core = bob.core();
+    let transfer_id = transfer.id.clone();
+    let receive_sink = sink.clone();
+    let receive = std::thread::spawn(move || {
+        bob_core.receive_targeted_transfer_with_output_sink(transfer_id, receive_sink)
+    });
+    sink.wait_until_entered();
+
+    alice
+        .core()
+        .cancel_targeted_transfer(transfer.id.clone())
+        .unwrap();
+    sink.release();
+    assert!(receive.join().unwrap().is_err());
+    assert_eq!(sink.finishes.load(std::sync::atomic::Ordering::SeqCst), 0);
+    assert_eq!(sink.aborts.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert_eq!(
+        bob.core()
+            .get_targeted_transfer(transfer.id)
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Cancelled
+    );
+}
+
+#[test]
 fn decline_returns_typed_declined_outcome() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();
@@ -1712,4 +1849,46 @@ fn decline_returns_typed_declined_outcome() {
         decline.join().unwrap(),
         crate::TargetedOfferResponse::Declined
     );
+}
+
+#[test]
+fn approval_secret_failure_records_failed_receiver_snapshot_and_wakeup() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_081);
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("secret-failure.txt");
+    std::fs::write(&source_path, b"secret failure").unwrap();
+    let sender = alice.core();
+    let receiver_id = bob.core().status().endpoint_id;
+    let create = std::thread::spawn(move || {
+        sender.create_targeted_transfer(
+            receiver_id,
+            vec![targeted_source(&source_path)],
+            Some("secret-failure.txt".to_string()),
+        )
+    });
+    let offer = wait_for_pending_offer(&bob.core());
+    bob.secret_store
+        .fail_with(Some(ReferenceStoreFailure::Unavailable));
+    assert!(bob
+        .core()
+        .respond_to_targeted_offer(offer.transfer_id.clone(), true)
+        .is_err());
+    bob.secret_store.fail_with(None);
+    let failed = bob
+        .core()
+        .get_targeted_transfer(offer.transfer_id.clone())
+        .unwrap()
+        .unwrap();
+    assert_eq!(failed.state, TargetedTransferState::Failed);
+    assert!(bob
+        .core()
+        .list_events(None)
+        .unwrap()
+        .iter()
+        .any(|event| event.phase == "targeted_transfer"
+            && event.kind == "failed"
+            && event.data_json.contains(&offer.transfer_id)));
+    assert!(create.join().unwrap().is_err());
 }

@@ -681,11 +681,7 @@ impl VnidropCore {
     ///
     /// Stops active streaming synchronously before asynchronous cleanup.
     pub fn cancel_targeted_transfer(&self, id: String) -> Result<(), VnidropError> {
-        if let Ok(Some(row)) = self.block_on(self.inner.targeted_store().get_row(&id)) {
-            let _ = self
-                .inner
-                .signal_targeted_transfer_cancel(row.protocol_transfer_id);
-        }
+        let _ = self.inner.signal_targeted_transfer_cancel_by_id(&id);
         self.block_on(self.inner.cancel_targeted_transfer(id))
     }
 
@@ -693,11 +689,7 @@ impl VnidropCore {
     ///
     /// Local denial is mandatory even when remote cleanup fails.
     pub fn delete_targeted_transfer(&self, id: String) -> Result<(), VnidropError> {
-        if let Ok(Some(row)) = self.block_on(self.inner.targeted_store().get_row(&id)) {
-            let _ = self
-                .inner
-                .signal_targeted_transfer_cancel(row.protocol_transfer_id);
-        }
+        let _ = self.inner.signal_targeted_transfer_cancel_by_id(&id);
         self.block_on(self.inner.delete_targeted_transfer(id))
     }
 

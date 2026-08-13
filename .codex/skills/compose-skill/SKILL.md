@@ -110,6 +110,7 @@ Use one deep, session-scoped composition module for Invitation and Targeted crea
 Build quiet, intentional product interfaces. Establish hierarchy with typography, alignment, spacing, and native controls before adding containers or decoration.
 
 - Give each screen one clear primary task and scanning order.
+- Use title-only headers for familiar, populated screens. Put explanatory copy in genuine empty/onboarding states or beside the specific control that needs clarification.
 - Use cards only when a real object or boundary needs containment. Prefer native lists, grouped rows, dividers, and whitespace for ordinary collections.
 - Use count badges only when the count changes a decision. Use icon tiles only when the icon is meaningful content or a native convention.
 - Keep accent color scarce. Let status, selection, or the primary action earn it.

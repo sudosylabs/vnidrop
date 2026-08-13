@@ -30,6 +30,7 @@ internal enum class AppIcon(
 	Code(Res.drawable.icon_material_code, Res.drawable.icon_fluent_code, Res.drawable.icon_lucide_code),
 	CloudOff(Res.drawable.icon_material_cloud_off, Res.drawable.icon_fluent_cloud_off, Res.drawable.icon_lucide_cloud_off),
 	Delete(Res.drawable.icon_material_delete, Res.drawable.icon_fluent_delete, Res.drawable.icon_lucide_delete),
+	Device(Res.drawable.icon_material_device, Res.drawable.icon_fluent_device, Res.drawable.icon_lucide_device),
 	Document(Res.drawable.icon_material_document, Res.drawable.icon_fluent_document, Res.drawable.icon_lucide_document),
 	Download(Res.drawable.icon_material_download, Res.drawable.icon_fluent_download, Res.drawable.icon_lucide_download),
 	File(Res.drawable.icon_material_file, Res.drawable.icon_fluent_file, Res.drawable.icon_lucide_file),

@@ -42,7 +42,6 @@ import vnidrop.shared.generated.resources.saved_devices_transfer_progress
 import vnidrop.shared.generated.resources.saved_devices_transfer_receive
 import vnidrop.shared.generated.resources.saved_devices_transfer_resume
 import vnidrop.shared.generated.resources.saved_devices_transfers_title
-import vnidrop.shared.generated.resources.saved_devices_endpoint
 import vnidrop.shared.generated.resources.saved_devices_unnamed
 import vnidrop.shared.generated.resources.status_approved
 import vnidrop.shared.generated.resources.status_awaiting_approval
@@ -63,24 +62,21 @@ enum class SavedDeviceTransferAction {
 	Delete,
 }
 
-internal enum class TargetedTransferPresentation {
-	CompactRow,
-	DesktopRow,
-}
-
 internal fun LazyListScope.targetedTransferItems(
 	transfers: List<SavedDeviceTransferItem>,
 	busyTransferIds: Set<String>,
 	onAction: (String, SavedDeviceTransferAction) -> Unit,
-	presentation: TargetedTransferPresentation = TargetedTransferPresentation.CompactRow,
+	showHeading: Boolean = true,
 ) {
-	item(key = "targeted-transfer-title") {
-		Text(
-			text = stringResource(Res.string.saved_devices_transfers_title),
-			style = MaterialTheme.typography.titleMedium,
-			fontWeight = FontWeight.SemiBold,
-			modifier = Modifier.padding(top = 8.dp).semantics { heading() },
-		)
+	if (showHeading) {
+		item(key = "targeted-transfer-title") {
+			Text(
+				text = stringResource(Res.string.saved_devices_transfers_title),
+				style = MaterialTheme.typography.titleMedium,
+				fontWeight = FontWeight.SemiBold,
+				modifier = Modifier.padding(top = 8.dp).semantics { heading() },
+			)
+		}
 	}
 	if (transfers.isNotEmpty()) {
 		itemsIndexed(transfers, key = { _, transfer -> "targeted-${transfer.id}" }) { index, transfer ->
@@ -90,7 +86,6 @@ internal fun LazyListScope.targetedTransferItems(
 			TargetedTransferRow(
 				transfer = transfer,
 				busy = transfer.id in busyTransferIds,
-				presentation = presentation,
 				onAction = { action -> onAction(transfer.id, action) },
 			)
 		}
@@ -101,7 +96,6 @@ internal fun LazyListScope.targetedTransferItems(
 private fun TargetedTransferRow(
 	transfer: SavedDeviceTransferItem,
 	busy: Boolean,
-	presentation: TargetedTransferPresentation,
 	onAction: (SavedDeviceTransferAction) -> Unit,
 ) {
 	val colors = LocalVniDropColors.current
@@ -109,10 +103,7 @@ private fun TargetedTransferRow(
 		(transfer.verifiedBytes.toDouble() / transfer.totalSize.toDouble()).coerceIn(0.0, 1.0).toFloat()
 	}
 	Column(
-		Modifier.fillMaxWidth().padding(
-			horizontal = if (presentation == TargetedTransferPresentation.DesktopRow) 4.dp else 0.dp,
-			vertical = 14.dp,
-		),
+		Modifier.fillMaxWidth().padding(vertical = 14.dp),
 		verticalArrangement = Arrangement.spacedBy(8.dp),
 	) {
 		Row(verticalAlignment = Alignment.CenterVertically) {
@@ -162,27 +153,6 @@ private fun TargetedTransferRow(
 				modifier = Modifier.weight(1f),
 				style = MaterialTheme.typography.bodySmall,
 				color = colors.foregroundLighter,
-			)
-			if (presentation == TargetedTransferPresentation.DesktopRow) {
-				Text(
-					text = stringResource(
-						Res.string.saved_devices_endpoint,
-						shortTransferEndpoint(transfer.peerEndpointId),
-					),
-					style = MaterialTheme.typography.bodySmall,
-					color = colors.foregroundLighter,
-					maxLines = 1,
-					overflow = TextOverflow.Ellipsis,
-				)
-			}
-		}
-		if (presentation == TargetedTransferPresentation.CompactRow) {
-			Text(
-				text = stringResource(Res.string.saved_devices_endpoint, shortTransferEndpoint(transfer.peerEndpointId)),
-				style = MaterialTheme.typography.bodySmall,
-				color = colors.foregroundLighter,
-				maxLines = 1,
-				overflow = TextOverflow.Ellipsis,
 			)
 		}
 		if (
@@ -282,6 +252,3 @@ private fun TargetedTransferStateModel.isDeletable(): Boolean = this in setOf(
 	TargetedTransferStateModel.Cancelled,
 	TargetedTransferStateModel.Failed,
 )
-
-private fun shortTransferEndpoint(endpointId: String): String =
-	if (endpointId.length <= 20) endpointId else endpointId.take(16) + "…"

@@ -4843,21 +4843,6 @@
       },
       "targets": ["kmp"]
     },
-    "saved_devices_devices_title": {
-      "context": "Saved devices screen: heading for mutually trusted saved devices.",
-      "translations": {
-        "en": "Your devices",
-        "fr": "Vos appareils",
-        "es": "Tus dispositivos",
-        "it": "I tuoi dispositivi",
-        "de": "Deine Geräte",
-        "pt": "Os seus dispositivos",
-        "pl": "Twoje urządzenia",
-        "nl": "Je apparaten",
-        "ru": "Ваши устройства"
-      },
-      "targets": ["kmp"]
-    },
     "saved_devices_transfers_title": {
       "context": "Saved devices screen: heading for durable targeted-transfer history.",
       "translations": {
@@ -4892,15 +4877,15 @@
       "context": "Targeted transfer card: incoming direction followed by the saved-device display name.",
       "args": [{"name": "device", "type": "string"}],
       "translations": {
-        "en": "From %1$s",
-        "fr": "De %1$s",
-        "es": "De %1$s",
-        "it": "Da %1$s",
-        "de": "Von %1$s",
-        "pt": "De %1$s",
-        "pl": "Od %1$s",
-        "nl": "Van %1$s",
-        "ru": "От %1$s"
+        "en": "From {device}",
+        "fr": "De {device}",
+        "es": "De {device}",
+        "it": "Da {device}",
+        "de": "Von {device}",
+        "pt": "De {device}",
+        "pl": "Od {device}",
+        "nl": "Van {device}",
+        "ru": "От {device}"
       },
       "targets": ["kmp"]
     },
@@ -4908,15 +4893,15 @@
       "context": "Targeted transfer card: outgoing direction followed by the saved-device display name.",
       "args": [{"name": "device", "type": "string"}],
       "translations": {
-        "en": "To %1$s",
-        "fr": "Vers %1$s",
-        "es": "A %1$s",
-        "it": "A %1$s",
-        "de": "An %1$s",
-        "pt": "Para %1$s",
-        "pl": "Do %1$s",
-        "nl": "Naar %1$s",
-        "ru": "Для %1$s"
+        "en": "To {device}",
+        "fr": "Vers {device}",
+        "es": "A {device}",
+        "it": "A {device}",
+        "de": "An {device}",
+        "pt": "Para {device}",
+        "pl": "Do {device}",
+        "nl": "Naar {device}",
+        "ru": "Для {device}"
       },
       "targets": ["kmp"]
     },
@@ -4924,15 +4909,15 @@
       "context": "Targeted transfer card metadata. First placeholder is file count, second is formatted total size.",
       "args": [{"name": "count", "type": "string"}, {"name": "size", "type": "string"}],
       "translations": {
-        "en": "%1$s files · %2$s",
-        "fr": "%1$s fichiers · %2$s",
-        "es": "%1$s archivos · %2$s",
-        "it": "%1$s file · %2$s",
-        "de": "%1$s Dateien · %2$s",
-        "pt": "%1$s ficheiros · %2$s",
-        "pl": "%1$s plików · %2$s",
-        "nl": "%1$s bestanden · %2$s",
-        "ru": "%1$s файлов · %2$s"
+        "en": "{count} files · {size}",
+        "fr": "{count} fichiers · {size}",
+        "es": "{count} archivos · {size}",
+        "it": "{count} file · {size}",
+        "de": "{count} Dateien · {size}",
+        "pt": "{count} ficheiros · {size}",
+        "pl": "{count} plików · {size}",
+        "nl": "{count} bestanden · {size}",
+        "ru": "{count} файлов · {size}"
       },
       "targets": ["kmp"]
     },
@@ -4940,15 +4925,15 @@
       "context": "Targeted transfer card progress. First placeholder is verified bytes, second is total size.",
       "args": [{"name": "verified", "type": "string"}, {"name": "total", "type": "string"}],
       "translations": {
-        "en": "%1$s of %2$s",
-        "fr": "%1$s sur %2$s",
-        "es": "%1$s de %2$s",
-        "it": "%1$s di %2$s",
-        "de": "%1$s von %2$s",
-        "pt": "%1$s de %2$s",
-        "pl": "%1$s z %2$s",
-        "nl": "%1$s van %2$s",
-        "ru": "%1$s из %2$s"
+        "en": "{verified} of {total}",
+        "fr": "{verified} sur {total}",
+        "es": "{verified} de {total}",
+        "it": "{verified} di {total}",
+        "de": "{verified} von {total}",
+        "pt": "{verified} de {total}",
+        "pl": "{verified} z {total}",
+        "nl": "{verified} van {total}",
+        "ru": "{verified} из {total}"
       },
       "targets": ["kmp"]
     },
@@ -5053,23 +5038,6 @@
         "pl": "Zablokować urządzenie?",
         "nl": "Apparaat blokkeren?",
         "ru": "Заблокировать устройство?"
-      },
-      "targets": [
-        "kmp"
-      ]
-    },
-    "saved_devices_description": {
-      "context": "Saved devices screen: short explanation below the title.",
-      "translations": {
-        "en": "Send directly to devices you trust, without sharing another invitation.",
-        "fr": "Envoyez directement aux appareils de confiance, sans partager une nouvelle invitation.",
-        "es": "Envía directamente a dispositivos de confianza sin compartir otra invitación.",
-        "it": "Invia direttamente ai dispositivi attendibili senza condividere un altro invito.",
-        "de": "Direkt an vertrauenswürdige Geräte senden, ohne eine neue Einladung zu teilen.",
-        "pt": "Envie diretamente para dispositivos de confiança sem partilhar outro convite.",
-        "pl": "Wysyłaj bezpośrednio do zaufanych urządzeń bez udostępniania kolejnego zaproszenia.",
-        "nl": "Stuur rechtstreeks naar vertrouwde apparaten zonder opnieuw een uitnodiging te delen.",
-        "ru": "Отправляйте напрямую доверенным устройствам без новой ссылки-приглашения."
       },
       "targets": [
         "kmp"

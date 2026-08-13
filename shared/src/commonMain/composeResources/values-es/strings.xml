@@ -320,13 +320,12 @@
     <string name="offer_accept">Recibir</string>
     <string name="offer_decline">Rechazar</string>
     <string name="saved_devices_attention_title">Requiere atención</string>
-    <string name="saved_devices_devices_title">Tus dispositivos</string>
     <string name="saved_devices_transfers_title">Transferencias directas</string>
     <string name="saved_devices_transfer_empty">Aún no hay transferencias directas.</string>
-    <string name="saved_devices_transfer_direction_incoming">De %%1$s</string>
-    <string name="saved_devices_transfer_direction_outgoing">A %%1$s</string>
-    <string name="saved_devices_transfer_files">%%1$s archivos · %%2$s</string>
-    <string name="saved_devices_transfer_progress">%%1$s de %%2$s</string>
+    <string name="saved_devices_transfer_direction_incoming">De %1$s</string>
+    <string name="saved_devices_transfer_direction_outgoing">A %1$s</string>
+    <string name="saved_devices_transfer_files">%1$s archivos · %2$s</string>
+    <string name="saved_devices_transfer_progress">%1$s de %2$s</string>
     <string name="saved_devices_transfer_receive">Recibir</string>
     <string name="saved_devices_transfer_resume">Reanudar</string>
     <string name="saved_devices_transfer_cancel">Cancelar</string>
@@ -341,7 +340,6 @@
     <string name="saved_devices_authenticated_name">Nombre remoto: %1$s</string>
     <string name="saved_devices_block_confirm_body">¿Bloquear a %1$s y rechazar futuros envíos de dispositivos guardados?</string>
     <string name="saved_devices_block_confirm_title">¿Bloquear dispositivo?</string>
-    <string name="saved_devices_description">Envía directamente a dispositivos de confianza sin compartir otra invitación.</string>
     <string name="saved_devices_endpoint">ID del dispositivo: %1$s</string>
     <string name="saved_devices_empty">Finaliza una transferencia y elige recordar el otro dispositivo.</string>
     <string name="saved_devices_empty_title">No hay dispositivos guardados</string>

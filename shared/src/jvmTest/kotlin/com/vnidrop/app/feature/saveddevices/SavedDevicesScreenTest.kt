@@ -6,8 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -34,7 +35,6 @@ import vnidrop.shared.generated.resources.button_retry
 import vnidrop.shared.generated.resources.saved_devices_block_action
 import vnidrop.shared.generated.resources.saved_devices_block_confirm_title
 import vnidrop.shared.generated.resources.saved_devices_attention_title
-import vnidrop.shared.generated.resources.saved_devices_devices_title
 import vnidrop.shared.generated.resources.saved_devices_empty
 import vnidrop.shared.generated.resources.saved_devices_empty_title
 import vnidrop.shared.generated.resources.saved_devices_forget_action
@@ -64,7 +64,6 @@ class SavedDevicesScreenTest {
 		runOnIdle { state.value = SavedDevicesState(isLoading = false) }
 		onNodeWithText(Res.string.saved_devices_empty_title.value).assertIsDisplayed()
 		onNodeWithText(Res.string.saved_devices_empty.value).assertIsDisplayed()
-		onAllNodesWithText(Res.string.saved_devices_devices_title.value).assertCountEquals(0)
 		onAllNodesWithText(Res.string.saved_devices_transfers_title.value).assertCountEquals(0)
 	}
 
@@ -87,8 +86,10 @@ class SavedDevicesScreenTest {
 		}
 
 		onNodeWithText("Office laptop").assertIsDisplayed()
-		onNodeWithText("Remote name: Amira's PC").assertIsDisplayed()
+		onAllNodesWithText("Remote name: Amira's PC").assertCountEquals(0)
 		onAllNodesWithText("Pixel 9", useUnmergedTree = true).assertCountEquals(2)
+		onNodeWithTag("saved-device-saved-peer-long-identifier").performClick()
+		onNodeWithText("Remote name: Amira's PC").assertIsDisplayed()
 		onNodeWithText("Device ID: saved-peer-long-…").assertIsDisplayed()
 	}
 
@@ -108,10 +109,11 @@ class SavedDevicesScreenTest {
 				}
 			}
 		}
-		onAllNodesWithContentDescription(Res.string.saved_devices_send_action.value).assertCountEquals(0)
+		onNodeWithTag("saved-device-peer-one").performClick()
+		onNodeWithText(Res.string.saved_devices_send_action.value).assertIsNotEnabled()
 
 		runOnIdle { state.value = state.value.copy(busyPeerIds = emptySet()) }
-		onNodeWithContentDescription(Res.string.saved_devices_send_action.value).assertIsDisplayed()
+		onNodeWithText(Res.string.saved_devices_send_action.value).assertIsEnabled()
 		onNodeWithContentDescription("More actions for Riley's phone").performClick()
 		onNodeWithText(Res.string.saved_devices_block_action.value).performClick()
 		onNodeWithText(Res.string.saved_devices_block_confirm_title.value).assertIsDisplayed()
@@ -133,12 +135,13 @@ class SavedDevicesScreenTest {
 				}
 			}
 		}
+		onNodeWithTag("saved-device-peer-two").performClick()
 		onNodeWithContentDescription("More actions for Desktop").performClick()
 		onNodeWithText(Res.string.saved_devices_forget_action.value).assertIsDisplayed()
 	}
 
 	@Test
-	fun directTransferHistoryShowsProgressAndRoutesResumeById() = runComposeUiTest {
+	fun deviceTransfersStayHiddenUntilTheDeviceDetailsAreOpened() = runComposeUiTest {
 		val actions = mutableListOf<Pair<String, SavedDeviceTransferAction>>()
 		setContent {
 			CompositionLocalProvider(LocalUiPlatform provides UiPlatform.Android) {
@@ -146,6 +149,7 @@ class SavedDevicesScreenTest {
 					SavedDevicesScreen(
 						state = SavedDevicesState(
 							isLoading = false,
+							savedDevices = listOf(device("peer", null, "Office PC")),
 							targetedTransfers = listOf(
 								SavedDeviceTransferItem(
 									id = "transfer-resume",
@@ -169,9 +173,12 @@ class SavedDevicesScreenTest {
 			}
 		}
 
+		onAllNodesWithText(Res.string.saved_devices_transfers_title.value).assertCountEquals(0)
+		onAllNodesWithText("Project files").assertCountEquals(0)
+		onNodeWithTag("saved-device-peer").performClick()
 		onNodeWithText(Res.string.saved_devices_transfers_title.value).assertIsDisplayed()
 		onNodeWithText("Project files").assertIsDisplayed()
-		onNodeWithText("Office PC", substring = true).assertIsDisplayed()
+		onAllNodesWithText("%", substring = true).assertCountEquals(0)
 		onNodeWithText(Res.string.saved_devices_transfer_resume.value).performClick()
 		runOnIdle {
 			assertEquals(listOf("transfer-resume" to SavedDeviceTransferAction.Resume), actions)
@@ -203,7 +210,6 @@ class SavedDevicesScreenTest {
 			}
 		}
 
-		onNodeWithText(Res.string.saved_devices_devices_title.value).assertIsDisplayed()
 		onNodeWithText(Res.string.saved_devices_attention_title.value).assertIsDisplayed()
 		onNodeWithText("Amira's phone").assertIsDisplayed()
 		onNodeWithText("Studio PC").assertIsDisplayed()
@@ -232,7 +238,7 @@ class SavedDevicesScreenTest {
 
 		val attentionTop = onNodeWithText(Res.string.saved_devices_attention_title.value)
 			.fetchSemanticsNode().boundsInRoot.top
-		val devicesTop = onNodeWithText(Res.string.saved_devices_devices_title.value)
+		val devicesTop = onNodeWithTag("saved-device-peer-one")
 			.fetchSemanticsNode().boundsInRoot.top
 		assertTrue(attentionTop < devicesTop, "compact layouts should surface pending decisions before the device list")
 	}

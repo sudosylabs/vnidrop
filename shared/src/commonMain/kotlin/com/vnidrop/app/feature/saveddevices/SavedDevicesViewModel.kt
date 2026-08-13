@@ -48,6 +48,7 @@ data class SavedDevicesState(
 	val busyTransferIds: Set<String> = emptySet(),
 	val labelingPeerId: String? = null,
 	val labelDraft: String = "",
+	val isSavingLabel: Boolean = false,
 )
 
 /**
@@ -166,39 +167,53 @@ class SavedDevicesViewModel(
 	}
 
 	fun openLabelEditor(peerEndpointId: String) {
+		if (_state.value.isSavingLabel || peerEndpointId in _state.value.busyPeerIds) return
 		val current = _state.value.savedDevices.firstOrNull { it.endpointId == peerEndpointId }
 		_state.update {
 			it.copy(labelingPeerId = peerEndpointId, labelDraft = current?.localLabel.orEmpty())
 		}
 	}
 
-	fun setLabelDraft(value: String) = _state.update { it.copy(labelDraft = value) }
+	fun setLabelDraft(value: String) = _state.update {
+		if (it.isSavingLabel) it else it.copy(labelDraft = value)
+	}
 
 	fun dismissLabelEditor() {
-		if (_state.value.labelingPeerId !in _state.value.busyPeerIds) {
+		if (!_state.value.isSavingLabel) {
 			_state.update { it.copy(labelingPeerId = null, labelDraft = "") }
 		}
 	}
 
 	fun saveLabel() {
-		val peerId = _state.value.labelingPeerId ?: return
-		val label = _state.value.labelDraft.trim().ifBlank { null }
-		mutatePeer(peerId) {
-			repository.setSavedDeviceLabel(peerId, label).onSuccess {
-				messages.tryShow(UiMessage(UiText.Resource(Res.string.saved_devices_labeled), UiMessageTone.Success))
-			}
-		}
-		_state.update { it.copy(labelingPeerId = null, labelDraft = "") }
+		commitLabel(_state.value.labelDraft.trim().ifBlank { null })
 	}
 
 	fun clearLabel() {
+		commitLabel(null)
+	}
+
+	private fun commitLabel(label: String?) {
 		val peerId = _state.value.labelingPeerId ?: return
-		mutatePeer(peerId) {
-			repository.setSavedDeviceLabel(peerId, null).onSuccess {
+		if (_state.value.isSavingLabel || peerId in _state.value.busyPeerIds) return
+		_state.update { it.copy(isSavingLabel = true, busyPeerIds = it.busyPeerIds + peerId) }
+		viewModelScope.launch {
+			val result = repository.setSavedDeviceLabel(peerId, label)
+			if (result.isSuccess) {
+				refresh()
 				messages.tryShow(UiMessage(UiText.Resource(Res.string.saved_devices_labeled), UiMessageTone.Success))
+			} else {
+				result.exceptionOrNull()?.let(messages::error)
+			}
+			_state.update { current ->
+				val editorMatches = current.labelingPeerId == peerId
+				current.copy(
+					busyPeerIds = current.busyPeerIds - peerId,
+					isSavingLabel = false,
+					labelingPeerId = if (result.isSuccess && editorMatches) null else current.labelingPeerId,
+					labelDraft = if (result.isSuccess && editorMatches) "" else current.labelDraft,
+				)
 			}
 		}
-		_state.update { it.copy(labelingPeerId = null, labelDraft = "") }
 	}
 
 	fun forget(peerEndpointId: String) = mutatePeer(peerEndpointId) {

@@ -320,13 +320,12 @@
     <string name="offer_accept">Ricevi</string>
     <string name="offer_decline">Rifiuta</string>
     <string name="saved_devices_attention_title">Richiede attenzione</string>
-    <string name="saved_devices_devices_title">I tuoi dispositivi</string>
     <string name="saved_devices_transfers_title">Trasferimenti diretti</string>
     <string name="saved_devices_transfer_empty">Nessun trasferimento diretto.</string>
-    <string name="saved_devices_transfer_direction_incoming">Da %%1$s</string>
-    <string name="saved_devices_transfer_direction_outgoing">A %%1$s</string>
-    <string name="saved_devices_transfer_files">%%1$s file · %%2$s</string>
-    <string name="saved_devices_transfer_progress">%%1$s di %%2$s</string>
+    <string name="saved_devices_transfer_direction_incoming">Da %1$s</string>
+    <string name="saved_devices_transfer_direction_outgoing">A %1$s</string>
+    <string name="saved_devices_transfer_files">%1$s file · %2$s</string>
+    <string name="saved_devices_transfer_progress">%1$s di %2$s</string>
     <string name="saved_devices_transfer_receive">Ricevi</string>
     <string name="saved_devices_transfer_resume">Riprendi</string>
     <string name="saved_devices_transfer_cancel">Annulla</string>
@@ -341,7 +340,6 @@
     <string name="saved_devices_authenticated_name">Nome remoto: %1$s</string>
     <string name="saved_devices_block_confirm_body">Bloccare %1$s e rifiutare i futuri trasferimenti da dispositivi salvati?</string>
     <string name="saved_devices_block_confirm_title">Bloccare il dispositivo?</string>
-    <string name="saved_devices_description">Invia direttamente ai dispositivi attendibili senza condividere un altro invito.</string>
     <string name="saved_devices_endpoint">ID dispositivo: %1$s</string>
     <string name="saved_devices_empty">Completa un trasferimento, quindi scegli di ricordare l’altro dispositivo.</string>
     <string name="saved_devices_empty_title">Nessun dispositivo salvato</string>

@@ -320,13 +320,12 @@
     <string name="offer_accept">Receive</string>
     <string name="offer_decline">Decline</string>
     <string name="saved_devices_attention_title">Needs attention</string>
-    <string name="saved_devices_devices_title">Your devices</string>
     <string name="saved_devices_transfers_title">Direct transfers</string>
     <string name="saved_devices_transfer_empty">No direct transfers yet.</string>
-    <string name="saved_devices_transfer_direction_incoming">From %%1$s</string>
-    <string name="saved_devices_transfer_direction_outgoing">To %%1$s</string>
-    <string name="saved_devices_transfer_files">%%1$s files · %%2$s</string>
-    <string name="saved_devices_transfer_progress">%%1$s of %%2$s</string>
+    <string name="saved_devices_transfer_direction_incoming">From %1$s</string>
+    <string name="saved_devices_transfer_direction_outgoing">To %1$s</string>
+    <string name="saved_devices_transfer_files">%1$s files · %2$s</string>
+    <string name="saved_devices_transfer_progress">%1$s of %2$s</string>
     <string name="saved_devices_transfer_receive">Receive</string>
     <string name="saved_devices_transfer_resume">Resume</string>
     <string name="saved_devices_transfer_cancel">Cancel</string>
@@ -341,7 +340,6 @@
     <string name="saved_devices_authenticated_name">Remote name: %1$s</string>
     <string name="saved_devices_block_confirm_body">Block %1$s and reject future saved-device transfers?</string>
     <string name="saved_devices_block_confirm_title">Block device?</string>
-    <string name="saved_devices_description">Send directly to devices you trust, without sharing another invitation.</string>
     <string name="saved_devices_endpoint">Device ID: %1$s</string>
     <string name="saved_devices_empty">Finish a transfer, then choose to remember the other device.</string>
     <string name="saved_devices_empty_title">No saved devices</string>

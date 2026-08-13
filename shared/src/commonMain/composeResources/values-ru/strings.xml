@@ -320,13 +320,12 @@
     <string name="offer_accept">Получить</string>
     <string name="offer_decline">Отклонить</string>
     <string name="saved_devices_attention_title">Требует внимания</string>
-    <string name="saved_devices_devices_title">Ваши устройства</string>
     <string name="saved_devices_transfers_title">Прямые передачи</string>
     <string name="saved_devices_transfer_empty">Прямых передач пока нет.</string>
-    <string name="saved_devices_transfer_direction_incoming">От %%1$s</string>
-    <string name="saved_devices_transfer_direction_outgoing">Для %%1$s</string>
-    <string name="saved_devices_transfer_files">%%1$s файлов · %%2$s</string>
-    <string name="saved_devices_transfer_progress">%%1$s из %%2$s</string>
+    <string name="saved_devices_transfer_direction_incoming">От %1$s</string>
+    <string name="saved_devices_transfer_direction_outgoing">Для %1$s</string>
+    <string name="saved_devices_transfer_files">%1$s файлов · %2$s</string>
+    <string name="saved_devices_transfer_progress">%1$s из %2$s</string>
     <string name="saved_devices_transfer_receive">Получить</string>
     <string name="saved_devices_transfer_resume">Продолжить</string>
     <string name="saved_devices_transfer_cancel">Отменить</string>
@@ -341,7 +340,6 @@
     <string name="saved_devices_authenticated_name">Имя устройства: %1$s</string>
     <string name="saved_devices_block_confirm_body">Заблокировать %1$s и отклонять будущие передачи с сохранённых устройств?</string>
     <string name="saved_devices_block_confirm_title">Заблокировать устройство?</string>
-    <string name="saved_devices_description">Отправляйте напрямую доверенным устройствам без новой ссылки-приглашения.</string>
     <string name="saved_devices_endpoint">ID устройства: %1$s</string>
     <string name="saved_devices_empty">Завершите передачу, затем сохраните другое устройство.</string>
     <string name="saved_devices_empty_title">Нет сохранённых устройств</string>

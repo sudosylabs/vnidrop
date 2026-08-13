@@ -320,13 +320,12 @@
     <string name="offer_accept">Empfangen</string>
     <string name="offer_decline">Ablehnen</string>
     <string name="saved_devices_attention_title">Erfordert Aufmerksamkeit</string>
-    <string name="saved_devices_devices_title">Deine Geräte</string>
     <string name="saved_devices_transfers_title">Direkte Übertragungen</string>
     <string name="saved_devices_transfer_empty">Noch keine direkten Übertragungen.</string>
-    <string name="saved_devices_transfer_direction_incoming">Von %%1$s</string>
-    <string name="saved_devices_transfer_direction_outgoing">An %%1$s</string>
-    <string name="saved_devices_transfer_files">%%1$s Dateien · %%2$s</string>
-    <string name="saved_devices_transfer_progress">%%1$s von %%2$s</string>
+    <string name="saved_devices_transfer_direction_incoming">Von %1$s</string>
+    <string name="saved_devices_transfer_direction_outgoing">An %1$s</string>
+    <string name="saved_devices_transfer_files">%1$s Dateien · %2$s</string>
+    <string name="saved_devices_transfer_progress">%1$s von %2$s</string>
     <string name="saved_devices_transfer_receive">Empfangen</string>
     <string name="saved_devices_transfer_resume">Fortsetzen</string>
     <string name="saved_devices_transfer_cancel">Abbrechen</string>
@@ -341,7 +340,6 @@
     <string name="saved_devices_authenticated_name">Remote-Name: %1$s</string>
     <string name="saved_devices_block_confirm_body">%1$s blockieren und künftige Übertragungen gespeicherter Geräte ablehnen?</string>
     <string name="saved_devices_block_confirm_title">Gerät blockieren?</string>
-    <string name="saved_devices_description">Direkt an vertrauenswürdige Geräte senden, ohne eine neue Einladung zu teilen.</string>
     <string name="saved_devices_endpoint">Geräte-ID: %1$s</string>
     <string name="saved_devices_empty">Schließe eine Übertragung ab und speichere anschließend das andere Gerät.</string>
     <string name="saved_devices_empty_title">Keine gespeicherten Geräte</string>

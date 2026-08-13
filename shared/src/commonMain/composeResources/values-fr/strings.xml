@@ -320,13 +320,12 @@
     <string name="offer_accept">Recevoir</string>
     <string name="offer_decline">Refuser</string>
     <string name="saved_devices_attention_title">Nécessite votre attention</string>
-    <string name="saved_devices_devices_title">Vos appareils</string>
     <string name="saved_devices_transfers_title">Transferts directs</string>
     <string name="saved_devices_transfer_empty">Aucun transfert direct pour le moment.</string>
-    <string name="saved_devices_transfer_direction_incoming">De %%1$s</string>
-    <string name="saved_devices_transfer_direction_outgoing">Vers %%1$s</string>
-    <string name="saved_devices_transfer_files">%%1$s fichiers · %%2$s</string>
-    <string name="saved_devices_transfer_progress">%%1$s sur %%2$s</string>
+    <string name="saved_devices_transfer_direction_incoming">De %1$s</string>
+    <string name="saved_devices_transfer_direction_outgoing">Vers %1$s</string>
+    <string name="saved_devices_transfer_files">%1$s fichiers · %2$s</string>
+    <string name="saved_devices_transfer_progress">%1$s sur %2$s</string>
     <string name="saved_devices_transfer_receive">Recevoir</string>
     <string name="saved_devices_transfer_resume">Reprendre</string>
     <string name="saved_devices_transfer_cancel">Annuler</string>
@@ -341,7 +340,6 @@
     <string name="saved_devices_authenticated_name">Nom distant : %1$s</string>
     <string name="saved_devices_block_confirm_body">Bloquer %1$s et refuser les futurs transferts d’appareil enregistré ?</string>
     <string name="saved_devices_block_confirm_title">Bloquer l’appareil ?</string>
-    <string name="saved_devices_description">Envoyez directement aux appareils de confiance, sans partager une nouvelle invitation.</string>
     <string name="saved_devices_endpoint">ID de l’appareil : %1$s</string>
     <string name="saved_devices_empty">Terminez un transfert, puis choisissez de mémoriser l’autre appareil.</string>
     <string name="saved_devices_empty_title">Aucun appareil enregistré</string>

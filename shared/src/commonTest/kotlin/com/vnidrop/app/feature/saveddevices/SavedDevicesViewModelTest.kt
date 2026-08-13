@@ -19,6 +19,7 @@ import com.vnidrop.app.ui.feedback.UiMessageController
 import com.vnidrop.app.ui.theme.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -226,6 +227,55 @@ class SavedDevicesViewModelTest {
 		runCurrent()
 		advanceUntilIdle()
 		assertEquals(listOf("peer-2"), core.blockedPeers)
+	}
+
+	@Test
+	fun failedLabelSaveKeepsTheEditorAndDraftAvailableForRetry() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val core = initializedCore().apply {
+			savedDevices = listOf(device("peer-1", null, "Kitchen tablet"))
+			setSavedDeviceLabelResult = Result.failure(IllegalStateException("save failed"))
+		}
+		val viewModel = createViewModel(core)
+		runCurrent()
+		advanceUntilIdle()
+
+		viewModel.openLabelEditor("peer-1")
+		viewModel.setLabelDraft("Kitchen")
+		viewModel.saveLabel()
+		runCurrent()
+		advanceUntilIdle()
+
+		assertEquals("peer-1", viewModel.state.value.labelingPeerId)
+		assertEquals("Kitchen", viewModel.state.value.labelDraft)
+	}
+
+	@Test
+	fun labelEditorCannotDismissOrLoseItsDraftWhileSaveIsInFlight() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val releaseSave = CompletableDeferred<Unit>()
+		val core = initializedCore().apply {
+			savedDevices = listOf(device("peer-1", null, "Kitchen tablet"))
+			beforeSetSavedDeviceLabel = { releaseSave.await() }
+		}
+		val viewModel = createViewModel(core)
+		runCurrent()
+		advanceUntilIdle()
+
+		viewModel.openLabelEditor("peer-1")
+		viewModel.setLabelDraft("Kitchen")
+		viewModel.saveLabel()
+		runCurrent()
+		viewModel.dismissLabelEditor()
+
+		assertTrue(viewModel.state.value.isSavingLabel)
+		assertEquals("peer-1", viewModel.state.value.labelingPeerId)
+		assertEquals("Kitchen", viewModel.state.value.labelDraft)
+
+		releaseSave.complete(Unit)
+		advanceUntilIdle()
+		assertEquals(false, viewModel.state.value.isSavingLabel)
+		assertNull(viewModel.state.value.labelingPeerId)
 	}
 
 	private fun createViewModel(

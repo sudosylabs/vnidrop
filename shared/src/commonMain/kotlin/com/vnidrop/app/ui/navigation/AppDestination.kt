@@ -24,6 +24,6 @@ internal data class NavigationItem(
 internal val primaryNavigationItems = listOf(
 	NavigationItem(AppDestination.Send, Res.string.nav_send, AppIcon.Send),
 	NavigationItem(AppDestination.Receive, Res.string.nav_receive, AppIcon.Download),
-	NavigationItem(AppDestination.SavedDevices, Res.string.nav_saved_devices, AppIcon.ShieldCheck),
+	NavigationItem(AppDestination.SavedDevices, Res.string.nav_saved_devices, AppIcon.Device),
 	NavigationItem(AppDestination.Settings, Res.string.nav_settings, AppIcon.Settings),
 )

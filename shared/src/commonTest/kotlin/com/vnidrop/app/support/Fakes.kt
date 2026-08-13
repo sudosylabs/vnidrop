@@ -221,6 +221,8 @@ class FakeCoreGateway : CoreGateway {
 	val forgottenDevices = mutableListOf<String>()
 	val blockedPeers = mutableListOf<String>()
 	val labeledDevices = mutableListOf<Pair<String, String?>>()
+	var beforeSetSavedDeviceLabel: suspend () -> Unit = {}
+	var setSavedDeviceLabelResult: Result<Unit> = Result.success(Unit)
 
 	override suspend fun listPairingEligibilities(): Result<List<PairingEligibilityModel>> {
 		listPairingEligibilitiesCount += 1
@@ -262,11 +264,13 @@ class FakeCoreGateway : CoreGateway {
 		return Result.success(savedDevices)
 	}
 	override suspend fun setSavedDeviceLabel(peerEndpointId: String, label: String?): Result<Unit> {
+		beforeSetSavedDeviceLabel()
 		labeledDevices += peerEndpointId to label
+		if (setSavedDeviceLabelResult.isFailure) return setSavedDeviceLabelResult
 		savedDevices = savedDevices.map {
 			if (it.endpointId == peerEndpointId) it.copy(localLabel = label) else it
 		}
-		return Result.success(Unit)
+		return setSavedDeviceLabelResult
 	}
 	override suspend fun forgetSavedDevice(peerEndpointId: String): Result<Unit> {
 		forgottenDevices += peerEndpointId

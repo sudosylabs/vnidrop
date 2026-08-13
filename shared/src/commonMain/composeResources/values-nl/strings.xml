@@ -320,13 +320,12 @@
     <string name="offer_accept">Ontvangen</string>
     <string name="offer_decline">Weigeren</string>
     <string name="saved_devices_attention_title">Aandacht vereist</string>
-    <string name="saved_devices_devices_title">Je apparaten</string>
     <string name="saved_devices_transfers_title">Directe overdrachten</string>
     <string name="saved_devices_transfer_empty">Nog geen directe overdrachten.</string>
-    <string name="saved_devices_transfer_direction_incoming">Van %%1$s</string>
-    <string name="saved_devices_transfer_direction_outgoing">Naar %%1$s</string>
-    <string name="saved_devices_transfer_files">%%1$s bestanden · %%2$s</string>
-    <string name="saved_devices_transfer_progress">%%1$s van %%2$s</string>
+    <string name="saved_devices_transfer_direction_incoming">Van %1$s</string>
+    <string name="saved_devices_transfer_direction_outgoing">Naar %1$s</string>
+    <string name="saved_devices_transfer_files">%1$s bestanden · %2$s</string>
+    <string name="saved_devices_transfer_progress">%1$s van %2$s</string>
     <string name="saved_devices_transfer_receive">Ontvangen</string>
     <string name="saved_devices_transfer_resume">Hervatten</string>
     <string name="saved_devices_transfer_cancel">Annuleren</string>
@@ -341,7 +340,6 @@
     <string name="saved_devices_authenticated_name">Externe naam: %1$s</string>
     <string name="saved_devices_block_confirm_body">%1$s blokkeren en toekomstige overdrachten van opgeslagen apparaten weigeren?</string>
     <string name="saved_devices_block_confirm_title">Apparaat blokkeren?</string>
-    <string name="saved_devices_description">Stuur rechtstreeks naar vertrouwde apparaten zonder opnieuw een uitnodiging te delen.</string>
     <string name="saved_devices_endpoint">Apparaat-ID: %1$s</string>
     <string name="saved_devices_empty">Voltooi een overdracht en kies daarna om het andere apparaat te onthouden.</string>
     <string name="saved_devices_empty_title">Geen opgeslagen apparaten</string>

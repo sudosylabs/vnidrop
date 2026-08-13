@@ -107,7 +107,9 @@ extension Error {
 	var canRetryWithoutChangingInput: Bool {
 		guard let vni = self as? VnidropError else { return true }
 		switch vni {
-		case .FilesystemPermission, .DestinationExists, .InvalidInput: return false
+		case .FilesystemPermission, .DestinationExists, .InvalidInput,
+			 .SecureStorageMissing, .SecureStorageCorrupted:
+			return false
 		default: return true
 		}
 	}

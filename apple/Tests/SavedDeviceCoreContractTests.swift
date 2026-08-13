@@ -39,19 +39,20 @@ final class SavedDeviceCoreContractTests: XCTestCase {
 		defer { try? FileManager.default.removeItem(at: directory) }
 
 		let sink = RecordingSink()
-		let first = try VnidropCore.initializeWithLimitsAndNetworkConfig(
+		var first: VnidropCore? = try VnidropCore.initializeWithLimitsAndNetworkConfig(
 			appDataDir: directory.path,
 			eventSink: sink,
 			limits: defaultCoreLimits(),
 			networkConfig: CoreNetworkConfig(mode: .automatic, relayUrls: [])
 		)
-		let endpointId = first.status().endpointId
+		let endpointId = first!.status().endpointId
 		XCTAssertFalse(endpointId.isEmpty)
 		XCTAssertFalse(
 			FileManager.default.fileExists(atPath: directory.appendingPathComponent("iroh.secret").path),
 			"protected identity must not fall back to plaintext"
 		)
-		first.shutdown()
+		first?.shutdown()
+		first = nil
 
 		let restarted = try VnidropCore.initializeWithLimitsAndNetworkConfig(
 			appDataDir: directory.path,
@@ -134,6 +135,9 @@ final class SavedDeviceCoreContractTests: XCTestCase {
 			let _: (
 				(String, CoreEventSink, CoreLimits, CoreNetworkConfig) throws -> VnidropCore
 			) = VnidropCore.initializeWithLimitsAndNetworkConfig
+			let _: (
+				(String, CoreEventSink, CoreLimits, CoreNetworkConfig) throws -> VnidropCore
+			) = VnidropCore.resetUnrecoverableIdentityWithLimitsAndNetworkConfig
 			let capabilities: SavedDeviceCapabilities = savedDeviceCapabilities()
 			XCTAssertGreaterThanOrEqual(capabilities.domainContractVersion, 1)
 			XCTAssertNotNil(defaultCoreLimits().maxSavedDevices)
@@ -165,6 +169,7 @@ final class SavedDeviceCoreContractTests: XCTestCase {
 		XCTAssertFalse(source.contains("ExperimentalSavedDeviceCapabilities"))
 		XCTAssertFalse(source.contains("experimentalSavedDeviceCapabilities"))
 		XCTAssertTrue(source.contains("initializeWithLimitsAndNetworkConfig"))
+		XCTAssertTrue(source.contains("resetUnrecoverableIdentityWithLimitsAndNetworkConfig"))
 		XCTAssertTrue(source.contains("public struct SavedDeviceCapabilities"))
 		XCTAssertTrue(source.contains("public func savedDeviceCapabilities()"))
 		XCTAssertTrue(source.contains("setSavedDeviceLabel"))

@@ -27,6 +27,7 @@ final class FakeCoreGateway: CoreGateway {
 	var clearReceiveHistoryResult: Result<UInt64, Error> = .success(0)
 	var initializeResult: Result<Void, Error> = .success(())
 	var initializeResults: [Result<Void, Error>] = []
+	var resetUnrecoverableIdentityResult: Result<Void, Error> = .success(())
 
 	// Recorded calls
 	private(set) var responses: [(id: String, accepted: Bool, reason: String?)] = []
@@ -38,6 +39,7 @@ final class FakeCoreGateway: CoreGateway {
 	private(set) var lastReceiveReceiverName: String?
 	private(set) var lastShareAccessPolicy: ShareAccessPolicy?
 	private(set) var initializedNetworkConfigurations: [RelayConfiguration] = []
+	private(set) var resetUnrecoverableIdentityCount = 0
 
 	func setState(_ state: CoreState) { stateSubject.send(state) }
 	func emit(_ signal: CoreSignal) { signalsSubject.send(signal) }
@@ -49,6 +51,19 @@ final class FakeCoreGateway: CoreGateway {
 		initializedNetworkConfigurations.append(networkConfiguration)
 		let result = initializeResults.isEmpty ? initializeResult : initializeResults.removeFirst()
 		guard case .success = result else { return result }
+		var s = stateSubject.value
+		s.isInitialized = true
+		stateSubject.send(s)
+		return .success(())
+	}
+	func resetUnrecoverableIdentity(
+		appDataDir: String,
+		networkConfiguration: RelayConfiguration
+	) async -> Result<Void, Error> {
+		resetUnrecoverableIdentityCount += 1
+		guard case .success = resetUnrecoverableIdentityResult else {
+			return resetUnrecoverableIdentityResult
+		}
 		var s = stateSubject.value
 		s.isInitialized = true
 		stateSubject.send(s)

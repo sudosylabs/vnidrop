@@ -40,6 +40,14 @@ private final class BlockingCoreBindingFactory: CoreBindingFactory, @unchecked S
 		throw BlockingCoreFactoryError.stopped
 	}
 
+	func resetUnrecoverableIdentity(
+		appDataDir: String,
+		eventSink: CoreEventSink,
+		networkConfiguration: RelayConfiguration
+	) throws -> VnidropCore {
+		throw BlockingCoreFactoryError.stopped
+	}
+
 	func waitUntilInitializationStarts() async {
 		await withCheckedContinuation { continuation in
 			lock.lock()

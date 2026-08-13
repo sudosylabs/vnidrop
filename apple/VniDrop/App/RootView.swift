@@ -96,7 +96,12 @@ struct RootView: View {
 					CoreStartingOverlay(
 						error: appModel.startupError,
 						detail: appModel.startupErrorDetail,
-						onRetry: appModel.retryStartup
+						onRetry: appModel.retryStartup,
+						recovery: appModel.startupRecovery,
+						isResettingIdentity: appModel.isResettingIdentity,
+						onResetIdentity: {
+							Task { await appModel.resetUnrecoverableIdentity() }
+						}
 					)
 				}
 			}
@@ -293,11 +298,41 @@ private struct CoreStartingOverlay: View {
 	/// Debug builds only; nil in Release.
 	let detail: String?
 	let onRetry: () -> Void
+	let recovery: AppStartupRecovery?
+	let isResettingIdentity: Bool
+	let onResetIdentity: () -> Void
+	@State private var confirmsIdentityReset = false
 
 	var body: some View {
 		ZStack {
 			backgroundColor.ignoresSafeArea()
-			if let error {
+			// A repairable identity comes first: it is the one failure the user can
+			// actually act on, and its own copy explains the consequences.
+			if recovery == .identityUnrecoverable {
+				VStack(spacing: 18) {
+					Image(systemSymbol: .exclamationmarkTriangleFill)
+						.font(.system(size: 44))
+						.foregroundStyle(.orange)
+					Text(String(localized: L10n.App.identityResetTitle))
+						.font(.title2.bold())
+					Text(String(localized: L10n.App.identityResetMessage))
+						.multilineTextAlignment(.center)
+						.foregroundStyle(.secondary)
+						.frame(maxWidth: 420)
+					Button(role: .destructive) {
+						confirmsIdentityReset = true
+					} label: {
+						if isResettingIdentity {
+							ProgressView()
+						} else {
+							Text(String(localized: L10n.App.identityResetAction))
+						}
+					}
+					.buttonStyle(.borderedProminent)
+					.disabled(isResettingIdentity)
+				}
+				.padding(32)
+			} else if let error {
 				VStack(spacing: 16) {
 					Image(systemSymbol: .exclamationmarkTriangleFill)
 						.font(.system(size: 34))
@@ -341,8 +376,28 @@ private struct CoreStartingOverlay: View {
 			}
 		}
 		.transition(.opacity)
+		.alert(
+			String(localized: L10n.App.identityResetTitle),
+			isPresented: $confirmsIdentityReset
+		) {
+			Button(String(localized: L10n.Button.cancel), role: .cancel) {}
+			Button(String(localized: L10n.App.identityResetAction), role: .destructive) {
+				onResetIdentity()
+			}
+		} message: {
+			Text(String(localized: L10n.App.identityResetConfirmation))
+		}
 		.accessibilityElement(children: .combine)
-		.accessibilityLabel(Text(error?.resolved() ?? String(localized: L10n.App.starting)))
+		.accessibilityLabel(Text(accessibilityLabel))
+	}
+
+	/// Mirrors the three visual states, so VoiceOver never announces "Starting…"
+	/// over a screen that has actually stopped and is asking for a decision.
+	private var accessibilityLabel: String {
+		if recovery == .identityUnrecoverable {
+			return String(localized: L10n.App.identityResetTitle)
+		}
+		return error?.resolved() ?? String(localized: L10n.App.starting)
 	}
 
 	private var backgroundColor: Color {

@@ -95,6 +95,13 @@ label, forget, and block operations. Wrap those calls through the existing
 Apple `CoreGateway` / `CoreRepository` boundary rather than invoking generated
 bindings from SwiftUI views.
 
+If startup reports a missing or corrupted endpoint identity, platforms must
+offer the explicit `resetUnrecoverableIdentityWithLimitsAndNetworkConfig`
+recovery flow rather than an endless Retry action. Confirm that Saved devices
+must be paired again; transfer history and received files are retained. Locked
+or temporarily unavailable credential storage remains retryable and must not
+offer identity replacement.
+
 Use SF Symbols and native iOS/macOS controls even when that duplicates Compose
 presentation code. Share behavior and vocabulary across platforms, not widget
 implementations. Before handoff, run `make check-localization` and

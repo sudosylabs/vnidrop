@@ -389,6 +389,64 @@ impl SecretCustody {
         }
     }
 
+    pub(crate) fn for_explicit_identity_reset(
+        metadata: SecretMetadataStore,
+        store: Arc<dyn SecureSecretStore>,
+    ) -> Self {
+        Self::from_parts(metadata, store)
+    }
+
+    /// Reject reset while the current identity remains readable. Missing or
+    /// corrupted endpoint custody is unrecoverable without an explicit reset.
+    pub(crate) async fn require_unrecoverable_endpoint_identity(&self) -> Result<(), VnidropError> {
+        let endpoints = self
+            .metadata
+            .list()
+            .await?
+            .into_iter()
+            .filter(|entry| {
+                entry.kind == SecretKind::EndpointIdentity
+                    && entry.state != SecretMetadataState::Disabled
+            })
+            .collect::<Vec<_>>();
+        if endpoints.is_empty() {
+            // Idempotent continuation after a reset transaction committed but
+            // the process stopped before a replacement identity was activated.
+            return Ok(());
+        }
+        for endpoint in endpoints {
+            match self.store_get_raw(endpoint.handle).await? {
+                Ok(material) => {
+                    if validate_material(
+                        SecretKind::EndpointIdentity,
+                        &material,
+                        endpoint.expected_identity.as_deref(),
+                    )
+                    .is_ok()
+                    {
+                        return Err(VnidropError::InvalidInput {
+                            reason: "protected endpoint identity is still available".to_string(),
+                        });
+                    }
+                }
+                Err(SecureSecretStoreError::Missing | SecureSecretStoreError::Corrupted) => {}
+                Err(error) => return Err(map_store_error(error)),
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn delete_reset_handles(
+        &self,
+        handles: Vec<String>,
+    ) -> Result<(), VnidropError> {
+        for handle in handles {
+            self.delete_if_present(&SecretHandle::from_stored(handle))
+                .await?;
+        }
+        Ok(())
+    }
+
     pub(crate) async fn protect(
         &self,
         kind: SecretKind,
@@ -869,6 +927,23 @@ impl FaultInjectingSecretStore {
             .cloned()
             .collect::<Vec<_>>();
         assert_eq!(handles.len(), 1, "expected exactly one protected secret");
+        handles.into_iter().next().unwrap()
+    }
+
+    pub(crate) fn endpoint_identity_handle_for_test(&self) -> SecretHandle {
+        let handles = self
+            .values
+            .lock()
+            .unwrap()
+            .keys()
+            .filter(|handle| handle.as_str().contains("/endpoint-identity/"))
+            .cloned()
+            .collect::<Vec<_>>();
+        assert_eq!(
+            handles.len(),
+            1,
+            "expected exactly one protected endpoint identity"
+        );
         handles.into_iter().next().unwrap()
     }
 

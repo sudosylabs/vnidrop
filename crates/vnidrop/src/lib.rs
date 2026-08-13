@@ -9,6 +9,7 @@ mod event_hub;
 mod filesystem;
 mod grant;
 mod handshake;
+mod identity_recovery;
 mod invitation;
 mod logging;
 mod pairing_eligibility;

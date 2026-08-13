@@ -25,6 +25,7 @@ protocol CoreGateway: AnyObject {
 	var signals: AnyPublisher<CoreSignal, Never> { get }
 
 	func initialize(appDataDir: String, networkConfiguration: RelayConfiguration) async -> Result<Void, Error>
+	func resetUnrecoverableIdentity(appDataDir: String, networkConfiguration: RelayConfiguration) async -> Result<Void, Error>
 	func shutdown()
 	func shareSources(
 		_ sources: [ShareSource],

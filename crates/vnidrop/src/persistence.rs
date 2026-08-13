@@ -11,6 +11,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use crate::{
     blocked_devices::{self, BlockStore},
     device_relationship::DeviceRelationshipStore,
+    identity_recovery::IdentityRecoveryStore,
     invitation::Repository,
     pairing_eligibility::PairingEligibilityStore,
     secure_secret::{self, SecretMetadataStore},
@@ -32,6 +33,8 @@ pub(crate) struct AppDataStores {
     pub(crate) secrets: SecretMetadataStore,
     /// Identity-wide deny list.
     pub(crate) blocked: BlockStore,
+    /// Explicit endpoint-identity reset transaction.
+    pub(crate) identity_recovery: IdentityRecoveryStore,
 }
 
 /// Create the profile pool, apply all domain schemas, return [`AppDataStores`].
@@ -66,6 +69,7 @@ pub(crate) async fn open_all(app_data_dir: &Path) -> Result<AppDataStores> {
         relationships: DeviceRelationshipStore::new(pool.clone()),
         eligibility: PairingEligibilityStore::new(pool.clone()),
         secrets: SecretMetadataStore::new(pool.clone()),
+        identity_recovery: IdentityRecoveryStore::new(pool.clone()),
         blocked: BlockStore::new(pool),
         invitation,
     })

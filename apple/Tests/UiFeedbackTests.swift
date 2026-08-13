@@ -63,6 +63,9 @@ final class UserFacingErrorTests: XCTestCase {
 		XCTAssertEqual(VnidropError.InvalidInput(reason: "bad path").toUiText(), .resource(L10n.Error.invalidInput))
 		XCTAssertFalse(VnidropError.FilesystemPermission(reason: "read-only").canRetryWithoutChangingInput)
 		XCTAssertFalse(VnidropError.DestinationExists(reason: "target exists").canRetryWithoutChangingInput)
+		XCTAssertFalse(VnidropError.SecureStorageMissing(reason: "credential is missing").canRetryWithoutChangingInput)
+		XCTAssertFalse(VnidropError.SecureStorageCorrupted(reason: "credential is corrupted").canRetryWithoutChangingInput)
 		XCTAssertTrue(VnidropError.Network(reason: "offline").canRetryWithoutChangingInput)
+		XCTAssertTrue(VnidropError.SecureStorageLocked(reason: "credential store is locked").canRetryWithoutChangingInput)
 	}
 }

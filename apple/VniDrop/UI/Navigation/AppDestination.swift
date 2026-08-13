@@ -5,6 +5,7 @@ import SFSafeSymbols
 enum AppDestination: String, CaseIterable, Identifiable {
 	case send
 	case receive
+	case savedDevices
 	case settings
 
 	var id: String { rawValue }
@@ -13,6 +14,7 @@ enum AppDestination: String, CaseIterable, Identifiable {
 		switch self {
 		case .send: return L10n.Nav.send
 		case .receive: return L10n.Nav.receive
+		case .savedDevices: return L10n.Nav.savedDevices
 		case .settings: return L10n.Nav.settings
 		}
 	}
@@ -22,6 +24,7 @@ enum AppDestination: String, CaseIterable, Identifiable {
 		switch self {
 		case .send: return .paperplane
 		case .receive: return .trayAndArrowDown
+		case .savedDevices: return .laptopcomputerAndIphone
 		case .settings: return .gearshape
 		}
 	}

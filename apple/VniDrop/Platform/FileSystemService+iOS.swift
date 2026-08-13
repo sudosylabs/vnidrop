@@ -73,6 +73,24 @@ struct IosFileSystemService: FileSystemService {
 		)
 	}
 
+	func sendPickedFilesToSavedDevice(
+		repository: CoreGateway,
+		files: [PickedShareFile],
+		transferName: String,
+		receiverEndpointId: String
+	) async -> Result<TargetedTransferModel, Error> {
+		guard !files.isEmpty else {
+			return .failure(InvitationError.shareEmpty)
+		}
+		// iOS picks by copying into the container, so no security scope has to be
+		// re-acquired here (unlike macOS).
+		return await repository.createTargetedTransfer(
+			receiverEndpointId: receiverEndpointId,
+			sources: files.map { $0.toIosShareSource() },
+			transferName: transferName.isEmpty ? nil : transferName
+		)
+	}
+
 	private func validateSecurityScopedUrl(_ value: String) -> FolderAccessStatus {
 		let url = URL(string: value) ?? URL(fileURLWithPath: value)
 		let started = url.startAccessingSecurityScopedResource()

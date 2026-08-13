@@ -265,6 +265,8 @@
     <string name="storage_total">Total</string>
     <string name="storage_transfer_data">Datos de transferencia</string>
     <string name="storage_transfers_deleted">Todas las transferencias eliminadas</string>
+    <string name="targeted_offer_body">%1$s quiere enviarle “%2$s”.</string>
+    <string name="targeted_offer_title">Transferencia entrante</string>
     <string name="transfer_activity_description">Vea las actualizaciones importantes de esta transferencia</string>
     <string name="transfer_activity_title">Actividad</string>
     <string name="transfer_delete_description">«%1$s» dejará de compartirse y su historial de transferencia se eliminará de este dispositivo.</string>

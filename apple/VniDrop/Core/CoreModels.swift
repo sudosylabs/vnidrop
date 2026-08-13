@@ -47,6 +47,12 @@ enum EventPhase: String, Equatable, Sendable {
 	case network
 	case handshake
 	case error
+	/// Saved-device consent lifecycle (eligibility, relationships, grants).
+	case pairing
+	/// Targeted-transfer offer and lifecycle. Its events identify the transfer by
+	/// a string `targeted_transfer_id`, not the numeric `transferId` used by
+	/// invitation shares.
+	case targetedTransfer = "targeted_transfer"
 }
 
 /// Kind of a core progress event (the `kind` wire field).
@@ -174,6 +180,13 @@ enum CoreSignal: Equatable, Sendable {
 	case receiverHistoryChanged(transferId: UInt64)
 	/// Transfer status/history changed enough to re-read the durable snapshot.
 	case transfersChanged(transferId: UInt64)
+	/// Pairing / saved-device state changed; refresh eligibility, relationships,
+	/// and the saved list. Carries no payload: core events are wake-ups, not
+	/// authoritative state, so consumers re-query rather than apply a delta.
+	case pairingChanged
+	/// Targeted-transfer offer or lifecycle changed; refresh pending offers and
+	/// transfers. Payload-free for the same reason as `pairingChanged`.
+	case targetedTransferChanged
 }
 
 // MARK: - Transfer helpers (ported from AppUiModels.kt)

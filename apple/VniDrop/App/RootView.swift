@@ -9,6 +9,9 @@ struct RootView: View {
 	@StateObject private var sendModel: SendModel
 	@StateObject private var receiveModel: ReceiveModel
 	@StateObject private var settingsModel: SettingsModel
+	@StateObject private var savedDevicesModel: SavedDevicesModel
+	/// Held so it stays alive for the app's lifetime; it has no view of its own.
+	@StateObject private var savedDeviceNotifications: SavedDeviceNotificationCoordinator
 
 	@Environment(\.scenePhase) private var scenePhase
 
@@ -44,6 +47,21 @@ struct RootView: View {
 			messages: graph.messages,
 			bugReports: NoopBugReportService()
 		))
+		let savedDevices = SavedDevicesModel(
+			repository: graph.coreRepository,
+			fileSystemService: dependencies.fileSystemService,
+			preferences: graph.preferencesRepository,
+			messages: graph.messages
+		)
+		_savedDevicesModel = StateObject(wrappedValue: savedDevices)
+		// Reads the model's snapshot rather than the core directly, so it observes
+		// exactly the state the UI is showing.
+		_savedDeviceNotifications = StateObject(wrappedValue: SavedDeviceNotificationCoordinator(
+			model: savedDevices,
+			notifications: dependencies.notificationService,
+			visibility: graph.visibility,
+			messages: graph.messages
+		))
 	}
 
 	var body: some View {
@@ -52,6 +70,13 @@ struct RootView: View {
 			let isDark = resolveDarkTheme(appModel.themeMode, systemDark: systemDark)
 			ZStack {
 				navigation(windowClass: windowClass)
+					// Hosted at the root so a pairing request or targeted offer is
+					// answerable from any tab, and suppressed while a transfer approval
+					// is up so two blocking decisions never stack.
+					.savedDevicePrompts(
+						model: savedDevicesModel,
+						suppressed: graph.approvalCoordinator.state.current != nil
+					)
 				// Observe the coordinator/messages from the *persisted* `graph`
 				// StateObject. Deriving them in `init` bound the view to a throwaway
 				// AppGraph rebuilt on every re-init, whose coordinator never receives
@@ -68,7 +93,11 @@ struct RootView: View {
 				// A small, unobtrusive indicator while the core finishes its async
 				// startup — otherwise the lists look empty and the app feels stalled.
 				if !sendModel.coreState.isInitialized {
-					CoreStartingOverlay()
+					CoreStartingOverlay(
+						error: appModel.startupError,
+						detail: appModel.startupErrorDetail,
+						onRetry: appModel.retryStartup
+					)
 				}
 			}
 			.animation(.easeInOut(duration: 0.25), value: sendModel.coreState.isInitialized)
@@ -167,6 +196,8 @@ struct RootView: View {
 		switch destination {
 		case .send: SendScreen(model: sendModel, windowClass: windowClass)
 		case .receive: ReceiveScreen(model: receiveModel, windowClass: windowClass)
+		case .savedDevices:
+			SavedDevicesScreen(model: savedDevicesModel, windowClass: windowClass)
 		case .settings:
 			SettingsScreen(model: settingsModel, windowClass: windowClass)
 		}
@@ -253,21 +284,65 @@ private struct ApprovalLayer: View {
 	}
 }
 
-/// A full-window cover with a centered spinner shown while the core is starting.
+/// A full-window cover shown while the core is starting — or, when startup fails,
+/// the reason and a retry. This overlay sits above the snackbar host, so a failure
+/// reported only through a toast would be invisible behind it and the app would
+/// look like it was loading forever.
 private struct CoreStartingOverlay: View {
+	let error: UiText?
+	/// Debug builds only; nil in Release.
+	let detail: String?
+	let onRetry: () -> Void
+
 	var body: some View {
 		ZStack {
 			backgroundColor.ignoresSafeArea()
-			VStack(spacing: 16) {
-				ProgressView().controlSize(.large)
-				Text(String(localized: L10n.App.starting))
-					.font(.headline)
-					.foregroundStyle(.secondary)
+			if let error {
+				VStack(spacing: 16) {
+					Image(systemSymbol: .exclamationmarkTriangleFill)
+						.font(.system(size: 34))
+						.foregroundStyle(.orange)
+					// Not "Starting…": startup has stopped, and saying otherwise
+					// while showing an error contradicts itself.
+					Text(String(localized: L10n.Error.initialization))
+						.font(.headline)
+						.multilineTextAlignment(.center)
+					Text(error.resolved())
+						.font(.subheadline)
+						.foregroundStyle(.secondary)
+						.multilineTextAlignment(.center)
+						.textSelection(.enabled)
+						.frame(maxWidth: 420)
+					if let detail {
+						ScrollView {
+							Text(detail)
+								.font(.caption.monospaced())
+								.foregroundStyle(.secondary)
+								.textSelection(.enabled)
+								.multilineTextAlignment(.leading)
+								.frame(maxWidth: .infinity, alignment: .leading)
+								.padding(10)
+						}
+						.frame(maxWidth: 420, maxHeight: 180)
+						.background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+					}
+					Button(String(localized: L10n.Button.retry), action: onRetry)
+						.buttonStyle(.borderedProminent)
+						.controlSize(.large)
+				}
+				.padding(32)
+			} else {
+				VStack(spacing: 16) {
+					ProgressView().controlSize(.large)
+					Text(String(localized: L10n.App.starting))
+						.font(.headline)
+						.foregroundStyle(.secondary)
+				}
 			}
 		}
 		.transition(.opacity)
 		.accessibilityElement(children: .combine)
-		.accessibilityLabel(Text(String(localized: L10n.App.starting)))
+		.accessibilityLabel(Text(error?.resolved() ?? String(localized: L10n.App.starting)))
 	}
 
 	private var backgroundColor: Color {
@@ -284,10 +359,3 @@ import UIKit
 #else
 import AppKit
 #endif
-
-/// Hosts the device-history consent prompts, alongside `ApprovalLayer`.
-///
-/// Separate from the approval layer because the two never compete: an approval
-/// belongs to a transfer this device is sending, and these belong to a device
-/// asking to reach it. Both are suppressed while the other is up so the user is
-/// never answering two modals at once.

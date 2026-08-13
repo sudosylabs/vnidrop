@@ -265,6 +265,8 @@
     <string name="storage_total">Всего</string>
     <string name="storage_transfer_data">Данные передачи</string>
     <string name="storage_transfers_deleted">Все передачи удалены</string>
+    <string name="targeted_offer_body">%1$s хочет отправить вам «%2$s».</string>
+    <string name="targeted_offer_title">Входящая передача</string>
     <string name="transfer_activity_description">Просматривайте важные обновления этой передачи</string>
     <string name="transfer_activity_title">Активность</string>
     <string name="transfer_delete_description">Общий доступ к «%1$s» будет остановлен, а история передачи будет удалена с этого устройства.</string>

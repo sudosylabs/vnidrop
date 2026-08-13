@@ -1,11 +1,12 @@
 # Design — Saved devices and targeted transfers
 
-Status: **production Rust core capability; product UI graduation is deferred**.
+Status: **production Rust core capability; platform UI implementation is in progress**.
 
 The unreleased contact/held-offer/polling prototype has been removed. The
 implementation on this branch is the versioned saved-device, device-relationship,
 and targeted-transfer core described below. Its wire protocol and public core
-surface are production contracts; KMP and Apple product UI remain deferred.
+surface are production contracts. Platform UI work is coordinated in
+[`DEVICE-HISTORY-UI-HANDOFF.md`](DEVICE-HISTORY-UI-HANDOFF.md).
 
 The feature lets two VniDrop installations remember one another after a
 successful transfer, with explicit consent on both devices. A saved device can
@@ -13,8 +14,8 @@ then request a new transfer without another invitation, QR scan, or NFC tap.
 The receiver must still approve every transfer.
 
 The Rust core, protocol, persistence, credential-storage integration, and
-platform contracts are the first delivery scope. Product UI is intentionally
-deferred to a separate design and implementation session.
+platform contracts are complete. KMP and Apple product UI ship from separate
+branches into `feat/device-history` before the feature targets `master`.
 
 ---
 

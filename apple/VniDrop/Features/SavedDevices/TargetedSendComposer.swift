@@ -93,11 +93,25 @@ struct TargetedSendComposer: View {
 
 	private var actions: some View {
 		VStack(spacing: 10) {
-			PrimaryButton(
-				title: String(localized: L10n.Saved.devicesSendAction),
-				action: model.createTargetedTransfer,
-				enabled: state.canCreateTargetedTransfer
-			)
+			if state.isCreatingSend {
+				// Reaching an unavailable device can take minutes, so the wait says
+				// so. Abandoning it lives on the toolbar's cancel item alone — a
+				// second button here would be the same action under a second name.
+				HStack(spacing: 10) {
+					ProgressView().controlSize(.small)
+					Text(String(localized: L10n.Saved.devicesSendWaiting))
+						.font(.subheadline)
+						.foregroundStyle(.secondary)
+				}
+				.frame(maxWidth: .infinity)
+				.padding(.vertical, 10)
+			} else {
+				PrimaryButton(
+					title: String(localized: L10n.Saved.devicesSendAction),
+					action: model.createTargetedTransfer,
+					enabled: state.canCreateTargetedTransfer
+				)
+			}
 			HStack(spacing: 10) {
 				sourceButton(
 					title: L10n.Button.changeFiles, symbol: .docBadgeArrowUp, action: model.selectSendFiles

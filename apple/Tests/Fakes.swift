@@ -42,6 +42,24 @@ final class FakeCoreGateway: CoreGateway {
 	private(set) var resetUnrecoverableIdentityCount = 0
 
 	func setState(_ state: CoreState) { stateSubject.send(state) }
+
+	/// Publishes the `created` lifecycle event the core emits once a targeted
+	/// transfer row exists, then the signal that follows it — the sequence that
+	/// lets a caller cancel a create still holding the serial lane.
+	func emitTargetedTransferCreated(id: String) {
+		var state = stateSubject.value
+		state.events.insert(
+			CoreEventModel(
+				id: "event-\(id)", revision: 1, timestamp: 1, scope: "endpoint", transferId: nil,
+				direction: nil, phase: EventPhase.targetedTransfer.rawValue,
+				kind: EventKind.created.rawValue,
+				dataJson: #"{"targeted_transfer_id":"\#(id)"}"#
+			),
+			at: 0
+		)
+		stateSubject.send(state)
+		emit(.targetedTransferChanged)
+	}
 	func emit(_ signal: CoreSignal) { signalsSubject.send(signal) }
 
 	func initialize(
@@ -185,10 +203,29 @@ final class FakeCoreGateway: CoreGateway {
 		offerResponses.append((transferId, accepted))
 		return offerResponseResult
 	}
+	/// Holds `createTargetedTransfer` open until `releaseTargetedCreate()`, so a
+	/// test can observe the model while a create is genuinely in flight — the
+	/// state the user is stuck in when the receiving device never answers.
+	var holdsTargetedCreate = false
+	private var targetedCreateGate: CheckedContinuation<Void, Never>?
+
+	/// True once the call is parked on the gate. `isCreatingSend` flips before the
+	/// task body runs, so releasing on that alone can resume nothing and hang.
+	var isHoldingTargetedCreate: Bool { targetedCreateGate != nil }
+
+	func releaseTargetedCreate() {
+		let gate = targetedCreateGate
+		targetedCreateGate = nil
+		gate?.resume()
+	}
+
 	func createTargetedTransfer(
 		receiverEndpointId: String, sources: [ShareSource], transferName: String?
 	) async -> Result<TargetedTransferModel, Error> {
 		createdTargetedTransfers.append((receiverEndpointId, sources, transferName))
+		if holdsTargetedCreate {
+			await withCheckedContinuation { targetedCreateGate = $0 }
+		}
 		return createTargetedTransferResult
 	}
 	func listTargetedTransfers() async -> Result<[TargetedTransferModel], Error> {

@@ -315,12 +315,12 @@ private struct TargetedTransferRow: View {
 		let run: () -> Void
 	}
 
-	/// At most one of receive/resume applies, and only in one state each.
+	/// At most one of receive/resume applies: one state each, receiving side only.
 	private var primaryAction: TransferAction? {
-		if transfer.state.canReceive {
+		if transfer.canReceive {
 			return TransferAction(id: "receive", title: L10n.Saved.devicesTransferReceive, run: onReceive)
 		}
-		if transfer.state.canResume {
+		if transfer.canResume {
 			return TransferAction(id: "resume", title: L10n.Saved.devicesTransferResume, run: onResume)
 		}
 		return nil
@@ -468,14 +468,23 @@ private struct TargetedSendSheet: View {
 			#endif
 			.toolbar {
 				ToolbarItem(placement: .cancellationAction) {
-					Button(String(localized: L10n.Button.close), action: model.cancelSend)
-						.disabled(model.state.isCreatingSend)
+					// Never disabled: a create in flight can take minutes against an
+					// unavailable device, and a dead Close left no way out at all.
+					// It reads "Cancel" while waiting, because that is what leaving
+					// now does — abandoning keeps the sources alive for the core's
+					// import and cleans them up once the call lands.
+					Button(String(localized: model.state.isCreatingSend
+						? L10n.Button.cancel
+						: L10n.Button.close)) {
+						if model.state.isCreatingSend {
+							model.abandonSend()
+						} else {
+							model.cancelSend()
+						}
+					}
 				}
 			}
 		}
-		// A create in flight owns the picked sources; discarding them mid-call
-		// would pull the files out from under the core's import.
-		.interactiveDismissDisabled(model.state.isCreatingSend)
 		.sheetSize(windowClass: windowClass, minWidth: 460, minHeight: 480)
 	}
 }

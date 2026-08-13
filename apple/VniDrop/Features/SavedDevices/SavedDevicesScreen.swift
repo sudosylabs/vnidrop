@@ -129,7 +129,7 @@ struct SavedDevicesScreen: View {
 	/// First-use state: the only place that explains what a saved device is.
 	private var emptyState: some View {
 		ContentUnavailableView {
-			Label(String(localized: L10n.Saved.devicesEmptyTitle), systemSymbol: .laptopcomputerAndIphone)
+			Label(String(localized: L10n.Saved.devicesEmptyTitle), systemSymbol: .macbookAndIphone)
 		} description: {
 			Text(String(localized: L10n.Saved.devicesEmpty))
 		}

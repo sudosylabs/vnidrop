@@ -89,6 +89,18 @@ final class SavedDevicesModel: ObservableObject {
 	/// it suppresses the prompt locally without consuming the core's single-use
 	/// capability, so the device stays actionable from the list.
 	private var dismissedEligibility: Set<String> = []
+	/// Identifies each create attempt so a result arriving after the user gave up
+	/// can tell whether it is the one that was abandoned.
+	private var sendGeneration = 0
+	private var abandonedSendGeneration: Int?
+	/// The transfer the in-flight create registered, learned from its `created`
+	/// event. Cancelling needs an id, and the create does not return one until it
+	/// has already spent its timeouts against a device that may never answer.
+	private var inFlightSendTransferId: String?
+	/// Transfers the user walked away from. They are cancelled and deleted, but
+	/// until that lands they stay out of the published list so history and
+	/// notifications never mention a transfer the user called off.
+	private var abandonedTransferIds: Set<String> = []
 	private var receiveFolder: ReceiveFolder?
 
 	init(
@@ -121,7 +133,10 @@ final class SavedDevicesModel: ObservableObject {
 				switch signal {
 				case .pairingChanged, .targetedTransferChanged:
 					// Wake-up only: re-read durable state rather than trusting the
-					// event payload (see DESIGN-DEVICE-HISTORY.md §13).
+					// event payload (see DESIGN-DEVICE-HISTORY.md §13). The one
+					// exception is noting *which* transfer a create just made, which
+					// no query can answer while that create holds the serial lane.
+					self.noteInFlightSendTransferId()
 					if self.repository.state.isInitialized { self.scheduleRefresh() }
 				case .approvalChanged, .receiverHistoryChanged, .transfersChanged:
 					// Invitation-share domain; owned by SendModel.
@@ -300,6 +315,57 @@ final class SavedDevicesModel: ObservableObject {
 		discardPickedFiles(discarded)
 	}
 
+	/// Cancels a create that is still in flight.
+	///
+	/// The create reaches out to the peer and only returns once the offer is
+	/// answered or its timeouts expire, which against an unavailable device is
+	/// minutes. So this cancels the transfer by id — off the serial lane, which
+	/// is what lets it reach a core busy inside that very call — and drops the
+	/// composer immediately. Cancelling is not merely closing the sheet: without
+	/// it the core would go on to record a failed transfer, then announce and
+	/// list a send the user had already called off.
+	func abandonSend() {
+		guard state.isCreatingSend else { return }
+		abandonedSendGeneration = sendGeneration
+		state.isCreatingSend = false
+		state.sendTargetPeerId = nil
+		state.sendFiles = []
+		state.sendTransferName = ""
+
+		guard let transferId = inFlightSendTransferId else { return }
+		abandonedTransferIds.insert(transferId)
+		Task { await cancelAndForget(transferId) }
+	}
+
+	/// Whether the in-flight create has announced the transfer it registered, and
+	/// so whether cancelling can reach it now rather than after the call returns.
+	var knowsInFlightSendTransfer: Bool { inFlightSendTransferId != nil }
+
+	/// Captures the id of the transfer the in-flight create just registered. The
+	/// core inserts the row and emits `created` before it contacts the peer, so
+	/// this lands well before the wait the user gives up on.
+	private func noteInFlightSendTransferId() {
+		guard state.isCreatingSend, inFlightSendTransferId == nil else { return }
+		let created = repository.state.events.first {
+			$0.eventPhase == .targetedTransfer && $0.eventKind == .created
+		}
+		guard let id = created?.targetedTransferId else { return }
+		inFlightSendTransferId = id
+	}
+
+	/// Cancels an abandoned transfer and removes it from history. Both are best
+	/// effort: the user has moved on, so a failure here is logged rather than
+	/// raised as an error about work they already dismissed.
+	private func cancelAndForget(_ transferId: String) async {
+		if case .failure(let error) = await repository.cancelTargetedTransfer(id: transferId) {
+			AppLogger.error("saved-devices", "abandoned send cancel failed", error)
+		}
+		if case .failure(let error) = await repository.deleteTargetedTransfer(id: transferId) {
+			AppLogger.error("saved-devices", "abandoned send delete failed", error)
+		}
+		await refresh()
+	}
+
 	func selectSendFiles() { pendingFilePick = true }
 	func selectSendFolder() { pendingFolderPick = true }
 
@@ -347,6 +413,9 @@ final class SavedDevicesModel: ObservableObject {
 		guard state.canCreateTargetedTransfer, let peerId = state.sendTargetPeerId else { return }
 		let files = state.sendFiles
 		let name = state.sendTransferName.trimmingCharacters(in: .whitespacesAndNewlines)
+		sendGeneration &+= 1
+		let generation = sendGeneration
+		inFlightSendTransferId = nil
 		state.isCreatingSend = true
 		Task {
 			let result = await fileSystemService.sendPickedFilesToSavedDevice(
@@ -355,7 +424,14 @@ final class SavedDevicesModel: ObservableObject {
 				transferName: name,
 				receiverEndpointId: peerId
 			)
+			// The user walked away from this attempt, and may already have started
+			// another one; touching the composer now would stomp that newer state.
+			if abandonedSendGeneration == generation {
+				await reconcileAbandonedSend(result, files: files)
+				return
+			}
 			state.isCreatingSend = false
+			inFlightSendTransferId = nil
 			switch result {
 			case .success:
 				messages.tryShow(
@@ -373,6 +449,24 @@ final class SavedDevicesModel: ObservableObject {
 				messages.error(error)
 			}
 		}
+	}
+
+	/// Runs when an abandoned create finally returns. The cancel itself already
+	/// went out by id; this releases the sources, which the core's import owned
+	/// until now, and covers the case where the id never arrived — the create
+	/// beat its own `created` event, or failed before registering anything.
+	private func reconcileAbandonedSend(
+		_ result: Result<TargetedTransferModel, Error>,
+		files: [PickedShareFile]
+	) async {
+		inFlightSendTransferId = nil
+		discardPickedFiles(files)
+		if case .success(let transfer) = result, !abandonedTransferIds.contains(transfer.id) {
+			abandonedTransferIds.insert(transfer.id)
+			await cancelAndForget(transfer.id)
+			return
+		}
+		await refresh()
 	}
 
 	private func defaultTransferName(_ files: [PickedShareFile]) -> String {
@@ -545,7 +639,10 @@ final class SavedDevicesModel: ObservableObject {
 			state.pendingRelationships = pendingRelationships
 			state.savedDevices = savedDevices.sorted { $0.createdAt > $1.createdAt }
 			state.targetedTransfers = transfers
-				.filter { $0.state != .deleted }
+				// A cancelled-and-deleted transfer can still be in this snapshot if
+				// the read raced the delete. Publishing it would put a send the user
+				// called off into history and fire a notification about it.
+				.filter { $0.state != .deleted && !abandonedTransferIds.contains($0.id) }
 				.sorted { $0.updatedAt > $1.updatedAt }
 				.map { $0.toExperienceItem(localEndpointId: localEndpointId, savedNames: savedNames) }
 			// Leave a prompt mid-answer alone; replacing it would strand the

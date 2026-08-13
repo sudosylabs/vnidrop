@@ -24,7 +24,7 @@ enum AppDestination: String, CaseIterable, Identifiable {
 		switch self {
 		case .send: return .paperplane
 		case .receive: return .trayAndArrowDown
-		case .savedDevices: return .laptopcomputerAndIphone
+		case .savedDevices: return .macbookAndIphone
 		case .settings: return .gearshape
 		}
 	}

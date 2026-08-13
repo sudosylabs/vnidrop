@@ -46,7 +46,7 @@ extension TargetedTransferStateModel {
 /// hardware type, so showing a specific device silhouette would imply knowledge
 /// VniDrop does not have.
 struct DeviceAvatar: View {
-	var symbol: SFSymbol = .laptopcomputerAndIphone
+	var symbol: SFSymbol = .macbookAndIphone
 	var tint: Color = .secondary
 	var size: CGFloat = 40
 

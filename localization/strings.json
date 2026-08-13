@@ -5485,6 +5485,21 @@
         "ru": "Transfer offer sent"
       }
     },
+    "saved_devices_send_waiting": {
+      "context": "Progress label while a targeted transfer offer is waiting for the receiving device to answer.",
+      "targets": ["apple"],
+      "translations": {
+        "en": "Waiting for the device to answer…",
+        "fr": "Waiting for the device to answer…",
+        "es": "Waiting for the device to answer…",
+        "it": "Waiting for the device to answer…",
+        "de": "Waiting for the device to answer…",
+        "pt": "Waiting for the device to answer…",
+        "pl": "Waiting for the device to answer…",
+        "nl": "Waiting for the device to answer…",
+        "ru": "Waiting for the device to answer…"
+      }
+    },
     "saved_devices_forgotten": {
       "context": "Snackbar after forgetting a saved device.",
       "translations": {

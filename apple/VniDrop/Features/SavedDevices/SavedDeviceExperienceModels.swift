@@ -76,4 +76,12 @@ struct SavedDeviceTransferItem: Equatable, Identifiable, Sendable {
 		guard totalSize > 0, state.isActive || state == .interrupted else { return nil }
 		return min(1, Double(verifiedBytes) / Double(totalSize))
 	}
+
+	/// Pulling content is the receiving side's move. Gating on state alone put a
+	/// "Receive" button on the sender's own outgoing transfer, offering to
+	/// download the files it was in the middle of sending.
+	var canReceive: Bool { direction == .incoming && state.canReceive }
+
+	/// Resuming likewise pulls into a local folder, so it is receiver-only.
+	var canResume: Bool { direction == .incoming && state.canResume }
 }

@@ -27,6 +27,30 @@ struct CoreEventModel: Equatable, Identifiable, Sendable {
 	var eventDirection: EventDirection? { direction.flatMap(EventDirection.init(rawValue:)) }
 	var eventPhase: EventPhase? { EventPhase(rawValue: phase) }
 	var eventKind: EventKind? { EventKind(rawValue: kind) }
+
+	/// Subject of a `.targetedTransfer` event.
+	///
+	/// This is an identifier, not state: it says *which* transfer changed, which
+	/// is all a consumer may take from an event before re-reading durable state.
+	/// It exists because the id is otherwise unobtainable while `create` is still
+	/// running — that call occupies the serial lane, so no query can answer until
+	/// it returns, which is exactly when the user wants to cancel it.
+	var targetedTransferId: String? {
+		guard eventPhase == .targetedTransfer, let data = dataJson.data(using: .utf8) else {
+			return nil
+		}
+		return try? JSONDecoder().decode(TargetedTransferEventData.self, from: data).targetedTransferId
+	}
+}
+
+/// Payload of a `.targetedTransfer` event. Named keys rather than a raw string
+/// subscript so the wire contract lives in one declared place.
+private struct TargetedTransferEventData: Decodable {
+	let targetedTransferId: String?
+
+	private enum CodingKeys: String, CodingKey {
+		case targetedTransferId = "targeted_transfer_id"
+	}
 }
 
 /// Direction of a core event, matching the wire strings the core emits.

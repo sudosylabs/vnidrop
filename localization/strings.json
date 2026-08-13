@@ -5180,42 +5180,42 @@
       "context": "Saved devices screen: section for peers eligible to pair after a transfer.",
       "translations": {
         "en": "Ready to remember",
-        "fr": "Ready to remember",
-        "es": "Ready to remember",
-        "it": "Ready to remember",
-        "de": "Ready to remember",
-        "pt": "Ready to remember",
-        "pl": "Ready to remember",
-        "nl": "Ready to remember",
-        "ru": "Ready to remember"
+        "fr": "Prêt à être mémorisé",
+        "es": "Listo para recordar",
+        "it": "Pronto da ricordare",
+        "de": "Bereit zum Speichern",
+        "pt": "Pronto para lembrar",
+        "pl": "Gotowe do zapamiętania",
+        "nl": "Klaar om te onthouden",
+        "ru": "Готово к запоминанию"
       }
     },
     "saved_devices_pending_title": {
       "context": "Saved devices screen: section for in-progress pairing.",
       "translations": {
         "en": "Pending pairing",
-        "fr": "Pending pairing",
-        "es": "Pending pairing",
-        "it": "Pending pairing",
-        "de": "Pending pairing",
-        "pt": "Pending pairing",
-        "pl": "Pending pairing",
-        "nl": "Pending pairing",
-        "ru": "Pending pairing"
+        "fr": "Association en attente",
+        "es": "Vinculación pendiente",
+        "it": "Associazione in sospeso",
+        "de": "Ausstehende Kopplung",
+        "pt": "Emparelhamento pendente",
+        "pl": "Oczekujące sparowanie",
+        "nl": "Koppeling in behandeling",
+        "ru": "Ожидающее сопряжение"
       }
     },
     "saved_devices_list_title": {
 	  "context": "Saved devices screen title and saved-device list heading.",
       "translations": {
         "en": "Saved devices",
-        "fr": "Saved devices",
-        "es": "Saved devices",
-        "it": "Saved devices",
-        "de": "Saved devices",
-        "pt": "Saved devices",
-        "pl": "Saved devices",
-        "nl": "Saved devices",
-        "ru": "Saved devices"
+        "fr": "Appareils enregistrés",
+        "es": "Dispositivos guardados",
+        "it": "Dispositivi salvati",
+        "de": "Gespeicherte Geräte",
+        "pt": "Dispositivos guardados",
+        "pl": "Zapisane urządzenia",
+        "nl": "Opgeslagen apparaten",
+        "ru": "Сохранённые устройства"
       }
     },
     "saved_devices_load_failed": {
@@ -5279,210 +5279,210 @@
       "context": "Fallback display when a saved device has no local label or remote name.",
       "translations": {
         "en": "Saved device",
-        "fr": "Saved device",
-        "es": "Saved device",
-        "it": "Saved device",
-        "de": "Saved device",
-        "pt": "Saved device",
-        "pl": "Saved device",
-        "nl": "Saved device",
-        "ru": "Saved device"
+        "fr": "Appareil enregistré",
+        "es": "Dispositivo guardado",
+        "it": "Dispositivo salvato",
+        "de": "Gespeichertes Gerät",
+        "pt": "Dispositivo guardado",
+        "pl": "Zapisane urządzenie",
+        "nl": "Opgeslagen apparaat",
+        "ru": "Сохранённое устройство"
       }
     },
     "saved_devices_remember_action": {
       "context": "Action that starts mutual-consent pairing for an eligible peer.",
       "translations": {
         "en": "Remember",
-        "fr": "Remember",
-        "es": "Remember",
-        "it": "Remember",
-        "de": "Remember",
-        "pt": "Remember",
-        "pl": "Remember",
-        "nl": "Remember",
-        "ru": "Remember"
+        "fr": "Mémoriser",
+        "es": "Recordar",
+        "it": "Ricorda",
+        "de": "Speichern",
+        "pt": "Lembrar",
+        "pl": "Zapamiętaj",
+        "nl": "Onthouden",
+        "ru": "Запомнить"
       }
     },
     "saved_devices_decline_action": {
       "context": "Action that declines pairing eligibility for a peer.",
       "translations": {
         "en": "Decline",
-        "fr": "Decline",
-        "es": "Decline",
-        "it": "Decline",
-        "de": "Decline",
-        "pt": "Decline",
-        "pl": "Decline",
-        "nl": "Decline",
-        "ru": "Decline"
+        "fr": "Refuser",
+        "es": "Rechazar",
+        "it": "Rifiuta",
+        "de": "Ablehnen",
+        "pt": "Recusar",
+        "pl": "Odrzuć",
+        "nl": "Weigeren",
+        "ru": "Отклонить"
       }
     },
     "saved_devices_accept_pairing_action": {
       "context": "Action that accepts an incoming pairing request.",
       "translations": {
         "en": "Accept",
-        "fr": "Accept",
-        "es": "Accept",
-        "it": "Accept",
-        "de": "Accept",
-        "pt": "Accept",
-        "pl": "Accept",
-        "nl": "Accept",
-        "ru": "Accept"
+        "fr": "Accepter",
+        "es": "Aceptar",
+        "it": "Accetta",
+        "de": "Annehmen",
+        "pt": "Aceitar",
+        "pl": "Akceptuj",
+        "nl": "Accepteren",
+        "ru": "Принять"
       }
     },
     "saved_devices_send_action": {
       "context": "Action that starts a targeted send to a saved device.",
       "translations": {
         "en": "Send files",
-        "fr": "Send files",
-        "es": "Send files",
-        "it": "Send files",
-        "de": "Send files",
-        "pt": "Send files",
-        "pl": "Send files",
-        "nl": "Send files",
-        "ru": "Send files"
+        "fr": "Envoyer des fichiers",
+        "es": "Enviar archivos",
+        "it": "Invia file",
+        "de": "Dateien senden",
+        "pt": "Enviar ficheiros",
+        "pl": "Wyślij pliki",
+        "nl": "Bestanden versturen",
+        "ru": "Отправить файлы"
       }
     },
     "saved_devices_label_action": {
       "context": "Action that edits the local label for a saved device.",
       "translations": {
         "en": "Label",
-        "fr": "Label",
-        "es": "Label",
-        "it": "Label",
-        "de": "Label",
-        "pt": "Label",
-        "pl": "Label",
+        "fr": "Libellé",
+        "es": "Etiqueta",
+        "it": "Etichetta",
+        "de": "Bezeichnung",
+        "pt": "Etiqueta",
+        "pl": "Etykieta",
         "nl": "Label",
-        "ru": "Label"
+        "ru": "Метка"
       }
     },
     "saved_devices_forget_action": {
       "context": "Action that forgets a saved device relationship.",
       "translations": {
         "en": "Forget",
-        "fr": "Forget",
-        "es": "Forget",
-        "it": "Forget",
-        "de": "Forget",
-        "pt": "Forget",
-        "pl": "Forget",
-        "nl": "Forget",
-        "ru": "Forget"
+        "fr": "Oublier",
+        "es": "Olvidar",
+        "it": "Dimentica",
+        "de": "Vergessen",
+        "pt": "Esquecer",
+        "pl": "Zapomnij",
+        "nl": "Vergeten",
+        "ru": "Забыть"
       }
     },
     "saved_devices_block_action": {
       "context": "Action that blocks a device identity.",
       "translations": {
         "en": "Block",
-        "fr": "Block",
-        "es": "Block",
-        "it": "Block",
-        "de": "Block",
-        "pt": "Block",
-        "pl": "Block",
-        "nl": "Block",
-        "ru": "Block"
+        "fr": "Bloquer",
+        "es": "Bloquear",
+        "it": "Blocca",
+        "de": "Blockieren",
+        "pt": "Bloquear",
+        "pl": "Zablokuj",
+        "nl": "Blokkeren",
+        "ru": "Заблокировать"
       }
     },
     "saved_devices_label_title": {
       "context": "Dialog title for editing a saved device local label.",
       "translations": {
         "en": "Device label",
-        "fr": "Device label",
-        "es": "Device label",
-        "it": "Device label",
-        "de": "Device label",
-        "pt": "Device label",
-        "pl": "Device label",
-        "nl": "Device label",
-        "ru": "Device label"
+        "fr": "Libellé de l’appareil",
+        "es": "Etiqueta del dispositivo",
+        "it": "Etichetta del dispositivo",
+        "de": "Gerätebezeichnung",
+        "pt": "Etiqueta do dispositivo",
+        "pl": "Etykieta urządzenia",
+        "nl": "Apparaatlabel",
+        "ru": "Метка устройства"
       }
     },
     "saved_devices_label_placeholder": {
       "context": "Placeholder for the local label text field.",
       "translations": {
         "en": "Label",
-        "fr": "Label",
-        "es": "Label",
-        "it": "Label",
-        "de": "Label",
-        "pt": "Label",
-        "pl": "Label",
+        "fr": "Libellé",
+        "es": "Etiqueta",
+        "it": "Etichetta",
+        "de": "Bezeichnung",
+        "pt": "Etiqueta",
+        "pl": "Etykieta",
         "nl": "Label",
-        "ru": "Label"
+        "ru": "Метка"
       }
     },
     "saved_devices_label_save": {
       "context": "Button that saves the local device label.",
       "translations": {
         "en": "Save",
-        "fr": "Save",
-        "es": "Save",
-        "it": "Save",
-        "de": "Save",
-        "pt": "Save",
-        "pl": "Save",
-        "nl": "Save",
-        "ru": "Save"
+        "fr": "Enregistrer",
+        "es": "Guardar",
+        "it": "Salva",
+        "de": "Speichern",
+        "pt": "Guardar",
+        "pl": "Zapisz",
+        "nl": "Opslaan",
+        "ru": "Сохранить"
       }
     },
     "saved_devices_label_clear": {
       "context": "Button that clears the local device label.",
       "translations": {
         "en": "Clear label",
-        "fr": "Clear label",
-        "es": "Clear label",
-        "it": "Clear label",
-        "de": "Clear label",
-        "pt": "Clear label",
-        "pl": "Clear label",
-        "nl": "Clear label",
-        "ru": "Clear label"
+        "fr": "Effacer le libellé",
+        "es": "Borrar etiqueta",
+        "it": "Cancella etichetta",
+        "de": "Bezeichnung löschen",
+        "pt": "Limpar etiqueta",
+        "pl": "Wyczyść etykietę",
+        "nl": "Label wissen",
+        "ru": "Очистить метку"
       }
     },
     "saved_devices_pending_outgoing": {
       "context": "Status text while waiting for the peer to accept pairing.",
       "translations": {
         "en": "Waiting for the other device",
-        "fr": "Waiting for the other device",
-        "es": "Waiting for the other device",
-        "it": "Waiting for the other device",
-        "de": "Waiting for the other device",
-        "pt": "Waiting for the other device",
-        "pl": "Waiting for the other device",
-        "nl": "Waiting for the other device",
-        "ru": "Waiting for the other device"
+        "fr": "En attente de l’autre appareil",
+        "es": "Esperando al otro dispositivo",
+        "it": "In attesa dell’altro dispositivo",
+        "de": "Warten auf das andere Gerät",
+        "pt": "A aguardar o outro dispositivo",
+        "pl": "Oczekiwanie na drugie urządzenie",
+        "nl": "Wachten op het andere apparaat",
+        "ru": "Ожидание другого устройства"
       }
     },
     "saved_devices_pending_incoming": {
       "context": "Status text when this device must accept a pairing request.",
       "translations": {
         "en": "Wants to remember this device",
-        "fr": "Wants to remember this device",
-        "es": "Wants to remember this device",
-        "it": "Wants to remember this device",
-        "de": "Wants to remember this device",
-        "pt": "Wants to remember this device",
-        "pl": "Wants to remember this device",
-        "nl": "Wants to remember this device",
-        "ru": "Wants to remember this device"
+        "fr": "Souhaite mémoriser cet appareil",
+        "es": "Quiere recordar este dispositivo",
+        "it": "Vuole ricordare questo dispositivo",
+        "de": "Möchte dieses Gerät speichern",
+        "pt": "Quer lembrar este dispositivo",
+        "pl": "Chce zapamiętać to urządzenie",
+        "nl": "Wil dit apparaat onthouden",
+        "ru": "Хочет запомнить это устройство"
       }
     },
     "saved_devices_send_started": {
       "context": "Snackbar after creating a targeted transfer offer.",
       "translations": {
         "en": "Transfer offer sent",
-        "fr": "Transfer offer sent",
-        "es": "Transfer offer sent",
-        "it": "Transfer offer sent",
-        "de": "Transfer offer sent",
-        "pt": "Transfer offer sent",
-        "pl": "Transfer offer sent",
-        "nl": "Transfer offer sent",
-        "ru": "Transfer offer sent"
+        "fr": "Proposition de transfert envoyée",
+        "es": "Oferta de transferencia enviada",
+        "it": "Proposta di trasferimento inviata",
+        "de": "Übertragungsangebot gesendet",
+        "pt": "Proposta de transferência enviada",
+        "pl": "Wysłano propozycję transferu",
+        "nl": "Overdrachtsaanbod verstuurd",
+        "ru": "Предложение передачи отправлено"
       }
     },
     "saved_devices_send_waiting": {
@@ -5490,56 +5490,56 @@
       "targets": ["apple"],
       "translations": {
         "en": "Waiting for the device to answer…",
-        "fr": "Waiting for the device to answer…",
-        "es": "Waiting for the device to answer…",
-        "it": "Waiting for the device to answer…",
-        "de": "Waiting for the device to answer…",
-        "pt": "Waiting for the device to answer…",
-        "pl": "Waiting for the device to answer…",
-        "nl": "Waiting for the device to answer…",
-        "ru": "Waiting for the device to answer…"
+        "fr": "En attente de la réponse de l’appareil…",
+        "es": "Esperando la respuesta del dispositivo…",
+        "it": "In attesa della risposta del dispositivo…",
+        "de": "Warten auf die Antwort des Geräts…",
+        "pt": "A aguardar a resposta do dispositivo…",
+        "pl": "Oczekiwanie na odpowiedź urządzenia…",
+        "nl": "Wachten op antwoord van het apparaat…",
+        "ru": "Ожидание ответа устройства…"
       }
     },
     "saved_devices_forgotten": {
       "context": "Snackbar after forgetting a saved device.",
       "translations": {
         "en": "Saved device forgotten",
-        "fr": "Saved device forgotten",
-        "es": "Saved device forgotten",
-        "it": "Saved device forgotten",
-        "de": "Saved device forgotten",
-        "pt": "Saved device forgotten",
-        "pl": "Saved device forgotten",
-        "nl": "Saved device forgotten",
-        "ru": "Saved device forgotten"
+        "fr": "Appareil enregistré oublié",
+        "es": "Dispositivo guardado olvidado",
+        "it": "Dispositivo salvato dimenticato",
+        "de": "Gespeichertes Gerät vergessen",
+        "pt": "Dispositivo guardado esquecido",
+        "pl": "Zapomniano zapisane urządzenie",
+        "nl": "Opgeslagen apparaat vergeten",
+        "ru": "Сохранённое устройство забыто"
       }
     },
     "saved_devices_blocked": {
       "context": "Snackbar after blocking a device.",
       "translations": {
         "en": "Device blocked",
-        "fr": "Device blocked",
-        "es": "Device blocked",
-        "it": "Device blocked",
-        "de": "Device blocked",
-        "pt": "Device blocked",
-        "pl": "Device blocked",
-        "nl": "Device blocked",
-        "ru": "Device blocked"
+        "fr": "Appareil bloqué",
+        "es": "Dispositivo bloqueado",
+        "it": "Dispositivo bloccato",
+        "de": "Gerät blockiert",
+        "pt": "Dispositivo bloqueado",
+        "pl": "Urządzenie zablokowane",
+        "nl": "Apparaat geblokkeerd",
+        "ru": "Устройство заблокировано"
       }
     },
     "saved_devices_labeled": {
       "context": "Snackbar after updating a saved device label.",
       "translations": {
         "en": "Label updated",
-        "fr": "Label updated",
-        "es": "Label updated",
-        "it": "Label updated",
-        "de": "Label updated",
-        "pt": "Label updated",
-        "pl": "Label updated",
-        "nl": "Label updated",
-        "ru": "Label updated"
+        "fr": "Libellé mis à jour",
+        "es": "Etiqueta actualizada",
+        "it": "Etichetta aggiornata",
+        "de": "Bezeichnung aktualisiert",
+        "pt": "Etiqueta atualizada",
+        "pl": "Zaktualizowano etykietę",
+        "nl": "Label bijgewerkt",
+        "ru": "Метка обновлена"
       }
     }
   }

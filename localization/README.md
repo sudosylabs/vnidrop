@@ -56,6 +56,26 @@ regenerate. Regenerated output is deterministic (sorted keys), so diffs stay sma
 - **`plural`** — per language, per [CLDR category](https://cldr.unicode.org/index/cldr-spec/plural-rules)
   (`zero`, `one`, `two`, `few`, `many`, `other`). `other` is always required.
 
+### Every language gets a real translation
+
+**Never copy the English text into another language as a placeholder.** A key is not done
+until every language in `supportedLanguages` has text actually written in that language.
+
+Copied English does not look unfinished — it looks shipped. Nothing flags it, because the
+key is present and non-empty, so it passes `validate` and reaches users as a French or
+Russian build that silently speaks English. It is far harder to find later than a missing
+key would have been.
+
+If you cannot produce a translation, say so in the PR and leave the key out of the release
+rather than filling it with English. Two narrow exceptions, both of which must be obvious
+from the text itself:
+
+- Pure punctuation or layout templates with no words (`"{first} · {second}"`).
+- Proper nouns and brand names that are identical in every language.
+
+When adding a key next to existing ones, check that the neighbours are translated before
+copying their shape — a placeholder tends to be copied into the keys added after it.
+
 ### Placeholders
 
 Write named tokens `{count}`, `{name}` in text. The generator converts them to the right

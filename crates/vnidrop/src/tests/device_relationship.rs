@@ -683,6 +683,73 @@ fn saved_remote_name_and_local_label_survive_restart() {
 }
 
 #[test]
+fn explicit_identity_reset_recovers_missing_credential_without_silent_replacement() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    reach_saved(&alice, &bob, 90_063);
+    let original_endpoint_id = alice.core.status().endpoint_id;
+    let invitation_history = alice
+        .core
+        .list_transfers()
+        .unwrap()
+        .into_iter()
+        .map(|transfer| (transfer.local_id, transfer.transfer_name))
+        .collect::<Vec<_>>();
+    assert!(!alice.core.list_saved_devices().unwrap().is_empty());
+
+    alice.core.shutdown();
+    let endpoint_handle = alice.store.endpoint_identity_handle_for_test();
+    alice.store.remove_for_test(&endpoint_handle);
+    let app_data_dir = alice._data_dir.path().to_string_lossy().into_owned();
+    assert!(matches!(
+        VnidropCore::initialize_with_test_secret_store(
+            app_data_dir.clone(),
+            Arc::new(RecordingSink {
+                events: Mutex::new(Vec::new()),
+            }),
+            alice.store.clone(),
+        ),
+        Err(crate::VnidropError::SecureStorageMissing { .. })
+    ));
+
+    let recovered = VnidropCore::reset_unrecoverable_identity_with_test_secret_store(
+        app_data_dir,
+        Arc::new(RecordingSink {
+            events: Mutex::new(Vec::new()),
+        }),
+        alice.store.clone(),
+    )
+    .unwrap();
+
+    assert_ne!(recovered.status().endpoint_id, original_endpoint_id);
+    assert!(recovered.list_saved_devices().unwrap().is_empty());
+    assert!(recovered.list_device_relationships().unwrap().is_empty());
+    assert!(recovered.list_pairing_eligibilities().unwrap().is_empty());
+    let recovered_history = recovered.list_transfers().unwrap();
+    assert_eq!(recovered_history.len(), invitation_history.len());
+    assert_eq!(recovered_history[0].status, "stopped");
+    assert_eq!(
+        (
+            recovered_history[0].local_id.clone(),
+            recovered_history[0].transfer_name.clone(),
+        ),
+        invitation_history[0]
+    );
+    recovered.shutdown();
+
+    assert!(matches!(
+        VnidropCore::reset_unrecoverable_identity_with_test_secret_store(
+            alice._data_dir.path().to_string_lossy().into_owned(),
+            Arc::new(RecordingSink {
+                events: Mutex::new(Vec::new()),
+            }),
+            alice.store.clone(),
+        ),
+        Err(crate::VnidropError::InvalidInput { .. })
+    ));
+}
+
+#[test]
 fn events_carry_stable_ids_and_monotonic_revisions() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();

@@ -339,6 +339,57 @@ fn create_targeted_transfer_is_immutable_and_saved_only() {
 }
 
 #[test]
+fn identity_reset_cancels_targeted_authorization_bound_to_the_lost_endpoint() {
+    let mut alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    let bob_id = bob.core().status().endpoint_id;
+    establish_saved(&alice, &bob, 10_002);
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("identity-bound.txt");
+    std::fs::write(&source_path, b"identity-bound authorization").unwrap();
+    let bob_core = bob.core();
+    let accept = std::thread::spawn(move || {
+        let offer = wait_for_pending_offer(&bob_core);
+        bob_core
+            .respond_to_targeted_offer(offer.transfer_id, true)
+            .unwrap()
+    });
+    let transfer = alice
+        .core()
+        .create_targeted_transfer(
+            bob_id,
+            vec![targeted_source(&source_path)],
+            Some("identity-bound.txt".to_string()),
+        )
+        .unwrap();
+    assert!(matches!(
+        accept.join().unwrap(),
+        crate::TargetedOfferResponse::Approved { .. }
+    ));
+
+    alice.core.take().unwrap().shutdown();
+    let endpoint_handle = alice.secret_store.endpoint_identity_handle_for_test();
+    alice.secret_store.remove_for_test(&endpoint_handle);
+    let recovered = VnidropCore::reset_unrecoverable_identity_with_test_secret_store(
+        alice.data_dir.path().to_string_lossy().into_owned(),
+        alice.sink.clone(),
+        alice.secret_store.clone(),
+    )
+    .unwrap();
+
+    let snapshot = recovered
+        .get_targeted_transfer(transfer.id.clone())
+        .unwrap()
+        .unwrap();
+    assert_eq!(snapshot.state, TargetedTransferState::Cancelled);
+    assert!(recovered
+        .targeted_blob_ticket_for_test(transfer.id)
+        .is_err());
+    assert!(recovered.list_saved_devices().unwrap().is_empty());
+    recovered.shutdown();
+}
+
+#[test]
 fn preapproval_offer_is_authenticated_without_ordinary_share_ticket() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();

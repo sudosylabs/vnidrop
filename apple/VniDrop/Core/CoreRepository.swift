@@ -28,36 +28,50 @@ protocol CoreBindingFactory: Sendable {
 		eventSink: CoreEventSink,
 		networkConfiguration: RelayConfiguration
 	) throws -> VnidropCore
+	func resetUnrecoverableIdentity(
+		appDataDir: String,
+		eventSink: CoreEventSink,
+		networkConfiguration: RelayConfiguration
+	) throws -> VnidropCore
 }
 
 struct NativeCoreBindingFactory: CoreBindingFactory {
+	private func nativeConfiguration(_ networkConfiguration: RelayConfiguration) -> CoreNetworkConfig {
+		switch networkConfiguration.mode {
+		case .automatic:
+			return defaultCoreNetworkConfig()
+		case .strictCustom:
+			return CoreNetworkConfig(mode: .strictCustom, relayUrls: networkConfiguration.relayURLs)
+		case .customWithDirectFallback:
+			return CoreNetworkConfig(mode: .customWithDirectFallback, relayUrls: networkConfiguration.relayURLs)
+		case .localOnly:
+			return CoreNetworkConfig(mode: .localOnly, relayUrls: [])
+		}
+	}
+
 	func initialize(
 		appDataDir: String,
 		eventSink: CoreEventSink,
 		networkConfiguration: RelayConfiguration
 	) throws -> VnidropCore {
-		let nativeConfiguration: CoreNetworkConfig
-		switch networkConfiguration.mode {
-		case .automatic:
-			nativeConfiguration = defaultCoreNetworkConfig()
-		case .strictCustom:
-			nativeConfiguration = CoreNetworkConfig(
-				mode: .strictCustom,
-				relayUrls: networkConfiguration.relayURLs
-			)
-		case .customWithDirectFallback:
-			nativeConfiguration = CoreNetworkConfig(
-				mode: .customWithDirectFallback,
-				relayUrls: networkConfiguration.relayURLs
-			)
-		case .localOnly:
-			nativeConfiguration = CoreNetworkConfig(mode: .localOnly, relayUrls: [])
-		}
 		return try VnidropCore.initializeWithLimitsAndNetworkConfig(
 			appDataDir: appDataDir,
 			eventSink: eventSink,
 			limits: defaultCoreLimits(),
-			networkConfig: nativeConfiguration
+			networkConfig: nativeConfiguration(networkConfiguration)
+		)
+	}
+
+	func resetUnrecoverableIdentity(
+		appDataDir: String,
+		eventSink: CoreEventSink,
+		networkConfiguration: RelayConfiguration
+	) throws -> VnidropCore {
+		try VnidropCore.resetUnrecoverableIdentityWithLimitsAndNetworkConfig(
+			appDataDir: appDataDir,
+			eventSink: eventSink,
+			limits: defaultCoreLimits(),
+			networkConfig: nativeConfiguration(networkConfiguration)
 		)
 	}
 }
@@ -135,6 +149,35 @@ final class CoreRepository: ObservableObject, CoreGateway {
 			if error as? CoreNetworkLifecycleError != .activeNetworkWork {
 				self.state = CoreState()
 			}
+			return .failure(error)
+		}
+	}
+
+	func resetUnrecoverableIdentity(
+		appDataDir: String,
+		networkConfiguration: RelayConfiguration
+	) async -> Result<Void, Error> {
+		guard !isNetworkTransitionInProgress else {
+			return .failure(CoreNetworkLifecycleError.transitionInProgress)
+		}
+		isNetworkTransitionInProgress = true
+		defer { isNetworkTransitionInProgress = false }
+		let result = await runCore { [sink] in
+			let created = try self.coreFactory.resetUnrecoverableIdentity(
+				appDataDir: appDataDir,
+				eventSink: sink,
+				networkConfiguration: networkConfiguration
+			)
+			self.core = created
+			return created
+		}
+		switch result {
+		case .success:
+			refreshSnapshot()
+			state.isInitialized = true
+			return .success(())
+		case .failure(let error):
+			state = CoreState()
 			return .failure(error)
 		}
 	}
@@ -519,7 +562,6 @@ private extension ReceiverRequest {
 		}
 	}
 }
-
 
 
 

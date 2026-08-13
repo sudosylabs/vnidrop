@@ -335,6 +335,66 @@
         "ru": "Запуск…"
       }
     },
+    "app_identity_reset_action": {
+      "context": "Startup recovery: destructive action that replaces an unrecoverable device identity.",
+      "targets": ["apple"],
+      "translations": {
+        "en": "Reset device identity",
+        "fr": "Réinitialiser l’identité de l’appareil",
+        "es": "Restablecer la identidad del dispositivo",
+        "it": "Reimposta l’identità del dispositivo",
+        "de": "Geräteidentität zurücksetzen",
+        "pt": "Repor a identidade do dispositivo",
+        "pl": "Zresetuj tożsamość urządzenia",
+        "nl": "Apparaatidentiteit opnieuw instellen",
+        "ru": "Сбросить идентификатор устройства"
+      }
+    },
+    "app_identity_reset_confirmation": {
+      "context": "Startup recovery: confirmation explaining the effects of replacing an unrecoverable identity.",
+      "targets": ["apple"],
+      "translations": {
+        "en": "Your transfer history and received files stay on this device. Saved devices will be removed and must be paired again.",
+        "fr": "L’historique des transferts et les fichiers reçus restent sur cet appareil. Les appareils enregistrés seront supprimés et devront être associés à nouveau.",
+        "es": "El historial de transferencias y los archivos recibidos permanecerán en este dispositivo. Los dispositivos guardados se eliminarán y deberán vincularse de nuevo.",
+        "it": "La cronologia dei trasferimenti e i file ricevuti resteranno su questo dispositivo. I dispositivi salvati verranno rimossi e dovranno essere associati di nuovo.",
+        "de": "Übertragungsverlauf und empfangene Dateien bleiben auf diesem Gerät. Gespeicherte Geräte werden entfernt und müssen erneut gekoppelt werden.",
+        "pt": "O histórico de transferências e os ficheiros recebidos permanecem neste dispositivo. Os dispositivos guardados serão removidos e terão de ser emparelhados novamente.",
+        "pl": "Historia transferów i odebrane pliki pozostaną na tym urządzeniu. Zapisane urządzenia zostaną usunięte i trzeba będzie sparować je ponownie.",
+        "nl": "De overdrachtsgeschiedenis en ontvangen bestanden blijven op dit apparaat. Opgeslagen apparaten worden verwijderd en moeten opnieuw worden gekoppeld.",
+        "ru": "История передач и полученные файлы останутся на этом устройстве. Сохранённые устройства будут удалены, и их потребуется связать заново."
+      }
+    },
+    "app_identity_reset_title": {
+      "context": "Startup recovery: title when the protected endpoint identity is permanently unavailable.",
+      "targets": ["apple"],
+      "translations": {
+        "en": "Device identity unavailable",
+        "fr": "Identité de l’appareil indisponible",
+        "es": "La identidad del dispositivo no está disponible",
+        "it": "Identità del dispositivo non disponibile",
+        "de": "Geräteidentität nicht verfügbar",
+        "pt": "Identidade do dispositivo indisponível",
+        "pl": "Tożsamość urządzenia jest niedostępna",
+        "nl": "Apparaatidentiteit niet beschikbaar",
+        "ru": "Идентификатор устройства недоступен"
+      }
+    },
+    "app_identity_reset_message": {
+      "context": "Startup recovery: explanation when the protected endpoint identity cannot be recovered.",
+      "targets": ["apple"],
+      "translations": {
+        "en": "VniDrop can’t recover this device’s secure identity. Reset it to start again with a new identity.",
+        "fr": "VniDrop ne peut pas récupérer l’identité sécurisée de cet appareil. Réinitialisez-la pour recommencer avec une nouvelle identité.",
+        "es": "VniDrop no puede recuperar la identidad segura de este dispositivo. Restablézcala para empezar de nuevo con una identidad nueva.",
+        "it": "VniDrop non può recuperare l’identità sicura di questo dispositivo. La reimposti per ricominciare con una nuova identità.",
+        "de": "VniDrop kann die sichere Identität dieses Geräts nicht wiederherstellen. Setzen Sie sie zurück, um mit einer neuen Identität zu beginnen.",
+        "pt": "O VniDrop não consegue recuperar a identidade segura deste dispositivo. Reponha-a para começar de novo com uma nova identidade.",
+        "pl": "VniDrop nie może odzyskać bezpiecznej tożsamości tego urządzenia. Zresetuj ją, aby zacząć od nowej tożsamości.",
+        "nl": "VniDrop kan de beveiligde identiteit van dit apparaat niet herstellen. Stel deze opnieuw in om met een nieuwe identiteit te beginnen.",
+        "ru": "VniDrop не может восстановить защищённый идентификатор этого устройства. Сбросьте его, чтобы начать с новым идентификатором."
+      }
+    },
     "appearance_auto_description": {
       "context": "Settings > Appearance: description for the System/auto option.",
       "translations": {

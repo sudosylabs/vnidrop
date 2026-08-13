@@ -61,7 +61,13 @@ bytes through Kotlin memory.
    work before durable cleanup; forget and block revoke affected relationships
    and active targeted work within their core operation. All four durably deny
    reuse and perform idempotent payload/secret cleanup.
-7. Saved devices, relationships, pairing eligibility, and targeted transfers are
+7. A missing or corrupted endpoint credential remains fail-closed during normal
+   startup. The explicit pre-start identity-reset constructor accepts only that
+   unrecoverable state, atomically invalidates identity-bound relationships,
+   eligibility, targeted authorization, and retry state, then creates a new
+   protected identity. Transfer history and received files remain; old active
+   Invitation transfers are stopped and Saved devices must be paired again.
+8. Saved devices, relationships, pairing eligibility, and targeted transfers are
    shipped Rust core domains. Graduating the KMP and Apple Saved-device UI and
    their existing experimental preference gates is outside this release gate.
 

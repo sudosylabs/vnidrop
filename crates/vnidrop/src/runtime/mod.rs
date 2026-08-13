@@ -11,6 +11,7 @@
 
 mod delivery;
 mod facade;
+mod identity_recovery;
 mod lifecycle;
 mod provider;
 mod receive;

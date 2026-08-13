@@ -68,7 +68,13 @@ struct RootView: View {
 				// A small, unobtrusive indicator while the core finishes its async
 				// startup — otherwise the lists look empty and the app feels stalled.
 				if !sendModel.coreState.isInitialized {
-					CoreStartingOverlay()
+					CoreStartingOverlay(
+						recovery: appModel.startupRecovery,
+						isResettingIdentity: appModel.isResettingIdentity,
+						onResetIdentity: {
+							Task { await appModel.resetUnrecoverableIdentity() }
+						}
+					)
 				}
 			}
 			.animation(.easeInOut(duration: 0.25), value: sendModel.coreState.isInitialized)
@@ -255,19 +261,59 @@ private struct ApprovalLayer: View {
 
 /// A full-window cover with a centered spinner shown while the core is starting.
 private struct CoreStartingOverlay: View {
+	let recovery: AppStartupRecovery?
+	let isResettingIdentity: Bool
+	let onResetIdentity: () -> Void
+	@State private var confirmsIdentityReset = false
+
 	var body: some View {
 		ZStack {
 			backgroundColor.ignoresSafeArea()
-			VStack(spacing: 16) {
-				ProgressView().controlSize(.large)
-				Text(String(localized: L10n.App.starting))
-					.font(.headline)
-					.foregroundStyle(.secondary)
+			if recovery == .identityUnrecoverable {
+				VStack(spacing: 18) {
+					Image(systemSymbol: .exclamationmarkTriangleFill)
+						.font(.system(size: 44))
+						.foregroundStyle(.orange)
+					Text(String(localized: L10n.App.identityResetTitle))
+						.font(.title2.bold())
+					Text(String(localized: L10n.App.identityResetMessage))
+						.multilineTextAlignment(.center)
+						.foregroundStyle(.secondary)
+						.frame(maxWidth: 420)
+					Button(role: .destructive) {
+						confirmsIdentityReset = true
+					} label: {
+						if isResettingIdentity {
+							ProgressView()
+						} else {
+							Text(String(localized: L10n.App.identityResetAction))
+						}
+					}
+					.buttonStyle(.borderedProminent)
+					.disabled(isResettingIdentity)
+				}
+				.padding(32)
+			} else {
+				VStack(spacing: 16) {
+					ProgressView().controlSize(.large)
+					Text(String(localized: L10n.App.starting))
+						.font(.headline)
+						.foregroundStyle(.secondary)
+				}
 			}
 		}
 		.transition(.opacity)
-		.accessibilityElement(children: .combine)
-		.accessibilityLabel(Text(String(localized: L10n.App.starting)))
+		.alert(
+			String(localized: L10n.App.identityResetTitle),
+			isPresented: $confirmsIdentityReset
+		) {
+			Button(String(localized: L10n.Button.cancel), role: .cancel) {}
+			Button(String(localized: L10n.App.identityResetAction), role: .destructive) {
+				onResetIdentity()
+			}
+		} message: {
+			Text(String(localized: L10n.App.identityResetConfirmation))
+		}
 	}
 
 	private var backgroundColor: Color {

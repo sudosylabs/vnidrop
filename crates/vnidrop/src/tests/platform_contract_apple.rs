@@ -848,6 +848,10 @@ fn apple_public_bindings_omit_raw_secrets_and_generic_mutation() {
             "Swift bindings must expose standard protected initialization"
         );
         assert!(
+            source.contains("resetUnrecoverableIdentityWithLimitsAndNetworkConfig"),
+            "Swift bindings must expose explicit endpoint-identity recovery"
+        );
+        assert!(
             source.contains("public struct SavedDeviceCapabilities")
                 && source.contains("public func savedDeviceCapabilities()"),
             "Swift bindings must expose production saved-device capabilities"

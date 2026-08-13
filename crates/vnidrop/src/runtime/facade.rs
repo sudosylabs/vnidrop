@@ -63,7 +63,7 @@ impl VnidropCore {
         self.runtime.handle().block_on(future)
     }
 
-    fn initialize_with_identity_mode(
+    pub(super) fn initialize_with_identity_mode(
         app_data_dir: String,
         event_sink: Arc<dyn CoreEventSink>,
         limits: CoreLimits,
@@ -495,6 +495,24 @@ impl VnidropCore {
         network_config: CoreNetworkConfig,
     ) -> Result<Arc<Self>, VnidropError> {
         Self::initialize_protected(app_data_dir, event_sink, limits, network_config)
+    }
+
+    /// Explicitly replace an endpoint identity whose protected credential is
+    /// missing or corrupted, invalidate identity-bound trust, and initialize.
+    /// A readable identity is never reset by this constructor.
+    #[uniffi::constructor]
+    pub fn reset_unrecoverable_identity_with_limits_and_network_config(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        limits: CoreLimits,
+        network_config: CoreNetworkConfig,
+    ) -> Result<Arc<Self>, VnidropError> {
+        Self::reset_unrecoverable_identity_protected(
+            app_data_dir,
+            event_sink,
+            limits,
+            network_config,
+        )
     }
 
     pub fn status(&self) -> RuntimeStatus {

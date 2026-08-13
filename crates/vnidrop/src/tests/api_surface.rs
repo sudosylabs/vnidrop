@@ -62,6 +62,7 @@ fn public_api_exposes_saved_device_surface_without_prototype_contact_entry_point
         "fn share_files(",
         "fn receive(",
         "saved_device_capabilities",
+        "fn reset_unrecoverable_identity_with_limits_and_network_config(",
     ] {
         assert!(
             facade.contains(required) || api.contains(required) || lib.contains(required),

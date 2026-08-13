@@ -1,4 +1,5 @@
 import XCTest
+import VnidropCore
 @testable import VniDrop
 
 /// Ports app-level assertions: core initialization on launch, destination
@@ -49,5 +50,22 @@ final class AppModelTests: XCTestCase {
 		prefs.setThemeMode(.dark)
 		await waitUntil { model.themeMode == .dark }
 		XCTAssertEqual(model.themeMode, .dark)
+	}
+
+	func testMissingEndpointIdentityOffersExplicitResetAndRecoversStartup() async {
+		let core = FakeCoreGateway()
+		core.initializeResult = .failure(
+			VnidropError.SecureStorageMissing(reason: "credential is missing")
+		)
+		let model = makeModel(core, preferences: Fixtures.preferences())
+
+		await waitUntil { model.startupRecovery == .identityUnrecoverable }
+		XCTAssertFalse(core.state.isInitialized)
+
+		await model.resetUnrecoverableIdentity()
+
+		XCTAssertEqual(core.resetUnrecoverableIdentityCount, 1)
+		XCTAssertNil(model.startupRecovery)
+		XCTAssertTrue(core.state.isInitialized)
 	}
 }

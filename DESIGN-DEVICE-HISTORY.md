@@ -161,6 +161,15 @@ A crash at any step must preserve at least one valid copy and must not change
 the endpoint identity. Confirmed unrecoverable loss or an explicit identity
 reset is required before replacement.
 
+An identity reset is a destructive, user-confirmed recovery operation exposed
+before normal core initialization. It is accepted only when the protected
+endpoint credential is missing or corrupted; a readable identity can never be
+reset through this path. The reset preserves received files and transfer
+history, stops old active Invitation transfers, cancels resumable Targeted
+transfers, and removes relationships, pairing eligibility, grants,
+authorizations, and retry state bound to the lost identity. A replacement
+identity is minted only after that invalidation transaction commits.
+
 Secrets must not synchronize through platform cloud backup. Restored metadata
 without its device-bound secrets reconciles to disabled relationships, never a
 cloned identity.

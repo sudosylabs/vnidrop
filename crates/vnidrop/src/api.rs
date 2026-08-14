@@ -88,10 +88,18 @@ pub enum TargetedTransferState {
     Deleted,
 }
 
+/// This installation's immutable role in a Targeted transfer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum TargetedTransferRole {
+    Sender,
+    Receiver,
+}
+
 /// Immutable recipient-bound transfer snapshot, separate from an ordinary share.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
 pub struct TargetedTransfer {
     pub id: String,
+    pub role: TargetedTransferRole,
     pub sender_endpoint_id: String,
     pub receiver_endpoint_id: String,
     pub manifest_id: String,

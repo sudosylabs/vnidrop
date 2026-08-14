@@ -4,7 +4,7 @@ use support::TestNode;
 use vnidrop::{
     saved_device_capabilities, DeviceRelationship, DeviceRelationshipState, SavedDevice,
     SavedDeviceCapabilities, ShareMetadataInput, ShareSource, SourceKind, TargetedTransfer,
-    TargetedTransferState, TransferAccessMode, VnidropError,
+    TargetedTransferRole, TargetedTransferState, TransferAccessMode, VnidropError,
 };
 
 #[test]
@@ -38,6 +38,7 @@ fn saved_devices_relationships_and_targeted_transfers_are_distinct_contracts() {
     };
     let transfer = TargetedTransfer {
         id: "targeted-transfer-id".to_string(),
+        role: TargetedTransferRole::Sender,
         sender_endpoint_id: "sender-endpoint".to_string(),
         receiver_endpoint_id: device.endpoint_id.clone(),
         manifest_id: "immutable-manifest-id".to_string(),

@@ -139,7 +139,14 @@ final class SavedDeviceCoreContractTests: XCTestCase {
 				(String, CoreEventSink, CoreLimits, CoreNetworkConfig) throws -> VnidropCore
 			) = VnidropCore.resetUnrecoverableIdentityWithLimitsAndNetworkConfig
 			let capabilities: SavedDeviceCapabilities = savedDeviceCapabilities()
+			let role: TargetedTransferRole = .sender
 			XCTAssertGreaterThanOrEqual(capabilities.domainContractVersion, 1)
+			switch role {
+			case .sender:
+				break
+			case .receiver:
+				XCTFail("targeted-transfer role binding decoded the wrong case")
+			}
 			XCTAssertNotNil(defaultCoreLimits().maxSavedDevices)
 			return
 		}
@@ -172,6 +179,8 @@ final class SavedDeviceCoreContractTests: XCTestCase {
 		XCTAssertTrue(source.contains("resetUnrecoverableIdentityWithLimitsAndNetworkConfig"))
 		XCTAssertTrue(source.contains("public struct SavedDeviceCapabilities"))
 		XCTAssertTrue(source.contains("public func savedDeviceCapabilities()"))
+		XCTAssertTrue(source.contains("public var role: TargetedTransferRole"))
+		XCTAssertTrue(source.contains("public enum TargetedTransferRole"))
 		XCTAssertTrue(source.contains("setSavedDeviceLabel"))
 		XCTAssertTrue(source.contains("listSavedDevices"))
 		XCTAssertTrue(source.contains("revision"))

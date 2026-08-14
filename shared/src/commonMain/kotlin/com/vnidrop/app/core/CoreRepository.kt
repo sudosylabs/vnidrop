@@ -33,6 +33,7 @@ import uniffi.vnidrop.SourceKind
 import uniffi.vnidrop.StoredTransfer
 import uniffi.vnidrop.TargetedOfferResponse
 import uniffi.vnidrop.TargetedTransfer
+import uniffi.vnidrop.TargetedTransferRole
 import uniffi.vnidrop.TargetedTransferState
 import uniffi.vnidrop.TicketInspection
 import uniffi.vnidrop.TransferMetadata
@@ -643,6 +644,7 @@ private fun PendingTargetedOffer.toModel(): PendingTargetedOfferModel = PendingT
 
 private fun TargetedTransfer.toModel(): TargetedTransferModel = TargetedTransferModel(
 	id = id,
+	role = role.toModel(),
 	senderEndpointId = senderEndpointId,
 	receiverEndpointId = receiverEndpointId,
 	manifestId = manifestId,
@@ -654,6 +656,11 @@ private fun TargetedTransfer.toModel(): TargetedTransferModel = TargetedTransfer
 	createdAt = createdAt,
 	updatedAt = updatedAt,
 )
+
+private fun TargetedTransferRole.toModel(): TargetedTransferRoleModel = when (this) {
+	TargetedTransferRole.SENDER -> TargetedTransferRoleModel.Sender
+	TargetedTransferRole.RECEIVER -> TargetedTransferRoleModel.Receiver
+}
 
 private fun TargetedTransferState.toModel(): TargetedTransferStateModel = when (this) {
 	TargetedTransferState.PREPARING -> TargetedTransferStateModel.Preparing

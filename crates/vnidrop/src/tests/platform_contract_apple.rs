@@ -857,6 +857,11 @@ fn apple_public_bindings_omit_raw_secrets_and_generic_mutation() {
             "Swift bindings must expose production saved-device capabilities"
         );
         assert!(
+            source.contains("public var role: TargetedTransferRole")
+                && source.contains("public enum TargetedTransferRole"),
+            "Swift targeted-transfer snapshots must expose their persisted role"
+        );
+        assert!(
             source.contains("setSavedDeviceLabel"),
             "Swift bindings must expose saved-device rename"
         );

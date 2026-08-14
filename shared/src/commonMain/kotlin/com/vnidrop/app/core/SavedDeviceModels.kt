@@ -68,8 +68,14 @@ enum class TargetedTransferStateModel {
 	Deleted,
 }
 
+enum class TargetedTransferRoleModel {
+	Sender,
+	Receiver,
+}
+
 data class TargetedTransferModel(
 	val id: String,
+	val role: TargetedTransferRoleModel,
 	val senderEndpointId: String,
 	val receiverEndpointId: String,
 	val manifestId: String,

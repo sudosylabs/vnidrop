@@ -12,6 +12,7 @@ import com.vnidrop.app.core.ReceiveFolder
 import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.core.TargetedOfferResponseModel
 import com.vnidrop.app.core.TargetedTransferModel
+import com.vnidrop.app.core.TargetedTransferRoleModel
 import com.vnidrop.app.core.TargetedTransferStateModel
 import com.vnidrop.app.preferences.PreferencesRepository
 import com.vnidrop.app.ui.feedback.UiMessage
@@ -365,8 +366,7 @@ class SavedDevicesViewModel(
 	}
 
 	private fun TargetedTransferModel.toExperienceItem(savedNames: Map<String, String>): SavedDeviceTransferItem {
-		val localEndpointId = repository.state.value.status?.endpointId
-		val outgoing = senderEndpointId == localEndpointId
+		val outgoing = role == TargetedTransferRoleModel.Sender
 		val peerEndpointId = if (outgoing) receiverEndpointId else senderEndpointId
 		return SavedDeviceTransferItem(
 			id = id,

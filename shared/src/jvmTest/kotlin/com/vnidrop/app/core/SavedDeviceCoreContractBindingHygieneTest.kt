@@ -44,6 +44,8 @@ class SavedDeviceCoreContractBindingHygieneTest {
 		assertTrue(
 			source.contains("public expect fun `savedDeviceCapabilities`(): SavedDeviceCapabilities"),
 		)
+		assertTrue(source.contains("var `role`: TargetedTransferRole"))
+		assertTrue(source.contains("public enum class TargetedTransferRole"))
 		assertTrue(
 			source.contains("SavedDevice"),
 			"SavedDevice model must remain on the public surface",

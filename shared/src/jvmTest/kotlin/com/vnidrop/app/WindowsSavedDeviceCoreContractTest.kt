@@ -44,7 +44,11 @@ class WindowsSavedDeviceCoreContractTest {
 			assertBindingHygiene(first)
 			id
 		} finally {
-			first.shutdown()
+			try {
+				first.shutdown()
+			} finally {
+				first.close()
+			}
 		}
 
 		val restarted = VnidropCore.initializeWithLimitsAndNetworkConfig(
@@ -57,7 +61,11 @@ class WindowsSavedDeviceCoreContractTest {
 			assertTrue(restarted.status().endpointId == endpointId)
 			assertBindingHygiene(restarted)
 		} finally {
-			restarted.shutdown()
+			try {
+				restarted.shutdown()
+			} finally {
+				restarted.close()
+			}
 			coreDir.toFile().deleteRecursively()
 		}
 	}

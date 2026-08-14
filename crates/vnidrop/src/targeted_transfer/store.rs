@@ -6,7 +6,7 @@
 use sqlx::{Row, SqlitePool};
 
 use crate::{
-    api::{TargetedTransfer, TargetedTransferState},
+    api::{TargetedTransfer, TargetedTransferRole, TargetedTransferState},
     error::VnidropError,
     util::now_ms,
 };
@@ -430,7 +430,7 @@ impl TargetedTransferStore {
     pub(crate) async fn get(&self, id: &str) -> Result<Option<TargetedTransfer>, VnidropError> {
         let row = sqlx::query(
             r#"
-            SELECT id, sender_endpoint_id, receiver_endpoint_id, manifest_id, transfer_name,
+            SELECT id, role, sender_endpoint_id, receiver_endpoint_id, manifest_id, transfer_name,
                    file_count, total_size, verified_bytes, state, created_at, updated_at
             FROM targeted_transfers WHERE id = ?1
             "#,
@@ -465,7 +465,7 @@ impl TargetedTransferStore {
     pub(crate) async fn list(&self) -> Result<Vec<TargetedTransfer>, VnidropError> {
         let rows = sqlx::query(
             r#"
-            SELECT id, sender_endpoint_id, receiver_endpoint_id, manifest_id, transfer_name,
+            SELECT id, role, sender_endpoint_id, receiver_endpoint_id, manifest_id, transfer_name,
                    file_count, total_size, verified_bytes, state, created_at, updated_at
             FROM targeted_transfers
             ORDER BY updated_at DESC
@@ -692,12 +692,6 @@ impl TargetedTransferStore {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum TargetedTransferRole {
-    Sender,
-    Receiver,
-}
-
 #[derive(Debug, Clone)]
 pub(crate) struct TargetedTransferRow {
     pub(crate) id: String,
@@ -721,6 +715,7 @@ pub(crate) struct TargetedTransferRow {
 fn row_to_transfer(row: sqlx::sqlite::SqliteRow) -> Result<TargetedTransfer, VnidropError> {
     Ok(TargetedTransfer {
         id: row.get("id"),
+        role: parse_role(&row.get::<String, _>("role"))?,
         sender_endpoint_id: row.get("sender_endpoint_id"),
         receiver_endpoint_id: row.get("receiver_endpoint_id"),
         manifest_id: row.get("manifest_id"),

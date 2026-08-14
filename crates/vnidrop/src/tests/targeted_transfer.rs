@@ -12,8 +12,8 @@ use crate::{
     secure_secret::{FaultInjectingSecretStore, ReferenceStoreFailure},
     CoreEvent, CoreEventSink, CoreNetworkConfig, CoreRelayMode, DeviceRelationshipState,
     PendingTargetedOffer, PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2,
-    ReceivedLocatorKind, ShareMetadataInput, ShareSource, SourceKind, TargetedTransferState,
-    TransferAccessMode, VnidropCore, VnidropError,
+    ReceivedLocatorKind, ShareMetadataInput, ShareSource, SourceKind, TargetedTransferRole,
+    TargetedTransferState, TransferAccessMode, VnidropCore, VnidropError,
 };
 
 struct RecordingSink {
@@ -381,6 +381,7 @@ fn identity_reset_cancels_targeted_authorization_bound_to_the_lost_endpoint() {
         .get_targeted_transfer(transfer.id.clone())
         .unwrap()
         .unwrap();
+    assert_eq!(snapshot.role, TargetedTransferRole::Sender);
     assert_eq!(snapshot.state, TargetedTransferState::Cancelled);
     assert!(recovered
         .targeted_blob_ticket_for_test(transfer.id)

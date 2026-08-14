@@ -6,6 +6,7 @@ import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.core.Share
 import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.TargetedTransferModel
+import com.vnidrop.app.core.TargetedTransferRoleModel
 import com.vnidrop.app.core.TargetedTransferStateModel
 import com.vnidrop.app.support.FakeCoreGateway
 import com.vnidrop.app.support.FakeFilePreviewRepository
@@ -235,6 +236,7 @@ class TransferDraftViewModelTest {
 
 	private fun targeted(id: String, peerId: String) = TargetedTransferModel(
 		id = id,
+		role = TargetedTransferRoleModel.Sender,
 		senderEndpointId = "me",
 		receiverEndpointId = peerId,
 		manifestId = "manifest",

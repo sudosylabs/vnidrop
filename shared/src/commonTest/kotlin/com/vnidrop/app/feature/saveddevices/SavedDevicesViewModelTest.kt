@@ -10,6 +10,7 @@ import com.vnidrop.app.core.ReceiveFolderKind
 import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.core.TargetedOfferResponseModel
 import com.vnidrop.app.core.TargetedTransferModel
+import com.vnidrop.app.core.TargetedTransferRoleModel
 import com.vnidrop.app.core.TargetedTransferStateModel
 import com.vnidrop.app.preferences.AppPreferences
 import com.vnidrop.app.support.FakeCoreGateway
@@ -49,7 +50,15 @@ class SavedDevicesViewModelTest {
 			deviceRelationships = listOf(incoming("incoming"))
 			savedDevices = listOf(device("peer", "Office PC", "Authenticated PC"))
 			pendingTargetedOffers = listOf(offer("offer", "peer"))
-			targetedTransfers = listOf(transfer("history", "local", "peer", TargetedTransferStateModel.AwaitingApproval))
+			targetedTransfers = listOf(
+				transfer(
+					"history",
+					TargetedTransferRoleModel.Sender,
+					"local",
+					"peer",
+					TargetedTransferStateModel.AwaitingApproval,
+				),
+			)
 		}
 		val viewModel = createViewModel(core)
 		runCurrent()
@@ -72,6 +81,29 @@ class SavedDevicesViewModelTest {
 		assertIs<PairingPrompt.IncomingRequest>(state.pairingPrompt.prompt)
 		assertEquals(false, state.isLoading)
 		assertEquals(false, state.loadFailed)
+	}
+
+	@Test
+	fun persistedOutgoingTransferKeepsDirectionAfterIdentityReset() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val core = initializedCore().apply {
+			targetedTransfers = listOf(
+				transfer(
+					id = "past-send",
+					role = TargetedTransferRoleModel.Sender,
+					sender = "retired-local-identity",
+					receiver = "peer",
+					state = TargetedTransferStateModel.Completed,
+				),
+			)
+		}
+		val viewModel = createViewModel(core)
+		runCurrent()
+		advanceUntilIdle()
+
+		val transfer = viewModel.state.value.targetedTransfers.single()
+		assertEquals(SavedDeviceTransferDirection.Outgoing, transfer.direction)
+		assertEquals("peer", transfer.peerEndpointId)
 	}
 
 	@Test
@@ -158,7 +190,15 @@ class SavedDevicesViewModelTest {
 	fun interruptedTransferResumeUsesThePlatformSinkWhenAvailable() = runTest {
 		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 		val core = initializedCore().apply {
-			targetedTransfers = listOf(transfer("resume-sink", "peer", "local", TargetedTransferStateModel.Interrupted))
+			targetedTransfers = listOf(
+				transfer(
+					"resume-sink",
+					TargetedTransferRoleModel.Receiver,
+					"peer",
+					"local",
+					TargetedTransferStateModel.Interrupted,
+				),
+			)
 		}
 		val viewModel = createViewModel(
 			core,
@@ -180,9 +220,9 @@ class SavedDevicesViewModelTest {
 		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 		val core = initializedCore().apply {
 			targetedTransfers = listOf(
-				transfer("resume", "peer", "local", TargetedTransferStateModel.Interrupted),
-				transfer("cancel", "local", "peer", TargetedTransferStateModel.AwaitingApproval),
-				transfer("delete", "peer", "local", TargetedTransferStateModel.Completed),
+				transfer("resume", TargetedTransferRoleModel.Receiver, "peer", "local", TargetedTransferStateModel.Interrupted),
+				transfer("cancel", TargetedTransferRoleModel.Sender, "local", "peer", TargetedTransferStateModel.AwaitingApproval),
+				transfer("delete", TargetedTransferRoleModel.Receiver, "peer", "local", TargetedTransferStateModel.Completed),
 			)
 		}
 		val viewModel = createViewModel(core)
@@ -336,11 +376,13 @@ class SavedDevicesViewModelTest {
 
 	private fun transfer(
 		id: String,
+		role: TargetedTransferRoleModel,
 		sender: String,
 		receiver: String,
 		state: TargetedTransferStateModel,
 	) = TargetedTransferModel(
 		id = id,
+		role = role,
 		senderEndpointId = sender,
 		receiverEndpointId = receiver,
 		manifestId = "manifest-$id",

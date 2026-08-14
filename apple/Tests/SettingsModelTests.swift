@@ -6,11 +6,16 @@ import XCTest
 @MainActor
 final class SettingsModelTests: XCTestCase {
 
-	private func makeModel(_ core: FakeCoreGateway, preferences: AppPreferencesRepository) -> SettingsModel {
+	private func makeModel(
+		_ core: FakeCoreGateway,
+		preferences: AppPreferencesRepository,
+		fileSystem: FakeFileSystemService = FakeFileSystemService(),
+		dataDir: String = NSTemporaryDirectory()
+	) -> SettingsModel {
 		SettingsModel(
-			environment: PlatformEnvironment(name: "Test", appVersion: "0.1.0", defaultCoreDataDir: NSTemporaryDirectory()),
+			environment: PlatformEnvironment(name: "Test", appVersion: "0.1.0", defaultCoreDataDir: dataDir),
 			deviceInfoProvider: FakeDeviceInfoProvider(),
-			fileSystemService: FakeFileSystemService(),
+			fileSystemService: fileSystem,
 			repository: core,
 			preferences: preferences,
 			notifications: LocalNotificationService(),
@@ -143,5 +148,65 @@ final class SettingsModelTests: XCTestCase {
 		XCTAssertEqual(core.initializedNetworkConfigurations, [attempted, .automatic])
 		XCTAssertEqual(preferences.preferences.relayConfiguration, .automatic)
 		XCTAssertEqual(model.state.relayApplyErrorKey, "relay_apply_failed")
+	}
+
+	// MARK: - Automatic trash purge
+
+	/// A root holding `.Trash/<bytes>` plus a sibling file that must survive.
+	private func makeRootWithTrash(bytes: Int) throws -> (root: String, keeper: String) {
+		let root = NSTemporaryDirectory() + "vnidrop-trash-\(UUID().uuidString)"
+		let trash = root + "/.Trash"
+		try FileManager.default.createDirectory(atPath: trash, withIntermediateDirectories: true)
+		FileManager.default.createFile(atPath: trash + "/deleted.bin", contents: Data(count: bytes))
+		let keeper = root + "/kept.bin"
+		FileManager.default.createFile(atPath: keeper, contents: Data(count: 8))
+		return (root, keeper)
+	}
+
+	func testPurgeTrashRemovesTrashAndLeavesTheRestAlone() throws {
+		let (root, keeper) = try makeRootWithTrash(bytes: 4096)
+
+		let freed = SettingsModel.purgeTrash(under: [root, root, "/nonexistent-\(UUID().uuidString)"])
+
+		XCTAssertGreaterThanOrEqual(freed, 4096)
+		XCTAssertFalse(FileManager.default.fileExists(atPath: root + "/.Trash"))
+		XCTAssertTrue(FileManager.default.fileExists(atPath: keeper))
+		try? FileManager.default.removeItem(atPath: root)
+	}
+
+	func testTrashIsPurgedAutomaticallyWhereTheUserCannotReachIt() async throws {
+		let (dataDir, _) = try makeRootWithTrash(bytes: 2048)
+		let (receiveDir, _) = try makeRootWithTrash(bytes: 2048)
+		let fileSystem = FakeFileSystemService()
+		fileSystem.userCanReachTrash = false
+		fileSystem.folder = ReceiveFolder(kind: .fileSystemPath, value: receiveDir, displayName: "Documents")
+		let model = makeModel(
+			FakeCoreGateway(), preferences: Fixtures.preferences(),
+			fileSystem: fileSystem, dataDir: dataDir
+		)
+
+		model.purgeUnreachableTrash()
+		await waitUntil { !FileManager.default.fileExists(atPath: dataDir + "/.Trash") }
+
+		XCTAssertFalse(FileManager.default.fileExists(atPath: receiveDir + "/.Trash"))
+		try? FileManager.default.removeItem(atPath: dataDir)
+		try? FileManager.default.removeItem(atPath: receiveDir)
+	}
+
+	/// macOS: the trash is the user's, so only the explicit action may empty it.
+	func testTrashIsLeftAloneWhereTheUserCanReachIt() async throws {
+		let (dataDir, _) = try makeRootWithTrash(bytes: 2048)
+		let fileSystem = FakeFileSystemService()
+		fileSystem.userCanReachTrash = true
+		let model = makeModel(
+			FakeCoreGateway(), preferences: Fixtures.preferences(),
+			fileSystem: fileSystem, dataDir: dataDir
+		)
+
+		model.purgeUnreachableTrash()
+		try await Task.sleep(nanoseconds: 100_000_000)
+
+		XCTAssertTrue(FileManager.default.fileExists(atPath: dataDir + "/.Trash"))
+		try? FileManager.default.removeItem(atPath: dataDir)
 	}
 }

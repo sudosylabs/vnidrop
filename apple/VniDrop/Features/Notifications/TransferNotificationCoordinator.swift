@@ -113,6 +113,10 @@ final class TransferNotificationCoordinator: ObservableObject {
 					Task { await self.syncReceivers(transferId: transferId) }
 				case .approvalChanged:
 					break
+				case .pairingChanged, .targetedTransferChanged:
+					// Saved-device notifications are owned by the saved-device
+					// coordinator, which tracks its own notification identifiers.
+					break
 				}
 			}
 			.store(in: &cancellables)

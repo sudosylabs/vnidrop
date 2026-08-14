@@ -183,7 +183,7 @@ check-apple: apple-project ## Build the Apple core and run iOS simulator tests.
 		destination="platform=iOS Simulator,id=$$device_id"; \
 	fi; \
 	printf 'Testing on: %s\n' "$$destination"; \
-	cd $(ROOT)/apple && $(XCODEBUILD) test -project VniDrop.xcodeproj -scheme VniDrop -configuration $(APPLE_CONFIGURATION) -derivedDataPath "$(APPLE_DERIVED_DATA)" -destination "$$destination" CODE_SIGNING_ALLOWED=$(APPLE_CODE_SIGNING) CODE_SIGNING_REQUIRED=$(APPLE_CODE_SIGNING)
+	cd $(ROOT)/apple && $(XCODEBUILD) test -project VniDrop.xcodeproj -scheme VniDrop -configuration $(APPLE_CONFIGURATION) -derivedDataPath "$(APPLE_DERIVED_DATA)" -destination "$$destination" CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=$(APPLE_TEST_CODE_SIGN_IDENTITY) PROVISIONING_PROFILE_SPECIFIER=
 
 check-localization: setup-localization ## Validate the localization source catalog.
 	cd $(ROOT)/localization && $(BUN) run validate

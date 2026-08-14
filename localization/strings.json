@@ -1756,10 +1756,7 @@
         "pl": "Urządzenia",
         "nl": "Apparaten",
         "ru": "Устройства"
-      },
-      "targets": [
-        "kmp"
-      ]
+      }
     },
     "nav_send": {
       "context": "Bottom navigation: Send tab label.",
@@ -4030,6 +4027,35 @@
         "ru": "Все передачи удалены"
       }
     },
+    "targeted_offer_body": {
+      "context": "Targeted transfer offer prompt: body. {device} is the sending saved device, {transferName} is the transfer name.",
+      "args": [{"name": "device", "type": "string"}, {"name": "transferName", "type": "string"}],
+      "translations": {
+        "en": "{device} wants to send you “{transferName}”.",
+        "fr": "{device} veut vous envoyer « {transferName} ».",
+        "es": "{device} quiere enviarle “{transferName}”.",
+        "it": "{device} vuole inviarle “{transferName}”.",
+        "de": "{device} möchte Ihnen „{transferName}“ senden.",
+        "pt": "{device} quer enviar-lhe “{transferName}”.",
+        "pl": "{device} chce wysłać Ci „{transferName}”.",
+        "nl": "{device} wil u “{transferName}” sturen.",
+        "ru": "{device} хочет отправить вам «{transferName}»."
+      }
+    },
+    "targeted_offer_title": {
+      "context": "Targeted transfer offer prompt: title when a saved device wants to send files to this device.",
+      "translations": {
+        "en": "Incoming transfer",
+        "fr": "Transfert entrant",
+        "es": "Transferencia entrante",
+        "it": "Trasferimento in arrivo",
+        "de": "Eingehende Übertragung",
+        "pt": "Transferência a receber",
+        "pl": "Transfer przychodzący",
+        "nl": "Inkomende overdracht",
+        "ru": "Входящая передача"
+      }
+    },
     "transfer_activity_description": {
       "context": "Transfer details: description under the Activity section.",
       "translations": {
@@ -4900,8 +4926,7 @@
         "pl": "Wymaga uwagi",
         "nl": "Aandacht vereist",
         "ru": "Требует внимания"
-      },
-      "targets": ["kmp"]
+      }
     },
     "saved_devices_transfers_title": {
       "context": "Saved devices screen: heading for durable targeted-transfer history.",
@@ -4915,8 +4940,7 @@
         "pl": "Transfery bezpośrednie",
         "nl": "Directe overdrachten",
         "ru": "Прямые передачи"
-      },
-      "targets": ["kmp"]
+      }
     },
     "saved_devices_transfer_empty": {
       "context": "Saved devices screen: empty targeted-transfer history.",
@@ -4930,8 +4954,7 @@
         "pl": "Brak transferów bezpośrednich.",
         "nl": "Nog geen directe overdrachten.",
         "ru": "Прямых передач пока нет."
-      },
-      "targets": ["kmp"]
+      }
     },
     "saved_devices_transfer_direction_incoming": {
       "context": "Targeted transfer card: incoming direction followed by the saved-device display name.",
@@ -4946,8 +4969,7 @@
         "pl": "Od {device}",
         "nl": "Van {device}",
         "ru": "От {device}"
-      },
-      "targets": ["kmp"]
+      }
     },
     "saved_devices_transfer_direction_outgoing": {
       "context": "Targeted transfer card: outgoing direction followed by the saved-device display name.",
@@ -4962,8 +4984,7 @@
         "pl": "Do {device}",
         "nl": "Naar {device}",
         "ru": "Для {device}"
-      },
-      "targets": ["kmp"]
+      }
     },
     "saved_devices_transfer_files": {
       "context": "Targeted transfer card metadata. First placeholder is file count, second is formatted total size.",
@@ -4978,8 +4999,7 @@
         "pl": "{count} plików · {size}",
         "nl": "{count} bestanden · {size}",
         "ru": "{count} файлов · {size}"
-      },
-      "targets": ["kmp"]
+      }
     },
     "saved_devices_transfer_progress": {
       "context": "Targeted transfer card progress. First placeholder is verified bytes, second is total size.",
@@ -4994,97 +5014,81 @@
         "pl": "{verified} z {total}",
         "nl": "{verified} van {total}",
         "ru": "{verified} из {total}"
-      },
-      "targets": ["kmp"]
+      }
     },
     "saved_devices_transfer_receive": {
       "context": "Targeted transfer history action: receive an approved transfer.",
-      "translations": {"en": "Receive", "fr": "Recevoir", "es": "Recibir", "it": "Ricevi", "de": "Empfangen", "pt": "Receber", "pl": "Odbierz", "nl": "Ontvangen", "ru": "Получить"},
-      "targets": ["kmp"]
+      "translations": {"en": "Receive", "fr": "Recevoir", "es": "Recibir", "it": "Ricevi", "de": "Empfangen", "pt": "Receber", "pl": "Odbierz", "nl": "Ontvangen", "ru": "Получить"}
     },
     "saved_devices_transfer_resume": {
       "context": "Targeted transfer history action: resume an interrupted transfer.",
-      "translations": {"en": "Resume", "fr": "Reprendre", "es": "Reanudar", "it": "Riprendi", "de": "Fortsetzen", "pt": "Retomar", "pl": "Wznów", "nl": "Hervatten", "ru": "Продолжить"},
-      "targets": ["kmp"]
+      "translations": {"en": "Resume", "fr": "Reprendre", "es": "Reanudar", "it": "Riprendi", "de": "Fortsetzen", "pt": "Retomar", "pl": "Wznów", "nl": "Hervatten", "ru": "Продолжить"}
     },
     "saved_devices_transfer_cancel": {
       "context": "Targeted transfer history action: cancel an active transfer.",
-      "translations": {"en": "Cancel", "fr": "Annuler", "es": "Cancelar", "it": "Annulla", "de": "Abbrechen", "pt": "Cancelar", "pl": "Anuluj", "nl": "Annuleren", "ru": "Отменить"},
-      "targets": ["kmp"]
+      "translations": {"en": "Cancel", "fr": "Annuler", "es": "Cancelar", "it": "Annulla", "de": "Abbrechen", "pt": "Cancelar", "pl": "Anuluj", "nl": "Annuleren", "ru": "Отменить"}
     },
     "saved_devices_transfer_delete": {
       "context": "Targeted transfer history action: delete a terminal transfer record.",
-      "translations": {"en": "Delete", "fr": "Supprimer", "es": "Eliminar", "it": "Elimina", "de": "Löschen", "pt": "Eliminar", "pl": "Usuń", "nl": "Verwijderen", "ru": "Удалить"},
-      "targets": ["kmp"]
+      "translations": {"en": "Delete", "fr": "Supprimer", "es": "Eliminar", "it": "Elimina", "de": "Löschen", "pt": "Eliminar", "pl": "Usuń", "nl": "Verwijderen", "ru": "Удалить"}
     },
     "status_offering": {
       "context": "Targeted transfer status: offering to the saved device.",
-      "translations": {"en": "Offering", "fr": "Proposition", "es": "Ofreciendo", "it": "Proposta", "de": "Wird angeboten", "pt": "A propor", "pl": "Oferowanie", "nl": "Aanbieden", "ru": "Предложение"},
-      "targets": ["kmp"]
+      "translations": {"en": "Offering", "fr": "Proposition", "es": "Ofreciendo", "it": "Proposta", "de": "Wird angeboten", "pt": "A propor", "pl": "Oferowanie", "nl": "Aanbieden", "ru": "Предложение"}
     },
     "status_awaiting_approval": {
       "context": "Targeted transfer status: waiting for the saved device to approve.",
-      "translations": {"en": "Waiting for approval", "fr": "En attente d’approbation", "es": "Esperando aprobación", "it": "In attesa di approvazione", "de": "Wartet auf Genehmigung", "pt": "A aguardar aprovação", "pl": "Oczekiwanie na zgodę", "nl": "Wachten op goedkeuring", "ru": "Ожидание подтверждения"},
-      "targets": ["kmp"]
+      "translations": {"en": "Waiting for approval", "fr": "En attente d’approbation", "es": "Esperando aprobación", "it": "In attesa di approvazione", "de": "Wartet auf Genehmigung", "pt": "A aguardar aprovação", "pl": "Oczekiwanie na zgodę", "nl": "Wachten op goedkeuring", "ru": "Ожидание подтверждения"}
     },
     "status_approved": {
 	  "context": "Targeted transfer status: approved by the receiving saved device.",
-	  "translations": {"en": "Approved", "fr": "Approuvé", "es": "Aprobado", "it": "Approvato", "de": "Genehmigt", "pt": "Aprovado", "pl": "Zatwierdzony", "nl": "Goedgekeurd", "ru": "Подтверждено"},
-      "targets": ["kmp"]
+	  "translations": {"en": "Approved", "fr": "Approuvé", "es": "Aprobado", "it": "Approvato", "de": "Genehmigt", "pt": "Aprovado", "pl": "Zatwierdzony", "nl": "Goedgekeurd", "ru": "Подтверждено"}
     },
     "status_connecting": {
       "context": "Targeted transfer status: connecting to the saved device.",
-      "translations": {"en": "Connecting", "fr": "Connexion", "es": "Conectando", "it": "Connessione", "de": "Verbindung wird hergestellt", "pt": "A ligar", "pl": "Łączenie", "nl": "Verbinden", "ru": "Подключение"},
-      "targets": ["kmp"]
+      "translations": {"en": "Connecting", "fr": "Connexion", "es": "Conectando", "it": "Connessione", "de": "Verbindung wird hergestellt", "pt": "A ligar", "pl": "Łączenie", "nl": "Verbinden", "ru": "Подключение"}
     },
     "status_interrupted": {
       "context": "Targeted transfer status: interrupted and resumable.",
-      "translations": {"en": "Interrupted", "fr": "Interrompu", "es": "Interrumpido", "it": "Interrotto", "de": "Unterbrochen", "pt": "Interrompido", "pl": "Przerwany", "nl": "Onderbroken", "ru": "Прервано"},
-      "targets": ["kmp"]
+      "translations": {"en": "Interrupted", "fr": "Interrompu", "es": "Interrumpido", "it": "Interrotto", "de": "Unterbrochen", "pt": "Interrompido", "pl": "Przerwany", "nl": "Onderbroken", "ru": "Прервано"}
     },
     "status_transferring": {
       "context": "Targeted transfer status: authenticated content transfer is active.",
-      "translations": {"en": "Transferring", "fr": "Transfert", "es": "Transfiriendo", "it": "Trasferimento", "de": "Übertragung läuft", "pt": "A transferir", "pl": "Przesyłanie", "nl": "Overdragen", "ru": "Передача"},
-      "targets": ["kmp"]
+      "translations": {"en": "Transferring", "fr": "Transfert", "es": "Transfiriendo", "it": "Trasferimento", "de": "Übertragung läuft", "pt": "A transferir", "pl": "Przesyłanie", "nl": "Overdragen", "ru": "Передача"}
     },
     "status_declined": {
       "context": "Targeted transfer status: declined by the saved device.",
-      "translations": {"en": "Declined", "fr": "Refusé", "es": "Rechazado", "it": "Rifiutato", "de": "Abgelehnt", "pt": "Recusado", "pl": "Odrzucony", "nl": "Geweigerd", "ru": "Отклонено"},
-      "targets": ["kmp"]
+      "translations": {"en": "Declined", "fr": "Refusé", "es": "Rechazado", "it": "Rifiutato", "de": "Abgelehnt", "pt": "Recusado", "pl": "Odrzucony", "nl": "Geweigerd", "ru": "Отклонено"}
     },
     "saved_devices_authenticated_name": {
       "context": "Saved-device card: authenticated name shared by the remote app when a local label is also shown.",
+      "args": [{"name": "name", "type": "string"}],
       "translations": {
-        "en": "Remote name: %1$s",
-        "fr": "Nom distant : %1$s",
-        "es": "Nombre remoto: %1$s",
-        "it": "Nome remoto: %1$s",
-        "de": "Remote-Name: %1$s",
-        "pt": "Nome remoto: %1$s",
-        "pl": "Nazwa zdalna: %1$s",
-        "nl": "Externe naam: %1$s",
-        "ru": "Имя устройства: %1$s"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "en": "Remote name: {name}",
+        "fr": "Nom distant : {name}",
+        "es": "Nombre remoto: {name}",
+        "it": "Nome remoto: {name}",
+        "de": "Remote-Name: {name}",
+        "pt": "Nome remoto: {name}",
+        "pl": "Nazwa zdalna: {name}",
+        "nl": "Externe naam: {name}",
+        "ru": "Имя устройства: {name}"
+      }
     },
     "saved_devices_block_confirm_body": {
       "context": "Confirmation message before blocking a saved device. Placeholder is the display name.",
+      "args": [{"name": "device", "type": "string"}],
       "translations": {
-        "en": "Block %1$s and reject future saved-device transfers?",
-        "fr": "Bloquer %1$s et refuser les futurs transferts d’appareil enregistré ?",
-        "es": "¿Bloquear a %1$s y rechazar futuros envíos de dispositivos guardados?",
-        "it": "Bloccare %1$s e rifiutare i futuri trasferimenti da dispositivi salvati?",
-        "de": "%1$s blockieren und künftige Übertragungen gespeicherter Geräte ablehnen?",
-        "pt": "Bloquear %1$s e rejeitar futuras transferências de dispositivos guardados?",
-        "pl": "Zablokować %1$s i odrzucać przyszłe transfery z zapisanych urządzeń?",
-        "nl": "%1$s blokkeren en toekomstige overdrachten van opgeslagen apparaten weigeren?",
-        "ru": "Заблокировать %1$s и отклонять будущие передачи с сохранённых устройств?"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "en": "Block {device} and reject future saved-device transfers?",
+        "fr": "Bloquer {device} et refuser les futurs transferts d’appareil enregistré ?",
+        "es": "¿Bloquear a {device} y rechazar futuros envíos de dispositivos guardados?",
+        "it": "Bloccare {device} e rifiutare i futuri trasferimenti da dispositivi salvati?",
+        "de": "{device} blockieren und künftige Übertragungen gespeicherter Geräte ablehnen?",
+        "pt": "Bloquear {device} e rejeitar futuras transferências de dispositivos guardados?",
+        "pl": "Zablokować {device} i odrzucać przyszłe transfery z zapisanych urządzeń?",
+        "nl": "{device} blokkeren en toekomstige overdrachten van opgeslagen apparaten weigeren?",
+        "ru": "Заблокировать {device} и отклонять будущие передачи с сохранённых устройств?"
+      }
     },
     "saved_devices_block_confirm_title": {
       "context": "Confirmation dialog title before blocking a saved device.",
@@ -5098,27 +5102,22 @@
         "pl": "Zablokować urządzenie?",
         "nl": "Apparaat blokkeren?",
         "ru": "Заблокировать устройство?"
-      },
-      "targets": [
-        "kmp"
-      ]
+      }
     },
     "saved_devices_endpoint": {
       "context": "Saved-device screen: secondary diagnostic endpoint identity. Placeholder is a shortened endpoint ID.",
+      "args": [{"name": "deviceId", "type": "string"}],
       "translations": {
-        "en": "Device ID: %1$s",
-        "fr": "ID de l’appareil : %1$s",
-        "es": "ID del dispositivo: %1$s",
-        "it": "ID dispositivo: %1$s",
-        "de": "Geräte-ID: %1$s",
-        "pt": "ID do dispositivo: %1$s",
-        "pl": "ID urządzenia: %1$s",
-        "nl": "Apparaat-ID: %1$s",
-        "ru": "ID устройства: %1$s"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "en": "Device ID: {deviceId}",
+        "fr": "ID de l’appareil : {deviceId}",
+        "es": "ID del dispositivo: {deviceId}",
+        "it": "ID dispositivo: {deviceId}",
+        "de": "Geräte-ID: {deviceId}",
+        "pt": "ID do dispositivo: {deviceId}",
+        "pl": "ID urządzenia: {deviceId}",
+        "nl": "Apparaat-ID: {deviceId}",
+        "ru": "ID устройства: {deviceId}"
+      }
     },
     "saved_devices_empty": {
 	  "context": "Saved devices screen: guidance shown when no device has been saved.",
@@ -5132,10 +5131,7 @@
 		"pl": "Ukończ transfer, a następnie zapisz drugie urządzenie.",
 		"nl": "Voltooi een overdracht en kies daarna om het andere apparaat te onthouden.",
 		"ru": "Завершите передачу, затем сохраните другое устройство."
-      },
-      "targets": [
-        "kmp"
-      ]
+      }
     },
 	"saved_devices_empty_title": {
 	  "context": "Saved devices screen: title for the empty state.",
@@ -5149,25 +5145,22 @@
 		"pl": "Brak zapisanych urządzeń",
 		"nl": "Geen opgeslagen apparaten",
 		"ru": "Нет сохранённых устройств"
-	  },
-	  "targets": ["kmp"]
+	  }
 	},
     "saved_devices_forget_confirm_body": {
       "context": "Confirmation message before forgetting a saved device. Placeholder is the display name.",
+      "args": [{"name": "device", "type": "string"}],
       "translations": {
-        "en": "Forget %1$s? You will both need to approve saving again before another direct transfer.",
-        "fr": "Oublier %1$s ? Vous devrez tous les deux approuver à nouveau l’enregistrement avant un autre transfert direct.",
-        "es": "¿Olvidar a %1$s? Ambos deberán volver a aprobar el guardado antes de otra transferencia directa.",
-        "it": "Dimenticare %1$s? Entrambi dovrete approvare nuovamente il salvataggio prima di un altro trasferimento diretto.",
-        "de": "%1$s vergessen? Vor einer weiteren direkten Übertragung müssen beide das Speichern erneut bestätigen.",
-        "pt": "Esquecer %1$s? Ambos terão de voltar a aprovar antes de outra transferência direta.",
-        "pl": "Zapomnieć %1$s? Przed kolejnym transferem bezpośrednim obie strony muszą ponownie zatwierdzić zapisanie.",
-        "nl": "%1$s vergeten? Jullie moeten het opslaan allebei opnieuw goedkeuren voor een volgende directe overdracht.",
-        "ru": "Забыть %1$s? Перед следующей прямой передачей сохранение снова должны подтвердить обе стороны."
-      },
-      "targets": [
-        "kmp"
-      ]
+        "en": "Forget {device}? You will both need to approve saving again before another direct transfer.",
+        "fr": "Oublier {device} ? Vous devrez tous les deux approuver à nouveau l’enregistrement avant un autre transfert direct.",
+        "es": "¿Olvidar a {device}? Ambos deberán volver a aprobar el guardado antes de otra transferencia directa.",
+        "it": "Dimenticare {device}? Entrambi dovrete approvare nuovamente il salvataggio prima di un altro trasferimento diretto.",
+        "de": "{device} vergessen? Vor einer weiteren direkten Übertragung müssen beide das Speichern erneut bestätigen.",
+        "pt": "Esquecer {device}? Ambos terão de voltar a aprovar antes de outra transferência direta.",
+        "pl": "Zapomnieć {device}? Przed kolejnym transferem bezpośrednim obie strony muszą ponownie zatwierdzić zapisanie.",
+        "nl": "{device} vergeten? Jullie moeten het opslaan allebei opnieuw goedkeuren voor een volgende directe overdracht.",
+        "ru": "Забыть {device}? Перед следующей прямой передачей сохранение снова должны подтвердить обе стороны."
+      }
     },
     "saved_devices_forget_confirm_title": {
       "context": "Confirmation dialog title before forgetting a saved device.",
@@ -5181,61 +5174,49 @@
         "pl": "Zapomnieć urządzenie?",
         "nl": "Apparaat vergeten?",
         "ru": "Забыть устройство?"
-      },
-      "targets": [
-        "kmp"
-      ]
+      }
     },
     "saved_devices_eligibility_title": {
       "context": "Saved devices screen: section for peers eligible to pair after a transfer.",
       "translations": {
         "en": "Ready to remember",
-        "fr": "Ready to remember",
-        "es": "Ready to remember",
-        "it": "Ready to remember",
-        "de": "Ready to remember",
-        "pt": "Ready to remember",
-        "pl": "Ready to remember",
-        "nl": "Ready to remember",
-        "ru": "Ready to remember"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Prêt à être mémorisé",
+        "es": "Listo para recordar",
+        "it": "Pronto da ricordare",
+        "de": "Bereit zum Speichern",
+        "pt": "Pronto para lembrar",
+        "pl": "Gotowe do zapamiętania",
+        "nl": "Klaar om te onthouden",
+        "ru": "Готово к запоминанию"
+      }
     },
     "saved_devices_pending_title": {
       "context": "Saved devices screen: section for in-progress pairing.",
       "translations": {
         "en": "Pending pairing",
-        "fr": "Pending pairing",
-        "es": "Pending pairing",
-        "it": "Pending pairing",
-        "de": "Pending pairing",
-        "pt": "Pending pairing",
-        "pl": "Pending pairing",
-        "nl": "Pending pairing",
-        "ru": "Pending pairing"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Association en attente",
+        "es": "Vinculación pendiente",
+        "it": "Associazione in sospeso",
+        "de": "Ausstehende Kopplung",
+        "pt": "Emparelhamento pendente",
+        "pl": "Oczekujące sparowanie",
+        "nl": "Koppeling in behandeling",
+        "ru": "Ожидающее сопряжение"
+      }
     },
     "saved_devices_list_title": {
 	  "context": "Saved devices screen title and saved-device list heading.",
       "translations": {
         "en": "Saved devices",
-        "fr": "Saved devices",
-        "es": "Saved devices",
-        "it": "Saved devices",
-        "de": "Saved devices",
-        "pt": "Saved devices",
-        "pl": "Saved devices",
-        "nl": "Saved devices",
-        "ru": "Saved devices"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Appareils enregistrés",
+        "es": "Dispositivos guardados",
+        "it": "Dispositivi salvati",
+        "de": "Gespeicherte Geräte",
+        "pt": "Dispositivos guardados",
+        "pl": "Zapisane urządzenia",
+        "nl": "Opgeslagen apparaten",
+        "ru": "Сохранённые устройства"
+      }
     },
     "saved_devices_load_failed": {
       "context": "Saved devices screen: inline error when device state could not be loaded.",
@@ -5249,10 +5230,7 @@
         "pl": "Nie udało się wczytać zapisanych urządzeń.",
         "nl": "Opgeslagen apparaten konden niet worden geladen.",
         "ru": "Не удалось загрузить сохранённые устройства."
-      },
-      "targets": [
-        "kmp"
-      ]
+      }
     },
     "saved_devices_loading": {
       "context": "Saved devices screen: loading state label.",
@@ -5266,27 +5244,22 @@
         "pl": "Wczytywanie zapisanych urządzeń…",
         "nl": "Opgeslagen apparaten laden…",
         "ru": "Загрузка сохранённых устройств…"
-      },
-      "targets": [
-        "kmp"
-      ]
+      }
     },
     "saved_devices_more_actions": {
       "context": "Accessibility label for the saved-device overflow menu. Placeholder is the display name.",
+      "args": [{"name": "device", "type": "string"}],
       "translations": {
-        "en": "More actions for %1$s",
-        "fr": "Plus d’actions pour %1$s",
-        "es": "Más acciones para %1$s",
-        "it": "Altre azioni per %1$s",
-        "de": "Weitere Aktionen für %1$s",
-        "pt": "Mais ações para %1$s",
-        "pl": "Więcej działań dla %1$s",
-        "nl": "Meer acties voor %1$s",
-        "ru": "Другие действия для %1$s"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "en": "More actions for {device}",
+        "fr": "Plus d’actions pour {device}",
+        "es": "Más acciones para {device}",
+        "it": "Altre azioni per {device}",
+        "de": "Weitere Aktionen für {device}",
+        "pt": "Mais ações para {device}",
+        "pl": "Więcej działań dla {device}",
+        "nl": "Meer acties voor {device}",
+        "ru": "Другие действия для {device}"
+      }
     },
     "saved_devices_no_pending": {
       "context": "Desktop Saved devices screen: status when no pairing decision is waiting.",
@@ -5300,316 +5273,274 @@
         "pl": "Żadne prośby o sparowanie nie wymagają uwagi.",
         "nl": "Er zijn geen koppelverzoeken die aandacht nodig hebben.",
         "ru": "Нет запросов на сопряжение, требующих внимания."
-      },
-      "targets": [
-        "kmp"
-      ]
+      }
     },
     "saved_devices_unnamed": {
       "context": "Fallback display when a saved device has no local label or remote name.",
       "translations": {
         "en": "Saved device",
-        "fr": "Saved device",
-        "es": "Saved device",
-        "it": "Saved device",
-        "de": "Saved device",
-        "pt": "Saved device",
-        "pl": "Saved device",
-        "nl": "Saved device",
-        "ru": "Saved device"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Appareil enregistré",
+        "es": "Dispositivo guardado",
+        "it": "Dispositivo salvato",
+        "de": "Gespeichertes Gerät",
+        "pt": "Dispositivo guardado",
+        "pl": "Zapisane urządzenie",
+        "nl": "Opgeslagen apparaat",
+        "ru": "Сохранённое устройство"
+      }
     },
     "saved_devices_remember_action": {
       "context": "Action that starts mutual-consent pairing for an eligible peer.",
       "translations": {
         "en": "Remember",
-        "fr": "Remember",
-        "es": "Remember",
-        "it": "Remember",
-        "de": "Remember",
-        "pt": "Remember",
-        "pl": "Remember",
-        "nl": "Remember",
-        "ru": "Remember"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Mémoriser",
+        "es": "Recordar",
+        "it": "Ricorda",
+        "de": "Speichern",
+        "pt": "Lembrar",
+        "pl": "Zapamiętaj",
+        "nl": "Onthouden",
+        "ru": "Запомнить"
+      }
     },
     "saved_devices_decline_action": {
       "context": "Action that declines pairing eligibility for a peer.",
       "translations": {
         "en": "Decline",
-        "fr": "Decline",
-        "es": "Decline",
-        "it": "Decline",
-        "de": "Decline",
-        "pt": "Decline",
-        "pl": "Decline",
-        "nl": "Decline",
-        "ru": "Decline"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Refuser",
+        "es": "Rechazar",
+        "it": "Rifiuta",
+        "de": "Ablehnen",
+        "pt": "Recusar",
+        "pl": "Odrzuć",
+        "nl": "Weigeren",
+        "ru": "Отклонить"
+      }
     },
     "saved_devices_accept_pairing_action": {
       "context": "Action that accepts an incoming pairing request.",
       "translations": {
         "en": "Accept",
-        "fr": "Accept",
-        "es": "Accept",
-        "it": "Accept",
-        "de": "Accept",
-        "pt": "Accept",
-        "pl": "Accept",
-        "nl": "Accept",
-        "ru": "Accept"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Accepter",
+        "es": "Aceptar",
+        "it": "Accetta",
+        "de": "Annehmen",
+        "pt": "Aceitar",
+        "pl": "Akceptuj",
+        "nl": "Accepteren",
+        "ru": "Принять"
+      }
     },
     "saved_devices_send_action": {
       "context": "Action that starts a targeted send to a saved device.",
       "translations": {
         "en": "Send files",
-        "fr": "Send files",
-        "es": "Send files",
-        "it": "Send files",
-        "de": "Send files",
-        "pt": "Send files",
-        "pl": "Send files",
-        "nl": "Send files",
-        "ru": "Send files"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Envoyer des fichiers",
+        "es": "Enviar archivos",
+        "it": "Invia file",
+        "de": "Dateien senden",
+        "pt": "Enviar ficheiros",
+        "pl": "Wyślij pliki",
+        "nl": "Bestanden versturen",
+        "ru": "Отправить файлы"
+      }
     },
     "saved_devices_label_action": {
       "context": "Action that edits the local label for a saved device.",
       "translations": {
         "en": "Label",
-        "fr": "Label",
-        "es": "Label",
-        "it": "Label",
-        "de": "Label",
-        "pt": "Label",
-        "pl": "Label",
+        "fr": "Libellé",
+        "es": "Etiqueta",
+        "it": "Etichetta",
+        "de": "Bezeichnung",
+        "pt": "Etiqueta",
+        "pl": "Etykieta",
         "nl": "Label",
-        "ru": "Label"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "ru": "Метка"
+      }
     },
     "saved_devices_forget_action": {
       "context": "Action that forgets a saved device relationship.",
       "translations": {
         "en": "Forget",
-        "fr": "Forget",
-        "es": "Forget",
-        "it": "Forget",
-        "de": "Forget",
-        "pt": "Forget",
-        "pl": "Forget",
-        "nl": "Forget",
-        "ru": "Forget"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Oublier",
+        "es": "Olvidar",
+        "it": "Dimentica",
+        "de": "Vergessen",
+        "pt": "Esquecer",
+        "pl": "Zapomnij",
+        "nl": "Vergeten",
+        "ru": "Забыть"
+      }
     },
     "saved_devices_block_action": {
       "context": "Action that blocks a device identity.",
       "translations": {
         "en": "Block",
-        "fr": "Block",
-        "es": "Block",
-        "it": "Block",
-        "de": "Block",
-        "pt": "Block",
-        "pl": "Block",
-        "nl": "Block",
-        "ru": "Block"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Bloquer",
+        "es": "Bloquear",
+        "it": "Blocca",
+        "de": "Blockieren",
+        "pt": "Bloquear",
+        "pl": "Zablokuj",
+        "nl": "Blokkeren",
+        "ru": "Заблокировать"
+      }
     },
     "saved_devices_label_title": {
       "context": "Dialog title for editing a saved device local label.",
       "translations": {
         "en": "Device label",
-        "fr": "Device label",
-        "es": "Device label",
-        "it": "Device label",
-        "de": "Device label",
-        "pt": "Device label",
-        "pl": "Device label",
-        "nl": "Device label",
-        "ru": "Device label"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Libellé de l’appareil",
+        "es": "Etiqueta del dispositivo",
+        "it": "Etichetta del dispositivo",
+        "de": "Gerätebezeichnung",
+        "pt": "Etiqueta do dispositivo",
+        "pl": "Etykieta urządzenia",
+        "nl": "Apparaatlabel",
+        "ru": "Метка устройства"
+      }
     },
     "saved_devices_label_placeholder": {
       "context": "Placeholder for the local label text field.",
       "translations": {
         "en": "Label",
-        "fr": "Label",
-        "es": "Label",
-        "it": "Label",
-        "de": "Label",
-        "pt": "Label",
-        "pl": "Label",
+        "fr": "Libellé",
+        "es": "Etiqueta",
+        "it": "Etichetta",
+        "de": "Bezeichnung",
+        "pt": "Etiqueta",
+        "pl": "Etykieta",
         "nl": "Label",
-        "ru": "Label"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "ru": "Метка"
+      }
     },
     "saved_devices_label_save": {
       "context": "Button that saves the local device label.",
       "translations": {
         "en": "Save",
-        "fr": "Save",
-        "es": "Save",
-        "it": "Save",
-        "de": "Save",
-        "pt": "Save",
-        "pl": "Save",
-        "nl": "Save",
-        "ru": "Save"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Enregistrer",
+        "es": "Guardar",
+        "it": "Salva",
+        "de": "Speichern",
+        "pt": "Guardar",
+        "pl": "Zapisz",
+        "nl": "Opslaan",
+        "ru": "Сохранить"
+      }
     },
     "saved_devices_label_clear": {
       "context": "Button that clears the local device label.",
       "translations": {
         "en": "Clear label",
-        "fr": "Clear label",
-        "es": "Clear label",
-        "it": "Clear label",
-        "de": "Clear label",
-        "pt": "Clear label",
-        "pl": "Clear label",
-        "nl": "Clear label",
-        "ru": "Clear label"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Effacer le libellé",
+        "es": "Borrar etiqueta",
+        "it": "Cancella etichetta",
+        "de": "Bezeichnung löschen",
+        "pt": "Limpar etiqueta",
+        "pl": "Wyczyść etykietę",
+        "nl": "Label wissen",
+        "ru": "Очистить метку"
+      }
     },
     "saved_devices_pending_outgoing": {
       "context": "Status text while waiting for the peer to accept pairing.",
       "translations": {
         "en": "Waiting for the other device",
-        "fr": "Waiting for the other device",
-        "es": "Waiting for the other device",
-        "it": "Waiting for the other device",
-        "de": "Waiting for the other device",
-        "pt": "Waiting for the other device",
-        "pl": "Waiting for the other device",
-        "nl": "Waiting for the other device",
-        "ru": "Waiting for the other device"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "En attente de l’autre appareil",
+        "es": "Esperando al otro dispositivo",
+        "it": "In attesa dell’altro dispositivo",
+        "de": "Warten auf das andere Gerät",
+        "pt": "A aguardar o outro dispositivo",
+        "pl": "Oczekiwanie na drugie urządzenie",
+        "nl": "Wachten op het andere apparaat",
+        "ru": "Ожидание другого устройства"
+      }
     },
     "saved_devices_pending_incoming": {
       "context": "Status text when this device must accept a pairing request.",
       "translations": {
         "en": "Wants to remember this device",
-        "fr": "Wants to remember this device",
-        "es": "Wants to remember this device",
-        "it": "Wants to remember this device",
-        "de": "Wants to remember this device",
-        "pt": "Wants to remember this device",
-        "pl": "Wants to remember this device",
-        "nl": "Wants to remember this device",
-        "ru": "Wants to remember this device"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Souhaite mémoriser cet appareil",
+        "es": "Quiere recordar este dispositivo",
+        "it": "Vuole ricordare questo dispositivo",
+        "de": "Möchte dieses Gerät speichern",
+        "pt": "Quer lembrar este dispositivo",
+        "pl": "Chce zapamiętać to urządzenie",
+        "nl": "Wil dit apparaat onthouden",
+        "ru": "Хочет запомнить это устройство"
+      }
     },
     "saved_devices_send_started": {
       "context": "Snackbar after creating a targeted transfer offer.",
       "translations": {
         "en": "Transfer offer sent",
-        "fr": "Transfer offer sent",
-        "es": "Transfer offer sent",
-        "it": "Transfer offer sent",
-        "de": "Transfer offer sent",
-        "pt": "Transfer offer sent",
-        "pl": "Transfer offer sent",
-        "nl": "Transfer offer sent",
-        "ru": "Transfer offer sent"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Proposition de transfert envoyée",
+        "es": "Oferta de transferencia enviada",
+        "it": "Proposta di trasferimento inviata",
+        "de": "Übertragungsangebot gesendet",
+        "pt": "Proposta de transferência enviada",
+        "pl": "Wysłano propozycję transferu",
+        "nl": "Overdrachtsaanbod verstuurd",
+        "ru": "Предложение передачи отправлено"
+      }
+    },
+    "saved_devices_send_waiting": {
+      "context": "Progress label while a targeted transfer offer is waiting for the receiving device to answer.",
+      "targets": ["apple"],
+      "translations": {
+        "en": "Waiting for the device to answer…",
+        "fr": "En attente de la réponse de l’appareil…",
+        "es": "Esperando la respuesta del dispositivo…",
+        "it": "In attesa della risposta del dispositivo…",
+        "de": "Warten auf die Antwort des Geräts…",
+        "pt": "A aguardar a resposta do dispositivo…",
+        "pl": "Oczekiwanie na odpowiedź urządzenia…",
+        "nl": "Wachten op antwoord van het apparaat…",
+        "ru": "Ожидание ответа устройства…"
+      }
     },
     "saved_devices_forgotten": {
       "context": "Snackbar after forgetting a saved device.",
       "translations": {
         "en": "Saved device forgotten",
-        "fr": "Saved device forgotten",
-        "es": "Saved device forgotten",
-        "it": "Saved device forgotten",
-        "de": "Saved device forgotten",
-        "pt": "Saved device forgotten",
-        "pl": "Saved device forgotten",
-        "nl": "Saved device forgotten",
-        "ru": "Saved device forgotten"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Appareil enregistré oublié",
+        "es": "Dispositivo guardado olvidado",
+        "it": "Dispositivo salvato dimenticato",
+        "de": "Gespeichertes Gerät vergessen",
+        "pt": "Dispositivo guardado esquecido",
+        "pl": "Zapomniano zapisane urządzenie",
+        "nl": "Opgeslagen apparaat vergeten",
+        "ru": "Сохранённое устройство забыто"
+      }
     },
     "saved_devices_blocked": {
       "context": "Snackbar after blocking a device.",
       "translations": {
         "en": "Device blocked",
-        "fr": "Device blocked",
-        "es": "Device blocked",
-        "it": "Device blocked",
-        "de": "Device blocked",
-        "pt": "Device blocked",
-        "pl": "Device blocked",
-        "nl": "Device blocked",
-        "ru": "Device blocked"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Appareil bloqué",
+        "es": "Dispositivo bloqueado",
+        "it": "Dispositivo bloccato",
+        "de": "Gerät blockiert",
+        "pt": "Dispositivo bloqueado",
+        "pl": "Urządzenie zablokowane",
+        "nl": "Apparaat geblokkeerd",
+        "ru": "Устройство заблокировано"
+      }
     },
     "saved_devices_labeled": {
       "context": "Snackbar after updating a saved device label.",
       "translations": {
         "en": "Label updated",
-        "fr": "Label updated",
-        "es": "Label updated",
-        "it": "Label updated",
-        "de": "Label updated",
-        "pt": "Label updated",
-        "pl": "Label updated",
-        "nl": "Label updated",
-        "ru": "Label updated"
-      },
-      "targets": [
-        "kmp"
-      ]
+        "fr": "Libellé mis à jour",
+        "es": "Etiqueta actualizada",
+        "it": "Etichetta aggiornata",
+        "de": "Bezeichnung aktualisiert",
+        "pt": "Etiqueta atualizada",
+        "pl": "Zaktualizowano etykietę",
+        "nl": "Label bijgewerkt",
+        "ru": "Метка обновлена"
+      }
     }
   }
 }

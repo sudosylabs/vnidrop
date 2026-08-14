@@ -336,6 +336,140 @@ final class CoreRepository: ObservableObject, CoreGateway {
 			if let snapshot { self.applySnapshot(snapshot) }
 		}
 	}
+	// MARK: - Saved devices
+
+	func listPairingEligibilities() async -> Result<[PairingEligibilityModel], Error> {
+		await runCore { try self.requireCore().listPairingEligibilities().map { $0.toModel() } }
+	}
+
+	func declinePairingEligibility(peerEndpointId: String) async -> Result<Void, Error> {
+		await runCore { try self.requireCore().declinePairingEligibility(peerEndpointId: peerEndpointId) }
+	}
+
+	func requestSavedDevicePairing(peerEndpointId: String) async -> Result<Bool, Error> {
+		await runCore { try self.requireCore().requestSavedDevicePairing(peerEndpointId: peerEndpointId) }
+	}
+
+	func respondToDevicePairing(peerEndpointId: String, accepted: Bool) async -> Result<Bool, Error> {
+		await runCore {
+			try self.requireCore().respondToDevicePairing(peerEndpointId: peerEndpointId, accepted: accepted)
+		}
+	}
+
+	func listDeviceRelationships() async -> Result<[DeviceRelationshipModel], Error> {
+		await runCore { try self.requireCore().listDeviceRelationships().map { $0.toModel() } }
+	}
+
+	func listSavedDevices() async -> Result<[SavedDeviceModel], Error> {
+		await runCore { try self.requireCore().listSavedDevices().map { $0.toModel() } }
+	}
+
+	func setSavedDeviceLabel(peerEndpointId: String, label: String?) async -> Result<Void, Error> {
+		await runCore { try self.requireCore().setSavedDeviceLabel(peerEndpointId: peerEndpointId, label: label) }
+	}
+
+	func forgetSavedDevice(peerEndpointId: String) async -> Result<Void, Error> {
+		// Forget cancels the peer's active/resumable targeted transfers, so it can
+		// run while one is streaming on the serial lane — same reasoning as `cancel`.
+		await runInterrupt { try self.requireCore().forgetSavedDevice(peerEndpointId: peerEndpointId) }
+	}
+
+	func blockDevice(peerEndpointId: String) async -> Result<Void, Error> {
+		// Block is immediate and identity-wide, cancelling traffic in flight.
+		await runInterrupt { try self.requireCore().blockDevice(peerEndpointId: peerEndpointId) }
+	}
+
+	func unblockDevice(peerEndpointId: String) async -> Result<Void, Error> {
+		await runCore { try self.requireCore().unblockDevice(peerEndpointId: peerEndpointId) }
+	}
+
+	func listBlockedDevices() async -> Result<[String], Error> {
+		await runCore { try self.requireCore().listBlockedDevices() }
+	}
+
+	// MARK: - Targeted transfers
+
+	func listPendingTargetedOffers() async -> Result<[PendingTargetedOfferModel], Error> {
+		// `listPendingTargetedOffers` is itself non-throwing, but `requireCore` is.
+		await runCore { try self.requireCore().listPendingTargetedOffers().map { $0.toModel() } }
+	}
+
+	func respondToTargetedOffer(
+		transferId: String,
+		accepted: Bool
+	) async -> Result<TargetedOfferResponseModel, Error> {
+		await runCore {
+			try self.requireCore()
+				.respondToTargetedOffer(transferId: transferId, accepted: accepted)
+				.toModel()
+		}
+	}
+
+	func createTargetedTransfer(
+		receiverEndpointId: String,
+		sources: [ShareSource],
+		transferName: String?
+	) async -> Result<TargetedTransferModel, Error> {
+		guard !isNetworkTransitionInProgress else {
+			return .failure(CoreNetworkLifecycleError.transitionInProgress)
+		}
+		guard !sources.isEmpty else {
+			return .failure(InvitationError.shareEmpty)
+		}
+		return await runCore {
+			try self.requireCore().createTargetedTransfer(
+				receiverEndpointId: receiverEndpointId,
+				sources: sources,
+				transferName: transferName
+			).toModel()
+		}
+	}
+
+	func listTargetedTransfers() async -> Result<[TargetedTransferModel], Error> {
+		await runCore { try self.requireCore().listTargetedTransfers().map { $0.toModel() } }
+	}
+
+	func receiveTargetedTransfer(
+		transferId: String,
+		outputDirectoryUrl: String
+	) async -> Result<Void, Error> {
+		guard !isNetworkTransitionInProgress else {
+			return .failure(CoreNetworkLifecycleError.transitionInProgress)
+		}
+		return await runCore {
+			try withSecurityScopedAccess(pathOrUrl: outputDirectoryUrl) {
+				try self.requireCore().receiveTargetedTransfer(
+					transferId: transferId,
+					outputDir: outputDirectoryUrl
+				)
+			}
+		}
+	}
+
+	func resumeTargetedTransfer(
+		id: String,
+		outputDirectoryUrl: String
+	) async -> Result<Void, Error> {
+		guard !isNetworkTransitionInProgress else {
+			return .failure(CoreNetworkLifecycleError.transitionInProgress)
+		}
+		return await runCore {
+			try withSecurityScopedAccess(pathOrUrl: outputDirectoryUrl) {
+				try self.requireCore().resumeTargetedTransfer(id: id, outputDir: outputDirectoryUrl)
+			}
+		}
+	}
+
+	func cancelTargetedTransfer(id: String) async -> Result<Void, Error> {
+		// Off the serial lane: an in-flight targeted receive is blocking it, and the
+		// cancel must reach the core to unblock that receive (see `cancel`).
+		await runInterrupt { try self.requireCore().cancelTargetedTransfer(id: id) }
+	}
+
+	func deleteTargetedTransfer(id: String) async -> Result<Void, Error> {
+		await runCore { try self.requireCore().deleteTargetedTransfer(id: id) }
+	}
+
 	// MARK: - Event sink handling (ported from CoreRepository.sink)
 
 	private func handle(event: CoreEvent) {
@@ -344,6 +478,21 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		events.insert(model, at: 0)
 		if events.count > Self.maxEvents { events = Array(events.prefix(Self.maxEvents)) }
 		state.events = events
+
+		// Saved-device events identify their subject by peer endpoint or a string
+		// `targeted_transfer_id`, so they carry no numeric `transferId` and must be
+		// dispatched before the guard below. Both are payload-free wake-ups: the
+		// consumer re-reads durable state rather than trusting the event.
+		switch model.eventPhase {
+		case .pairing:
+			signalsSubject.send(.pairingChanged)
+			return
+		case .targetedTransfer:
+			signalsSubject.send(.targetedTransferChanged)
+			return
+		default:
+			break
+		}
 
 		guard let transferId = model.transferId else { return }
 		switch model.phase {
@@ -537,6 +686,108 @@ private extension TransferMetadata {
 			transferId: transferId, transferName: transferName, senderName: senderName,
 			contentHash: contentHash, fileCount: fileCount, totalSize: totalSize
 		)
+	}
+}
+
+// MARK: - Saved-device mapping (ported from CoreRepository.kt)
+
+private extension SavedDevice {
+	func toModel() -> SavedDeviceModel {
+		SavedDeviceModel(
+			endpointId: endpointId, localLabel: localLabel, remoteDisplayName: remoteDisplayName,
+			createdAt: createdAt, lastAuthenticatedAt: lastAuthenticatedAt
+		)
+	}
+}
+
+private extension DeviceRelationshipState {
+	func toModel() -> DeviceRelationshipStateModel {
+		switch self {
+		case .pendingOutgoing: return .pendingOutgoing
+		case .pendingIncoming: return .pendingIncoming
+		case .saved: return .saved
+		case .revoked: return .revoked
+		case .blocked: return .blocked
+		}
+	}
+}
+
+private extension DeviceRelationship {
+	func toModel() -> DeviceRelationshipModel {
+		DeviceRelationshipModel(
+			remoteEndpointId: remoteEndpointId, state: state.toModel(), generation: generation,
+			minimumProtocolVersion: minimumProtocolVersion, createdAt: createdAt, updatedAt: updatedAt
+		)
+	}
+}
+
+private extension PairingEligibilitySummary {
+	func toModel() -> PairingEligibilityModel {
+		PairingEligibilityModel(
+			peerEndpointId: peerEndpointId, remoteDisplayName: remoteDisplayName, sessionId: sessionId,
+			protocolVersion: protocolVersion, createdAt: createdAt, expiresAt: expiresAt
+		)
+	}
+}
+
+private extension PendingTargetedOffer {
+	func toModel() -> PendingTargetedOfferModel {
+		PendingTargetedOfferModel(
+			transferId: transferId, senderEndpointId: senderEndpointId,
+			receiverEndpointId: receiverEndpointId, manifestId: manifestId, contentHash: contentHash,
+			transferName: transferName, fileCount: fileCount, totalSize: totalSize,
+			protocolVersion: protocolVersion, receivedAt: receivedAt
+		)
+	}
+}
+
+private extension TargetedTransferState {
+	func toModel() -> TargetedTransferStateModel {
+		switch self {
+		case .preparing: return .preparing
+		case .offering: return .offering
+		case .awaitingApproval: return .awaitingApproval
+		case .approved: return .approved
+		case .connecting: return .connecting
+		case .transferring: return .transferring
+		case .interrupted: return .interrupted
+		case .completed: return .completed
+		case .declined: return .declined
+		case .cancelled: return .cancelled
+		case .failed: return .failed
+		case .deleted: return .deleted
+		}
+	}
+}
+
+private extension TargetedTransfer {
+	func toModel() -> TargetedTransferModel {
+		TargetedTransferModel(
+			id: id, role: role.toModel(),
+			senderEndpointId: senderEndpointId, receiverEndpointId: receiverEndpointId,
+			manifestId: manifestId, transferName: transferName, fileCount: fileCount,
+			totalSize: totalSize, verifiedBytes: verifiedBytes, state: state.toModel(),
+			createdAt: createdAt, updatedAt: updatedAt
+		)
+	}
+}
+
+private extension TargetedTransferRole {
+	func toModel() -> TargetedTransferRoleModel {
+		switch self {
+		case .sender: return .sender
+		case .receiver: return .receiver
+		}
+	}
+}
+
+private extension TargetedOfferResponse {
+	func toModel() -> TargetedOfferResponseModel {
+		switch self {
+		case .approved(let transferId): return .approved(transferId: transferId)
+		case .declined: return .declined
+		case .alreadySettled(let transferId): return .alreadySettled(transferId: transferId)
+		}
 	}
 }
 

@@ -42,6 +42,24 @@ final class FakeCoreGateway: CoreGateway {
 	private(set) var resetUnrecoverableIdentityCount = 0
 
 	func setState(_ state: CoreState) { stateSubject.send(state) }
+
+	/// Publishes the `created` lifecycle event the core emits once a targeted
+	/// transfer row exists, then the signal that follows it — the sequence that
+	/// lets a caller cancel a create still holding the serial lane.
+	func emitTargetedTransferCreated(id: String) {
+		var state = stateSubject.value
+		state.events.insert(
+			CoreEventModel(
+				id: "event-\(id)", revision: 1, timestamp: 1, scope: "endpoint", transferId: nil,
+				direction: nil, phase: EventPhase.targetedTransfer.rawValue,
+				kind: EventKind.created.rawValue,
+				dataJson: #"{"targeted_transfer_id":"\#(id)"}"#
+			),
+			at: 0
+		)
+		stateSubject.send(state)
+		emit(.targetedTransferChanged)
+	}
 	func emit(_ signal: CoreSignal) { signalsSubject.send(signal) }
 
 	func initialize(
@@ -96,12 +114,148 @@ final class FakeCoreGateway: CoreGateway {
 		return responseResult
 	}
 	func refresh() async -> Result<Void, Error> { .success(()) }
+
+	// MARK: - Saved devices
+
+	// Stubbed results
+	var savedDevices: [SavedDeviceModel] = []
+	/// Overrides `savedDevices` when set, so a test can fail one leg of the
+	/// five-read snapshot without stubbing the rest.
+	var savedDevicesResult: Result<[SavedDeviceModel], Error>?
+	var deviceRelationships: [DeviceRelationshipModel] = []
+	var pairingEligibilities: [PairingEligibilityModel] = []
+	var blockedDevices: [String] = []
+	var pendingTargetedOffers: [PendingTargetedOfferModel] = []
+	var targetedTransfers: [TargetedTransferModel] = []
+	var setLabelResult: Result<Void, Error> = .success(())
+	var forgetResult: Result<Void, Error> = .success(())
+	var blockResult: Result<Void, Error> = .success(())
+	var requestPairingResult: Result<Bool, Error> = .success(true)
+	var respondToPairingResult: Result<Bool, Error> = .success(true)
+	var offerResponseResult: Result<TargetedOfferResponseModel, Error> = .success(.declined)
+	var createTargetedTransferResult: Result<TargetedTransferModel, Error> = .failure(TestError.unimplemented)
+	var targetedReceiveResult: Result<Void, Error> = .success(())
+	var targetedCancelResult: Result<Void, Error> = .success(())
+	var targetedDeleteResult: Result<Void, Error> = .success(())
+
+	// Recorded calls
+	private(set) var setLabels: [(peerEndpointId: String, label: String?)] = []
+	private(set) var forgottenDevices: [String] = []
+	private(set) var blockedCalls: [String] = []
+	private(set) var unblockedCalls: [String] = []
+	private(set) var declinedEligibilities: [String] = []
+	private(set) var requestedPairings: [String] = []
+	private(set) var pairingResponses: [(peerEndpointId: String, accepted: Bool)] = []
+	private(set) var offerResponses: [(transferId: String, accepted: Bool)] = []
+	private(set) var createdTargetedTransfers: [(receiverEndpointId: String, sources: [ShareSource], transferName: String?)] = []
+	private(set) var targetedReceives: [(transferId: String, outputDirectoryUrl: String)] = []
+	private(set) var targetedResumes: [(id: String, outputDirectoryUrl: String)] = []
+	private(set) var cancelledTargetedTransfers: [String] = []
+	private(set) var deletedTargetedTransfers: [String] = []
+
+	func listPairingEligibilities() async -> Result<[PairingEligibilityModel], Error> {
+		.success(pairingEligibilities)
+	}
+	func declinePairingEligibility(peerEndpointId: String) async -> Result<Void, Error> {
+		declinedEligibilities.append(peerEndpointId)
+		return .success(())
+	}
+	func requestSavedDevicePairing(peerEndpointId: String) async -> Result<Bool, Error> {
+		requestedPairings.append(peerEndpointId)
+		return requestPairingResult
+	}
+	func respondToDevicePairing(peerEndpointId: String, accepted: Bool) async -> Result<Bool, Error> {
+		pairingResponses.append((peerEndpointId, accepted))
+		return respondToPairingResult
+	}
+	func listDeviceRelationships() async -> Result<[DeviceRelationshipModel], Error> {
+		.success(deviceRelationships)
+	}
+	func listSavedDevices() async -> Result<[SavedDeviceModel], Error> {
+		savedDevicesResult ?? .success(savedDevices)
+	}
+	func setSavedDeviceLabel(peerEndpointId: String, label: String?) async -> Result<Void, Error> {
+		setLabels.append((peerEndpointId, label))
+		return setLabelResult
+	}
+	func forgetSavedDevice(peerEndpointId: String) async -> Result<Void, Error> {
+		forgottenDevices.append(peerEndpointId)
+		return forgetResult
+	}
+	func blockDevice(peerEndpointId: String) async -> Result<Void, Error> {
+		blockedCalls.append(peerEndpointId)
+		return blockResult
+	}
+	func unblockDevice(peerEndpointId: String) async -> Result<Void, Error> {
+		unblockedCalls.append(peerEndpointId)
+		return .success(())
+	}
+	func listBlockedDevices() async -> Result<[String], Error> { .success(blockedDevices) }
+
+	// MARK: - Targeted transfers
+
+	func listPendingTargetedOffers() async -> Result<[PendingTargetedOfferModel], Error> {
+		.success(pendingTargetedOffers)
+	}
+	func respondToTargetedOffer(
+		transferId: String, accepted: Bool
+	) async -> Result<TargetedOfferResponseModel, Error> {
+		offerResponses.append((transferId, accepted))
+		return offerResponseResult
+	}
+	/// Holds `createTargetedTransfer` open until `releaseTargetedCreate()`, so a
+	/// test can observe the model while a create is genuinely in flight — the
+	/// state the user is stuck in when the receiving device never answers.
+	var holdsTargetedCreate = false
+	private var targetedCreateGate: CheckedContinuation<Void, Never>?
+
+	/// True once the call is parked on the gate. `isCreatingSend` flips before the
+	/// task body runs, so releasing on that alone can resume nothing and hang.
+	var isHoldingTargetedCreate: Bool { targetedCreateGate != nil }
+
+	func releaseTargetedCreate() {
+		let gate = targetedCreateGate
+		targetedCreateGate = nil
+		gate?.resume()
+	}
+
+	func createTargetedTransfer(
+		receiverEndpointId: String, sources: [ShareSource], transferName: String?
+	) async -> Result<TargetedTransferModel, Error> {
+		createdTargetedTransfers.append((receiverEndpointId, sources, transferName))
+		if holdsTargetedCreate {
+			await withCheckedContinuation { targetedCreateGate = $0 }
+		}
+		return createTargetedTransferResult
+	}
+	func listTargetedTransfers() async -> Result<[TargetedTransferModel], Error> {
+		.success(targetedTransfers)
+	}
+	func receiveTargetedTransfer(
+		transferId: String, outputDirectoryUrl: String
+	) async -> Result<Void, Error> {
+		targetedReceives.append((transferId, outputDirectoryUrl))
+		return targetedReceiveResult
+	}
+	func resumeTargetedTransfer(id: String, outputDirectoryUrl: String) async -> Result<Void, Error> {
+		targetedResumes.append((id, outputDirectoryUrl))
+		return targetedReceiveResult
+	}
+	func cancelTargetedTransfer(id: String) async -> Result<Void, Error> {
+		cancelledTargetedTransfers.append(id)
+		return targetedCancelResult
+	}
+	func deleteTargetedTransfer(id: String) async -> Result<Void, Error> {
+		deletedTargetedTransfers.append(id)
+		return targetedDeleteResult
+	}
 }
 
 /// Minimal `FileSystemService` fake — a writable path receive folder, no reveal.
 @MainActor
 final class FakeFileSystemService: FileSystemService {
 	var supportsCustomReceiveFolders = false
+	var userCanReachTrash = true
 	var folder = ReceiveFolder(kind: .fileSystemPath, value: "/tmp/vnidrop-tests", displayName: "Documents")
 
 	func defaultReceiveFolder() -> ReceiveFolder { folder }
@@ -117,6 +271,31 @@ final class FakeFileSystemService: FileSystemService {
 		return await repository.shareSources(
 			[], transferName: transferName, senderName: senderName, accessPolicy: accessPolicy
 		)
+	}
+
+	/// Records targeted sends and forwards to the gateway so its recorders and
+	/// stubbed result drive the assertions.
+	private(set) var targetedSends: [(files: [PickedShareFile], transferName: String, receiver: String)] = []
+
+	func sendPickedFilesToSavedDevice(
+		repository: CoreGateway,
+		files: [PickedShareFile],
+		transferName: String,
+		receiverEndpointId: String
+	) async -> Result<TargetedTransferModel, Error> {
+		targetedSends.append((files, transferName, receiverEndpointId))
+		return await repository.createTargetedTransfer(
+			receiverEndpointId: receiverEndpointId,
+			sources: [],
+			transferName: transferName.isEmpty ? nil : transferName
+		)
+	}
+
+	/// Picker copies released via `discardPickedFiles`.
+	private(set) var discardedFiles: [String] = []
+
+	func discardPickedFiles(_ files: [PickedShareFile]) async {
+		discardedFiles.append(contentsOf: files.map(\.value))
 	}
 }
 

@@ -75,10 +75,6 @@
 	<true/>
 	<key>NFCReaderUsageDescription</key>
 	<string>VniDrop uses NFC to read transfer invitation tags.</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string></string>
-	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>VniDrop uses the camera to scan transfer QR codes.</string>
 	<key>NSLocalNetworkUsageDescription</key>
@@ -87,10 +83,6 @@
 	     view. Mirrors the single-window macOS behavior. -->
 	<key>UIApplicationSupportsMultipleScenes</key>
 	<false/>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
-	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>UILaunchScreen</key>

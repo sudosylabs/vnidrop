@@ -255,6 +255,7 @@ final class FakeCoreGateway: CoreGateway {
 @MainActor
 final class FakeFileSystemService: FileSystemService {
 	var supportsCustomReceiveFolders = false
+	var userCanReachTrash = true
 	var folder = ReceiveFolder(kind: .fileSystemPath, value: "/tmp/vnidrop-tests", displayName: "Documents")
 
 	func defaultReceiveFolder() -> ReceiveFolder { folder }

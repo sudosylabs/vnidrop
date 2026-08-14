@@ -25,6 +25,11 @@ struct PickedShareFile: Equatable, Identifiable, Sendable {
 @MainActor
 protocol FileSystemService {
 	var supportsCustomReceiveFolders: Bool { get }
+	/// Whether the user can see and restore what the system moved to `.Trash`
+	/// inside app-owned directories. False on iOS/iPadOS, where the Files app
+	/// hides the container's `.Trash` with no way back — the bytes are lost
+	/// already, so the app reclaims them on its own.
+	var userCanReachTrash: Bool { get }
 
 	func defaultReceiveFolder() -> ReceiveFolder
 	func effectiveReceiveFolder(_ configured: ReceiveFolder) -> ReceiveFolder
@@ -56,6 +61,7 @@ protocol FileSystemService {
 
 extension FileSystemService {
 	var supportsCustomReceiveFolders: Bool { true }
+	var userCanReachTrash: Bool { true }
 
 	func effectiveReceiveFolder(_ configured: ReceiveFolder) -> ReceiveFolder {
 		supportsCustomReceiveFolders ? configured : defaultReceiveFolder()

@@ -112,12 +112,17 @@ struct RootView: View {
 		}
 		.platformPickers(settingsModel: settingsModel)
 		.task { await consumeExternalInvitations() }
+		// Launch pass; `.onChange(of: scenePhase)` doesn't fire for the initial value.
+		.task { settingsModel.purgeUnreachableTrash() }
 		.onChange(of: scenePhase) { _, phase in
 			switch phase {
 			case .active:
 				graph.visibility.setForeground(true)
 				graph.backgroundActivity.didBecomeForeground()
 				settingsModel.refreshNotificationPermission()
+				// Files deleted from the app's Documents while it was away land in a
+				// trash the user can't reach on iOS; take them out on the way back in.
+				settingsModel.purgeUnreachableTrash()
 				// Reconcile against the durable snapshot: while the window was
 				// unfocused/occluded (common on macOS) live events may not have
 				// rendered, leaving progress/status stale.

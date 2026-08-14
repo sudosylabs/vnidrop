@@ -8,6 +8,7 @@ import VnidropCore
 /// supported because raw external picker URLs do not survive relaunch.
 struct IosFileSystemService: FileSystemService {
 	var supportsCustomReceiveFolders: Bool { false }
+	var userCanReachTrash: Bool { false }
 
 	func defaultReceiveFolder() -> ReceiveFolder {
 		let path = FileManager.default

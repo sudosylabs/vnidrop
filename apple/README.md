@@ -65,9 +65,12 @@ Full signing, notarization, appcast, and cask flow: see
 
 Use `APPLE_PROFILE=release` to request a release Rust core, or set
 `APPLE_DESTINATION` to override the automatically selected iOS simulator.
-Code signing is disabled for the app and test targets; local and CI builds do
-not require an Apple Development team or provisioning profile. Make builds can
-opt in with `APPLE_CODE_SIGNING=YES`. For signed builds from Xcode, create the
+Code signing is disabled for build targets; local and CI builds do not require
+an Apple Development team or provisioning profile. Make builds can opt in with
+`APPLE_CODE_SIGNING=YES`. `make check-apple` is the exception: it signs ad-hoc
+(`CODE_SIGN_IDENTITY=-`, override with `APPLE_TEST_CODE_SIGN_IDENTITY`) because
+the core keeps its endpoint identity in the protected keychain, which an
+unsigned simulator app cannot reach. Ad-hoc needs no certificate or team. For signed builds from Xcode, create the
 ignored `apple/Local.xcconfig` and override the signing settings there, including
 the development team.
 

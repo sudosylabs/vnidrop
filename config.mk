@@ -29,6 +29,11 @@ APPLE_PROFILE ?= debug
 APPLE_CONFIGURATION ?= Debug
 APPLE_DESTINATION ?=
 APPLE_CODE_SIGNING ?= NO
+# Simulator tests need entitlements applied — the core stores its endpoint
+# identity in the protected keychain, which an unsigned app cannot reach. An
+# ad-hoc signature is enough there: no certificate, team, or profile involved.
+# Set to a real identity only if a device destination is ever used.
+APPLE_TEST_CODE_SIGN_IDENTITY ?= -
 APPLE_DERIVED_DATA ?= $(ROOT)/apple/DerivedData
 
 GRADLE_FLAGS ?= --no-daemon --stacktrace

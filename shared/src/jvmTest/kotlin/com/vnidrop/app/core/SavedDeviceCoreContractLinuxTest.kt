@@ -45,7 +45,11 @@ class SavedDeviceCoreContractLinuxTest {
 			assertFalse(coreDir.resolve("iroh.secret").toFile().exists())
 			id
 		} finally {
-			first.shutdown()
+			try {
+				first.shutdown()
+			} finally {
+				first.close()
+			}
 		}
 
 		val second = VnidropCore.initializeWithLimitsAndNetworkConfig(
@@ -65,7 +69,11 @@ class SavedDeviceCoreContractLinuxTest {
 			second.listTargetedTransfers()
 			second.listEvents(null)
 		} finally {
-			second.shutdown()
+			try {
+				second.shutdown()
+			} finally {
+				second.close()
+			}
 			coreDir.toFile().deleteRecursively()
 		}
 	}

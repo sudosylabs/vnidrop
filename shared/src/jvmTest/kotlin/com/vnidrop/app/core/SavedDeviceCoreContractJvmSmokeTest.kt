@@ -54,7 +54,11 @@ class SavedDeviceCoreContractJvmSmokeTest {
 			assertTrue(id.isNotBlank())
 			id
 		} finally {
-			first.shutdown()
+			try {
+				first.shutdown()
+			} finally {
+				first.close()
+			}
 		}
 
 		val second = VnidropCore.initializeWithNetworkConfig(
@@ -71,7 +75,11 @@ class SavedDeviceCoreContractJvmSmokeTest {
 				assertTrue(event.revision >= 1uL)
 			}
 		} finally {
-			second.shutdown()
+			try {
+				second.shutdown()
+			} finally {
+				second.close()
+			}
 			coreDir.toFile().deleteRecursively()
 		}
 	}

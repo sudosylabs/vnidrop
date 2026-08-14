@@ -23,11 +23,8 @@ export function BrandMark({ className, title }: BrandAssetProps) {
 export function Brand() {
   return (
     <Link className="brand" href="/" aria-label="VniDrop home">
-      <span className="brand-primary">
-        <BrandMark className="brand-mark-image" />
-        <span className="brand-name">VniDrop</span>
-      </span>
-      <span className="brand-tagline">Send files directly. Stay in control.</span>
+      <BrandMark className="brand-mark-image" />
+      <span className="brand-name">VniDrop</span>
     </Link>
   );
 }

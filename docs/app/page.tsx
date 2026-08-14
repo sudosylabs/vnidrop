@@ -1,167 +1,181 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Icon, type IconName } from "@/components/icons";
-import { PlatformIcon, supportedPlatforms } from "@/components/platform-icon";
-import { Reveal } from "@/components/reveal";
+import type { ReactNode } from "react";
 
-const steps: Array<{
-  icon: IconName;
-  number: string;
-  title: string;
-  text: string;
-}> = [
+const steps: Array<{ number: string; title: string; text: ReactNode }> = [
   {
-    icon: "folder",
-    number: "01",
+    number: "1",
     title: "Choose what to send",
-    text: "Pick files, a batch, or a complete folder. VniDrop preserves the folder structure.",
+    text: "Pick files, a batch, or a folder. VniDrop keeps the original folder structure.",
   },
   {
-    icon: "qr",
-    number: "02",
-    title: "Share an invitation",
-    text: "Introduce the devices with a QR code, NFC tap, or portable .vnd invitation.",
+    number: "2",
+    title: "Introduce the devices",
+    text: (
+      <>
+        The first time, share a small invitation—a QR code, an NFC tag, or a <code>.vnd</code> file.
+        After you both remember the other device, you can send to it directly from Saved devices.
+      </>
+    ),
   },
   {
-    icon: "shield",
-    number: "03",
-    title: "Approve and transfer",
-    text: "The receiver asks first. Once approved, the files move over an authenticated encrypted connection.",
+    number: "3",
+    title: "Confirm the handoff",
+    text: "An invitation still asks you to approve each receiver. A Saved device still has to accept the incoming offer. Remembering a device never auto-receives.",
+  },
+  {
+    number: "4",
+    title: "Stream and verify",
+    text: "Files move over an authenticated, encrypted connection. Content addressing checks that the received bytes match what you sent. You can cancel or stop sharing at any time.",
   },
 ];
 
-const trustItems: Array<{
-  icon: IconName;
-  title: string;
-  text: string;
-}> = [
-  {
-    icon: "devices",
-    title: "Direct when possible",
-    text: "Devices connect directly when they can. An encrypted relay forwards traffic when they cannot.",
-  },
-  {
-    icon: "lock",
-    title: "No hosted copy",
-    text: "A relay is a route, not storage. Your transfer is never turned into a cloud download.",
-  },
-  {
-    icon: "verified",
-    title: "Verified on arrival",
-    text: "Content addressing checks that the received bytes match exactly what you sent.",
-  },
+const does = [
+  "Connect devices directly when a path exists.",
+  "Forward the same encrypted connection through a relay when it does not. The relay is a route, not storage.",
+  "Verify content on arrival so the received bytes match exactly what you sent.",
+  "Ask before each download, unless you choose otherwise.",
+  "Let you remember a device after a transfer so the next send does not need a new invitation. They still confirm the offer.",
+];
+
+const doesNot = [
+  "Create accounts.",
+  "Keep a hosted copy of the transfer.",
+  "Collect telemetry or analytics. A bug report is sent only when you submit one.",
+  "Replace a file that already exists at the destination.",
+  "Receive files automatically because a device is saved.",
 ];
 
 export default function HomePage() {
   return (
     <main id="main-content">
-      <section className="hero-section">
-        <div className="hero-ambient hero-ambient-one" aria-hidden="true" />
-        <div className="hero-ambient hero-ambient-two" aria-hidden="true" />
-        <div className="page-shell hero-layout">
-          <div className="hero-copy">
-            <Reveal>
-              <div className="eyebrow-badge">
-                <span className="eyebrow-dot" />
-                OPEN SOURCE · EARLY DEVELOPMENT
-              </div>
-              <h1>
-                Your files.
-                <br />
-                <span>A straight line</span>
-                <br />
-                between devices.
-              </h1>
-              <p className="hero-lead">
-                Send files and folders across your devices—direct when possible, private by design,
-                and always under your control.
-              </p>
-              <div className="hero-actions">
-                <a className="button button-primary" href="#how-it-works">
-                  See how it works
-                  <Icon name="arrow" />
-                </a>
-              </div>
-              <div className="hero-platforms" aria-label="Supported platforms">
-                <span>Available across</span>
-                <ul>
-                  {supportedPlatforms.map((platform) => (
-                    <li key={platform} aria-label={platform} title={platform}>
-                      <PlatformIcon className="platform-glyph" platform={platform} />
-                      <span className="sr-only">{platform}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </Reveal>
-          </div>
-          <Reveal className="hero-art-reveal" delay={120}>
-            <figure className="hero-app-preview">
+      <section className="hero">
+        <div className="page-shell hero-inner">
+          <p className="hero-status">Open source · Early development</p>
+          <h1>
+            Send files from this device to that one.
+            <em>They ask. You decide.</em>
+          </h1>
+          <p className="hero-lead">
+            VniDrop moves files and folders between devices without an account and without a cloud
+            copy. Meet once with an invitation. After that, send to a Saved device. The receiver
+            still confirms every transfer.
+          </p>
+          <p className="hero-actions">
+            <Link className="text-link" href="/download/">
+              Download
+            </Link>
+            <a className="text-link" href="#how-it-works">
+              How a transfer works
+            </a>
+          </p>
+          <p className="hero-platforms">
+            Available on Android, iOS, macOS, Windows, and Linux.
+          </p>
+          <div className="hero-photos">
+            <figure className="hero-photo">
               <Image
-                className="hero-app-preview-image"
-                src="/App.png"
-                width={2338}
-                height={1873}
-                sizes="(max-width: 920px) calc(100vw - 32px), 56vw"
-                alt="VniDrop running on desktop and iPhone, showing transfer review, receiver permissions, and invitation options."
+                src="/shots/desktop-review.png"
+                width={1920}
+                height={1080}
+                sizes="(max-width: 720px) calc(100vw - 32px), 720px"
+                alt="VniDrop on Windows, reviewing a transfer with ask-before-each-download selected."
                 priority
                 unoptimized
               />
+              <figcaption>Desktop on Windows. Android and Linux share this interface.</figcaption>
             </figure>
-          </Reveal>
+            <figure className="shot shot-phone">
+              <Image
+                src="/shots/share-securely.png"
+                width={1320}
+                height={2868}
+                sizes="(max-width: 720px) 260px, 240px"
+                alt="Native iPhone share sheet with a QR code and an option to write the invitation to an NFC tag."
+                priority
+                unoptimized
+              />
+              <figcaption>Native iPhone app.</figcaption>
+            </figure>
+          </div>
         </div>
       </section>
 
-      <section id="how-it-works" className="simple-section simple-flow-section">
+      <section id="how-it-works" className="manual">
+        <div className="page-shell manual-layout">
+          <div className="manual-copy">
+            <h2>How a transfer works</h2>
+            <p>
+              An invitation introduces devices that have never met. A Saved device is one you both
+              chose to remember after a transfer.
+            </p>
+            <ol className="manual-steps">
+              {steps.map((step) => (
+                <li key={step.number}>
+                  <span className="manual-num" aria-hidden="true">
+                    {step.number}
+                  </span>
+                  <div>
+                    <h3>{step.title}</h3>
+                    <p>{step.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <div className="manual-photos">
+            <figure className="shot">
+              <Image
+                src="/shots/send-anywhere.png"
+                width={1320}
+                height={2868}
+                sizes="(max-width: 800px) calc(100vw - 64px), 280px"
+                alt="Native iPhone transfer details, with ask-before-each-download enabled."
+                unoptimized
+              />
+              <figcaption>Transfer details on iPhone.</figcaption>
+            </figure>
+            <figure className="shot">
+              <Image
+                src="/shots/choose-receivers.png"
+                width={1320}
+                height={2868}
+                sizes="(max-width: 800px) calc(100vw - 64px), 280px"
+                alt="Receive request from a Mac mini, with Approve and Refuse actions."
+                unoptimized
+              />
+              <figcaption>A receiver asks first. You approve or refuse.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section className="facts" aria-labelledby="facts-heading">
         <div className="page-shell">
-          <Reveal className="simple-heading">
-            <span className="kicker">HOW IT WORKS</span>
-            <h2>Three steps. No account.</h2>
-            <p>
-              Choose the files, introduce the devices, and approve the handoff. VniDrop handles the
-              secure route.
-            </p>
-          </Reveal>
-          <div className="simple-steps">
-            {steps.map((step) => (
-              <article key={step.number} className="simple-step">
-                <div className="simple-step-top">
-                  <span>{step.number}</span>
-                  <Icon name={step.icon} />
-                </div>
-                <h3>{step.title}</h3>
-                <p>{step.text}</p>
-              </article>
-            ))}
+          <h2 id="facts-heading">What VniDrop does—and doesn’t.</h2>
+          <div className="facts-grid">
+            <div>
+              <h3>Does</h3>
+              <ul>
+                {does.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3>Does not</h3>
+              <ul>
+                {doesNot.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
           </div>
-        </div>
-      </section>
-
-      <section id="privacy" className="trust-summary-section">
-        <div className="page-shell trust-summary">
-          <Reveal className="trust-summary-copy">
-            <span className="kicker kicker-light">PRIVACY BY DESIGN</span>
-            <h2>What VniDrop does—and doesn’t do.</h2>
-            <p>
-              The transfer happens between devices. These are the details that matter when you
-              decide what to share and who can receive it.
-            </p>
-            <Link className="simple-text-link" href="/privacy/">
+          <p className="facts-more">
+            <Link className="text-link" href="/privacy/">
               Read the privacy policy
-              <Icon name="arrow" />
             </Link>
-          </Reveal>
-          <div className="trust-summary-list">
-            {trustItems.map((item) => (
-              <article key={item.title} className="trust-summary-item">
-                <span><Icon name={item.icon} /></span>
-                <div>
-                  <h3>{item.title}</h3>
-                  <p>{item.text}</p>
-                </div>
-              </article>
-            ))}
-          </div>
+          </p>
         </div>
       </section>
     </main>

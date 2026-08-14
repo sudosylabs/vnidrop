@@ -1,39 +1,35 @@
 .privacy-page {
-  background: var(--surface);
+  background: var(--paper);
 }
 
 .privacy-hero {
-  padding: 158px 0 72px;
+  padding: 48px 0 36px;
   border-bottom: 1px solid var(--line);
-  text-align: center;
 }
 
 .privacy-hero-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  max-width: var(--measure);
 }
 
 .privacy-hero h1 {
-  margin-bottom: 22px;
-  font-size: clamp(3.25rem, 5.2vw, 4.5rem);
-  font-weight: 700;
-  letter-spacing: -0.055em;
-  line-height: 1;
+  margin-bottom: 16px;
+  font-size: clamp(2.25rem, 4vw, 2.85rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
 }
 
 .privacy-hero-inner > p:not(.privacy-meta) {
-  max-width: 640px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   color: var(--ink-soft);
-  font-size: 16px;
-  line-height: 1.7;
+  font-size: 1.05rem;
+  line-height: 1.65;
 }
 
 .privacy-meta {
   margin: 0;
   color: var(--ink-muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .privacy-document-section {
@@ -55,7 +51,7 @@
 
 .privacy-toc {
   position: sticky;
-  top: 108px;
+  top: 72px;
   grid-area: toc;
   align-self: start;
   padding-left: 24px;
@@ -63,10 +59,12 @@
 }
 
 .privacy-toc > p {
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   color: var(--ink);
-  font-size: 13px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-style: italic;
+  font-weight: 400;
 }
 
 .privacy-toc ol {
@@ -81,9 +79,8 @@
   display: block;
   padding: 5px 0;
   color: var(--ink-muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
-  transition: color 160ms ease;
 }
 
 .privacy-toc a:hover {
@@ -101,7 +98,8 @@
   display: block;
   margin-bottom: 8px;
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: 1.15rem;
+  font-weight: 500;
 }
 
 .privacy-callout p {
@@ -112,7 +110,7 @@
 }
 
 .policy-section {
-  scroll-margin-top: 104px;
+  scroll-margin-top: 80px;
   padding-bottom: 56px;
 }
 
@@ -122,18 +120,18 @@
 }
 
 .policy-section h2 {
-  margin-bottom: 24px;
-  font-size: clamp(1.75rem, 2.7vw, 2rem);
-  font-weight: 680;
-  letter-spacing: -0.035em;
+  margin-bottom: 20px;
+  font-size: clamp(1.55rem, 2.4vw, 1.85rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
   line-height: 1.22;
 }
 
 .policy-section h3 {
   margin: 32px 0 10px;
-  font-size: 19px;
-  font-weight: 680;
-  letter-spacing: -0.018em;
+  font-size: 1.15rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
   line-height: 1.35;
 }
 
@@ -173,10 +171,10 @@
 
 .policy-section a,
 .privacy-contact-link {
-  color: var(--brand-700);
-  font-weight: 620;
+  color: var(--brand-ink);
+  font-weight: 500;
   text-decoration: underline;
-  text-decoration-color: rgba(111, 39, 233, 0.34);
+  text-decoration-color: color-mix(in srgb, var(--brand-ink) 35%, transparent);
   text-underline-offset: 3px;
 }
 
@@ -217,7 +215,7 @@
 .provider-list dt {
   color: var(--ink);
   font-size: 14px;
-  font-weight: 680;
+  font-weight: 600;
   line-height: 1.55;
 }
 
@@ -263,15 +261,15 @@
 
 .retention-table thead th {
   color: var(--ink-muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-style: italic;
+  font-weight: 400;
 }
 
 .retention-table tbody th {
   color: var(--ink);
-  font-weight: 620;
+  font-weight: 600;
 }
 
 .policy-contact {

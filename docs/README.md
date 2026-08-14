@@ -18,6 +18,8 @@ make check-docs
 ```
 
 The production build is written to `out/` and can be hosted by any static web server.
+The download page fetches `release-manifest.json` from GitHub Releases at build time so file
+links match the latest public tag.
 
 Set `NEXT_PUBLIC_SITE_URL` to the canonical production origin when building for deployment so
 Open Graph and Twitter image URLs resolve to the public site. Vercel deployment URLs are detected

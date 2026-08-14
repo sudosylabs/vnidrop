@@ -763,11 +763,21 @@ private extension TargetedTransferState {
 private extension TargetedTransfer {
 	func toModel() -> TargetedTransferModel {
 		TargetedTransferModel(
-			id: id, senderEndpointId: senderEndpointId, receiverEndpointId: receiverEndpointId,
+			id: id, role: role.toModel(),
+			senderEndpointId: senderEndpointId, receiverEndpointId: receiverEndpointId,
 			manifestId: manifestId, transferName: transferName, fileCount: fileCount,
 			totalSize: totalSize, verifiedBytes: verifiedBytes, state: state.toModel(),
 			createdAt: createdAt, updatedAt: updatedAt
 		)
+	}
+}
+
+private extension TargetedTransferRole {
+	func toModel() -> TargetedTransferRoleModel {
+		switch self {
+		case .sender: return .sender
+		case .receiver: return .receiver
+		}
 	}
 }
 

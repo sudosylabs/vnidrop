@@ -104,8 +104,20 @@ enum TargetedTransferStateModel: Equatable, Sendable {
 	case deleted
 }
 
+/// This installation's immutable side of a targeted transfer.
+///
+/// Authoritative for direction. Comparing `senderEndpointId` to the local
+/// endpoint is not: an identity reset retires that endpoint, after which rows
+/// predating it match neither side and past sends read as incoming from the
+/// device's own former identity.
+enum TargetedTransferRoleModel: Equatable, Sendable {
+	case sender
+	case receiver
+}
+
 struct TargetedTransferModel: Equatable, Identifiable, Sendable {
 	let id: String
+	let role: TargetedTransferRoleModel
 	let senderEndpointId: String
 	let receiverEndpointId: String
 	let manifestId: String

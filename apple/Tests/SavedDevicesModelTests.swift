@@ -50,13 +50,17 @@ final class SavedDevicesModelTests: XCTestCase {
 		id: String = "t1",
 		sender: String = localEndpoint,
 		receiver: String = peer,
+		role: TargetedTransferRoleModel? = nil,
 		state: TargetedTransferStateModel = .completed,
 		verifiedBytes: UInt64 = 0,
 		totalSize: UInt64 = 100,
 		updatedAt: Int64 = 1
 	) -> TargetedTransferModel {
 		TargetedTransferModel(
-			id: id, senderEndpointId: sender, receiverEndpointId: receiver, manifestId: "m",
+			// Matches what the core records for a row created under the current
+			// identity; pass `role` explicitly to model one that predates a reset.
+			id: id, role: role ?? (sender == Self.localEndpoint ? .sender : .receiver),
+			senderEndpointId: sender, receiverEndpointId: receiver, manifestId: "m",
 			transferName: "Photos", fileCount: 2, totalSize: totalSize, verifiedBytes: verifiedBytes,
 			state: state, createdAt: 1, updatedAt: updatedAt
 		)
@@ -99,7 +103,27 @@ final class SavedDevicesModelTests: XCTestCase {
 		XCTAssertEqual(model.state.transfers(for: Self.peer).map(\.id), ["t1"])
 	}
 
-	func testResolvesDirectionAgainstLocalEndpoint() async {
+	func testDirectionSurvivesAnIdentityReset() async {
+		// A row created before the reset names an endpoint this device no longer
+		// has. Inferring direction from the sender made these read as incoming
+		// from the device's own retired identity — a phantom peer in the list.
+		let retiredLocal = "retired-local-endpoint"
+		gateway.savedDevices = [savedDevice()]
+		gateway.targetedTransfers = [
+			transfer(id: "stale-out", sender: retiredLocal, receiver: Self.peer, role: .sender),
+			transfer(id: "stale-in", sender: Self.peer, receiver: retiredLocal, role: .receiver),
+		]
+		let model = await makeModel()
+
+		let byId = Dictionary(uniqueKeysWithValues: model.state.targetedTransfers.map { ($0.id, $0) })
+		XCTAssertEqual(byId["stale-out"]?.direction, .outgoing)
+		XCTAssertEqual(byId["stale-in"]?.direction, .incoming)
+		// The peer must stay the other device, never this device's old identity.
+		XCTAssertEqual(byId["stale-out"]?.peerEndpointId, Self.peer)
+		XCTAssertEqual(byId["stale-in"]?.peerEndpointId, Self.peer)
+	}
+
+	func testResolvesDirectionFromTheRecordedRole() async {
 		gateway.savedDevices = [savedDevice()]
 		gateway.targetedTransfers = [
 			transfer(id: "out", sender: Self.localEndpoint, receiver: Self.peer),

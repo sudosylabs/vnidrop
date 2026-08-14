@@ -628,7 +628,6 @@ final class SavedDevicesModel: ObservableObject {
 			let savedNames = savedDevices.reduce(into: [String: String]()) { names, device in
 				if let name = device.displayNameOrNil { names[device.endpointId] = name }
 			}
-			let localEndpointId = repository.state.status?.endpointId
 			let pendingRelationships = relationships
 				.filter { $0.state == .pendingIncoming || $0.state == .pendingOutgoing }
 				.sorted { $0.updatedAt > $1.updatedAt }
@@ -644,7 +643,7 @@ final class SavedDevicesModel: ObservableObject {
 				// called off into history and fire a notification about it.
 				.filter { $0.state != .deleted && !abandonedTransferIds.contains($0.id) }
 				.sorted { $0.updatedAt > $1.updatedAt }
-				.map { $0.toExperienceItem(localEndpointId: localEndpointId, savedNames: savedNames) }
+				.map { $0.toExperienceItem(savedNames: savedNames) }
 			// Leave a prompt mid-answer alone; replacing it would strand the
 			// in-flight request behind a prompt the user never saw.
 			if !state.pairingPrompt.busy {
@@ -690,13 +689,14 @@ final class SavedDevicesModel: ObservableObject {
 }
 
 private extension TargetedTransferModel {
-	/// Resolves the transfer against the local endpoint so the UI can speak in
-	/// terms of "the peer" and a direction.
-	func toExperienceItem(
-		localEndpointId: String?,
-		savedNames: [String: String]
-	) -> SavedDeviceTransferItem {
-		let outgoing = senderEndpointId == localEndpointId
+	/// Resolves the transfer into "the peer" and a direction.
+	///
+	/// Direction comes from the core's recorded role, not from comparing the
+	/// sender to the current local endpoint: an identity reset retires that
+	/// endpoint, and rows predating it match neither side, which turned past
+	/// sends into incoming transfers from a phantom device.
+	func toExperienceItem(savedNames: [String: String]) -> SavedDeviceTransferItem {
+		let outgoing = role == .sender
 		let peerEndpointId = outgoing ? receiverEndpointId : senderEndpointId
 		return SavedDeviceTransferItem(
 			id: id,

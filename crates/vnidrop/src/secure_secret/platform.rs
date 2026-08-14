@@ -1,9 +1,13 @@
 use std::{
     fs::{File, OpenOptions},
-    io,
     path::Path,
     sync::Arc,
 };
+
+#[cfg(windows)]
+use std::fs::TryLockError;
+#[cfg(unix)]
+use std::io;
 
 #[cfg(any(target_os = "android", target_os = "windows", target_os = "linux"))]
 use super::map_store_error;
@@ -86,12 +90,10 @@ fn lock_exclusive_nonblocking(file: &File) -> Result<(), VnidropError> {
     {
         match file.try_lock() {
             Ok(()) => Ok(()),
-            Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
-                Err(VnidropError::SecureStorageUnavailable {
-                    reason: "another protected core is already using this profile".to_string(),
-                })
-            }
-            Err(err) => Err(VnidropError::filesystem(err)),
+            Err(TryLockError::WouldBlock) => Err(VnidropError::SecureStorageUnavailable {
+                reason: "another protected core is already using this profile".to_string(),
+            }),
+            Err(TryLockError::Error(err)) => Err(VnidropError::filesystem(err)),
         }
     }
     #[cfg(not(any(unix, windows)))]

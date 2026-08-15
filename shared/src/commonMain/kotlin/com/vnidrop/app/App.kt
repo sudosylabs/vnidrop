@@ -40,6 +40,8 @@ import com.vnidrop.app.feature.receive.ReceiveMethod
 import com.vnidrop.app.feature.saveddevices.PairingPromptHost
 import com.vnidrop.app.feature.saveddevices.SavedDevicesRoute
 import com.vnidrop.app.feature.saveddevices.SavedDevicesViewModel
+import com.vnidrop.app.feature.saveddevices.SavedDeviceTransferDirection
+import com.vnidrop.app.feature.saveddevices.SavedDeviceTransferItem
 import com.vnidrop.app.feature.saveddevices.TargetedOfferModalHost
 import com.vnidrop.app.feature.send.SendRoute
 import com.vnidrop.app.feature.send.SendFloatingAction
@@ -59,6 +61,7 @@ import com.vnidrop.app.ui.shell.ScreenScrollContainer
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferStatus
+import com.vnidrop.app.core.TargetedTransferStateModel
 import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import com.vnidrop.app.ui.theme.VniDropTheme
@@ -147,6 +150,7 @@ fun App(
 	val receiveCoreState by receiveViewModel.coreState.collectAsStateWithLifecycle()
 	val approvalState by graph.approvalCoordinator.state.collectAsStateWithLifecycle()
 	val savedDevicesState by savedDevicesViewModel.state.collectAsStateWithLifecycle()
+	val settingsState by settingsViewModel.state.collectAsStateWithLifecycle()
 	val username by graph.preferencesRepository.preferences
 		.map { it.username }
 		.collectAsStateWithLifecycle(initialValue = dependencies.environment.defaultUsername)
@@ -154,9 +158,18 @@ fun App(
 	LaunchedEffect(graph, windowFocused) {
 		graph.visibility.setWindowFocused(windowFocused)
 	}
-	LaunchedEffect(dependencies.backgroundRuntimeKeeper, dependencies.environment.uiPlatform, sendCoreState.transfers) {
+	LaunchedEffect(
+		dependencies.backgroundRuntimeKeeper,
+		dependencies.environment.uiPlatform,
+		sendCoreState.transfers,
+		savedDevicesState.targetedTransfers,
+	) {
 		dependencies.backgroundRuntimeKeeper.setRequired(
-			shouldKeepRuntimeActive(dependencies.environment.uiPlatform, sendCoreState.transfers),
+			shouldKeepRuntimeActive(
+				dependencies.environment.uiPlatform,
+				sendCoreState.transfers,
+				savedDevicesState.targetedTransfers,
+			),
 		)
 	}
 	LaunchedEffect(dependencies.externalInvitations, appViewModel, receiveViewModel) {
@@ -265,7 +278,15 @@ fun App(
 						},
 					) {
 						when (appState.destination) {
-							AppDestination.Send -> SendRoute(sendViewModel, invitationDraftViewModel, username, windowClass)
+							AppDestination.Send -> SendRoute(
+								sendViewModel,
+								invitationDraftViewModel,
+								username,
+								windowClass,
+								onTransferCreated = { creation ->
+									if (creation.awaitsRemoteApproval) settingsViewModel.promptForBackgroundNotifications()
+								},
+							)
 							AppDestination.Receive -> ReceiveRoute(receiveViewModel, windowClass)
 							AppDestination.SavedDevices -> SavedDevicesRoute(
 								savedDevicesViewModel,
@@ -281,6 +302,8 @@ fun App(
 						state = approvalState,
 						onAccept = graph.approvalCoordinator::accept,
 						onRefuse = graph.approvalCoordinator::refuse,
+						showNotificationPrompt = settingsState.shouldOfferNotificationEnable,
+						onEnableNotifications = settingsViewModel::enableNotificationsFromContext,
 					)
 					if (appState.destination != AppDestination.SavedDevices) {
 						PairingPromptHost(
@@ -293,9 +316,13 @@ fun App(
 							state = savedDevicesState.targetedOffers,
 							onAccept = savedDevicesViewModel::acceptTargetedOffer,
 							onDecline = savedDevicesViewModel::declineTargetedOffer,
+							showNotificationPrompt = settingsState.shouldOfferNotificationEnable,
+							onEnableNotifications = settingsViewModel::enableNotificationsFromContext,
 						)
 					}
-					TransferDraftHost(targetedDraftViewModel, windowClass, onCreated = {})
+					TransferDraftHost(targetedDraftViewModel, windowClass) { creation ->
+						if (creation.awaitsRemoteApproval) settingsViewModel.promptForBackgroundNotifications()
+					}
 				}
 				windowChrome?.invoke()
 				val startingLabel = stringResource(Res.string.app_starting)
@@ -332,6 +359,24 @@ fun App(
 internal fun shouldKeepRuntimeActive(
 	platform: UiPlatform,
 	transfers: List<Transfer>,
-): Boolean = platform == UiPlatform.Android && transfers.any {
-	it.direction == TransferDirection.Send && it.status == TransferStatus.Sharing
+	targetedTransfers: List<SavedDeviceTransferItem> = emptyList(),
+): Boolean {
+	if (platform != UiPlatform.Android) return false
+	if (transfers.any { it.direction == TransferDirection.Send && it.status == TransferStatus.Sharing }) return true
+	return targetedTransfers.any { transfer ->
+		transfer.direction == SavedDeviceTransferDirection.Outgoing && when (transfer.state) {
+			TargetedTransferStateModel.Preparing,
+			TargetedTransferStateModel.Offering,
+			TargetedTransferStateModel.AwaitingApproval,
+			TargetedTransferStateModel.Approved,
+			TargetedTransferStateModel.Connecting,
+			TargetedTransferStateModel.Transferring,
+			TargetedTransferStateModel.Interrupted -> true
+			TargetedTransferStateModel.Completed,
+			TargetedTransferStateModel.Declined,
+			TargetedTransferStateModel.Cancelled,
+			TargetedTransferStateModel.Failed,
+			TargetedTransferStateModel.Deleted -> false
+		}
+	}
 }

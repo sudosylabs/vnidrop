@@ -60,7 +60,11 @@ class TransferDraftViewModelTest {
 		invitation.submit()
 		advanceUntilIdle()
 		val invitationCreated = assertIs<TransferDraftEffect.Created>(invitation.effectFlow.first()).creation
-		assertIs<TransferDraftCreation.Invitation>(invitationCreated)
+		assertEquals(
+			TransferDraftCreation.Invitation(7UL, ShareAccessPolicy.AnyoneWithTransfer),
+			assertIs<TransferDraftCreation.Invitation>(invitationCreated),
+		)
+		assertFalse(invitationCreated.awaitsRemoteApproval)
 		assertEquals(ShareAccessPolicy.AnyoneWithTransfer, core.lastShareAccessPolicy)
 		assertFalse(invitation.state.value.isOpen)
 
@@ -84,6 +88,7 @@ class TransferDraftViewModelTest {
 		advanceUntilIdle()
 		val created = assertIs<TransferDraftEffect.Created>(targeted.effectFlow.first()).creation
 		assertEquals(TransferDraftCreation.Targeted("target-9", "peer-9"), created)
+		assertTrue(created.awaitsRemoteApproval)
 		assertTrue(core.createdTargetedTransfers.single().second.single().isDirectory)
 	}
 

@@ -117,7 +117,10 @@
     <string name="nav_settings">Impostazioni</string>
     <string name="network_title">Rete</string>
     <string name="notifications_description">Ricevi avvisi sull’attività dei trasferimenti quando VniDrop è in background.</string>
+    <string name="notifications_enable_action">Attiva</string>
     <string name="notifications_enabled_message">Notifiche attivate.</string>
+    <string name="notifications_request_prompt">Le notifiche sono disattivate. Attivale per ricevere avvisi sulle richieste future.</string>
+    <string name="notifications_sharing_prompt">Attiva le notifiche per non perdere richieste quando VniDrop è in background.</string>
     <string name="notifications_local_title">Consenti le notifiche</string>
     <string name="notifications_permission_denied">Le notifiche sono disattivate per VniDrop. Può attivarle in Impostazioni.</string>
     <string name="notifications_receive_completed_body">«%1$s» è stato scaricato.</string>

@@ -71,8 +71,17 @@ data class TransferDraftState(
 }
 
 sealed interface TransferDraftCreation {
-	data class Invitation(val transferId: ULong) : TransferDraftCreation
-	data class Targeted(val transferId: String, val receiverEndpointId: String) : TransferDraftCreation
+	val awaitsRemoteApproval: Boolean
+
+	data class Invitation(
+		val transferId: ULong,
+		val accessPolicy: ShareAccessPolicy,
+	) : TransferDraftCreation {
+		override val awaitsRemoteApproval: Boolean = accessPolicy == ShareAccessPolicy.RequireApproval
+	}
+	data class Targeted(val transferId: String, val receiverEndpointId: String) : TransferDraftCreation {
+		override val awaitsRemoteApproval: Boolean = true
+	}
 }
 
 sealed interface TransferDraftEffect {
@@ -286,7 +295,9 @@ internal class TransferDraftViewModel(
 							transferName = current.transferName.trim(),
 							senderName = current.senderName.trim(),
 							accessPolicy = current.accessPolicy,
-						).getOrThrow().let { share -> TransferDraftCreation.Invitation(share.transferId) }
+						).getOrThrow().let { share ->
+							TransferDraftCreation.Invitation(share.transferId, current.accessPolicy)
+						}
 						is TransferDraftDestination.Targeted -> repository.createTargetedTransfer(
 							receiverEndpointId = destination.receiver.endpointId,
 							sources = sources,

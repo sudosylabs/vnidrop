@@ -4,6 +4,8 @@ import com.vnidrop.app.core.CoreGateway
 import com.vnidrop.app.core.CoreSignal
 import com.vnidrop.app.core.ReceiverDeliveryStatus
 import com.vnidrop.app.core.ReceiverRequestModel
+import com.vnidrop.app.core.PendingTargetedOfferModel
+import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.TransferStatus
@@ -27,6 +29,8 @@ import vnidrop.shared.generated.resources.notifications_receiver_failed_title
 import vnidrop.shared.generated.resources.notifications_send_failed_body
 import vnidrop.shared.generated.resources.notifications_send_failed_title
 import vnidrop.shared.generated.resources.receive_unknown_transfer
+import vnidrop.shared.generated.resources.targeted_offer_body
+import vnidrop.shared.generated.resources.targeted_offer_title
 
 internal enum class TransferNotificationKind {
 	SendFailed,
@@ -34,6 +38,7 @@ internal enum class TransferNotificationKind {
 	ReceiveFailed,
 	ReceiverCompleted,
 	ReceiverFailed,
+	TargetedOffer,
 }
 
 internal data class PlannedTransferNotification(
@@ -78,6 +83,20 @@ internal fun plannedReceiverNotifications(
 	).takeUnless { id in published }
 }
 
+internal fun plannedTargetedOfferNotifications(
+	offers: List<PendingTargetedOfferModel>,
+	savedDeviceNames: Map<String, String>,
+	published: Set<String>,
+): List<PlannedTransferNotification> = offers.mapNotNull { offer ->
+	val id = "${TransferNotificationKind.TargetedOffer.idPrefix}-${offer.transferId}"
+	PlannedTransferNotification(
+		id = id,
+		kind = TransferNotificationKind.TargetedOffer,
+		transferName = offer.transferName,
+		receiver = savedDeviceNames[offer.senderEndpointId],
+	).takeUnless { id in published }
+}
+
 class TransferNotificationCoordinator(
 	private val repository: CoreGateway,
 	private val preferencesRepository: PreferencesRepository,
@@ -107,8 +126,8 @@ class TransferNotificationCoordinator(
 					is CoreSignal.ReceiverHistoryChanged -> syncReceivers(signal.transferId)
 					is CoreSignal.TransfersChanged -> syncReceivers(signal.transferId)
 					is CoreSignal.ApprovalChanged,
-					CoreSignal.PairingChanged,
-					CoreSignal.TargetedTransferChanged -> Unit
+					CoreSignal.PairingChanged -> Unit
+					CoreSignal.TargetedTransferChanged -> syncTargetedOffers()
 				}
 			}
 		}
@@ -135,6 +154,22 @@ class TransferNotificationCoordinator(
 			},
 			onFailure = messages::error,
 		)
+	}
+
+	private suspend fun syncTargetedOffers() {
+		val offers = repository.listPendingTargetedOffers().getOrElse {
+			messages.error(it)
+			return
+		}
+		if (offers.isEmpty()) return
+		val savedDevices = repository.listSavedDevices().getOrElse {
+			messages.error(it)
+			return
+		}
+		val savedDeviceNames = savedDevices.mapNotNull { device ->
+			device.displayNameOrNull()?.let { device.endpointId to it }
+		}.toMap()
+		plannedTargetedOfferNotifications(offers, savedDeviceNames, published).forEach { deliver(it) }
 	}
 
 	private suspend fun deliver(plan: PlannedTransferNotification) {
@@ -177,6 +212,14 @@ class TransferNotificationCoordinator(
 					getString(Res.string.notifications_receiver_failed_body, receiver, transferName),
 				)
 			}
+			TransferNotificationKind.TargetedOffer -> {
+				val sender = plan.receiver ?: getString(Res.string.approval_nearby_device)
+				LocalNotification(
+					plan.id,
+					getString(Res.string.targeted_offer_title),
+					getString(Res.string.targeted_offer_body, sender, transferName),
+				)
+			}
 		}
 		notifications.publish(notification).onFailure(messages::error)
 	}
@@ -189,4 +232,8 @@ private val TransferNotificationKind.idPrefix: String
 		TransferNotificationKind.ReceiveFailed -> "receive-failed"
 		TransferNotificationKind.ReceiverCompleted -> "receiver-completed"
 		TransferNotificationKind.ReceiverFailed -> "receiver-failed"
+		TransferNotificationKind.TargetedOffer -> "targeted-offer"
 	}
+
+private fun SavedDeviceModel.displayNameOrNull(): String? =
+	localLabel?.takeIf(String::isNotBlank) ?: remoteDisplayName?.takeIf(String::isNotBlank)

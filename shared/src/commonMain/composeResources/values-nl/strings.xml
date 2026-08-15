@@ -117,7 +117,10 @@
     <string name="nav_settings">Instellingen</string>
     <string name="network_title">Netwerk</string>
     <string name="notifications_description">Ontvang meldingen over overdrachtsactiviteit terwijl VniDrop op de achtergrond draait.</string>
+    <string name="notifications_enable_action">Inschakelen</string>
     <string name="notifications_enabled_message">Meldingen ingeschakeld.</string>
+    <string name="notifications_request_prompt">Meldingen zijn uitgeschakeld. Schakel ze in om toekomstige verzoeken te ontvangen.</string>
+    <string name="notifications_sharing_prompt">Schakel meldingen in zodat u geen verzoeken mist wanneer VniDrop op de achtergrond draait.</string>
     <string name="notifications_local_title">Meldingen toestaan</string>
     <string name="notifications_permission_denied">Meldingen zijn uitgeschakeld voor VniDrop. U kunt ze inschakelen in Instellingen.</string>
     <string name="notifications_receive_completed_body">‘%1$s’ is volledig gedownload.</string>

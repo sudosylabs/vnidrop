@@ -117,7 +117,10 @@
     <string name="nav_settings">Ajustes</string>
     <string name="network_title">Red</string>
     <string name="notifications_description">Reciba avisos sobre la actividad de las transferencias cuando VniDrop está en segundo plano.</string>
+    <string name="notifications_enable_action">Activar</string>
     <string name="notifications_enabled_message">Notificaciones activadas.</string>
+    <string name="notifications_request_prompt">Las notificaciones están desactivadas. Actívelas para recibir avisos de futuras solicitudes.</string>
+    <string name="notifications_sharing_prompt">Active las notificaciones para no perder solicitudes cuando VniDrop esté en segundo plano.</string>
     <string name="notifications_local_title">Permitir notificaciones</string>
     <string name="notifications_permission_denied">Las notificaciones están desactivadas para VniDrop. Puede activarlas en Ajustes.</string>
     <string name="notifications_receive_completed_body">«%1$s» terminó de descargarse.</string>

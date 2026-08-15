@@ -117,7 +117,10 @@
     <string name="nav_settings">Settings</string>
     <string name="network_title">Network</string>
     <string name="notifications_description">Get notified about transfer activity while VniDrop is in the background.</string>
+    <string name="notifications_enable_action">Enable</string>
     <string name="notifications_enabled_message">Notifications enabled.</string>
+    <string name="notifications_request_prompt">Notifications are off. Enable them to be notified about future requests.</string>
+    <string name="notifications_sharing_prompt">Enable notifications so you don’t miss requests while VniDrop is in the background.</string>
     <string name="notifications_local_title">Allow notifications</string>
     <string name="notifications_permission_denied">Notifications are turned off for VniDrop. You can enable them in Settings.</string>
     <string name="notifications_receive_completed_body">“%1$s” finished downloading.</string>

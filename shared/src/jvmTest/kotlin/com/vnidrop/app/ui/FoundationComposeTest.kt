@@ -32,6 +32,8 @@ import androidx.compose.runtime.mutableStateOf
 import com.vnidrop.app.feature.approvals.ApprovalModalHost
 import com.vnidrop.app.feature.approvals.ApprovalState
 import com.vnidrop.app.feature.approvals.PendingApproval
+import com.vnidrop.app.feature.saveddevices.TargetedOfferModalHost
+import com.vnidrop.app.feature.saveddevices.TargetedOfferState
 import com.vnidrop.app.feature.receive.ReceiveHistoryDeleteTarget
 import com.vnidrop.app.feature.receive.ReceiveInvitationActions
 import com.vnidrop.app.feature.receive.ReceiveMethodAvailability
@@ -52,6 +54,7 @@ import com.vnidrop.app.feature.send.TransferDraftState
 import com.vnidrop.app.feature.send.TransferCatalog
 import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.CoreState
+import com.vnidrop.app.core.PendingTargetedOfferModel
 import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferDirection
@@ -92,7 +95,9 @@ import vnidrop.shared.generated.resources.nav_receive
 import vnidrop.shared.generated.resources.nav_saved_devices
 import vnidrop.shared.generated.resources.nav_send
 import vnidrop.shared.generated.resources.notifications_description
+import vnidrop.shared.generated.resources.notifications_enable_action
 import vnidrop.shared.generated.resources.notifications_local_title
+import vnidrop.shared.generated.resources.notifications_request_prompt
 import vnidrop.shared.generated.resources.notifications_title
 import vnidrop.shared.generated.resources.receive_choose_method_title
 import vnidrop.shared.generated.resources.receive_clear_history
@@ -140,6 +145,61 @@ class FoundationComposeTest {
 		}
 		onNodeWithText(Res.string.button_approve.value).performClick()
 		runOnIdle { assertEquals("request", accepted) }
+	}
+
+	@Test
+	fun approvalPromptOffersNotificationEnableAction() = runComposeUiTest {
+		var enabled = false
+		setContent {
+			VniDropTheme(isDarkTheme = false) {
+				ApprovalModalHost(
+					state = ApprovalState(pending = listOf(approval())),
+					onAccept = {},
+					onRefuse = {},
+					showNotificationPrompt = true,
+					onEnableNotifications = { enabled = true },
+				)
+			}
+		}
+
+		onNodeWithText(Res.string.notifications_request_prompt.value).assertIsDisplayed()
+		onNodeWithText(Res.string.notifications_enable_action.value).performClick()
+		runOnIdle { assertTrue(enabled) }
+	}
+
+	@Test
+	fun targetedOfferPromptOffersNotificationEnableAction() = runComposeUiTest {
+		var enabled = false
+		setContent {
+			VniDropTheme(isDarkTheme = false) {
+				TargetedOfferModalHost(
+					state = TargetedOfferState(
+						pending = listOf(
+							PendingTargetedOfferModel(
+								transferId = "targeted-1",
+								senderEndpointId = "sender",
+								receiverEndpointId = "receiver",
+								manifestId = "manifest",
+								contentHash = "hash",
+								transferName = "Photos",
+								fileCount = 1UL,
+								totalSize = 1UL,
+								protocolVersion = 1U,
+								receivedAt = 1L,
+							),
+						),
+					),
+					onAccept = {},
+					onDecline = {},
+					showNotificationPrompt = true,
+					onEnableNotifications = { enabled = true },
+				)
+			}
+		}
+
+		onNodeWithText(Res.string.notifications_request_prompt.value).assertIsDisplayed()
+		onNodeWithText(Res.string.notifications_enable_action.value).performClick()
+		runOnIdle { assertTrue(enabled) }
 	}
 
 	@Test

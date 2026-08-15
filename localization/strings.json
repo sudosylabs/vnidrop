@@ -1814,6 +1814,21 @@
         "ru": "Получайте уведомления об активности передач, пока VniDrop работает в фоне."
       }
     },
+    "notifications_enable_action": {
+      "context": "Action label for a contextual prompt that enables transfer notifications.",
+      "targets": ["kmp"],
+      "translations": {
+        "en": "Enable",
+        "fr": "Activer",
+        "es": "Activar",
+        "it": "Attiva",
+        "de": "Aktivieren",
+        "pt": "Ativar",
+        "pl": "Włącz",
+        "nl": "Inschakelen",
+        "ru": "Включить"
+      }
+    },
     "notifications_enabled_message": {
       "context": "Settings > Notifications: confirmation when notifications are enabled.",
       "translations": {
@@ -1826,6 +1841,36 @@
         "pl": "Powiadomienia włączone.",
         "nl": "Meldingen ingeschakeld.",
         "ru": "Уведомления включены."
+      }
+    },
+    "notifications_request_prompt": {
+      "context": "Approval and targeted-offer prompts: explains why notifications should be enabled.",
+      "targets": ["kmp"],
+      "translations": {
+        "en": "Notifications are off. Enable them to be notified about future requests.",
+        "fr": "Les notifications sont désactivées. Activez-les pour être averti des prochaines demandes.",
+        "es": "Las notificaciones están desactivadas. Actívelas para recibir avisos de futuras solicitudes.",
+        "it": "Le notifiche sono disattivate. Attivale per ricevere avvisi sulle richieste future.",
+        "de": "Mitteilungen sind deaktiviert. Aktivieren Sie sie, um über zukünftige Anfragen informiert zu werden.",
+        "pt": "As notificações estão desativadas. Ative-as para receber avisos de pedidos futuros.",
+        "pl": "Powiadomienia są wyłączone. Włącz je, aby otrzymywać informacje o przyszłych prośbach.",
+        "nl": "Meldingen zijn uitgeschakeld. Schakel ze in om toekomstige verzoeken te ontvangen.",
+        "ru": "Уведомления отключены. Включите их, чтобы получать оповещения о будущих запросах."
+      }
+    },
+    "notifications_sharing_prompt": {
+      "context": "Snackbar after starting an approval-based share while notifications are disabled.",
+      "targets": ["kmp"],
+      "translations": {
+        "en": "Enable notifications so you don’t miss requests while VniDrop is in the background.",
+        "fr": "Activez les notifications pour ne pas manquer de demandes lorsque VniDrop est en arrière-plan.",
+        "es": "Active las notificaciones para no perder solicitudes cuando VniDrop esté en segundo plano.",
+        "it": "Attiva le notifiche per non perdere richieste quando VniDrop è in background.",
+        "de": "Aktivieren Sie Mitteilungen, damit Sie keine Anfragen verpassen, während VniDrop im Hintergrund läuft.",
+        "pt": "Ative as notificações para não perder pedidos quando o VniDrop estiver em segundo plano.",
+        "pl": "Włącz powiadomienia, aby nie przegapić próśb, gdy VniDrop działa w tle.",
+        "nl": "Schakel meldingen in zodat u geen verzoeken mist wanneer VniDrop op de achtergrond draait.",
+        "ru": "Включите уведомления, чтобы не пропускать запросы, когда VniDrop работает в фоне."
       }
     },
     "notifications_local_title": {

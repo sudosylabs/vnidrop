@@ -117,7 +117,10 @@
     <string name="nav_settings">Definições</string>
     <string name="network_title">Rede</string>
     <string name="notifications_description">Seja notificado sobre a atividade das transferências enquanto o VniDrop está em segundo plano.</string>
+    <string name="notifications_enable_action">Ativar</string>
     <string name="notifications_enabled_message">Notificações ativadas.</string>
+    <string name="notifications_request_prompt">As notificações estão desativadas. Ative-as para receber avisos de pedidos futuros.</string>
+    <string name="notifications_sharing_prompt">Ative as notificações para não perder pedidos quando o VniDrop estiver em segundo plano.</string>
     <string name="notifications_local_title">Permitir notificações</string>
     <string name="notifications_permission_denied">As notificações estão desativadas para o VniDrop. Pode ativá-las nas Definições.</string>
     <string name="notifications_receive_completed_body">«%1$s» concluiu a transferência.</string>

@@ -13,8 +13,28 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white" alt="Android" />
+  <img src="https://img.shields.io/badge/iOS%20%26%20iPadOS-000000?logo=apple&logoColor=white" alt="iOS and iPadOS" />
+  <img src="https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white" alt="macOS" />
+  <img src="https://img.shields.io/badge/Windows-0078D4?logo=windows&logoColor=white" alt="Windows" />
+  <img src="https://img.shields.io/badge/Linux-1793D1?logo=linux&logoColor=white" alt="Linux" />
+</p>
+
+<p align="center">
   <a href="https://github.com/vnidrop/vnidrop/actions/workflows/rust-core.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/rust-core.yml/badge.svg" alt="Rust core status" /></a>
   <a href="https://github.com/vnidrop/vnidrop/actions/workflows/shared-kmp.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/shared-kmp.yml/badge.svg" alt="Shared KMP status" /></a>
+  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/apple.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/apple.yml/badge.svg" alt="Apple status" /></a>
+  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/docs.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/docs.yml/badge.svg" alt="Docs website status" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/android-release.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/android-release.yml/badge.svg" alt="Android release package status" /></a>
+  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/apple-release.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/apple-release.yml/badge.svg" alt="Apple release status" /></a>
+  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/windows-store.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/windows-store.yml/badge.svg" alt="Windows Store package status" /></a>
+  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/linux-packages.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/linux-packages.yml/badge.svg" alt="Linux packages status" /></a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/status-early%20development-F59E0B" alt="Early development" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-6D28D9" alt="Apache 2.0 license" /></a>
 </p>
@@ -28,6 +48,8 @@ There is no account to create and no cloud copy of the transfer waiting after
 you are done. The sender remains in control and can stop sharing at any time.
 
 ## How a transfer works
+
+This is the invitation flow, used the first time two devices meet.
 
 1. **Choose files or a folder.** VniDrop prepares the selection on the sender's
    device and keeps the original folder structure.
@@ -49,6 +71,12 @@ Iroh tries to connect the devices directly, including across home routers and
 mobile networks. If a direct path cannot be established, it can forward the
 same end-to-end encrypted connection through a relay. The relay forwards
 encrypted packets; it is not a VniDrop file store.
+
+Once both sides have agreed to remember each other, steps 2 and 3 can be
+avoided: the sender picks the device from its list and offers the transfer
+directly, with no invitation to create or open. The devices still connect the
+same way, and the receiver still approves. See
+[Saved devices and targeted transfers](#saved-devices-and-targeted-transfers).
 
 ### Custom relay servers
 
@@ -117,12 +145,43 @@ content requests are rejected.
 Treat an invitation like a private access link. Share it only with the intended
 people, especially when using **Anyone with this transfer**.
 
+## Saved devices and targeted transfers
+
+After a completed transfer, both sides can agree to remember one another. A
+remembered device is called a **saved device**, and sending to one is a
+**targeted transfer**: no new invitation, QR code, or NFC tap is needed.
+
+- **Mutual consent.** Saving requires a fully completed authenticated transfer
+  plus an explicit confirmation on *both* devices. Consent is enforced
+  cryptographically, not only in the interface.
+- **Approval still applies.** Remembering a device never authorizes automatic
+  receipt. Every targeted transfer waits for the receiver to approve it.
+- **One sender, one receiver.** A targeted transfer is bound to the selected
+  device identity, so a leaked ticket cannot authorize anyone else. Ordinary
+  invitation-based sharing is unchanged and remains a separate mode.
+- **Immediate local control.** Label, forget, block, revoke, cancel, and delete
+  take effect on your device right away, even while the peer is offline.
+- **Resumable.** An accepted transfer that was interrupted can continue once
+  both devices are online again.
+- **Still no server.** There is no relationship service, delivery queue, push
+  service, inbox, or account. Both cores must be reachable while a transfer is
+  negotiated, and identity keys and relationship secrets are stored in
+  platform-backed credential storage.
+
+A saved device identifies a VniDrop *installation*, not a person or a piece of
+hardware. Reinstalling the app creates a new identity that must be saved again.
+
+The security and lifecycle rules are documented in
+[`crates/vnidrop/CORE_FLOW.md`](crates/vnidrop/CORE_FLOW.md).
+
 ## What VniDrop supports
 
 - Individual files, multiple files, and complete folders
 - QR codes, NFC tags, and portable `.vnd` invitation files
 - Per-receiver requests, approvals, progress, and delivery status
 - Cancel, stop sharing, and local transfer history
+- Saved devices with mutual consent, and targeted transfers that need no new
+  invitation
 - Safe receive destinations that do not silently overwrite existing files
 - Native SwiftUI apps on iOS, iPadOS, and macOS; Compose apps on Android,
   Windows, and Linux
@@ -178,7 +237,8 @@ testing, and pull request guidance.
 ## Learn more
 
 - [`crates/vnidrop/CORE_FLOW.md`](crates/vnidrop/CORE_FLOW.md) — protocol,
-  approval, durability, and file-handling details
+  approval, durability, saved devices, targeted transfers, and file-handling
+  details
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — development and contribution guide
 - [`SECURITY.md`](SECURITY.md) — security policy and private reporting
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — community standards

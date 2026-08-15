@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.runtime.Composable
@@ -117,6 +116,7 @@ fun main(args: Array<String>) {
 						{
 							LinuxTitleBar(
 								isMaximized = windowState.placement == WindowPlacement.Maximized,
+								isWindowFocused = windowFocused,
 								onMinimize = { windowState.isMinimized = true },
 								onToggleMaximize = {
 									windowState.placement = toggledWindowPlacement(windowState.placement)
@@ -155,13 +155,14 @@ private fun ExternalInvitationController.openFile(file: File) {
 private val LinuxTitleBarHeight = 48.dp
 private val LinuxWindowControlHitTargetSize = 34.dp
 private val LinuxWindowControlVisualSize = 28.dp
-private val LinuxWindowControlsWidth = 120.dp
+private val LinuxWindowControlsWidth = 112.dp
 internal val DesktopContentCornerRadius = 20.dp
 
 @Composable
 @OptIn(ExperimentalComposeUiApi::class)
 private fun WindowScope.LinuxTitleBar(
 	isMaximized: Boolean,
+	isWindowFocused: Boolean,
 	onMinimize: () -> Unit,
 	onToggleMaximize: () -> Unit,
 	onClose: () -> Unit,
@@ -177,7 +178,7 @@ private fun WindowScope.LinuxTitleBar(
 			text = "VniDrop",
 			modifier = Modifier.align(Alignment.Center),
 			style = TextStyle(
-				color = colors.foregroundDefault,
+				color = if (isWindowFocused) colors.foregroundDefault else colors.foregroundLighter,
 				fontSize = 13.sp,
 				fontWeight = FontWeight.SemiBold,
 			),
@@ -195,24 +196,25 @@ private fun WindowScope.LinuxTitleBar(
 		Row(
 			modifier = Modifier
 				.align(Alignment.CenterEnd)
-				.padding(end = 10.dp)
-				.background(colors.backgroundSurface300, RoundedCornerShape(20.dp))
-				.padding(3.dp),
+				.padding(end = 10.dp),
 		) {
 			LinuxWindowControlButton(
 				icon = LinuxMinimizeIcon,
 				contentDescription = "Minimize window",
+				isWindowFocused = isWindowFocused,
 				onClick = onMinimize,
 			)
 			LinuxWindowControlButton(
 				icon = if (isMaximized) LinuxRestoreIcon else LinuxMaximizeIcon,
 				contentDescription = if (isMaximized) "Restore window" else "Maximize window",
+				isWindowFocused = isWindowFocused,
 				onClick = onToggleMaximize,
 			)
 			LinuxWindowControlButton(
 				icon = LinuxCloseIcon,
 				contentDescription = "Close window",
 				isClose = true,
+				isWindowFocused = isWindowFocused,
 				onClick = onClose,
 			)
 		}
@@ -224,17 +226,21 @@ private fun LinuxWindowControlButton(
 	icon: ImageVector,
 	contentDescription: String,
 	isClose: Boolean = false,
+	isWindowFocused: Boolean,
 	onClick: () -> Unit,
 ) {
 	val colors = LocalVniDropColors.current
 	val interactionSource = remember { MutableInteractionSource() }
 	val hovered by interactionSource.collectIsHoveredAsState()
 	val pressed by interactionSource.collectIsPressedAsState()
-	val visualState = linuxWindowControlVisualState(isClose, hovered, pressed)
+	val visualState = linuxWindowControlVisualState(isClose, hovered, pressed, isWindowFocused)
 	val background = when (visualState) {
+		LinuxWindowControlVisualState.Inactive,
 		LinuxWindowControlVisualState.Default -> Color.Transparent
-		LinuxWindowControlVisualState.NeutralActive -> colors.backgroundOverlayHover
-		LinuxWindowControlVisualState.DestructiveActive -> colors.destructiveDefault
+		LinuxWindowControlVisualState.NeutralHovered -> colors.backgroundOverlayHover
+		LinuxWindowControlVisualState.NeutralPressed -> colors.backgroundSurface400
+		LinuxWindowControlVisualState.DestructiveHovered -> colors.destructiveDefault
+		LinuxWindowControlVisualState.DestructivePressed -> colors.destructive600
 	}
 	Box(
 		modifier = Modifier
@@ -258,28 +264,39 @@ private fun LinuxWindowControlButton(
 				painter = rememberVectorPainter(icon),
 				contentDescription = contentDescription,
 				colorFilter = ColorFilter.tint(
-					if (visualState == LinuxWindowControlVisualState.DestructiveActive) Color.White
-					else colors.foregroundLight,
+					when (visualState) {
+						LinuxWindowControlVisualState.DestructiveHovered,
+						LinuxWindowControlVisualState.DestructivePressed -> Color.White
+						LinuxWindowControlVisualState.Inactive -> colors.foregroundLighter
+						else -> colors.foregroundLight
+					},
 				),
-				modifier = Modifier.size(14.dp),
+				modifier = Modifier.size(16.dp),
 			)
 		}
 	}
 }
 
 internal enum class LinuxWindowControlVisualState {
+	Inactive,
 	Default,
-	NeutralActive,
-	DestructiveActive,
+	NeutralHovered,
+	NeutralPressed,
+	DestructiveHovered,
+	DestructivePressed,
 }
 
 internal fun linuxWindowControlVisualState(
 	isClose: Boolean,
 	isHovered: Boolean,
 	isPressed: Boolean,
+	isWindowFocused: Boolean = true,
 ): LinuxWindowControlVisualState = when {
-	isClose && (isHovered || isPressed) -> LinuxWindowControlVisualState.DestructiveActive
-	isHovered || isPressed -> LinuxWindowControlVisualState.NeutralActive
+	isClose && isPressed -> LinuxWindowControlVisualState.DestructivePressed
+	isClose && isHovered -> LinuxWindowControlVisualState.DestructiveHovered
+	isPressed -> LinuxWindowControlVisualState.NeutralPressed
+	isHovered -> LinuxWindowControlVisualState.NeutralHovered
+	!isWindowFocused -> LinuxWindowControlVisualState.Inactive
 	else -> LinuxWindowControlVisualState.Default
 }
 
@@ -322,7 +339,7 @@ private fun windowControlIcon(name: String, block: PathBuilder.() -> Unit): Imag
 		path(
 			fill = SolidColor(Color.Transparent),
 			stroke = SolidColor(Color.Black),
-			strokeLineWidth = 1.6f,
+			strokeLineWidth = 1.8f,
 			strokeLineCap = StrokeCap.Round,
 			strokeLineJoin = StrokeJoin.Round,
 			pathFillType = PathFillType.NonZero,

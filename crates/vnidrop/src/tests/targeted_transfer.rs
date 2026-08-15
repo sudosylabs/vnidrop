@@ -1897,8 +1897,9 @@ fn protocol_floor_rejects_silent_downgrade_with_typed_error() {
     establish_saved(&alice, &bob, 12_040);
     let alice_id = alice.core().status().endpoint_id.clone();
     let bob_id = bob.core().status().endpoint_id.clone();
+    let unsupported_protocol = crate::saved_device_capabilities().relationship_protocol_version + 1;
     bob.core()
-        .force_relationship_protocol_floor_for_test(alice_id, 2)
+        .force_relationship_protocol_floor_for_test(alice_id, unsupported_protocol)
         .unwrap();
 
     let source_dir = tempfile::tempdir().unwrap();

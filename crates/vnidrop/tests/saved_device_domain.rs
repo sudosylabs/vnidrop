@@ -13,7 +13,7 @@ fn saved_device_protocols_are_explicitly_versioned() {
         saved_device_capabilities(),
         SavedDeviceCapabilities {
             domain_contract_version: 1,
-            relationship_protocol_version: 1,
+            relationship_protocol_version: 2,
             targeted_transfer_protocol_version: 3,
         }
     );

@@ -22,7 +22,7 @@ pub struct SavedDeviceCapabilities {
 pub fn saved_device_capabilities() -> SavedDeviceCapabilities {
     SavedDeviceCapabilities {
         domain_contract_version: 1,
-        relationship_protocol_version: 1,
+        relationship_protocol_version: 2,
         targeted_transfer_protocol_version: 3,
     }
 }

@@ -409,6 +409,18 @@ impl VnidropCore {
         )
     }
 
+    pub(crate) fn insert_relationship_tombstone_for_test(
+        &self,
+        peer_endpoint_id: String,
+        generation: u64,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .insert_tombstone_for_test(&peer_endpoint_id, generation),
+        )
+    }
+
     pub(crate) fn reject_relationship_generation_for_test(
         &self,
         peer_endpoint_id: String,

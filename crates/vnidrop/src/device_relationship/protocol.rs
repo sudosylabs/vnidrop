@@ -138,8 +138,8 @@ pub(crate) struct PairingRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) enum PairingRequestResponse {
-    AwaitingConsent,
-    Merged,
+    AwaitingConsent { generation: u64 },
+    Merged { generation: u64 },
     AlreadySaved,
     Rejected,
 }

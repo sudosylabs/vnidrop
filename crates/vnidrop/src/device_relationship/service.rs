@@ -226,7 +226,7 @@ impl DeviceRelationshipService {
         let Some(taken) = self.eligibility.take_eligibility(&peer_endpoint_id).await? else {
             return Ok(false);
         };
-        let generation = 1_u64;
+        let generation = self.next_generation(&peer_endpoint_id).await?;
         let now = now_ms();
 
         // Peer already prompted us for the same qualifying session: merge into
@@ -307,8 +307,14 @@ impl DeviceRelationshipService {
         };
 
         match response {
-            PairingRequestResponse::AwaitingConsent => Ok(true),
-            PairingRequestResponse::Merged => {
+            PairingRequestResponse::AwaitingConsent { generation } => {
+                self.adopt_pending_generation(&peer_endpoint_id, &taken.session_id, generation)
+                    .await?;
+                Ok(true)
+            }
+            PairingRequestResponse::Merged { generation } => {
+                self.adopt_pending_generation(&peer_endpoint_id, &taken.session_id, generation)
+                    .await?;
                 self.complete_simultaneous_merge(
                     &peer_endpoint_id,
                     generation,
@@ -469,17 +475,44 @@ impl DeviceRelationshipService {
         }
         let peer_lock = self.lock_peer(&remote_endpoint_id).await;
         let _guard = peer_lock.lock().await;
+        if request.generation == 0 || i64::try_from(request.generation).is_err() {
+            return PairingRequestResponse::Rejected;
+        }
 
         if let Ok(Some(existing)) = self.find_row(&remote_endpoint_id).await {
             if existing.state == DeviceRelationshipState::Saved {
                 return PairingRequestResponse::AlreadySaved;
             }
+            if existing.state == DeviceRelationshipState::PendingIncoming
+                && existing.session_id.as_deref() == Some(request.session_id.as_str())
+            {
+                let generation = existing.generation.max(request.generation);
+                if self
+                    .store
+                    .set_pending_generation(&remote_endpoint_id, &request.session_id, generation)
+                    .await
+                    .ok()
+                    != Some(true)
+                {
+                    return PairingRequestResponse::Rejected;
+                }
+                return PairingRequestResponse::AwaitingConsent { generation };
+            }
             // Simultaneous initiation: both sides proved eligibility for the same session.
             if existing.state == DeviceRelationshipState::PendingOutgoing
                 && existing.session_id.as_deref() == Some(request.session_id.as_str())
             {
-                let generation = existing.generation;
+                let generation = existing.generation.max(request.generation);
                 let protocol_version = existing.minimum_protocol_version;
+                if self
+                    .store
+                    .set_pending_generation(&remote_endpoint_id, &request.session_id, generation)
+                    .await
+                    .ok()
+                    != Some(true)
+                {
+                    return PairingRequestResponse::Rejected;
+                }
                 let should_lead = self.local_endpoint_id.as_str() < remote_endpoint_id.as_str();
                 drop(_guard);
                 if should_lead {
@@ -491,7 +524,7 @@ impl DeviceRelationshipService {
                         )
                         .await;
                 }
-                return PairingRequestResponse::Merged;
+                return PairingRequestResponse::Merged { generation };
             }
         }
 
@@ -522,13 +555,20 @@ impl DeviceRelationshipService {
             Ok(false) | Err(_) => return PairingRequestResponse::Rejected,
         }
 
+        let Ok(local_generation) = self.next_generation(&remote_endpoint_id).await else {
+            return PairingRequestResponse::Rejected;
+        };
+        let generation = request.generation.max(local_generation);
+        if i64::try_from(generation).is_err() {
+            return PairingRequestResponse::Rejected;
+        }
         let now = now_ms();
         if self
             .store
             .upsert(RelationshipUpsert {
                 remote_endpoint_id: &remote_endpoint_id,
                 state: DeviceRelationshipState::PendingIncoming,
-                generation: request.generation,
+                generation,
                 minimum_protocol_version: request.protocol_version,
                 session_id: Some(&request.session_id),
                 remote_display_name: remote_display_name.as_deref(),
@@ -551,7 +591,50 @@ impl DeviceRelationshipService {
             &remote_endpoint_id,
             DeviceRelationshipState::PendingIncoming,
         );
-        PairingRequestResponse::AwaitingConsent
+        PairingRequestResponse::AwaitingConsent { generation }
+    }
+
+    async fn next_generation(&self, peer_endpoint_id: &str) -> Result<u64, VnidropError> {
+        let generation = self
+            .store
+            .generation_floor(peer_endpoint_id)
+            .await?
+            .checked_add(1)
+            .filter(|generation| i64::try_from(*generation).is_ok())
+            .ok_or_else(|| {
+                VnidropError::invalid_input(anyhow::anyhow!("relationship generation exhausted"))
+            })?;
+        Ok(generation)
+    }
+
+    async fn adopt_pending_generation(
+        &self,
+        peer_endpoint_id: &str,
+        session_id: &str,
+        generation: u64,
+    ) -> Result<(), VnidropError> {
+        if i64::try_from(generation).is_err() {
+            return Err(VnidropError::invalid_input(anyhow::anyhow!(
+                "pairing response did not match the pending relationship"
+            )));
+        }
+        if self
+            .store
+            .set_pending_generation(peer_endpoint_id, session_id, generation)
+            .await?
+        {
+            return Ok(());
+        }
+        match self.find_row(peer_endpoint_id).await? {
+            Some(row)
+                if row.state == DeviceRelationshipState::Saved && row.generation == generation =>
+            {
+                Ok(())
+            }
+            _ => Err(VnidropError::invalid_input(anyhow::anyhow!(
+                "pairing response did not match the pending relationship"
+            ))),
+        }
     }
 
     pub(super) async fn handle_pairing_consent(
@@ -917,6 +1000,17 @@ impl DeviceRelationshipService {
     ) -> Result<(), VnidropError> {
         self.store
             .set_minimum_protocol_version(peer_endpoint_id, minimum_protocol_version)
+            .await
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn insert_tombstone_for_test(
+        &self,
+        peer_endpoint_id: &str,
+        generation: u64,
+    ) -> Result<(), VnidropError> {
+        self.store
+            .insert_tombstone_for_test(peer_endpoint_id, generation)
             .await
     }
 

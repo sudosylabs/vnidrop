@@ -46,14 +46,15 @@ class ApprovalCoordinatorTest {
 		visibility.setForeground(true)
 		runCurrent()
 		advanceUntilIdle()
-		assertTrue(notifications.cancelAllCount > 0)
+		assertEquals(setOf("approval-old", "approval-new"), notifications.cancelled.toSet())
+		assertEquals(0, notifications.cancelAllCount)
 
 		core.requests[1UL] = emptyList()
 		core.mutableSignals.emit(CoreSignal.ApprovalChanged(1UL))
 		runCurrent()
 		advanceUntilIdle()
 		assertTrue(coordinator.state.value.pending.isEmpty())
-		assertEquals(2, notifications.cancelled.size)
+		assertTrue(notifications.cancelled.containsAll(listOf("approval-old", "approval-new")))
 	}
 
 	@Test

@@ -19,8 +19,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -55,6 +58,8 @@ import com.vnidrop.app.platform.DesktopAppearanceBridge
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import io.github.vinceglb.filekit.FileKit
 import java.awt.Desktop
+import java.awt.event.WindowEvent
+import java.awt.event.WindowFocusListener
 import java.io.File
 
 fun main(args: Array<String>) {
@@ -76,6 +81,20 @@ fun main(args: Array<String>) {
 			// Compose keeps edge resizers active for this client-decorated Linux window.
 			undecorated = linux,
 		) {
+			var windowFocused by remember { mutableStateOf(window.isFocused) }
+			DisposableEffect(window) {
+				val listener = object : WindowFocusListener {
+					override fun windowGainedFocus(event: WindowEvent?) {
+						windowFocused = true
+					}
+
+					override fun windowLostFocus(event: WindowEvent?) {
+						windowFocused = false
+					}
+				}
+				window.addWindowFocusListener(listener)
+				onDispose { window.removeWindowFocusListener(listener) }
+			}
 			val dependencies = rememberJvmAppDependencies(externalInvitations)
 			if (windows) {
 				WindowsWindowFrame(windowState) { chrome ->
@@ -86,6 +105,7 @@ fun main(args: Array<String>) {
 						useNativeWindowBackdrop = chrome.useNativeBackdrop,
 						onResolvedDarkThemeChanged = chrome.onDarkThemeChanged,
 						windowChrome = chrome.chrome,
+						windowFocused = windowFocused,
 					)
 				}
 			} else {
@@ -107,6 +127,7 @@ fun main(args: Array<String>) {
 					} else {
 						null
 					},
+					windowFocused = windowFocused,
 				)
 			}
 		}

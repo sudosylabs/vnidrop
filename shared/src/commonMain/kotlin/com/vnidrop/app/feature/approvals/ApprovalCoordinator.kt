@@ -140,7 +140,7 @@ class ApprovalCoordinator(
 
 	private suspend fun synchronizeNotifications(context: NotificationContext) {
 		if (context.foreground || !context.enabled || context.permission != NotificationPermission.Granted) {
-			notifications.cancelAll()
+			publishedNotificationIds.forEach { notifications.cancel(notificationId(it)) }
 			return
 		}
 		context.pending.filterNot { it.id in publishedNotificationIds }.forEach { request ->

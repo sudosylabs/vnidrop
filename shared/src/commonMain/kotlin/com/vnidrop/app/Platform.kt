@@ -34,10 +34,15 @@ fun interface DeviceInfoProvider {
 	suspend fun load(): DeviceInfo
 }
 
+fun interface BackgroundRuntimeKeeper {
+	fun setRequired(required: Boolean)
+}
+
 data class AppDependencies(
 	val environment: PlatformEnvironment,
 	val deviceInfoProvider: DeviceInfoProvider,
 	val fileSystemService: FileSystemService,
 	val localNotificationService: LocalNotificationService,
 	val externalInvitations: ExternalInvitationController,
+	val backgroundRuntimeKeeper: BackgroundRuntimeKeeper,
 )

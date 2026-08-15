@@ -31,6 +31,7 @@ fun rememberAndroidAppDependencies(activity: ComponentActivity, externalInvitati
 			fileSystemService = fileSystemService,
 			localNotificationService = notificationService,
 			externalInvitations = externalInvitations,
+			backgroundRuntimeKeeper = AndroidBackgroundRuntimeKeeper(context),
 		)
 	}
 }

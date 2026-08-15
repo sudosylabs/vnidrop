@@ -57,6 +57,8 @@ import com.vnidrop.app.ui.platform.usesMobilePresentation
 import com.vnidrop.app.ui.shell.AppShell
 import com.vnidrop.app.ui.shell.ScreenScrollContainer
 import com.vnidrop.app.core.TransferDirection
+import com.vnidrop.app.core.Transfer
+import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import com.vnidrop.app.ui.theme.VniDropTheme
@@ -78,6 +80,7 @@ fun App(
 	useNativeWindowBackdrop: Boolean = false,
 	onResolvedDarkThemeChanged: (Boolean) -> Unit = {},
 	windowChrome: (@Composable () -> Unit)? = null,
+	windowFocused: Boolean = true,
 ) {
 	val graphHolder = viewModel { AppGraphViewModel(dependencies) }
 	val graph = graphHolder.graph
@@ -148,6 +151,14 @@ fun App(
 		.map { it.username }
 		.collectAsStateWithLifecycle(initialValue = dependencies.environment.defaultUsername)
 	val lifecycleOwner = LocalLifecycleOwner.current
+	LaunchedEffect(graph, windowFocused) {
+		graph.visibility.setWindowFocused(windowFocused)
+	}
+	LaunchedEffect(dependencies.backgroundRuntimeKeeper, dependencies.environment.uiPlatform, sendCoreState.transfers) {
+		dependencies.backgroundRuntimeKeeper.setRequired(
+			shouldKeepRuntimeActive(dependencies.environment.uiPlatform, sendCoreState.transfers),
+		)
+	}
 	LaunchedEffect(dependencies.externalInvitations, appViewModel, receiveViewModel) {
 		dependencies.externalInvitations.invitations.collect { invitation ->
 			appViewModel.selectDestination(AppDestination.Receive)
@@ -180,12 +191,16 @@ fun App(
 					graph.visibility.setForeground(true)
 					settingsViewModel.refreshNotificationPermission()
 				}
-				Lifecycle.Event.ON_STOP -> graph.visibility.setForeground(false)
+				Lifecycle.Event.ON_STOP -> {
+					graph.visibility.setForeground(false)
+				}
 				else -> Unit
 			}
 		}
 		lifecycleOwner.lifecycle.addObserver(observer)
-		onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+		onDispose {
+			lifecycleOwner.lifecycle.removeObserver(observer)
+		}
 	}
 
 	val darkTheme = rememberResolvedDarkTheme(appState.themeMode)
@@ -312,4 +327,11 @@ fun App(
 			}
 		}
 	}
+}
+
+internal fun shouldKeepRuntimeActive(
+	platform: UiPlatform,
+	transfers: List<Transfer>,
+): Boolean = platform == UiPlatform.Android && transfers.any {
+	it.direction == TransferDirection.Send && it.status == TransferStatus.Sharing
 }

@@ -23,6 +23,7 @@ fun rememberJvmAppDependencies(externalInvitations: ExternalInvitationController
 			fileSystemService = fileSystemService,
 			localNotificationService = JvmLocalNotificationService(),
 			externalInvitations = externalInvitations,
+			backgroundRuntimeKeeper = BackgroundRuntimeKeeper { },
 		)
 	}
 }

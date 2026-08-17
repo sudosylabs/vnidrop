@@ -8,7 +8,6 @@ import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import com.vnidrop.app.background.AndroidBackgroundSharingController
 import com.vnidrop.app.core.rememberFileSystemService
 import com.vnidrop.app.notifications.rememberAndroidLocalNotificationService
 import com.vnidrop.app.feature.receive.ExternalInvitationController
@@ -19,8 +18,7 @@ fun rememberAndroidAppDependencies(activity: ComponentActivity, externalInvitati
 	val context = activity.applicationContext
 	val fileSystemService = rememberFileSystemService()
 	val notificationService = rememberAndroidLocalNotificationService(activity)
-	val backgroundSharingController = remember(context) { AndroidBackgroundSharingController(context) }
-	return remember(context, fileSystemService, notificationService, backgroundSharingController) {
+	return remember(context, fileSystemService, notificationService) {
 		AppDependencies(
 			environment = PlatformEnvironment(
 				name = "Android ${Build.VERSION.SDK_INT}",
@@ -32,7 +30,6 @@ fun rememberAndroidAppDependencies(activity: ComponentActivity, externalInvitati
 			deviceInfoProvider = AndroidDeviceInfoProvider(context),
 			fileSystemService = fileSystemService,
 			localNotificationService = notificationService,
-			backgroundSharingController = backgroundSharingController,
 			externalInvitations = externalInvitations,
 			backgroundRuntimeKeeper = AndroidBackgroundRuntimeKeeper(context),
 		)

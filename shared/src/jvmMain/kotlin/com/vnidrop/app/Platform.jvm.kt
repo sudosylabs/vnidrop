@@ -2,7 +2,6 @@ package com.vnidrop.app
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import com.vnidrop.app.background.BackgroundSharingController
 import com.vnidrop.app.core.rememberFileSystemService
 import com.vnidrop.app.notifications.JvmLocalNotificationService
 import com.vnidrop.app.feature.receive.ExternalInvitationController
@@ -23,7 +22,6 @@ fun rememberJvmAppDependencies(externalInvitations: ExternalInvitationController
 			deviceInfoProvider = JvmDeviceInfoProvider,
 			fileSystemService = fileSystemService,
 			localNotificationService = JvmLocalNotificationService(),
-			backgroundSharingController = BackgroundSharingController { },
 			externalInvitations = externalInvitations,
 			backgroundRuntimeKeeper = BackgroundRuntimeKeeper { },
 		)

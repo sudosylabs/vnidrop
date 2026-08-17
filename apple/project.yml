@@ -159,6 +159,25 @@ targets:
     dependencies:
       - target: VniDrop
 
+  # UI test bundle used only to capture App Store screenshots (iOS/iPad).
+  # Driven by apple/scripts/appstore-screenshots.sh.
+  VniDropUITests:
+    type: bundle.ui-testing
+    supportedDestinations: [iOS]
+    configFiles:
+      Debug: Signing.xcconfig
+      Release: Signing.xcconfig
+      Release-Direct: Signing.xcconfig
+    sources:
+      - path: UITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "6.0"
+        TEST_TARGET_NAME: VniDrop
+    dependencies:
+      - target: VniDrop
+
 schemes:
   VniDrop:
     build:
@@ -188,3 +207,13 @@ schemes:
       config: Release-Direct
     archive:
       config: Release-Direct
+
+  # App Store screenshot capture (see apple/scripts/appstore-screenshots.sh).
+  VniDropScreenshots:
+    build:
+      targets:
+        VniDrop: all
+    test:
+      config: Debug
+      targets:
+        - VniDropUITests

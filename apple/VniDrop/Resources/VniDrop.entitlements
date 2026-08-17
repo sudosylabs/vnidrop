@@ -20,6 +20,12 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- Required, not optional: VniDrop's iroh (QUIC/UDP) endpoint listens for
+	     and ACCEPTS inbound connections from peers — either device can initiate
+	     a transfer. See HandshakeService::accept in crates/vnidrop/src/handshake.rs.
+	     Removing this breaks the receive/serve half of every transfer under the
+	     sandbox. App Store automated review may flag it (no classic TcpListener);
+	     justify via App Review Information rather than removing. -->
 	<key>com.apple.security.network.server</key>
 	<true/>
 </dict>

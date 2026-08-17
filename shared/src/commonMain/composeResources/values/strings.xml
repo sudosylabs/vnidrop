@@ -117,6 +117,9 @@
     <string name="nav_settings">Settings</string>
     <string name="network_title">Network</string>
     <string name="notifications_description">Get notified about transfer activity while VniDrop is in the background.</string>
+    <string name="notifications_background_sharing_body">VniDrop is ready to share your files in the background.</string>
+    <string name="notifications_background_sharing_channel">Active transfers</string>
+    <string name="notifications_background_sharing_title">Sharing in the background</string>
     <string name="notifications_enable_action">Enable</string>
     <string name="notifications_enabled_message">Notifications enabled.</string>
     <string name="notifications_request_prompt">Notifications are off. Enable them to be notified about future requests.</string>

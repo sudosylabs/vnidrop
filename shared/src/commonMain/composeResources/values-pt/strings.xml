@@ -117,6 +117,9 @@
     <string name="nav_settings">Definições</string>
     <string name="network_title">Rede</string>
     <string name="notifications_description">Seja notificado sobre a atividade das transferências enquanto o VniDrop está em segundo plano.</string>
+    <string name="notifications_background_sharing_body">O VniDrop está pronto para partilhar os seus ficheiros em segundo plano.</string>
+    <string name="notifications_background_sharing_channel">Transferências ativas</string>
+    <string name="notifications_background_sharing_title">Partilha em segundo plano</string>
     <string name="notifications_enable_action">Ativar</string>
     <string name="notifications_enabled_message">Notificações ativadas.</string>
     <string name="notifications_request_prompt">As notificações estão desativadas. Ative-as para receber avisos de pedidos futuros.</string>

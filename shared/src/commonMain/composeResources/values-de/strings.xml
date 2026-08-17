@@ -117,6 +117,9 @@
     <string name="nav_settings">Einstellungen</string>
     <string name="network_title">Netzwerk</string>
     <string name="notifications_description">Werden Sie über Übertragungsaktivitäten benachrichtigt, während VniDrop im Hintergrund läuft.</string>
+    <string name="notifications_background_sharing_body">VniDrop kann Ihre Dateien im Hintergrund freigeben.</string>
+    <string name="notifications_background_sharing_channel">Aktive Übertragungen</string>
+    <string name="notifications_background_sharing_title">Freigabe im Hintergrund</string>
     <string name="notifications_enable_action">Aktivieren</string>
     <string name="notifications_enabled_message">Mitteilungen aktiviert.</string>
     <string name="notifications_request_prompt">Mitteilungen sind deaktiviert. Aktivieren Sie sie, um über zukünftige Anfragen informiert zu werden.</string>

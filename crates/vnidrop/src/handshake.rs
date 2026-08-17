@@ -52,6 +52,13 @@ impl HandshakeService {
 }
 
 impl ProtocolHandler for HandshakeService {
+    // This handler ACCEPTS inbound QUIC connections from peers: iroh binds a
+    // listening endpoint and this device responds to connections initiated by
+    // the remote side. On macOS this is why the App Sandbox requires the
+    // `com.apple.security.network.server` entitlement (see
+    // apple/VniDrop/Resources/VniDrop.entitlements) in addition to
+    // `network.client` — either peer can initiate a transfer, so both the
+    // client and server sides of a connection are used.
     async fn accept(&self, connection: Connection) -> Result<(), AcceptError> {
         let remote_endpoint_id = connection.remote_id().to_string();
 

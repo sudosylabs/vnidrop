@@ -15,6 +15,7 @@ import SwiftUI
 let nameFor: [String: String] = [
     "choose-receivers": "Choose Receivers", "send-anywhere": "Send Anywhere",
     "share-securely": "Share Securely", "stay-private": "Stay private",
+    "web-hero": "hero",
 ]
 
 func env(_ key: String, _ fallback: String) -> String {
@@ -29,9 +30,11 @@ func loadNSImage(_ path: String) -> (NSImage, CGSize)? {
 }
 
 @MainActor
-func writePNG(_ view: some View, to url: URL) throws {
+func writePNG(_ view: some View, to url: URL, transparent: Bool = false) throws {
     let renderer = ImageRenderer(content: view)
     renderer.scale = 1
+    // The web hero has no background of its own; the page supplies it.
+    renderer.isOpaque = !transparent
     guard let cg = renderer.cgImage else {
         throw NSError(domain: "studio", code: 1, userInfo: [NSLocalizedDescriptionKey: "render failed"])
     }
@@ -85,18 +88,30 @@ func run() throws {
         }
 
         for scr in screens {
-            guard let spec = specs[scr], let caption = ls[scr] else {
+            guard let spec = specs[scr] else {
                 FileHandle.standardError.write(Data("warning: skipping \(loc)/\(scr)\n".utf8)); continue
+            }
+            // Caption-less screens (the web hero) carry no strings.json entry.
+            let blank = Caption(title: "", subtitle: "", encryption: nil, protection: nil)
+            guard let caption = spec.showsCaption ? ls[scr] : blank else {
+                FileHandle.standardError.write(Data("warning: no caption for \(loc)/\(scr)\n".utf8)); continue
             }
 
             let shotId = spec.shotId ?? scr
             let shotsDir = env("SHOTS_DIR", "generated/shots/\(platform.rawValue)")
             let shot = loadNSImage(base.appendingPathComponent("\(shotsDir)/\(loc)/\(shotId).png").path)?.0
+
+            // Flat window layers come from their own platform's capture tree — the web
+            // hero pairs a `mac` window shot with the `iphone` model in one composition.
+            let windowShots: [NSImage?] = spec.windowShotIds.map { id in
+                loadNSImage(base.appendingPathComponent("\(env("WINDOW_SHOTS_DIR", "generated/shots/mac"))/\(loc)/\(id).png").path)?.0
+            }
             let hasDevice = spec.device != nil || !spec.devices.isEmpty
             let frame = ScreenFrame(spec: spec, caption: caption, globe: globe, shot: shot,
+                                    windowShots: windowShots,
                                     device: hasDevice ? device : nil, canvas: canvas)
             let out = outDir.appendingPathComponent("\(nameFor[scr] ?? scr).png")
-            try writePNG(frame, to: out)
+            try writePNG(frame, to: out, transparent: spec.bg == nil)
             print("  ✅ \(out.path)")
             count += 1
         }

@@ -36,8 +36,26 @@ run) — during layout iteration, capture once then re-run `swift run studio` on
   directly, sizes its window with `osascript`, and grabs it with `screencapture`. Grant
   the terminal **Accessibility + Screen Recording** permission the first time.
 
+## Web hero
+The landing-page hero is a separate target: a flat macOS window with the 3D iPhone
+overlapping its lower-right, rendered on a **transparent** background so the site
+supplies the backdrop. The Mac stays flat (not SceneKit) because its UI text is the
+message and perspective would foreshorten it into mush at landing-page widths.
+
+```sh
+LOCALES="en" SCENARIOS="compose:web-mac"          PLATFORM=mac   ./capture.sh
+LOCALES="en" SCENARIOS="receive-connect:web-iphone" PLATFORM=iphone SETTLE=8 ./capture.sh
+LOCALES="en" SCREENS="web-hero" PLATFORM=web SHOTS_DIR="generated/shots/iphone" swift run studio
+```
+`PLATFORM=web` reads the phone shot from `SHOTS_DIR` and the window shot from
+`WINDOW_SHOTS_DIR` (default `generated/shots/mac`), so one composition mixes two
+device classes. Output: `generated/<Language>/Web/hero.png`.
+
+`SETTLE` (seconds, default 4) is how long capture.sh waits before grabbing — raise it
+for scenarios that present a sheet, or the capture catches it mid-slide.
+
 ## Platforms
-`PLATFORM=iphone` (default), `ipad`, or `mac`. Each `Platform`
+`PLATFORM=iphone` (default), `ipad`, `mac`, or `web`. Each `Platform`
 (`Sources/studio/Platform.swift`) carries its canvas size, capture target, output
 subfolder, and a `DeviceModel` — the `.usdz`, its screen material, the orientation fix
 (yaw so the screen faces the camera), optional front-glass mesh to hide, whether to tint

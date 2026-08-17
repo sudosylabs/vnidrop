@@ -49,6 +49,19 @@ struct DeviceSpec {
 	var blackScreen: Bool = false  // texture the screen solid black (ignore the shot)
 }
 
+// A flat window screenshot layer — no 3D. Used by the web hero, where the macOS
+// window carries the message and must stay pixel-legible; SceneKit perspective
+// would foreshorten the body text into mush at landing-page widths.
+struct WindowSpec {
+	var width: CGFloat  // rendered width in canvas px (height follows the shot's aspect)
+	var cx: CGFloat
+	var cy: CGFloat
+	// The capture is a screen region, so the desktop shows through the window's
+	// rounded corners. Masking with the same radius drops those pixels to alpha.
+	var cornerRadius: CGFloat = 20
+	var shadow: Bool = true
+}
+
 struct GlobeSpec {
 	var width: CGFloat
 	var dx: CGFloat
@@ -106,9 +119,16 @@ struct Banner {
 
 struct ScreenSpec {
 	let id: String
-	let bg: GradientSpec
+	// nil renders no background at all, leaving the canvas transparent (web hero).
+	let bg: GradientSpec?
 	let captionPlace: CaptionPlace
 	let captionTheme: CaptionTheme
+	// The web hero has no marketing caption — the app UI is the message.
+	var showsCaption: Bool = true
+	// Flat (non-3D) window screenshots, drawn under the 3D devices.
+	var windows: [WindowSpec] = []
+	// Which captured shot each window textures, parallel to `windows`.
+	var windowShotIds: [String] = []
 	var globe: GlobeSpec? = nil
 	var route: RouteSpec? = nil
 	var device: DeviceSpec? = nil
@@ -127,8 +147,27 @@ struct ScreenSpec {
 		case .iphone: iphone
 		case .ipad: ipad
 		case .mac: mac
+		case .web: web
 		}
 	}
+
+	// Landing-page hero: the macOS composer window with the iPhone overlapping its
+	// lower-right, on transparent background. Same composition as the original hero;
+	// the Mac stays flat so its UI text is legible at web widths.
+	static let web: [String: ScreenSpec] = [
+		"web-hero": ScreenSpec(
+			id: "web-hero",
+			bg: nil,
+			captionPlace: .top, captionTheme: .light,
+			showsCaption: false,
+			windows: [WindowSpec(width: 1960, cx: 1060, cy: 800, cornerRadius: 22)],
+			windowShotIds: ["web-mac"],
+			device: DeviceSpec(
+				height: 1300, cx: 1800, cy: 1150,
+				pose: Pose(pitch: 0, yaw: 0, roll: 0)),
+			shotId: "web-iphone"
+		)
+	]
 
 	static let iphone: [String: ScreenSpec] = [
 		// Straight-on hero, large and centered, showing the Share/QR sheet.

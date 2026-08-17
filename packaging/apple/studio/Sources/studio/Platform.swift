@@ -39,13 +39,14 @@ struct DeviceModel {
 
 // An App Store target: canvas size, device model, capture simulator, output subfolder.
 enum Platform: String {
-    case iphone, ipad, mac
+    case iphone, ipad, mac, web
 
     var canvas: CGSize {
         switch self {
         case .iphone: CGSize(width: 1284, height: 2778)   // 6.5" iPhone
         case .ipad:   CGSize(width: 2064, height: 2752)   // 13" iPad Pro (matches the M5 sim)
         case .mac:    CGSize(width: 2880, height: 1800)   // Mac App Store (16:10 landscape)
+        case .web:    CGSize(width: 2400, height: 1920)   // landing-page hero, 5:4 @2x
         }
     }
 
@@ -54,6 +55,8 @@ enum Platform: String {
         case .iphone: DeviceModel.iphone(assets)
         case .ipad:   DeviceModel.ipad(assets)
         case .mac:    DeviceModel.macbook(assets)
+        // The hero's Mac is a flat window layer, so the only 3D model is the phone.
+        case .web:    DeviceModel.iphone(assets)
         }
     }
 
@@ -63,6 +66,7 @@ enum Platform: String {
         case .iphone: "iPhone 17 Pro Max"
         case .ipad:   "iPad Pro 13-inch (M5)"
         case .mac:    "My Mac"
+        case .web:    "iPhone 17 Pro Max"
         }
     }
 
@@ -72,6 +76,7 @@ enum Platform: String {
         case .iphone: "iPhone"
         case .ipad:   "iPad"
         case .mac:    "Mac"
+        case .web:    "Web"
         }
     }
 }

@@ -9,6 +9,8 @@ struct ScreenFrame: View {
     let caption: Caption
     let globe: Image?
     let shot: NSImage?
+    /// Flat window screenshots, parallel to `spec.windows`.
+    var windowShots: [NSImage?] = []
     let device: DeviceRenderer?
     var canvas: CGSize = CGSize(width: 1284, height: 2778)
 
@@ -21,7 +23,7 @@ struct ScreenFrame: View {
         let cw = canvas.width, ch = canvas.height
 
         ZStack(alignment: .topLeading) {
-            spec.bg.gradient
+            if let bg = spec.bg { bg.gradient }
 
             if let g = spec.globe, let globe {
                 globe.resizable().scaledToFit()
@@ -37,6 +39,20 @@ struct ScreenFrame: View {
             // Encryption flow (behind the phones so beams/stream tuck into them).
             if let b = spec.beams { beamsLayer(b) }
             if let s = spec.stream { streamLayer(s) }
+
+            // Flat window layers sit under the 3D devices so the phone overlaps them.
+            ForEach(Array(spec.windows.enumerated()), id: \.offset) { i, w in
+                if let img = i < windowShots.count ? windowShots[i] : nil {
+                    Image(nsImage: img)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: w.width)
+                        .clipShape(RoundedRectangle(cornerRadius: w.cornerRadius, style: .continuous))
+                        .shadow(color: w.shadow ? .black.opacity(0.45) : .clear,
+                                radius: 70, x: 0, y: 30)
+                        .position(x: w.cx, y: w.cy)
+                }
+            }
 
             if let device {
                 // The renderer bakes the pose into the 3D scene; we place each phone by
@@ -55,7 +71,7 @@ struct ScreenFrame: View {
                 bannerLayer(b)
             }
 
-            captionLayer
+            if spec.showsCaption { captionLayer }
         }
         // Pin to top-leading: oversized layers (e.g. the globe frame is wider than the
         // canvas) must be clipped from the origin, NOT re-centered — otherwise the whole

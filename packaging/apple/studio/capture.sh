@@ -28,11 +28,16 @@ esac
 # scenario (launch arg value) -> studio screen id (output filename stem).
 # send-anywhere reuses the share screenshot (see ScreenSpec shotId), so it isn't
 # captured separately; stay-private uses black screens (no capture).
-SCENARIOS="share:share-securely approval:choose-receivers"
+SCENARIOS="${SCENARIOS:-share:share-securely approval:choose-receivers}"
 
 # Screenshots are transient build output, regenerated per run — never committed. They
 # live under generated/ (git-ignored), not in assets/.
 SHOTS_DIR="${SHOTS_DIR:-generated/shots/$PLATFORM}"
+
+# Seconds to let the scenario settle before grabbing. Sheets and drawers animate in
+# after the fixture core reports ready, and a short wait catches them mid-slide
+# (blurred backdrop, half-risen sheet). Raise for scenarios that present a sheet.
+SETTLE="${SETTLE:-4}"
 
 # ---- macOS: no simulator. Build the native app, drive it with the fixture args, size its
 # window to 16:10 and grab it with screencapture. Needs Accessibility + Screen Recording
@@ -66,8 +71,11 @@ if [ "$PLATFORM" = "mac" ]; then
 				set size of front window to {$WIN_W, $WIN_H}
 			end tell
 			OSA
-			sleep 1
+			sleep "$SETTLE"
 			tmp="$(mktemp -t vnishot).png"
+			# Region grab, exactly the window bounds. The only contamination is the
+			# desktop showing through the window's rounded corners; the studio masks
+			# those off with the same corner radius when compositing.
 			screencapture -x -R${WIN_X},${WIN_Y},${WIN_W},${WIN_H} "$tmp"
 			mv "$tmp" "$SHOTS_DIR/$loc/$screen.png"
 			echo "  🖥️  $SHOTS_DIR/$loc/$screen.png"
@@ -107,7 +115,7 @@ for loc in $LOCALES; do
 		scenario="${pair%%:*}"; screen="${pair##*:}"
 		xcrun simctl launch --terminate-running-process "$UDID" "$BUNDLE_ID" \
 			-VniScreenshot "$scenario" -AppleLanguages "($loc)" -AppleLocale "$loc" >/dev/null
-		sleep 4
+		sleep "$SETTLE"
 		# simctl can't write into the project tree (TCC blocks the CoreSimulator helper
 		# on external/again-protected volumes), so capture to a temp file and move it in.
 		tmp="$(mktemp -t vnishot).png"

@@ -133,9 +133,24 @@ struct RootView: View {
 		// Once the (fixture) core reports ready, drive the app into the target screen.
 		.task(id: sendModel.coreState.isInitialized) {
 			guard let scenario = screenshotScenario, sendModel.coreState.isInitialized else { return }
-			appModel.selectDestination(.send)
-			sendModel.openTransfer(ScreenshotCoreGateway.transferId)
-			if scenario == .share { sendModel.openShare() }
+			switch scenario {
+			case .receiveConnect:
+				// Receive is its own destination; the connect sheet is the subject.
+				appModel.selectDestination(.receive)
+				receiveModel.openAcquisition()
+			case .compose:
+				appModel.selectDestination(.send)
+				sendModel.openComposerForScreenshot(
+					files: [ScreenshotCoreGateway.composerFile],
+					transferName: ScreenshotCoreGateway.composerFile.displayName,
+					senderName: "Sudosy"
+				)
+				clearScreenshotFocus()
+			case .transferDetails, .approval, .share:
+				appModel.selectDestination(.send)
+				sendModel.openTransfer(ScreenshotCoreGateway.transferId)
+				if scenario == .share { sendModel.openShare() }
+			}
 		}
 		#endif
 		.onChange(of: scenePhase) { _, phase in

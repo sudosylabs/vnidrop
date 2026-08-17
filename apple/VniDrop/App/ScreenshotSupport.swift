@@ -2,6 +2,27 @@
 import Foundation
 import Combine
 import VnidropCore
+#if os(macOS)
+import AppKit
+#endif
+
+/// macOS makes a sheet's first text field the initial first responder and selects its
+/// contents, which reads as a live edit (blue selection) in a marketing capture.
+/// Nothing in the product wants that changed — only the screenshot does.
+@MainActor
+func clearScreenshotFocus() {
+	#if os(macOS)
+	Task { @MainActor in
+		// The sheet is presented asynchronously and takes first responder once it
+		// becomes key, so a single early clear is lost. Sweep every window a few
+		// times across the presentation window instead of guessing one delay.
+		for _ in 0..<12 {
+			try? await Task.sleep(for: .milliseconds(250))
+			for window in NSApp.windows { window.makeFirstResponder(nil) }
+		}
+	}
+	#endif
+}
 
 /// Which marketing screen to stage. Selected via the `-VniScreenshot <name>` launch
 /// argument (read from `NSArgumentDomain`), set by the App Store screenshot UI test.
@@ -9,6 +30,8 @@ enum ScreenshotScenario: String {
 	case transferDetails = "transfer-details" // Send Anywhere: the detail view
 	case share                                 // Share Securely: the QR / share panel
 	case approval                              // Choose Receivers: the receive-request modal
+	case compose                               // Web hero (Mac): the transfer composer sheet
+	case receiveConnect = "receive-connect"    // Web hero (iPhone): Receive + connect sheet
 
 	/// The active scenario for this launch, or `nil` in a normal run.
 	static var current: ScreenshotScenario? {
@@ -28,6 +51,14 @@ final class ScreenshotCoreGateway: CoreGateway {
 
 	/// Deterministic fixture transfer shown across every scenario.
 	static let transferId: UInt64 = 1
+
+	/// Staged file for the `compose` scenario. Never touches the filesystem — the
+	/// composer only reads `displayName`/`sizeBytes` to render its summary row.
+	static let composerFile = PickedShareFile(
+		value: "/screenshot/Purple Rain.mp3",
+		displayName: "Purple Rain.mp3",
+		sizeBytes: 8_912_896 // 8.5 MiB — the size formatter renders binary units
+	)
 	private let fixtureTransfer = Transfer(
 		localId: "screenshot-1",
 		transferId: ScreenshotCoreGateway.transferId,
@@ -103,6 +134,33 @@ final class ScreenshotCoreGateway: CoreGateway {
 	func receivedArtifacts() async -> Result<[ReceivedArtifactModel], Error> { .success([]) }
 	func respondReceiverRequest(requestId: String, accepted: Bool, reason: String?) async -> Result<Void, Error> { .success(()) }
 	func refresh() async -> Result<Void, Error> { .success(()) }
+	func resetUnrecoverableIdentity(appDataDir: String, networkConfiguration: RelayConfiguration) async -> Result<Void, Error> { .success(()) }
+
+	// MARK: - Saved Devices (empty; no marketing screen stages them yet)
+
+	func listPairingEligibilities() async -> Result<[PairingEligibilityModel], Error> { .success([]) }
+	func declinePairingEligibility(peerEndpointId: String) async -> Result<Void, Error> { .success(()) }
+	func requestSavedDevicePairing(peerEndpointId: String) async -> Result<Bool, Error> { .success(false) }
+	func respondToDevicePairing(peerEndpointId: String, accepted: Bool) async -> Result<Bool, Error> { .success(false) }
+	func listDeviceRelationships() async -> Result<[DeviceRelationshipModel], Error> { .success([]) }
+	func listSavedDevices() async -> Result<[SavedDeviceModel], Error> { .success([]) }
+	func setSavedDeviceLabel(peerEndpointId: String, label: String?) async -> Result<Void, Error> { .success(()) }
+	func forgetSavedDevice(peerEndpointId: String) async -> Result<Void, Error> { .success(()) }
+	func blockDevice(peerEndpointId: String) async -> Result<Void, Error> { .success(()) }
+	func unblockDevice(peerEndpointId: String) async -> Result<Void, Error> { .success(()) }
+	func listBlockedDevices() async -> Result<[String], Error> { .success([]) }
+	func listPendingTargetedOffers() async -> Result<[PendingTargetedOfferModel], Error> { .success([]) }
+	func respondToTargetedOffer(transferId: String, accepted: Bool) async -> Result<TargetedOfferResponseModel, Error> {
+		.failure(ScreenshotGatewayError.unsupported)
+	}
+	func createTargetedTransfer(receiverEndpointId: String, sources: [ShareSource], transferName: String?) async -> Result<TargetedTransferModel, Error> {
+		.failure(ScreenshotGatewayError.unsupported)
+	}
+	func listTargetedTransfers() async -> Result<[TargetedTransferModel], Error> { .success([]) }
+	func receiveTargetedTransfer(transferId: String, outputDirectoryUrl: String) async -> Result<Void, Error> { .success(()) }
+	func resumeTargetedTransfer(id: String, outputDirectoryUrl: String) async -> Result<Void, Error> { .success(()) }
+	func cancelTargetedTransfer(id: String) async -> Result<Void, Error> { .success(()) }
+	func deleteTargetedTransfer(id: String) async -> Result<Void, Error> { .success(()) }
 }
 
 private enum ScreenshotGatewayError: Error { case unsupported }

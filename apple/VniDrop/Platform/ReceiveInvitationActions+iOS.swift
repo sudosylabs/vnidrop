@@ -16,10 +16,23 @@ final class IosReceiveInvitationActions: NSObject, ReceiveInvitationActions, UID
 
 	var fileAvailability: ReceiveMethodAvailability { .available }
 	var qrAvailability: ReceiveMethodAvailability {
-		AVCaptureDevice.default(for: .video) != nil ? .available : .unavailable
+		// The simulator has no camera, so a marketing capture would show the QR row
+		// greyed out even though every supported iPhone can scan. Report what real
+		// hardware does; the scanner itself is never invoked in a screenshot run.
+		if isScreenshotRun { return .available }
+		return AVCaptureDevice.default(for: .video) != nil ? .available : .unavailable
 	}
 	var nfcAvailability: ReceiveMethodAvailability {
-		NFCNDEFReaderSession.readingAvailable ? .available : .unavailable
+		if isScreenshotRun { return .available }
+		return NFCNDEFReaderSession.readingAvailable ? .available : .unavailable
+	}
+
+	private var isScreenshotRun: Bool {
+		#if DEBUG
+		return ScreenshotScenario.current != nil
+		#else
+		return false
+		#endif
 	}
 
 	func pickInvitation(onResult: @escaping (Result<String, Error>) -> Void) {

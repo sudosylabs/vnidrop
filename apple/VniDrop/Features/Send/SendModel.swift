@@ -142,6 +142,19 @@ final class SendModel: ObservableObject {
 
 	// MARK: - Composer
 
+	#if DEBUG
+	/// Opens the composer with fixture content for App Store / marketing captures.
+	/// `state` is `private(set)`, and `openComposer()` deliberately clears any staged
+	/// selection, so screenshots cannot stage a file through the normal entry point.
+	func openComposerForScreenshot(files: [PickedShareFile], transferName: String, senderName: String) {
+		state.isComposerOpen = true
+		state.selectedFiles = files
+		state.transferName = transferName
+		state.senderName = senderName
+		state.accessPolicy = .requireApproval
+	}
+	#endif
+
 	func openComposer() {
 		if state.isSharing { return }
 		let discarded = state.selectedFiles

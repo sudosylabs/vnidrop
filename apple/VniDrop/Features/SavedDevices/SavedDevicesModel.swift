@@ -80,6 +80,7 @@ final class SavedDevicesModel: ObservableObject {
 	private let repository: CoreGateway
 	private let fileSystemService: FileSystemService
 	private let messages: UiMessageController
+	private let readModel = SavedDevicesReadModel()
 	private var cancellables = Set<AnyCancellable>()
 
 	/// Serializes `refresh` so overlapping signals cannot interleave their reads
@@ -625,38 +626,33 @@ final class SavedDevicesModel: ObservableObject {
 			let pendingOffers = try await repository.listPendingTargetedOffers().get()
 			let transfers = try await repository.listTargetedTransfers().get()
 
-			let savedNames = savedDevices.reduce(into: [String: String]()) { names, device in
-				if let name = device.displayNameOrNil { names[device.endpointId] = name }
-			}
-			let pendingRelationships = relationships
-				.filter { $0.state == .pendingIncoming || $0.state == .pendingOutgoing }
-				.sorted { $0.updatedAt > $1.updatedAt }
+			let snapshot = readModel.derive(
+				SavedDevicesReadInputs(
+					eligibilities: eligibilities,
+					relationships: relationships,
+					savedDevices: savedDevices,
+					pendingOffers: pendingOffers,
+					targetedTransfers: transfers
+				),
+				dismissedEligibilityIds: dismissedEligibility,
+				hiddenTransferIds: abandonedTransferIds
+			)
 
 			state.isLoading = false
 			state.loadFailed = false
-			state.eligibilities = eligibilities.sorted { $0.createdAt > $1.createdAt }
-			state.pendingRelationships = pendingRelationships
-			state.savedDevices = savedDevices.sorted { $0.createdAt > $1.createdAt }
-			state.targetedTransfers = transfers
-				// A cancelled-and-deleted transfer can still be in this snapshot if
-				// the read raced the delete. Publishing it would put a send the user
-				// called off into history and fire a notification about it.
-				.filter { $0.state != .deleted && !abandonedTransferIds.contains($0.id) }
-				.sorted { $0.updatedAt > $1.updatedAt }
-				.map { $0.toExperienceItem(savedNames: savedNames) }
+			state.eligibilities = snapshot.eligibilities
+			state.pendingRelationships = snapshot.pendingRelationships
+			state.savedDevices = snapshot.savedDevices
+			state.targetedTransfers = snapshot.targetedTransfers
 			// Leave a prompt mid-answer alone; replacing it would strand the
 			// in-flight request behind a prompt the user never saw.
 			if !state.pairingPrompt.busy {
 				state.pairingPrompt = PairingPromptState(
-					prompt: nextPairingPrompt(
-						relationships: pendingRelationships,
-						eligibilities: eligibilities,
-						savedNames: savedNames
-					)
+					prompt: snapshot.nextPairingPrompt
 				)
 			}
-			state.targetedOffers.pending = pendingOffers.sorted { $0.receivedAt < $1.receivedAt }
-			state.targetedOffers.senderDisplayNames = savedNames
+			state.targetedOffers.pending = snapshot.pendingOffers
+			state.targetedOffers.senderDisplayNames = snapshot.senderDisplayNames
 		} catch {
 			state.isLoading = false
 			state.loadFailed = true
@@ -664,52 +660,4 @@ final class SavedDevicesModel: ObservableObject {
 		}
 	}
 
-	/// An incoming request outranks an eligibility: the peer is waiting on us,
-	/// and answering it is the only action that unblocks them.
-	private func nextPairingPrompt(
-		relationships: [DeviceRelationshipModel],
-		eligibilities: [PairingEligibilityModel],
-		savedNames: [String: String]
-	) -> PairingPrompt? {
-		if let incoming = relationships.first(where: { $0.state == .pendingIncoming }) {
-			let name = eligibilities
-				.first { $0.peerEndpointId == incoming.remoteEndpointId }?
-				.remoteDisplayName
-				?? savedNames[incoming.remoteEndpointId]
-			return .incomingRequest(peerEndpointId: incoming.remoteEndpointId, remoteDisplayName: name)
-		}
-		guard let eligibility = eligibilities.first(where: {
-			!dismissedEligibility.contains($0.peerEndpointId)
-		}) else { return nil }
-		return .eligibility(
-			peerEndpointId: eligibility.peerEndpointId,
-			remoteDisplayName: eligibility.remoteDisplayName
-		)
-	}
-}
-
-private extension TargetedTransferModel {
-	/// Resolves the transfer into "the peer" and a direction.
-	///
-	/// Direction comes from the core's recorded role, not from comparing the
-	/// sender to the current local endpoint: an identity reset retires that
-	/// endpoint, and rows predating it match neither side, which turned past
-	/// sends into incoming transfers from a phantom device.
-	func toExperienceItem(savedNames: [String: String]) -> SavedDeviceTransferItem {
-		let outgoing = role == .sender
-		let peerEndpointId = outgoing ? receiverEndpointId : senderEndpointId
-		return SavedDeviceTransferItem(
-			id: id,
-			peerEndpointId: peerEndpointId,
-			peerDisplayName: savedNames[peerEndpointId],
-			direction: outgoing ? .outgoing : .incoming,
-			transferName: transferName,
-			fileCount: fileCount,
-			totalSize: totalSize,
-			verifiedBytes: verifiedBytes,
-			state: state,
-			createdAt: createdAt,
-			updatedAt: updatedAt
-		)
-	}
 }

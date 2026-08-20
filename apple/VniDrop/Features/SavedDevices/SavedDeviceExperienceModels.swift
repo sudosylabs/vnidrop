@@ -81,9 +81,6 @@ struct SavedDeviceTransferItem: Equatable, Identifiable, Sendable {
 	let availableActions: [SavedDeviceTransferAction]
 	let progressFraction: Double?
 
-	var canReceive: Bool { availableActions.contains(.receive) }
-	var canResume: Bool { availableActions.contains(.resume) }
-
 	init(
 		id: String,
 		peerEndpointId: String,

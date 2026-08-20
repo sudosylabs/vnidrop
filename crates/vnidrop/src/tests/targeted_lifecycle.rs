@@ -18,14 +18,14 @@ use crate::{
 };
 
 #[derive(Debug, PartialEq, Eq)]
-struct ImmutableTargetedIdentity {
+struct TargetedTransferCoordinates {
     id: String,
     sender_endpoint_id: String,
     receiver_endpoint_id: String,
     manifest_id: String,
 }
 
-impl From<&TargetedTransfer> for ImmutableTargetedIdentity {
+impl From<&TargetedTransfer> for TargetedTransferCoordinates {
     fn from(transfer: &TargetedTransfer) -> Self {
         Self {
             id: transfer.id.clone(),
@@ -36,7 +36,7 @@ impl From<&TargetedTransfer> for ImmutableTargetedIdentity {
     }
 }
 
-impl From<&PendingTargetedOffer> for ImmutableTargetedIdentity {
+impl From<&PendingTargetedOffer> for TargetedTransferCoordinates {
     fn from(offer: &PendingTargetedOffer) -> Self {
         Self {
             id: offer.transfer_id.clone(),
@@ -357,10 +357,10 @@ fn immutable_identity_round_trips_through_approval_reads_cancel_and_restart() {
         )
         .unwrap();
     let offer = accept.join().unwrap();
-    let identity = ImmutableTargetedIdentity::from(&offer);
+    let coordinates = TargetedTransferCoordinates::from(&offer);
     let content_hash = offer.content_hash;
 
-    assert_eq!(ImmutableTargetedIdentity::from(&transfer), identity);
+    assert_eq!(TargetedTransferCoordinates::from(&transfer), coordinates);
     assert_eq!(
         sender
             .core()
@@ -376,7 +376,7 @@ fn immutable_identity_round_trips_through_approval_reads_cancel_and_restart() {
         .get_targeted_transfer(transfer.id.clone())
         .unwrap()
         .unwrap();
-    assert_eq!(ImmutableTargetedIdentity::from(&sender_get), identity);
+    assert_eq!(TargetedTransferCoordinates::from(&sender_get), coordinates);
     assert_eq!(sender_get.transfer_name, "Quarterly report.pdf");
     let sender_list = sender
         .core()
@@ -385,13 +385,16 @@ fn immutable_identity_round_trips_through_approval_reads_cancel_and_restart() {
         .into_iter()
         .find(|row| row.id == transfer.id)
         .unwrap();
-    assert_eq!(ImmutableTargetedIdentity::from(&sender_list), identity);
+    assert_eq!(TargetedTransferCoordinates::from(&sender_list), coordinates);
     let receiver_get = receiver
         .core()
         .get_targeted_transfer(transfer.id.clone())
         .unwrap()
         .unwrap();
-    assert_eq!(ImmutableTargetedIdentity::from(&receiver_get), identity);
+    assert_eq!(
+        TargetedTransferCoordinates::from(&receiver_get),
+        coordinates
+    );
 
     let sender = sender.restart();
     let receiver = receiver.restart();
@@ -401,7 +404,7 @@ fn immutable_identity_round_trips_through_approval_reads_cancel_and_restart() {
             .get_targeted_transfer(transfer.id.clone())
             .unwrap()
             .unwrap();
-        assert_eq!(ImmutableTargetedIdentity::from(&restored), identity);
+        assert_eq!(TargetedTransferCoordinates::from(&restored), coordinates);
         assert_eq!(restored.transfer_name, "Quarterly report.pdf");
         assert_eq!(
             node.core()
@@ -423,7 +426,7 @@ fn immutable_identity_round_trips_through_approval_reads_cancel_and_restart() {
         .unwrap()
         .unwrap();
     assert_eq!(cancelled.state, TargetedTransferState::Cancelled);
-    assert_eq!(ImmutableTargetedIdentity::from(&cancelled), identity);
+    assert_eq!(TargetedTransferCoordinates::from(&cancelled), coordinates);
     assert_eq!(
         sender
             .core()

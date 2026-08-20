@@ -154,7 +154,7 @@ class SavedDevicesReadModelTest {
 	fun lifecycleInputsRemainIndependentDurableHistoryFacts() {
 		val snapshot = readModel.derive(
 			SavedDevicesReadInputs(
-				pendingOffers = listOf(offer("abandoned-before-registration", 1)),
+				pendingOffers = listOf(offer("pending-live-offer", 1)),
 				targetedTransfers = listOf(
 					transfer("cancelled", TargetedTransferRoleModel.Sender, TargetedTransferStateModel.Cancelled, 4),
 					transfer("approval-race", TargetedTransferRoleModel.Receiver, TargetedTransferStateModel.Cancelled, 3),
@@ -184,7 +184,7 @@ class SavedDevicesReadModelTest {
 			listOf(SavedDeviceTransferAction.Cancel),
 			snapshot.targetedTransfers.single { it.id == "retry" }.availableActions,
 		)
-		assertEquals(listOf("abandoned-before-registration"), snapshot.pendingOffers.map { it.transferId })
+		assertEquals(listOf("pending-live-offer"), snapshot.pendingOffers.map { it.transferId })
 	}
 
 	@Test

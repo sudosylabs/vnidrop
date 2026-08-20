@@ -112,7 +112,7 @@ final class SavedDevicesReadModelTests: XCTestCase {
 	func testLifecycleInputsRemainIndependentDurableHistoryFacts() {
 		let snapshot = readModel.derive(
 			SavedDevicesReadInputs(
-				pendingOffers: [offer("abandoned-before-registration", 1)],
+				pendingOffers: [offer("pending-live-offer", 1)],
 				targetedTransfers: [
 					transfer("cancelled", .sender, .cancelled, 4),
 					transfer("approval-race", .receiver, .cancelled, 3),
@@ -130,7 +130,7 @@ final class SavedDevicesReadModelTests: XCTestCase {
 		XCTAssertEqual(snapshot.targetedTransfers.first { $0.id == "approval-race" }?.availableActions, [.delete])
 		XCTAssertEqual(snapshot.targetedTransfers.first { $0.id == "failed-attempt" }?.availableActions, [.delete])
 		XCTAssertEqual(snapshot.targetedTransfers.first { $0.id == "retry" }?.availableActions, [.cancel])
-		XCTAssertEqual(snapshot.pendingOffers.map(\.transferId), ["abandoned-before-registration"])
+		XCTAssertEqual(snapshot.pendingOffers.map(\.transferId), ["pending-live-offer"])
 	}
 
 	func testRefreshAndRestartNeedOnlyDurableReadsNotAnEventPayload() {

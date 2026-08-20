@@ -410,12 +410,12 @@ final class SavedDevicesModelTests: XCTestCase {
 		let model = await makeModel()
 		let byId = Dictionary(uniqueKeysWithValues: model.state.targetedTransfers.map { ($0.id, $0) })
 
-		XCTAssertEqual(byId["in-approved"]?.canReceive, true)
-		XCTAssertEqual(byId["in-interrupted"]?.canResume, true)
+		XCTAssertEqual(byId["in-approved"]?.availableActions.contains(.receive), true)
+		XCTAssertEqual(byId["in-interrupted"]?.availableActions.contains(.resume), true)
 		// The sender has nothing to pull: it is the one holding the files. Offering
 		// "Receive" there asked it to download its own outgoing transfer.
-		XCTAssertEqual(byId["out-approved"]?.canReceive, false)
-		XCTAssertEqual(byId["out-interrupted"]?.canResume, false)
+		XCTAssertEqual(byId["out-approved"]?.availableActions.contains(.receive), false)
+		XCTAssertEqual(byId["out-interrupted"]?.availableActions.contains(.resume), false)
 	}
 
 	// MARK: - Targeted send

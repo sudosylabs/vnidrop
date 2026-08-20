@@ -91,9 +91,9 @@ core owns abandonment directly.
 Both suites cover sender and receiver actions, receiver-only progress, sorting
 and joins, deleted-row filtering, role-based direction after identity reset,
 terminal relationship filtering, cancel/race/failure/retry history inputs, and
-event-independent rebuilds. A live offer without a durable transfer row is kept
-separate from transfer history, which characterizes the current
-pre-registration abandonment result.
+event-independent rebuilds. A live offer without a receiver-side durable
+transfer row remains separate from transfer history, characterizing the current
+offer/history boundary without synthesizing lifecycle state.
 
 ## Wave 1 Runtime obligation matrix
 

@@ -1898,7 +1898,7 @@ fn mismatched_relay_profiles_are_typed_and_never_reinterpreted_as_ordinary_share
         .into_iter()
         .find(|entry| matches!(entry.state, TargetedTransferState::Failed))
         .expect("failed targeted transfer must remain targeted, not an ordinary share");
-    let immutable_identity = (
+    let public_coordinates = (
         failed.id.clone(),
         failed.sender_endpoint_id.clone(),
         failed.receiver_endpoint_id.clone(),
@@ -1927,7 +1927,7 @@ fn mismatched_relay_profiles_are_typed_and_never_reinterpreted_as_ordinary_share
             restored.receiver_endpoint_id.clone(),
             restored.manifest_id.clone(),
         ),
-        immutable_identity
+        public_coordinates
     );
     assert_eq!(
         alice

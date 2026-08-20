@@ -33,18 +33,7 @@ protocol and output-sink rules.
 
 ## Targeted transfers: current interface
 
-**Current:** the public targeted-creation call blocks through negotiation and
-approval. Platforms have compensated for that shape by combining calls, event
-payloads, and presentation state to discover the transfer ID and retain the
-process. That splits lifecycle authority and leaves preparation/import outside
-the durable status model.
-
-The durable store remains authoritative, but the call shape makes concurrent
-stop and caller recovery harder than necessary.
-
-## Targeted transfers: selected target interface
-
-**Target:** callers use an opaque preparation handle:
+**Current after Wave 3:** callers can use an opaque preparation handle:
 
 ```text
 newTargetedTransferPreparation(receiver) -> preparation
@@ -78,8 +67,8 @@ The core linearizes the approval/abandon race. If abandon wins, a late approval
 is rejected. If approval wins, the same stop intent is a cancellation. Callers
 receive a precise stop outcome and do not infer the winner from timing.
 
-The existing blocking creation call remains a compatibility adapter over the new
-module during migration.
+The existing blocking creation call is a compatibility adapter over the same
+prepare-and-negotiate implementation during migration.
 
 ## Runtime obligations
 

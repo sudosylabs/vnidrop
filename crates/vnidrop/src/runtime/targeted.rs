@@ -269,6 +269,44 @@ impl CoreInner {
         Ok(())
     }
 
+    pub(super) async fn stop_targeted_preparation(
+        &self,
+        id: &str,
+    ) -> Result<crate::api::TargetedPreparationStopOutcome, VnidropError> {
+        let row = self.targeted_transfers.get_row(id).await?;
+        let outcome = self.targeted_transfers.stop_preparation(id).await?;
+        if matches!(
+            outcome,
+            crate::api::TargetedPreparationStopOutcome::TransferAbandoned
+                | crate::api::TargetedPreparationStopOutcome::TransferCancelled
+        ) {
+            if let Some(row) = row {
+                if let Ok(addr) = self
+                    .device_relationships
+                    .peer_addr(&row.receiver_endpoint_id)
+                    .await
+                {
+                    let client = TargetedTransferProtocol::client(self.endpoint.clone(), addr);
+                    let _ = tokio::time::timeout(
+                        self.connection_timeout(),
+                        client.cancel_offer(CancelTargetedOffer {
+                            transfer_id: id.to_string(),
+                            terminal: if outcome
+                                == crate::api::TargetedPreparationStopOutcome::TransferCancelled
+                            {
+                                Some(TargetedTransferState::Cancelled)
+                            } else {
+                                None
+                            },
+                        }),
+                    )
+                    .await;
+                }
+            }
+        }
+        Ok(outcome)
+    }
+
     pub(super) async fn delete_targeted_transfer(
         self: &Arc<Self>,
         id: String,

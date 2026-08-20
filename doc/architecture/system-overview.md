@@ -51,8 +51,10 @@ The Targeted wire protocol remains a narrow adapter. Device relationships remain
 a separate deep module consulted through a private seam; they are not absorbed
 into the transfer module.
 
-Wave 3 adds the caller-optimized preparation interface and neutral Runtime
-obligation facts without reopening this authority split.
+**Current after Wave 3:** the caller-optimized preparation interface returns a
+durable identity before core-owned negotiation completes. Neutral Runtime
+obligation facts cover preparation, active byte work, and provider availability
+without reopening this authority split.
 
 ## Change direction
 

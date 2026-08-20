@@ -21,6 +21,7 @@ mod storage;
 mod targeted;
 mod targeted_create;
 mod targeted_payload;
+mod targeted_preparation;
 mod targeted_receive;
 mod targeted_reconciliation;
 #[cfg(test)]
@@ -29,6 +30,7 @@ mod test_faults;
 pub use facade::VnidropCore;
 #[cfg(test)]
 pub(crate) use provider::{consume_request_updates, RequestStreamOutcome};
+pub use targeted_preparation::TargetedTransferPreparation;
 #[cfg(test)]
 pub(crate) use test_faults::TargetedFaultAdapters;
 
@@ -36,7 +38,10 @@ use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
     str::FromStr,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, AtomicU64},
+        Arc,
+    },
     time::Duration,
 };
 
@@ -122,6 +127,7 @@ pub(super) struct CoreInner {
     /// holding a Tokio lock across repository I/O).
     pub(super) active_transfers: Arc<std::sync::Mutex<HashMap<u64, ActiveTransfer>>>,
     pub(super) active_targeted_transfers: Arc<std::sync::Mutex<HashMap<String, ActiveTransfer>>>,
+    pub(super) active_targeted_preparations: AtomicU64,
     // Active shares are protected by persistent Iroh tags.
     pub(super) active_shares: TokioMutex<HashMap<u64, ()>>,
     /// Content hash → active share transfer ids (root and collection members).
@@ -142,6 +148,13 @@ pub(super) struct CoreInner {
     suppress_targeted_authorization_delivery: AtomicBool,
     #[cfg(test)]
     targeted_authorization_delivery_attempts: std::sync::atomic::AtomicU64,
+    #[cfg(test)]
+    targeted_preparation_registration_gate: std::sync::Mutex<
+        Option<(
+            std::sync::mpsc::SyncSender<()>,
+            tokio::sync::oneshot::Receiver<()>,
+        )>,
+    >,
 }
 
 pub(super) struct ActiveTransfer {
@@ -534,6 +547,7 @@ impl CoreInner {
             access_policy,
             active_transfers,
             active_targeted_transfers,
+            active_targeted_preparations: AtomicU64::new(0),
             active_shares: TokioMutex::new(restored_active_shares),
             hash_to_transfer,
             connection_endpoints: TokioMutex::new(HashMap::new()),
@@ -550,6 +564,8 @@ impl CoreInner {
             suppress_targeted_authorization_delivery: AtomicBool::new(false),
             #[cfg(test)]
             targeted_authorization_delivery_attempts: std::sync::atomic::AtomicU64::new(0),
+            #[cfg(test)]
+            targeted_preparation_registration_gate: std::sync::Mutex::new(None),
         });
 
         // In-flight connecting/transferring transfers become Interrupted across restart.

@@ -8,8 +8,8 @@ use crate::{
     api::{
         CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig, CoreStorageUsage,
         PairingEligibilitySummary, ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact,
-        ReceiverRequest, RuntimeStatus, ShareMetadataInput, ShareResult, ShareSource,
-        StoredTransfer, TicketInspection, TransferAccessMode,
+        ReceiverRequest, RuntimeObligationFacts, RuntimeStatus, ShareMetadataInput, ShareResult,
+        ShareSource, StoredTransfer, TicketInspection, TransferAccessMode,
     },
     error::VnidropError,
     filesystem::platform_path,
@@ -488,6 +488,10 @@ impl VnidropCore {
         self.block_on(self.inner.status())
     }
 
+    pub fn runtime_obligation_facts(&self) -> Result<RuntimeObligationFacts, VnidropError> {
+        self.block_on(self.inner.runtime_obligation_facts())
+    }
+
     pub fn share_files(
         &self,
         sources: Vec<ShareSource>,
@@ -753,6 +757,23 @@ impl VnidropCore {
             sources,
             transfer_name,
         ))
+    }
+
+    /// Start a one-shot Targeted preparation whose send returns after registration.
+    pub fn new_targeted_transfer_preparation(
+        &self,
+        receiver_endpoint_id: String,
+    ) -> Result<Arc<super::TargetedTransferPreparation>, VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .require_saved(&receiver_endpoint_id),
+        )?;
+        Ok(Arc::new(super::TargetedTransferPreparation::new(
+            self.inner.clone(),
+            self.runtime.handle().clone(),
+            receiver_endpoint_id,
+        )))
     }
 
     /// Ticket-free pending offers awaiting explicit local approval.

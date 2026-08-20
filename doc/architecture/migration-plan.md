@@ -74,6 +74,9 @@ platform migration required.
 
 ## Wave 3: lifecycle interface and obligations
 
+Status: implemented on `feat/device-history`; the public contract and full Rust
+gates are the integration source of truth.
+
 - Add `newTargetedTransferPreparation(receiver)`.
 - Make `preparation.send(sources, name)` return the durable Targeted transfer
   after registration while core-owned negotiation continues.

@@ -7,7 +7,7 @@ use iroh::RelayUrl;
 use crate::{
     api::{
         saved_device_capabilities, CoreLimits, CoreRelayMode, PendingTargetedOffer,
-        TargetedTransfer, TargetedTransferState,
+        TargetedPreparationStopOutcome, TargetedTransfer, TargetedTransferState,
     },
     device_relationship::DeviceRelationshipService,
     error::VnidropError,
@@ -462,6 +462,14 @@ impl TargetedTransferModule {
         self.store.contains_protocol_id(id).await
     }
 
+    pub(crate) async fn provider_obligation_count(&self) -> Result<u64, VnidropError> {
+        self.store.count_sender_provider_obligations().await
+    }
+
+    pub(crate) async fn receiver_obligation_count(&self) -> Result<u64, VnidropError> {
+        self.store.count_receiver_runtime_obligations().await
+    }
+
     pub(crate) async fn register_sender(
         &self,
         row: &TargetedTransferRow,
@@ -625,11 +633,62 @@ impl TargetedTransferModule {
     }
 
     pub(crate) async fn recover_in_flight(&self) -> Result<Vec<String>, VnidropError> {
+        for row in self.store.fail_sender_preapproval_on_restart().await? {
+            (self.emit_lifecycle)(&row.id, "failed");
+            (self.cleanup)(row).await?;
+        }
         let ids = self.store.mark_interrupted_in_flight().await?;
         for id in &ids {
             (self.emit_lifecycle)(id, "interrupted");
         }
         Ok(ids)
+    }
+
+    pub(crate) async fn stop_preparation(
+        &self,
+        id: &str,
+    ) -> Result<TargetedPreparationStopOutcome, VnidropError> {
+        let Some(row) = self.store.get_row(id).await? else {
+            return Ok(TargetedPreparationStopOutcome::TransferAbandoned);
+        };
+        if matches!(
+            row.state,
+            TargetedTransferState::Completed
+                | TargetedTransferState::Declined
+                | TargetedTransferState::Cancelled
+                | TargetedTransferState::Failed
+                | TargetedTransferState::Deleted
+        ) {
+            return Ok(TargetedPreparationStopOutcome::AlreadyTerminal);
+        }
+        if self.store.abandon_sender_preapproval(id).await? {
+            (self.emit_lifecycle)(id, "abandoned");
+            (self.cleanup)(row).await?;
+            return Ok(TargetedPreparationStopOutcome::TransferAbandoned);
+        }
+
+        let Some(current) = self.store.get_row(id).await? else {
+            return Ok(TargetedPreparationStopOutcome::TransferAbandoned);
+        };
+        if matches!(
+            current.state,
+            TargetedTransferState::Completed
+                | TargetedTransferState::Declined
+                | TargetedTransferState::Cancelled
+                | TargetedTransferState::Failed
+                | TargetedTransferState::Deleted
+        ) {
+            return Ok(TargetedPreparationStopOutcome::AlreadyTerminal);
+        }
+        let changed = self
+            .transition_terminal(id, TargetedTransferState::Cancelled, true)
+            .await?;
+        (self.cleanup)(current).await?;
+        Ok(if changed {
+            TargetedPreparationStopOutcome::TransferCancelled
+        } else {
+            TargetedPreparationStopOutcome::AlreadyTerminal
+        })
     }
 
     pub(crate) async fn persist_authorization(

@@ -30,13 +30,14 @@ pub use api::{
     saved_device_capabilities, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig,
     CoreRelayMode, CoreStorageUsage, DeviceRelationship, DeviceRelationshipState,
     PairingEligibilitySummary, PendingTargetedOffer, PublishedOutput, ReceiveOutputSink,
-    ReceiveOutputSinkV2, ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest, RuntimeStatus,
-    SavedDevice, SavedDeviceCapabilities, ShareMetadataInput, ShareResult, ShareSource, SourceKind,
-    StoredTransfer, TargetedOfferResponse, TargetedTransfer, TargetedTransferRole,
+    ReceiveOutputSinkV2, ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest,
+    RuntimeObligationFacts, RuntimeStatus, SavedDevice, SavedDeviceCapabilities,
+    ShareMetadataInput, ShareResult, ShareSource, SourceKind, StoredTransfer,
+    TargetedOfferResponse, TargetedPreparationStopOutcome, TargetedTransfer, TargetedTransferRole,
     TargetedTransferState, TicketInspection, TransferAccessMode, TransferMetadata,
 };
 pub use error::VnidropError;
-pub use runtime::VnidropCore;
+pub use runtime::{TargetedTransferPreparation, VnidropCore};
 
 uniffi::setup_scaffolding!();
 

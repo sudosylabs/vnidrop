@@ -83,6 +83,22 @@ pub(crate) struct TargetedTimingFaultAdapter {
 }
 
 impl TargetedTimingFaultAdapter {
+    pub(crate) fn hold_preparation_before_registration(
+        &self,
+    ) -> TargetedPreparationRegistrationGate {
+        let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
+        let (release_tx, release_rx) = tokio::sync::oneshot::channel();
+        *self
+            .inner
+            .targeted_preparation_registration_gate
+            .lock()
+            .expect("targeted preparation registration gate") = Some((ready_tx, release_rx));
+        TargetedPreparationRegistrationGate {
+            ready: ready_rx,
+            release: release_tx,
+        }
+    }
+
     pub(crate) fn hold_all_transfer_slots(&self) -> tokio::sync::oneshot::Sender<()> {
         let inner = self.inner.clone();
         let permits = inner.limits.max_concurrent_transfers as u32;
@@ -99,5 +115,34 @@ impl TargetedTimingFaultAdapter {
         });
         ready_rx.recv().expect("slot holder started");
         release_tx
+    }
+}
+
+pub(crate) struct TargetedPreparationRegistrationGate {
+    ready: std::sync::mpsc::Receiver<()>,
+    release: tokio::sync::oneshot::Sender<()>,
+}
+
+impl TargetedPreparationRegistrationGate {
+    pub(crate) fn wait_until_held(&self) {
+        self.ready.recv().expect("preparation reached registration");
+    }
+
+    pub(crate) fn release(self) {
+        let _ = self.release.send(());
+    }
+}
+
+impl CoreInner {
+    pub(super) async fn wait_for_targeted_preparation_registration_gate(&self) {
+        let gate = self
+            .targeted_preparation_registration_gate
+            .lock()
+            .expect("targeted preparation registration gate")
+            .take();
+        if let Some((ready, release)) = gate {
+            let _ = ready.send(());
+            let _ = release.await;
+        }
     }
 }

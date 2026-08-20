@@ -111,6 +111,6 @@ visibility does not affect it.
 | Targeted `Interrupted` | Yes while sender content remains available | No active receive obligation |
 | Any terminal state | No | No |
 
-The current contract cannot expose Targeted Transfer preparation before durable
-registration. Wave 3 replaces this platform-derived matrix with neutral core
-Runtime obligation facts and covers that missing interval.
+The core contract exposes Targeted Transfer preparation before durable
+registration through neutral Runtime obligation facts. Wave 4 replaces the
+remaining platform-derived retention inputs with those facts.

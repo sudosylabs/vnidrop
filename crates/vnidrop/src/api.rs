@@ -518,6 +518,24 @@ pub struct RuntimeStatus {
     pub active_shares: u64,
 }
 
+/// Neutral core facts used by platform lifecycle policy.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct RuntimeObligationFacts {
+    pub active_invitation_transfers: u64,
+    pub invitation_provider_availability: u64,
+    pub targeted_preparations: u64,
+    pub active_targeted_transfers: u64,
+    pub targeted_provider_availability: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum TargetedPreparationStopOutcome {
+    PreparationStopped,
+    TransferAbandoned,
+    TransferCancelled,
+    AlreadyTerminal,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Enum)]
 pub enum SourceKind {
     Path,

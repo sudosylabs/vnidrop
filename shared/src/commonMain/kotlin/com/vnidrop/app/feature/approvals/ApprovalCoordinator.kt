@@ -66,7 +66,8 @@ class ApprovalCoordinator(
 					is CoreSignal.ReceiverHistoryChanged,
 					is CoreSignal.TransfersChanged,
 					CoreSignal.PairingChanged,
-					CoreSignal.TargetedTransferChanged -> Unit
+					CoreSignal.TargetedTransferChanged,
+					CoreSignal.RuntimeObligationChanged -> Unit
 				}
 			}
 		}

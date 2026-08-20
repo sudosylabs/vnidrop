@@ -55,17 +55,15 @@ struct MacFileSystemService: FileSystemService {
 	}
 
 	func sendPickedFilesToSavedDevice(
-		repository: CoreGateway,
+		preparation: any TargetedTransferPreparationGateway,
 		files: [PickedShareFile],
-		transferName: String,
-		receiverEndpointId: String
+		transferName: String
 	) async -> Result<TargetedTransferModel, Error> {
 		guard !files.isEmpty else {
 			return .failure(InvitationError.shareEmpty)
 		}
 		return await withScopedSources(files) { sources in
-			await repository.createTargetedTransfer(
-				receiverEndpointId: receiverEndpointId,
+			await preparation.send(
 				sources: sources,
 				transferName: transferName.isEmpty ? nil : transferName
 			)

@@ -10,6 +10,22 @@ struct CoreStatus: Equatable, Sendable {
 	let activeShares: UInt64
 }
 
+struct RuntimeObligationFactsModel: Equatable, Sendable {
+	let activeInvitationTransfers: UInt64
+	let invitationProviderAvailability: UInt64
+	let targetedPreparations: UInt64
+	let activeTargetedTransfers: UInt64
+	let targetedProviderAvailability: UInt64
+
+	var requiresRuntime: Bool {
+		activeInvitationTransfers > 0
+			|| invitationProviderAvailability > 0
+			|| targetedPreparations > 0
+			|| activeTargetedTransfers > 0
+			|| targetedProviderAvailability > 0
+	}
+}
+
 struct CoreEventModel: Equatable, Identifiable, Sendable {
 	let id: String
 	let revision: UInt64
@@ -28,29 +44,6 @@ struct CoreEventModel: Equatable, Identifiable, Sendable {
 	var eventPhase: EventPhase? { EventPhase(rawValue: phase) }
 	var eventKind: EventKind? { EventKind(rawValue: kind) }
 
-	/// Subject of a `.targetedTransfer` event.
-	///
-	/// This is an identifier, not state: it says *which* transfer changed, which
-	/// is all a consumer may take from an event before re-reading durable state.
-	/// It exists because the id is otherwise unobtainable while `create` is still
-	/// running — that call occupies the serial lane, so no query can answer until
-	/// it returns, which is exactly when the user wants to cancel it.
-	var targetedTransferId: String? {
-		guard eventPhase == .targetedTransfer, let data = dataJson.data(using: .utf8) else {
-			return nil
-		}
-		return try? JSONDecoder().decode(TargetedTransferEventData.self, from: data).targetedTransferId
-	}
-}
-
-/// Payload of a `.targetedTransfer` event. Named keys rather than a raw string
-/// subscript so the wire contract lives in one declared place.
-private struct TargetedTransferEventData: Decodable {
-	let targetedTransferId: String?
-
-	private enum CodingKeys: String, CodingKey {
-		case targetedTransferId = "targeted_transfer_id"
-	}
 }
 
 /// Direction of a core event, matching the wire strings the core emits.
@@ -77,6 +70,8 @@ enum EventPhase: String, Equatable, Sendable {
 	/// a string `targeted_transfer_id`, not the numeric `transferId` used by
 	/// invitation shares.
 	case targetedTransfer = "targeted_transfer"
+	/// Neutral wake-up indicating that lifecycle retention facts changed.
+	case runtimeObligation = "runtime_obligation"
 }
 
 /// Kind of a core progress event (the `kind` wire field).
@@ -211,6 +206,8 @@ enum CoreSignal: Equatable, Sendable {
 	/// Targeted-transfer offer or lifecycle changed; refresh pending offers and
 	/// transfers. Payload-free for the same reason as `pairingChanged`.
 	case targetedTransferChanged
+	/// Runtime-retention facts changed; consumers re-read the neutral snapshot.
+	case runtimeObligationChanged
 }
 
 // MARK: - Transfer helpers (ported from AppUiModels.kt)

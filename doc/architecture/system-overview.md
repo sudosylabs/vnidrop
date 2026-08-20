@@ -56,6 +56,11 @@ durable identity before core-owned negotiation completes. Neutral Runtime
 obligation facts cover preparation, active byte work, and provider availability
 without reopening this authority split.
 
+**Current after Wave 4:** Kotlin and Swift consume that interface directly.
+Saved Devices presentation is derived from durable reads, and application
+lifecycle adapters map neutral Runtime obligation facts without notification or
+event-payload authority.
+
 ## Change direction
 
 The selected migration is additive:

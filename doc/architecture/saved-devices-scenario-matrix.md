@@ -77,11 +77,9 @@ keeps history correct after identity reset.
 | Event is missed | Next refresh derives entirely from current reads |
 | Process restarts | Durable relationships and transfers reconstruct the same facts; live offers may be gone |
 
-The current public core contract does not expose abandonment as a separate
-durable state. Until the preparation interface lands, Apple temporarily hides
-an abandoned transfer identity while its cancel-and-delete compatibility path
-settles. Removing that overlay belongs to the platform migration wave, after the
-core owns abandonment directly.
+Abandonment is not a separate durable state. Platforms stop through the
+preparation handle, and the core decides whether the result is no history or a
+durable `Cancelled` row. Neither read model maintains a hidden-transfer overlay.
 
 ## Test mapping
 
@@ -105,12 +103,13 @@ visibility does not affect it.
 | Invitation `Importing` | Yes | Not a valid receiver combination |
 | Invitation `Sharing` | Yes | Not a valid receiver combination |
 | Invitation `Receiving` | Not a valid sender combination | Yes |
-| Targeted `Preparing` | Yes once represented by a durable row | No |
+| Targeted preparation before registration | Yes through neutral core facts | No |
+| Targeted durable `Preparing` | Yes | No |
 | Targeted `Offering` / `AwaitingApproval` | Yes | No |
 | Targeted `Approved` / `Connecting` / `Transferring` | Yes | Yes |
 | Targeted `Interrupted` | Yes while sender content remains available | No active receive obligation |
 | Any terminal state | No | No |
 
 The core contract exposes Targeted Transfer preparation before durable
-registration through neutral Runtime obligation facts. Wave 4 replaces the
-remaining platform-derived retention inputs with those facts.
+registration through neutral Runtime obligation facts. Both platform lifecycle
+adapters now consume those facts directly.

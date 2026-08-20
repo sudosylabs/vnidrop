@@ -325,9 +325,33 @@ fn runtime_facts_cover_targeted_preparation_before_durable_registration() {
     let facts = alice.core().runtime_obligation_facts().unwrap();
     assert_eq!(facts.targeted_preparations, 1);
     assert_eq!(facts.targeted_provider_availability, 0);
+    assert_eq!(
+        alice
+            .sink
+            .events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|event| event.phase == "runtime_obligation" && event.kind == "changed")
+            .count(),
+        1,
+        "platforms must be woken when pre-registration retention begins"
+    );
 
     gate.release();
     let transfer = send.join().unwrap().unwrap();
+    assert_eq!(
+        alice
+            .sink
+            .events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|event| event.phase == "runtime_obligation" && event.kind == "changed")
+            .count(),
+        2,
+        "platforms must be woken when pre-registration retention ends"
+    );
     assert_eq!(
         alice
             .core()

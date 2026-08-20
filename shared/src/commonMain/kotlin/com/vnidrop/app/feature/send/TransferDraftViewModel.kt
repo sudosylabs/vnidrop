@@ -12,6 +12,7 @@ import com.vnidrop.app.ui.feedback.UiMessageController
 import com.vnidrop.app.ui.feedback.UiMessageTone
 import com.vnidrop.app.ui.feedback.UiText
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.getString
 import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.saved_devices_send_started
@@ -298,12 +300,23 @@ internal class TransferDraftViewModel(
 						).getOrThrow().let { share ->
 							TransferDraftCreation.Invitation(share.transferId, current.accessPolicy)
 						}
-						is TransferDraftDestination.Targeted -> repository.createTargetedTransfer(
-							receiverEndpointId = destination.receiver.endpointId,
-							sources = sources,
-							transferName = current.transferName.trim(),
-						).getOrThrow().let { transfer ->
-							TransferDraftCreation.Targeted(transfer.id, destination.receiver.endpointId)
+						is TransferDraftDestination.Targeted -> {
+							val preparation = repository.newTargetedTransferPreparation(
+								destination.receiver.endpointId,
+							).getOrThrow()
+							try {
+								preparation.send(
+									sources = sources,
+									transferName = current.transferName.trim(),
+								).getOrThrow().let { transfer ->
+									TransferDraftCreation.Targeted(transfer.id, destination.receiver.endpointId)
+								}
+							} catch (error: CancellationException) {
+								withContext(NonCancellable) { preparation.stop() }
+								throw error
+							} finally {
+								preparation.close()
+							}
 						}
 					}
 				}.getOrThrow()

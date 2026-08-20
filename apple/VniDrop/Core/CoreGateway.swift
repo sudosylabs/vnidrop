@@ -12,6 +12,23 @@ struct ReceivedArtifactModel: Sendable {
 	let logicalSize: UInt64
 }
 
+enum TargetedPreparationStopOutcomeModel: Equatable, Sendable {
+	case preparationStopped
+	case transferAbandoned
+	case transferCancelled
+	case alreadyTerminal
+}
+
+@MainActor
+protocol TargetedTransferPreparationGateway: AnyObject {
+	func send(
+		sources: [ShareSource],
+		transferName: String?
+	) async -> Result<TargetedTransferModel, Error>
+	func stop() async -> Result<TargetedPreparationStopOutcomeModel, Error>
+	func close()
+}
+
 /// Seam between the feature models and the Rust core, mirroring `CoreGateway`
 /// in the KMP `shared` module. `CoreRepository` is the production implementation;
 /// tests substitute a fake so the models can be exercised without the FFI.
@@ -75,11 +92,10 @@ protocol CoreGateway: AnyObject {
 		transferId: String,
 		accepted: Bool
 	) async -> Result<TargetedOfferResponseModel, Error>
-	func createTargetedTransfer(
-		receiverEndpointId: String,
-		sources: [ShareSource],
-		transferName: String?
-	) async -> Result<TargetedTransferModel, Error>
+	func newTargetedTransferPreparation(
+		receiverEndpointId: String
+	) async -> Result<any TargetedTransferPreparationGateway, Error>
+	func runtimeObligationFacts() async -> Result<RuntimeObligationFactsModel, Error>
 	func listTargetedTransfers() async -> Result<[TargetedTransferModel], Error>
 	/// Pulls an approved transfer into a security-scoped destination, holding
 	/// access for the duration of the stream (mirrors the invitation receive path).

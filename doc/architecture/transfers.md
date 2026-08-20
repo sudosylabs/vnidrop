@@ -33,7 +33,7 @@ protocol and output-sink rules.
 
 ## Targeted transfers: current interface
 
-**Current after Wave 3:** callers can use an opaque preparation handle:
+**Current:** callers use an opaque preparation handle:
 
 ```text
 newTargetedTransferPreparation(receiver) -> preparation
@@ -68,7 +68,8 @@ is rejected. If approval wins, the same stop intent is a cancellation. Callers
 receive a precise stop outcome and do not infer the winner from timing.
 
 The existing blocking creation call is a compatibility adapter over the same
-prepare-and-negotiate implementation during migration.
+prepare-and-negotiate implementation. Platform code no longer uses it; removal
+requires an explicit public contract version.
 
 ## Runtime obligations
 

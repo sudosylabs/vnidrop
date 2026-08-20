@@ -68,19 +68,19 @@ or production evidence demonstrate an unsolved torn-read problem.
 
 Events wake platform observers, which then refresh authoritative reads.
 
-**Current:** some Targeted creation paths scrape a transfer ID from the `created`
-event payload and Android retention combines invitation events with
-presentation-level outgoing state.
-
-**Target:** the preparation interface returns the durable Targeted transfer
-directly. Platforms stop depending on event JSON for identity. The payload may
-remain temporarily for compatibility and is retired only through an explicit
+**Current:** the preparation interface returns durable Targeted identity
+directly, and neither platform parses event JSON for identity. The old payload
+remains temporarily for compatibility and is retired only through an explicit
 contract version.
 
 Retention consumes neutral Runtime obligation facts from the core and is owned
 at application-graph lifetime. Notifications are a separate module: they may
 observe the same lifecycle, but notification visibility never decides whether
 the process must remain alive.
+
+The core emits a payload-free `runtime_obligation/changed` wake-up around
+ephemeral preparation changes. Android and Apple respond by re-reading the fact
+snapshot; the event itself never carries retention policy.
 
 ## Verification boundary
 

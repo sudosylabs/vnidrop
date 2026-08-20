@@ -405,24 +405,22 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		}
 	}
 
-	func createTargetedTransfer(
-		receiverEndpointId: String,
-		sources: [ShareSource],
-		transferName: String?
-	) async -> Result<TargetedTransferModel, Error> {
+	func newTargetedTransferPreparation(
+		receiverEndpointId: String
+	) async -> Result<any TargetedTransferPreparationGateway, Error> {
 		guard !isNetworkTransitionInProgress else {
 			return .failure(CoreNetworkLifecycleError.transitionInProgress)
 		}
-		guard !sources.isEmpty else {
-			return .failure(InvitationError.shareEmpty)
+		let result: Result<TargetedTransferPreparation, Error> = await runCore {
+			try self.requireCore().newTargetedTransferPreparation(
+				receiverEndpointId: receiverEndpointId
+			)
 		}
-		return await runCore {
-			try self.requireCore().createTargetedTransfer(
-				receiverEndpointId: receiverEndpointId,
-				sources: sources,
-				transferName: transferName
-			).toModel()
-		}
+		return result.map { CoreTargetedTransferPreparation(native: $0, dispatcher: dispatcher) }
+	}
+
+	func runtimeObligationFacts() async -> Result<RuntimeObligationFactsModel, Error> {
+		await runCore { try self.requireCore().runtimeObligationFacts().toModel() }
 	}
 
 	func listTargetedTransfers() async -> Result<[TargetedTransferModel], Error> {
@@ -489,6 +487,9 @@ final class CoreRepository: ObservableObject, CoreGateway {
 			return
 		case .targetedTransfer:
 			signalsSubject.send(.targetedTransferChanged)
+			return
+		case .runtimeObligation:
+			signalsSubject.send(.runtimeObligationChanged)
 			return
 		default:
 			break
@@ -564,6 +565,37 @@ final class CoreRepository: ObservableObject, CoreGateway {
 
 	private nonisolated static func nextTransferId() -> UInt64 {
 		UInt64.random(in: 1...UInt64(Int64.max))
+	}
+}
+
+@MainActor
+private final class CoreTargetedTransferPreparation: TargetedTransferPreparationGateway {
+	private var native: TargetedTransferPreparation?
+	private let dispatcher: CoreDispatcher
+
+	init(native: TargetedTransferPreparation, dispatcher: CoreDispatcher) {
+		self.native = native
+		self.dispatcher = dispatcher
+	}
+
+	func send(
+		sources: [ShareSource],
+		transferName: String?
+	) async -> Result<TargetedTransferModel, Error> {
+		guard !sources.isEmpty else { return .failure(InvitationError.shareEmpty) }
+		guard let native else { return .failure(InvitationError.coreNotInitialized) }
+		return await dispatcher.run {
+			try native.send(sources: sources, transferName: transferName).toModel()
+		}
+	}
+
+	func stop() async -> Result<TargetedPreparationStopOutcomeModel, Error> {
+		guard let native else { return .success(.alreadyTerminal) }
+		return await dispatcher.runInterrupt { try native.stop().toModel() }
+	}
+
+	func close() {
+		native = nil
 	}
 }
 
@@ -781,6 +813,29 @@ private extension TargetedTransferRole {
 	}
 }
 
+private extension RuntimeObligationFacts {
+	func toModel() -> RuntimeObligationFactsModel {
+		RuntimeObligationFactsModel(
+			activeInvitationTransfers: activeInvitationTransfers,
+			invitationProviderAvailability: invitationProviderAvailability,
+			targetedPreparations: targetedPreparations,
+			activeTargetedTransfers: activeTargetedTransfers,
+			targetedProviderAvailability: targetedProviderAvailability
+		)
+	}
+}
+
+private extension TargetedPreparationStopOutcome {
+	func toModel() -> TargetedPreparationStopOutcomeModel {
+		switch self {
+		case .preparationStopped: return .preparationStopped
+		case .transferAbandoned: return .transferAbandoned
+		case .transferCancelled: return .transferCancelled
+		case .alreadyTerminal: return .alreadyTerminal
+		}
+	}
+}
+
 private extension TargetedOfferResponse {
 	func toModel() -> TargetedOfferResponseModel {
 		switch self {
@@ -813,6 +868,4 @@ private extension ReceiverRequest {
 		}
 	}
 }
-
-
 

@@ -11,6 +11,21 @@ data class CoreStatus(
 	val activeShares: ULong,
 )
 
+data class RuntimeObligationFactsModel(
+	val activeInvitationTransfers: ULong,
+	val invitationProviderAvailability: ULong,
+	val targetedPreparations: ULong,
+	val activeTargetedTransfers: ULong,
+	val targetedProviderAvailability: ULong,
+) {
+	val requiresRuntime: Boolean
+		get() = activeInvitationTransfers > 0UL ||
+			invitationProviderAvailability > 0UL ||
+			targetedPreparations > 0UL ||
+			activeTargetedTransfers > 0UL ||
+			targetedProviderAvailability > 0UL
+}
+
 data class CoreEventModel(
 	val id: String,
 	val revision: ULong,
@@ -157,6 +172,24 @@ sealed interface CoreSignal {
 	data object PairingChanged : CoreSignal
 	/** Targeted-transfer offer or lifecycle changed; refresh pending offers and transfers. */
 	data object TargetedTransferChanged : CoreSignal
+	/** Runtime-retention facts changed; re-read them from the core. */
+	data object RuntimeObligationChanged : CoreSignal
+}
+
+enum class TargetedPreparationStopOutcomeModel {
+	PreparationStopped,
+	TransferAbandoned,
+	TransferCancelled,
+	AlreadyTerminal,
+}
+
+interface TargetedTransferPreparationGateway {
+	suspend fun send(
+		sources: List<uniffi.vnidrop.ShareSource>,
+		transferName: String?,
+	): Result<TargetedTransferModel>
+	suspend fun stop(): Result<TargetedPreparationStopOutcomeModel>
+	fun close()
 }
 
 interface CoreGateway {
@@ -211,11 +244,8 @@ interface CoreGateway {
 	suspend fun listBlockedDevices(): Result<List<String>>
 	suspend fun listPendingTargetedOffers(): Result<List<PendingTargetedOfferModel>>
 	suspend fun respondToTargetedOffer(transferId: String, accepted: Boolean): Result<TargetedOfferResponseModel>
-	suspend fun createTargetedTransfer(
-		receiverEndpointId: String,
-		sources: List<uniffi.vnidrop.ShareSource>,
-		transferName: String?,
-	): Result<TargetedTransferModel>
+	suspend fun newTargetedTransferPreparation(receiverEndpointId: String): Result<TargetedTransferPreparationGateway>
+	suspend fun runtimeObligationFacts(): Result<RuntimeObligationFactsModel>
 	suspend fun getTargetedTransfer(id: String): Result<TargetedTransferModel?>
 	suspend fun listTargetedTransfers(): Result<List<TargetedTransferModel>>
 	suspend fun receiveTargetedTransfer(transferId: String, outputDir: String): Result<Unit>

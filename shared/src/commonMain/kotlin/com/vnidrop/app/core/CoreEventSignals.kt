@@ -9,6 +9,7 @@ internal fun signalsForCoreEvent(phase: String, transferId: ULong?): List<CoreSi
 	when (phase) {
 		"pairing" -> signals += CoreSignal.PairingChanged
 		"targeted_transfer" -> signals += CoreSignal.TargetedTransferChanged
+		"runtime_obligation" -> signals += CoreSignal.RuntimeObligationChanged
 	}
 	if (transferId != null) {
 		when (phase) {

@@ -93,6 +93,9 @@ approval/abandon race, restart recovery, and compatibility behavior.
 
 ## Wave 4: platform migration
 
+Status: implemented on `feat/device-history`; the cross-platform gate below is
+the integration source of truth.
+
 Kotlin and Swift migrations can run in parallel against the gated core contract.
 
 ### Kotlin/Compose
@@ -120,6 +123,9 @@ Kotlin and Swift migrations can run in parallel against the gated core contract.
 
 Rust, shared KMP, and Apple contract scenarios agree on identity, action facts,
 stop outcomes, retention, missed events, and restart behavior.
+
+The migration is complete. The old blocking creation call and Targeted event
+payload remain compatibility surface only; neither platform depends on them.
 
 ## Verification strategy
 

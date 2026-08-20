@@ -87,7 +87,8 @@ class SavedDevicesViewModel(
 					}
 					is CoreSignal.ApprovalChanged,
 						is CoreSignal.ReceiverHistoryChanged,
-						is CoreSignal.TransfersChanged -> Unit
+						is CoreSignal.TransfersChanged,
+						CoreSignal.RuntimeObligationChanged -> Unit
 				}
 			}
 		}

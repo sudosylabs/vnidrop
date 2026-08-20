@@ -43,23 +43,6 @@ final class FakeCoreGateway: CoreGateway {
 
 	func setState(_ state: CoreState) { stateSubject.send(state) }
 
-	/// Publishes the `created` lifecycle event the core emits once a targeted
-	/// transfer row exists, then the signal that follows it — the sequence that
-	/// lets a caller cancel a create still holding the serial lane.
-	func emitTargetedTransferCreated(id: String) {
-		var state = stateSubject.value
-		state.events.insert(
-			CoreEventModel(
-				id: "event-\(id)", revision: 1, timestamp: 1, scope: "endpoint", transferId: nil,
-				direction: nil, phase: EventPhase.targetedTransfer.rawValue,
-				kind: EventKind.created.rawValue,
-				dataJson: #"{"targeted_transfer_id":"\#(id)"}"#
-			),
-			at: 0
-		)
-		stateSubject.send(state)
-		emit(.targetedTransferChanged)
-	}
 	func emit(_ signal: CoreSignal) { signalsSubject.send(signal) }
 
 	func initialize(
@@ -134,6 +117,14 @@ final class FakeCoreGateway: CoreGateway {
 	var respondToPairingResult: Result<Bool, Error> = .success(true)
 	var offerResponseResult: Result<TargetedOfferResponseModel, Error> = .success(.declined)
 	var createTargetedTransferResult: Result<TargetedTransferModel, Error> = .failure(TestError.unimplemented)
+	var targetedPreparationStopResult: Result<TargetedPreparationStopOutcomeModel, Error> = .success(.preparationStopped)
+	var runtimeObligationFactsResult: Result<RuntimeObligationFactsModel, Error> = .success(
+		RuntimeObligationFactsModel(
+			activeInvitationTransfers: 0, invitationProviderAvailability: 0,
+			targetedPreparations: 0, activeTargetedTransfers: 0,
+			targetedProviderAvailability: 0
+		)
+	)
 	var targetedReceiveResult: Result<Void, Error> = .success(())
 	var targetedCancelResult: Result<Void, Error> = .success(())
 	var targetedDeleteResult: Result<Void, Error> = .success(())
@@ -152,6 +143,9 @@ final class FakeCoreGateway: CoreGateway {
 	private(set) var targetedResumes: [(id: String, outputDirectoryUrl: String)] = []
 	private(set) var cancelledTargetedTransfers: [String] = []
 	private(set) var deletedTargetedTransfers: [String] = []
+	private(set) var stoppedTargetedPreparations = 0
+	private(set) var closedTargetedPreparations = 0
+	private(set) var runtimeObligationFactsCount = 0
 
 	func listPairingEligibilities() async -> Result<[PairingEligibilityModel], Error> {
 		.success(pairingEligibilities)
@@ -219,7 +213,16 @@ final class FakeCoreGateway: CoreGateway {
 		gate?.resume()
 	}
 
-	func createTargetedTransfer(
+	func newTargetedTransferPreparation(
+		receiverEndpointId: String
+	) async -> Result<any TargetedTransferPreparationGateway, Error> {
+		.success(FakeTargetedTransferPreparation(owner: self, receiverEndpointId: receiverEndpointId))
+	}
+	func runtimeObligationFacts() async -> Result<RuntimeObligationFactsModel, Error> {
+		runtimeObligationFactsCount += 1
+		return runtimeObligationFactsResult
+	}
+	fileprivate func performTargetedSend(
 		receiverEndpointId: String, sources: [ShareSource], transferName: String?
 	) async -> Result<TargetedTransferModel, Error> {
 		createdTargetedTransfers.append((receiverEndpointId, sources, transferName))
@@ -227,6 +230,13 @@ final class FakeCoreGateway: CoreGateway {
 			await withCheckedContinuation { targetedCreateGate = $0 }
 		}
 		return createTargetedTransferResult
+	}
+	fileprivate func performTargetedStop() -> Result<TargetedPreparationStopOutcomeModel, Error> {
+		stoppedTargetedPreparations += 1
+		return targetedPreparationStopResult
+	}
+	fileprivate func recordTargetedPreparationClose() {
+		closedTargetedPreparations += 1
 	}
 	func listTargetedTransfers() async -> Result<[TargetedTransferModel], Error> {
 		.success(targetedTransfers)
@@ -248,6 +258,38 @@ final class FakeCoreGateway: CoreGateway {
 	func deleteTargetedTransfer(id: String) async -> Result<Void, Error> {
 		deletedTargetedTransfers.append(id)
 		return targetedDeleteResult
+	}
+}
+
+@MainActor
+final class FakeTargetedTransferPreparation: TargetedTransferPreparationGateway {
+	private weak var owner: FakeCoreGateway?
+	private let receiverEndpointId: String
+
+	init(owner: FakeCoreGateway, receiverEndpointId: String) {
+		self.owner = owner
+		self.receiverEndpointId = receiverEndpointId
+	}
+
+	func send(
+		sources: [ShareSource],
+		transferName: String?
+	) async -> Result<TargetedTransferModel, Error> {
+		guard let owner else { return .failure(TestError.unimplemented) }
+		return await owner.performTargetedSend(
+			receiverEndpointId: receiverEndpointId,
+			sources: sources,
+			transferName: transferName
+		)
+	}
+
+	func stop() async -> Result<TargetedPreparationStopOutcomeModel, Error> {
+		owner?.performTargetedStop() ?? .success(.alreadyTerminal)
+	}
+
+	func close() {
+		owner?.recordTargetedPreparationClose()
+		owner = nil
 	}
 }
 
@@ -275,17 +317,15 @@ final class FakeFileSystemService: FileSystemService {
 
 	/// Records targeted sends and forwards to the gateway so its recorders and
 	/// stubbed result drive the assertions.
-	private(set) var targetedSends: [(files: [PickedShareFile], transferName: String, receiver: String)] = []
+	private(set) var targetedSends: [(files: [PickedShareFile], transferName: String)] = []
 
 	func sendPickedFilesToSavedDevice(
-		repository: CoreGateway,
+		preparation: any TargetedTransferPreparationGateway,
 		files: [PickedShareFile],
-		transferName: String,
-		receiverEndpointId: String
+		transferName: String
 	) async -> Result<TargetedTransferModel, Error> {
-		targetedSends.append((files, transferName, receiverEndpointId))
-		return await repository.createTargetedTransfer(
-			receiverEndpointId: receiverEndpointId,
+		targetedSends.append((files, transferName))
+		return await preparation.send(
 			sources: [],
 			transferName: transferName.isEmpty ? nil : transferName
 		)

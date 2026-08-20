@@ -25,6 +25,7 @@ import uniffi.vnidrop.PendingTargetedOffer
 import uniffi.vnidrop.ReceiveOutputSink
 import uniffi.vnidrop.ReceiveOutputSinkV2
 import uniffi.vnidrop.ReceiverRequest
+import uniffi.vnidrop.RuntimeObligationFacts
 import uniffi.vnidrop.SavedDevice
 import uniffi.vnidrop.ShareMetadataInput
 import uniffi.vnidrop.ShareResult
@@ -32,7 +33,9 @@ import uniffi.vnidrop.ShareSource
 import uniffi.vnidrop.SourceKind
 import uniffi.vnidrop.StoredTransfer
 import uniffi.vnidrop.TargetedOfferResponse
+import uniffi.vnidrop.TargetedPreparationStopOutcome
 import uniffi.vnidrop.TargetedTransfer
+import uniffi.vnidrop.TargetedTransferPreparation
 import uniffi.vnidrop.TargetedTransferRole
 import uniffi.vnidrop.TargetedTransferState
 import uniffi.vnidrop.TicketInspection
@@ -317,15 +320,17 @@ class CoreRepository internal constructor(
 		activeCore.respondToTargetedOffer(transferId, accepted).toModel()
 	}
 
-	override suspend fun createTargetedTransfer(
+	override suspend fun newTargetedTransferPreparation(
 		receiverEndpointId: String,
-		sources: List<ShareSource>,
-		transferName: String?,
-	): Result<TargetedTransferModel> = runCore { activeCore ->
-		require(sources.isNotEmpty()) { "Select at least one file to share" }
-		withPlatformPathAccess(sources) {
-			activeCore.createTargetedTransfer(receiverEndpointId, sources, transferName).toModel()
-		}
+	): Result<TargetedTransferPreparationGateway> = runCore { activeCore ->
+		CoreTargetedTransferPreparation(
+			owner = activeCore,
+			native = activeCore.newTargetedTransferPreparation(receiverEndpointId),
+		)
+	}
+
+	override suspend fun runtimeObligationFacts(): Result<RuntimeObligationFactsModel> = runCore { activeCore ->
+		activeCore.runtimeObligationFacts().toModel()
 	}
 
 	override suspend fun getTargetedTransfer(id: String): Result<TargetedTransferModel?> = runCore { activeCore ->
@@ -407,6 +412,29 @@ class CoreRepository internal constructor(
 		return withPlatformPathAccess(source.kind, source.value) {
 			withPlatformPathAccess(sources, index + 1, block)
 		}
+	}
+
+	private inner class CoreTargetedTransferPreparation(
+		private val owner: VnidropCore,
+		private val native: TargetedTransferPreparation,
+	) : TargetedTransferPreparationGateway {
+		override suspend fun send(
+			sources: List<ShareSource>,
+			transferName: String?,
+		): Result<TargetedTransferModel> = runCore { activeCore ->
+			check(activeCore === owner) { "The core changed during targeted transfer preparation" }
+			require(sources.isNotEmpty()) { "Select at least one file to share" }
+			withPlatformPathAccess(sources) {
+				native.send(sources, transferName).toModel()
+			}
+		}
+
+		override suspend fun stop(): Result<TargetedPreparationStopOutcomeModel> = runCore { activeCore ->
+			check(activeCore === owner) { "The core changed during targeted transfer preparation" }
+			native.stop().toModel()
+		}
+
+		override fun close() = native.close()
 	}
 
 	private fun refreshSnapshot(activeCore: VnidropCore) {
@@ -675,6 +703,21 @@ private fun TargetedTransferState.toModel(): TargetedTransferStateModel = when (
 	TargetedTransferState.CANCELLED -> TargetedTransferStateModel.Cancelled
 	TargetedTransferState.FAILED -> TargetedTransferStateModel.Failed
 	TargetedTransferState.DELETED -> TargetedTransferStateModel.Deleted
+}
+
+private fun RuntimeObligationFacts.toModel(): RuntimeObligationFactsModel = RuntimeObligationFactsModel(
+	activeInvitationTransfers = activeInvitationTransfers,
+	invitationProviderAvailability = invitationProviderAvailability,
+	targetedPreparations = targetedPreparations,
+	activeTargetedTransfers = activeTargetedTransfers,
+	targetedProviderAvailability = targetedProviderAvailability,
+)
+
+private fun TargetedPreparationStopOutcome.toModel(): TargetedPreparationStopOutcomeModel = when (this) {
+	TargetedPreparationStopOutcome.PREPARATION_STOPPED -> TargetedPreparationStopOutcomeModel.PreparationStopped
+	TargetedPreparationStopOutcome.TRANSFER_ABANDONED -> TargetedPreparationStopOutcomeModel.TransferAbandoned
+	TargetedPreparationStopOutcome.TRANSFER_CANCELLED -> TargetedPreparationStopOutcomeModel.TransferCancelled
+	TargetedPreparationStopOutcome.ALREADY_TERMINAL -> TargetedPreparationStopOutcomeModel.AlreadyTerminal
 }
 
 private fun TargetedOfferResponse.toModel(): TargetedOfferResponseModel = when (this) {

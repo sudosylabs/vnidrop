@@ -170,6 +170,8 @@ impl TargetedTransferPreparation {
         self.inner
             .active_targeted_preparations
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.inner
+            .emit_endpoint("runtime_obligation", "changed", serde_json::json!({}));
         let prepared = self.runtime.block_on(self.inner.prepare_targeted_transfer(
             self.receiver_endpoint_id.clone(),
             sources,
@@ -179,6 +181,8 @@ impl TargetedTransferPreparation {
         self.inner
             .active_targeted_preparations
             .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+        self.inner
+            .emit_endpoint("runtime_obligation", "changed", serde_json::json!({}));
         let (transfer, continuation) = match prepared {
             Ok(prepared) => prepared,
             Err(error) => {

@@ -460,28 +460,17 @@ final class SavedDevicesModelTests: XCTestCase {
 		XCTAssertEqual(fileSystem.discardedFiles, ["/tmp/a.txt"])
 	}
 
-	/// Sets up a create that never returns until released — an unavailable peer,
-	/// where the core waits out its connection and offer timeouts. `announcesId`
-	/// mirrors the core emitting `created` once the row exists, which it does
-	/// before it ever contacts the peer.
-	private func stalledSend(
-		_ model: SavedDevicesModel,
-		id: String = "t-inflight",
-		announcesId: Bool = true
-	) async {
+	/// Holds import/registration open so stop can be exercised concurrently.
+	private func stalledSend(_ model: SavedDevicesModel) async {
 		gateway.holdsTargetedCreate = true
 		model.beginSend(to: Self.peer)
 		model.onSendFilesPicked([picked("a.txt")])
 		model.createTargetedTransfer()
 		await waitUntil { self.gateway.isHoldingTargetedCreate }
-		if announcesId {
-			gateway.emitTargetedTransferCreated(id: id)
-			await waitUntil { !model.state.isCreatingSend || model.knowsInFlightSendTransfer }
-		}
 		XCTAssertTrue(model.state.isCreatingSend)
 	}
 
-	func testCancellingAnUnansweredSendReachesTheCoreWhileItIsStillRunning() async {
+	func testAbandonStopsPreparationWhileSendIsStillRunning() async {
 		gateway.savedDevices = [savedDevice()]
 		gateway.createTargetedTransferResult = .success(transfer(id: "t-inflight"))
 		let model = await makeModel()
@@ -489,97 +478,28 @@ final class SavedDevicesModelTests: XCTestCase {
 
 		model.abandonSend()
 
-		// The point of cancelling: it must not wait for the create to finish. The
-		// cancel goes out while the core is still parked inside that very call.
-		await waitUntil { !self.gateway.cancelledTargetedTransfers.isEmpty }
-		XCTAssertEqual(gateway.cancelledTargetedTransfers, ["t-inflight"])
+		await waitUntil { self.gateway.stoppedTargetedPreparations == 1 }
 		XCTAssertFalse(model.state.isCreatingSend)
 		XCTAssertNil(model.state.sendTargetPeerId)
-
-		gateway.releaseTargetedCreate()
-	}
-
-	func testCancelledSendIsDeletedRatherThanLeftInHistory() async {
-		gateway.savedDevices = [savedDevice()]
-		gateway.createTargetedTransferResult = .success(transfer(id: "t-inflight"))
-		let model = await makeModel()
-		await stalledSend(model)
-
-		model.abandonSend()
-		await waitUntil { !self.gateway.deletedTargetedTransfers.isEmpty }
-
-		// Cancelling is not "closing the sheet": the core would otherwise record a
-		// failed transfer, and the user would be told a send they called off failed.
-		XCTAssertEqual(gateway.deletedTargetedTransfers, ["t-inflight"])
-		gateway.releaseTargetedCreate()
-	}
-
-	func testCancelledSendNeverReachesHistoryEvenIfARefreshRacesTheDelete() async {
-		gateway.savedDevices = [savedDevice()]
-		gateway.createTargetedTransferResult = .success(transfer(id: "t-inflight"))
-		// The core reports it as failed — the state an unanswered offer lands in.
-		gateway.targetedTransfers = [transfer(id: "t-inflight", state: .failed)]
-		let model = await makeModel()
-		await stalledSend(model)
-
-		model.abandonSend()
-		gateway.releaseTargetedCreate()
-		await waitUntil { !self.gateway.deletedTargetedTransfers.isEmpty }
-
-		// Nothing about the cancelled send may surface, or the notification
-		// coordinator announces a failure for work the user called off.
-		XCTAssertTrue(model.state.targetedTransfers.isEmpty)
-	}
-
-	func testCancellingReleasesTheComposerBeforeTheCreateReturns() async {
-		gateway.savedDevices = [savedDevice()]
-		gateway.createTargetedTransferResult = .success(transfer(id: "t-inflight"))
-		let model = await makeModel()
-		await stalledSend(model)
-
-		model.abandonSend()
-
-		XCTAssertFalse(model.state.isCreatingSend)
-		XCTAssertTrue(model.state.sendFiles.isEmpty)
-		// The import still owns the sources until the call lands.
-		XCTAssertTrue(fileSystem.discardedFiles.isEmpty)
+		XCTAssertTrue(gateway.cancelledTargetedTransfers.isEmpty)
+		XCTAssertTrue(gateway.deletedTargetedTransfers.isEmpty)
 
 		gateway.releaseTargetedCreate()
 		await waitUntil { !self.fileSystem.discardedFiles.isEmpty }
 		XCTAssertEqual(fileSystem.discardedFiles, ["/tmp/a.txt"])
+		XCTAssertGreaterThanOrEqual(gateway.closedTargetedPreparations, 1)
 	}
 
-	func testCancelledSendWithNoIdYetIsStillCleanedUpWhenTheCreateReturns() async {
-		gateway.savedDevices = [savedDevice()]
-		gateway.createTargetedTransferResult = .success(transfer(id: "t-late"))
-		let model = await makeModel()
-		// The create beat its own `created` event, so cancelling has no id to use.
-		await stalledSend(model, announcesId: false)
-		model.abandonSend()
-		XCTAssertTrue(gateway.cancelledTargetedTransfers.isEmpty)
-
-		gateway.releaseTargetedCreate()
-
-		// The result carries the id, so the cleanup still happens — just later.
-		await waitUntil { !self.gateway.cancelledTargetedTransfers.isEmpty }
-		XCTAssertEqual(gateway.cancelledTargetedTransfers, ["t-late"])
-		XCTAssertEqual(gateway.deletedTargetedTransfers, ["t-late"])
-	}
-
-	func testCancelledSendThatNeverRegisteredHasNothingToCancel() async {
+	func testAbandonedPreparationFailureDoesNotRestoreTheComposer() async {
 		gateway.savedDevices = [savedDevice()]
 		gateway.createTargetedTransferResult = .failure(TestError.unimplemented)
 		let model = await makeModel()
-		await stalledSend(model, announcesId: false)
+		await stalledSend(model)
 		model.abandonSend()
-
 		gateway.releaseTargetedCreate()
-
 		await waitUntil { !self.fileSystem.discardedFiles.isEmpty }
-		XCTAssertTrue(gateway.cancelledTargetedTransfers.isEmpty)
-		// The composition is gone, so a failure the user walked away from is not
-		// resurrected as an error they have to dismiss.
 		XCTAssertTrue(model.state.sendFiles.isEmpty)
+		XCTAssertNil(model.state.sendTargetPeerId)
 	}
 
 	func testCancelledResultDoesNotDisturbANewerSend() async {

@@ -4,13 +4,12 @@ import com.vnidrop.app.BackgroundRuntimeKeeper
 import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.CoreGateway
 import com.vnidrop.app.core.CoreSignal
-import com.vnidrop.app.core.TargetedTransferModel
+import com.vnidrop.app.core.RuntimeObligationFactsModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -25,8 +24,8 @@ internal class RuntimeRetentionCoordinator(
 ) {
 	private val coordinatorJob = SupervisorJob(applicationScope.coroutineContext[Job])
 	private val scope = CoroutineScope(applicationScope.coroutineContext + coordinatorJob)
-	private val targetedTransfers = MutableStateFlow<List<TargetedTransferModel>>(emptyList())
-	private val targetedRefreshMutex = Mutex()
+	private val facts = MutableStateFlow<RuntimeObligationFactsModel?>(null)
+	private val refreshMutex = Mutex()
 	private var closed = false
 
 	init {
@@ -39,18 +38,16 @@ internal class RuntimeRetentionCoordinator(
 
 	private fun observeObligations() {
 		scope.launch {
-			combine(
-				repository.state.map { it.transfers }.distinctUntilChanged(),
-				targetedTransfers,
-				::hasRuntimeObligation,
-			).distinctUntilChanged().collect(keeper::setRequired)
+			facts.map { it?.requiresRuntime == true }
+				.distinctUntilChanged()
+				.collect(keeper::setRequired)
 		}
 	}
 
 	private fun observeInitialization() {
 		scope.launch {
 			repository.state.map { it.isInitialized }.distinctUntilChanged().collect { initialized ->
-				if (initialized) refreshTargetedTransfers() else targetedTransfers.value = emptyList()
+				if (initialized) refreshFacts() else facts.value = null
 			}
 		}
 	}
@@ -59,8 +56,9 @@ internal class RuntimeRetentionCoordinator(
 		scope.launch {
 			repository.signals.collect { signal ->
 				when (signal) {
-					CoreSignal.TargetedTransferChanged -> refreshTargetedTransfers()
-					is CoreSignal.TransfersChanged -> repository.refresh()
+					CoreSignal.RuntimeObligationChanged,
+					CoreSignal.TargetedTransferChanged,
+					is CoreSignal.TransfersChanged -> refreshFacts()
 					is CoreSignal.ApprovalChanged,
 						is CoreSignal.ReceiverHistoryChanged,
 						CoreSignal.PairingChanged -> Unit
@@ -69,13 +67,13 @@ internal class RuntimeRetentionCoordinator(
 		}
 	}
 
-	private suspend fun refreshTargetedTransfers() {
-		targetedRefreshMutex.withLock {
+	private suspend fun refreshFacts() {
+		refreshMutex.withLock {
 			if (!repository.state.value.isInitialized) {
-				targetedTransfers.value = emptyList()
+				facts.value = null
 				return@withLock
 			}
-			repository.listTargetedTransfers().onSuccess { targetedTransfers.value = it }
+			repository.runtimeObligationFacts().onSuccess { facts.value = it }
 		}
 	}
 

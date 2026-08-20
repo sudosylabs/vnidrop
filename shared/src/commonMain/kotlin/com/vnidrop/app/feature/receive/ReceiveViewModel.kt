@@ -95,7 +95,8 @@ class ReceiveViewModel(
 					is CoreSignal.ApprovalChanged,
 					is CoreSignal.ReceiverHistoryChanged,
 					CoreSignal.PairingChanged,
-					CoreSignal.TargetedTransferChanged -> Unit
+					CoreSignal.TargetedTransferChanged,
+					CoreSignal.RuntimeObligationChanged -> Unit
 				}
 			}
 		}

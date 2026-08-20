@@ -37,8 +37,7 @@ struct SavedDevicesReadSnapshot: Equatable {
 struct SavedDevicesReadModel {
 	func derive(
 		_ inputs: SavedDevicesReadInputs,
-		dismissedEligibilityIds: Set<String> = [],
-		hiddenTransferIds: Set<String> = []
+		dismissedEligibilityIds: Set<String> = []
 	) -> SavedDevicesReadSnapshot {
 		let savedNames = inputs.savedDevices.reduce(into: [String: String]()) { names, device in
 			if let name = device.displayNameOrNil { names[device.endpointId] = name }
@@ -54,7 +53,7 @@ struct SavedDevicesReadModel {
 			savedDevices: inputs.savedDevices.sorted { $0.createdAt > $1.createdAt },
 			pendingOffers: inputs.pendingOffers.sorted { $0.receivedAt < $1.receivedAt },
 			targetedTransfers: inputs.targetedTransfers
-				.filter { $0.state != .deleted && !hiddenTransferIds.contains($0.id) }
+				.filter { $0.state != .deleted }
 				.sorted { $0.updatedAt > $1.updatedAt }
 				.map { transferItem($0, savedNames: savedNames) },
 			senderDisplayNames: savedNames,

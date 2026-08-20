@@ -126,7 +126,8 @@ class TransferNotificationCoordinator(
 					is CoreSignal.ReceiverHistoryChanged -> syncReceivers(signal.transferId)
 					is CoreSignal.TransfersChanged -> syncReceivers(signal.transferId)
 					is CoreSignal.ApprovalChanged,
-					CoreSignal.PairingChanged -> Unit
+					CoreSignal.PairingChanged,
+					CoreSignal.RuntimeObligationChanged -> Unit
 					CoreSignal.TargetedTransferChanged -> syncTargetedOffers()
 				}
 			}

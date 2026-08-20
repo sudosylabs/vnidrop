@@ -52,6 +52,8 @@ enum EventPhase {
     Pairing,
     /// Saved-device targeted-transfer pre-approval prompts.
     TargetedTransfer,
+    /// Payload-free wake-up for platform runtime-retention fact refreshes.
+    RuntimeObligation,
 }
 
 impl EventPhase {
@@ -75,6 +77,7 @@ impl EventPhase {
             "delivery" => Some(Self::Delivery),
             "pairing" => Some(Self::Pairing),
             "targeted_transfer" => Some(Self::TargetedTransfer),
+            "runtime_obligation" => Some(Self::RuntimeObligation),
             _ => None,
         }
     }
@@ -99,6 +102,7 @@ impl EventPhase {
             Self::Delivery => "delivery",
             Self::Pairing => "pairing",
             Self::TargetedTransfer => "targeted_transfer",
+            Self::RuntimeObligation => "runtime_obligation",
         }
     }
 }

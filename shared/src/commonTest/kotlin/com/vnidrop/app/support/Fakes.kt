@@ -15,11 +15,14 @@ import com.vnidrop.app.core.ReceiveFolder
 import com.vnidrop.app.core.ReceivedArtifactModel
 import com.vnidrop.app.core.ReceivedStorageInspection
 import com.vnidrop.app.core.RelaySettings
+import com.vnidrop.app.core.RuntimeObligationFactsModel
 import com.vnidrop.app.core.ReceiverRequestModel
 import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.core.Share
 import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.TargetedOfferResponseModel
+import com.vnidrop.app.core.TargetedPreparationStopOutcomeModel
+import com.vnidrop.app.core.TargetedTransferPreparationGateway
 import com.vnidrop.app.core.TargetedTransferModel
 import com.vnidrop.app.core.TicketInspectionModel
 import com.vnidrop.app.core.Transfer
@@ -218,6 +221,12 @@ class FakeCoreGateway : CoreGateway {
 		Result.success(TargetedOfferResponseModel.Declined)
 	var createTargetedResult: Result<TargetedTransferModel> =
 		Result.failure(UnsupportedOperationException())
+	var targetedPreparationStopResult: Result<TargetedPreparationStopOutcomeModel> =
+		Result.success(TargetedPreparationStopOutcomeModel.PreparationStopped)
+	var runtimeObligationFactsResult: Result<RuntimeObligationFactsModel> = Result.success(
+		RuntimeObligationFactsModel(0UL, 0UL, 0UL, 0UL, 0UL),
+	)
+	var runtimeObligationFactsCount = 0
 	val forgottenDevices = mutableListOf<String>()
 	val blockedPeers = mutableListOf<String>()
 	val labeledDevices = mutableListOf<Pair<String, String?>>()
@@ -297,13 +306,20 @@ class FakeCoreGateway : CoreGateway {
 			pendingTargetedOffers = pendingTargetedOffers.filterNot { offer -> offer.transferId == transferId }
 		}
 	}
-	override suspend fun createTargetedTransfer(
+	override suspend fun newTargetedTransferPreparation(
 		receiverEndpointId: String,
-		sources: List<uniffi.vnidrop.ShareSource>,
-		transferName: String?,
-	): Result<TargetedTransferModel> {
-		createdTargetedTransfers += Triple(receiverEndpointId, sources, transferName)
-		return createTargetedResult
+	): Result<TargetedTransferPreparationGateway> = Result.success(
+		FakeTargetedTransferPreparation(
+			sendResult = { sources, transferName ->
+				createdTargetedTransfers += Triple(receiverEndpointId, sources, transferName)
+				createTargetedResult
+			},
+			stopResult = { targetedPreparationStopResult },
+		),
+	)
+	override suspend fun runtimeObligationFacts(): Result<RuntimeObligationFactsModel> {
+		runtimeObligationFactsCount += 1
+		return runtimeObligationFactsResult
 	}
 	override suspend fun getTargetedTransfer(id: String) =
 		Result.success(targetedTransfers.firstOrNull { it.id == id })
@@ -353,6 +369,28 @@ class FakeCoreGateway : CoreGateway {
 		deletedTargetedTransferIds += id
 		targetedTransfers = targetedTransfers.filterNot { it.id == id }
 		return Result.success(Unit)
+	}
+}
+
+class FakeTargetedTransferPreparation(
+	private val sendResult: suspend (List<uniffi.vnidrop.ShareSource>, String?) -> Result<TargetedTransferModel>,
+	private val stopResult: suspend () -> Result<TargetedPreparationStopOutcomeModel>,
+) : TargetedTransferPreparationGateway {
+	var stopCount = 0
+	var closeCount = 0
+
+	override suspend fun send(
+		sources: List<uniffi.vnidrop.ShareSource>,
+		transferName: String?,
+	): Result<TargetedTransferModel> = sendResult(sources, transferName)
+
+	override suspend fun stop(): Result<TargetedPreparationStopOutcomeModel> {
+		stopCount += 1
+		return stopResult()
+	}
+
+	override fun close() {
+		closeCount += 1
 	}
 }
 

@@ -3,13 +3,7 @@ package com.vnidrop.app.runtime
 import com.vnidrop.app.BackgroundRuntimeKeeper
 import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.CoreSignal
-import com.vnidrop.app.core.ShareAccessPolicy
-import com.vnidrop.app.core.TargetedTransferModel
-import com.vnidrop.app.core.TargetedTransferRoleModel
-import com.vnidrop.app.core.TargetedTransferStateModel
-import com.vnidrop.app.core.Transfer
-import com.vnidrop.app.core.TransferDirection
-import com.vnidrop.app.core.TransferStatus
+import com.vnidrop.app.core.RuntimeObligationFactsModel
 import com.vnidrop.app.support.FakeCoreGateway
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
@@ -20,28 +14,22 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalCoroutinesApi::class)
 class RuntimeRetentionCoordinatorTest {
 	@Test
-	fun applicationLifetimeCoordinatorTracksInvitationWorkWithoutAComposableCollector() = runTest {
+	fun applicationLifetimeCoordinatorTracksCoreFactsWithoutAComposableCollector() = runTest {
 		val core = FakeCoreGateway().apply {
 			mutableState.value = mutableState.value.copy(isInitialized = true)
+			runtimeObligationFactsResult = Result.success(facts(activeInvitationTransfers = 1UL))
 		}
 		val keeper = RecordingRuntimeKeeper()
 		val coordinator = RuntimeRetentionCoordinator(core, keeper, UiPlatform.Android, backgroundScope)
 		runCurrent()
 
-		core.mutableState.value = core.mutableState.value.copy(
-			transfers = listOf(invitation(TransferStatus.Receiving)),
-		)
-		runCurrent()
-		core.mutableState.value = core.mutableState.value.copy(
-			transfers = listOf(invitation(TransferStatus.Sharing, TransferDirection.Send)),
-		)
-		runCurrent()
-		core.mutableState.value = core.mutableState.value.copy(
-			transfers = listOf(invitation(TransferStatus.Done)),
-		)
+		assertEquals(true, keeper.requiredCalls.last())
+		core.runtimeObligationFactsResult = Result.success(facts())
+		core.mutableSignals.emit(CoreSignal.RuntimeObligationChanged)
 		runCurrent()
 
 		assertEquals(listOf(false, true, false), keeper.requiredCalls)
+		assertEquals(2, core.runtimeObligationFactsCount)
 		coordinator.close()
 		coordinator.close()
 		assertEquals(false, keeper.requiredCalls.last())
@@ -49,23 +37,23 @@ class RuntimeRetentionCoordinatorTest {
 	}
 
 	@Test
-	fun targetedSignalRefreshesDurableStatusesAndTeardownReleasesRetention() = runTest {
+	fun targetedAndInvitationSignalsRefreshNeutralFacts() = runTest {
 		val core = FakeCoreGateway().apply {
 			mutableState.value = mutableState.value.copy(isInitialized = true)
-			targetedTransfers = listOf(targeted(TargetedTransferStateModel.AwaitingApproval))
+			runtimeObligationFactsResult = Result.success(facts(targetedProviderAvailability = 1UL))
 		}
 		val keeper = RecordingRuntimeKeeper()
 		val coordinator = RuntimeRetentionCoordinator(core, keeper, UiPlatform.Android, backgroundScope)
 		runCurrent()
 		assertEquals(true, keeper.requiredCalls.last())
 
-		core.targetedTransfers = listOf(targeted(TargetedTransferStateModel.Completed))
+		core.runtimeObligationFactsResult = Result.success(facts())
 		core.mutableSignals.emit(CoreSignal.TargetedTransferChanged)
 		runCurrent()
 		assertEquals(false, keeper.requiredCalls.last())
 
-		core.targetedTransfers = listOf(targeted(TargetedTransferStateModel.Transferring))
-		core.mutableSignals.emit(CoreSignal.TargetedTransferChanged)
+		core.runtimeObligationFactsResult = Result.success(facts(invitationProviderAvailability = 1UL))
+		core.mutableSignals.emit(CoreSignal.TransfersChanged(7UL))
 		runCurrent()
 		assertEquals(true, keeper.requiredCalls.last())
 
@@ -76,11 +64,8 @@ class RuntimeRetentionCoordinatorTest {
 	@Test
 	fun desktopDoesNotStartTheAndroidRetentionMapping() = runTest {
 		val core = FakeCoreGateway().apply {
-			mutableState.value = mutableState.value.copy(
-				isInitialized = true,
-				transfers = listOf(invitation(TransferStatus.Sharing, TransferDirection.Send)),
-			)
-			targetedTransfers = listOf(targeted(TargetedTransferStateModel.AwaitingApproval))
+			mutableState.value = mutableState.value.copy(isInitialized = true)
+			runtimeObligationFactsResult = Result.success(facts(targetedPreparations = 1UL))
 		}
 		val keeper = RecordingRuntimeKeeper()
 		val coordinator = RuntimeRetentionCoordinator(core, keeper, UiPlatform.Linux, backgroundScope)
@@ -105,37 +90,17 @@ class RuntimeRetentionCoordinatorTest {
 		}
 	}
 
-	private fun invitation(
-		status: TransferStatus,
-		direction: TransferDirection = TransferDirection.Receive,
-	) = Transfer(
-		localId = "local",
-		transferId = 1UL,
-		direction = direction,
-		status = status,
-		peerId = null,
-		transferName = "Photos",
-		contentHash = "hash",
-		fileCount = 1UL,
-		totalSize = 1UL,
-		ticket = null,
-		accessPolicy = ShareAccessPolicy.RequireApproval,
-		createdAt = 1L,
-		updatedAt = 1L,
-	)
-
-	private fun targeted(state: TargetedTransferStateModel) = TargetedTransferModel(
-		id = "targeted",
-		role = TargetedTransferRoleModel.Sender,
-		senderEndpointId = "sender",
-		receiverEndpointId = "receiver",
-		manifestId = "manifest",
-		transferName = "Photos",
-		fileCount = 1UL,
-		totalSize = 1UL,
-		verifiedBytes = 0UL,
-		state = state,
-		createdAt = 1L,
-		updatedAt = 1L,
+	private fun facts(
+		activeInvitationTransfers: ULong = 0UL,
+		invitationProviderAvailability: ULong = 0UL,
+		targetedPreparations: ULong = 0UL,
+		activeTargetedTransfers: ULong = 0UL,
+		targetedProviderAvailability: ULong = 0UL,
+	) = RuntimeObligationFactsModel(
+		activeInvitationTransfers,
+		invitationProviderAvailability,
+		targetedPreparations,
+		activeTargetedTransfers,
+		targetedProviderAvailability,
 	)
 }

@@ -52,10 +52,9 @@ protocol FileSystemService {
 	/// `sharePickedFiles` because a targeted transfer is its own domain with its
 	/// own result type — it is not an access mode on an invitation share.
 	func sendPickedFilesToSavedDevice(
-		repository: CoreGateway,
+		preparation: any TargetedTransferPreparationGateway,
 		files: [PickedShareFile],
-		transferName: String,
-		receiverEndpointId: String
+		transferName: String
 	) async -> Result<TargetedTransferModel, Error>
 }
 

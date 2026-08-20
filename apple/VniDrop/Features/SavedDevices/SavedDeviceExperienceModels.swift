@@ -57,13 +57,6 @@ enum SavedDeviceTransferDirection: Equatable, Sendable {
 	case incoming
 }
 
-enum SavedDeviceTransferAction: Equatable, Sendable {
-	case receive
-	case resume
-	case cancel
-	case delete
-}
-
 /// One targeted transfer as the details surface renders it: resolved against the
 /// local endpoint so "peer" means the *other* device, whichever side we are on.
 struct SavedDeviceTransferItem: Equatable, Identifiable, Sendable {
@@ -78,79 +71,17 @@ struct SavedDeviceTransferItem: Equatable, Identifiable, Sendable {
 	let state: TargetedTransferStateModel
 	let createdAt: Int64
 	let updatedAt: Int64
-	let availableActions: [SavedDeviceTransferAction]
-	let progressFraction: Double?
 
-	var canReceive: Bool { availableActions.contains(.receive) }
-	var canResume: Bool { availableActions.contains(.resume) }
-
-	init(
-		id: String,
-		peerEndpointId: String,
-		peerDisplayName: String?,
-		direction: SavedDeviceTransferDirection,
-		transferName: String,
-		fileCount: UInt64,
-		totalSize: UInt64,
-		verifiedBytes: UInt64,
-		state: TargetedTransferStateModel,
-		createdAt: Int64,
-		updatedAt: Int64
-	) {
-		self.id = id
-		self.peerEndpointId = peerEndpointId
-		self.peerDisplayName = peerDisplayName
-		self.direction = direction
-		self.transferName = transferName
-		self.fileCount = fileCount
-		self.totalSize = totalSize
-		self.verifiedBytes = verifiedBytes
-		self.state = state
-		self.createdAt = createdAt
-		self.updatedAt = updatedAt
-		self.availableActions = Self.actions(direction: direction, state: state)
-		self.progressFraction = Self.progress(
-			direction: direction,
-			state: state,
-			verifiedBytes: verifiedBytes,
-			totalSize: totalSize
-		)
-	}
-
-	private static func actions(
-		direction: SavedDeviceTransferDirection,
-		state: TargetedTransferStateModel
-	) -> [SavedDeviceTransferAction] {
-		var actions: [SavedDeviceTransferAction] = []
-		if direction == .incoming {
-			switch state {
-			case .approved: actions.append(.receive)
-			case .interrupted: actions.append(.resume)
-			default: break
-			}
-		}
-		switch state {
-		case .preparing, .offering, .awaitingApproval, .approved,
-				.connecting, .transferring, .interrupted:
-			actions.append(.cancel)
-		case .completed, .declined, .cancelled, .failed:
-			actions.append(.delete)
-		case .deleted:
-			break
-		}
-		return actions
-	}
-
-	private static func progress(
-		direction: SavedDeviceTransferDirection,
-		state: TargetedTransferStateModel,
-		verifiedBytes: UInt64,
-		totalSize: UInt64
-	) -> Double? {
-		guard direction == .incoming, totalSize > 0 else { return nil }
-		guard state == .connecting || state == .transferring || state == .interrupted else {
-			return nil
-		}
+	var progressFraction: Double? {
+		guard totalSize > 0, state.isActive || state == .interrupted else { return nil }
 		return min(1, Double(verifiedBytes) / Double(totalSize))
 	}
+
+	/// Pulling content is the receiving side's move. Gating on state alone put a
+	/// "Receive" button on the sender's own outgoing transfer, offering to
+	/// download the files it was in the middle of sending.
+	var canReceive: Bool { direction == .incoming && state.canReceive }
+
+	/// Resuming likewise pulls into a local folder, so it is receiver-only.
+	var canResume: Bool { direction == .incoming && state.canResume }
 }

@@ -31,13 +31,6 @@ enum class SavedDeviceTransferDirection {
 	Incoming,
 }
 
-enum class SavedDeviceTransferAction {
-	Receive,
-	Resume,
-	Cancel,
-	Delete,
-}
-
 data class SavedDeviceTransferItem(
 	val id: String,
 	val peerEndpointId: String,
@@ -50,50 +43,4 @@ data class SavedDeviceTransferItem(
 	val state: TargetedTransferStateModel,
 	val createdAt: Long,
 	val updatedAt: Long,
-	val availableActions: List<SavedDeviceTransferAction>,
-	val progressFraction: Float?,
-)
-
-internal fun savedDeviceTransferActions(
-	direction: SavedDeviceTransferDirection,
-	state: TargetedTransferStateModel,
-): List<SavedDeviceTransferAction> = buildList {
-	if (direction == SavedDeviceTransferDirection.Incoming) {
-		when (state) {
-			TargetedTransferStateModel.Approved -> add(SavedDeviceTransferAction.Receive)
-			TargetedTransferStateModel.Interrupted -> add(SavedDeviceTransferAction.Resume)
-			else -> Unit
-		}
-	}
-	when (state) {
-		TargetedTransferStateModel.Preparing,
-		TargetedTransferStateModel.Offering,
-		TargetedTransferStateModel.AwaitingApproval,
-		TargetedTransferStateModel.Approved,
-		TargetedTransferStateModel.Connecting,
-		TargetedTransferStateModel.Transferring,
-		TargetedTransferStateModel.Interrupted -> add(SavedDeviceTransferAction.Cancel)
-		TargetedTransferStateModel.Completed,
-		TargetedTransferStateModel.Declined,
-		TargetedTransferStateModel.Cancelled,
-		TargetedTransferStateModel.Failed -> add(SavedDeviceTransferAction.Delete)
-		TargetedTransferStateModel.Deleted -> Unit
-	}
-}
-
-internal fun savedDeviceTransferProgress(
-	direction: SavedDeviceTransferDirection,
-	state: TargetedTransferStateModel,
-	verifiedBytes: ULong,
-	totalSize: ULong,
-): Float? {
-	if (direction != SavedDeviceTransferDirection.Incoming || totalSize == 0UL) return null
-	if (state !in progressStates) return null
-	return (verifiedBytes.toDouble() / totalSize.toDouble()).coerceIn(0.0, 1.0).toFloat()
-}
-
-private val progressStates = setOf(
-	TargetedTransferStateModel.Connecting,
-	TargetedTransferStateModel.Transferring,
-	TargetedTransferStateModel.Interrupted,
 )

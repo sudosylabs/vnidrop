@@ -51,6 +51,8 @@ mod secure_secret_tests;
 mod secure_secret_windows_tests;
 #[path = "tests/targeted_lifecycle.rs"]
 mod targeted_lifecycle_tests;
+#[path = "tests/targeted_module.rs"]
+mod targeted_module_tests;
 #[path = "tests/targeted_transfer.rs"]
 mod targeted_transfer_tests;
 #[path = "tests/ticket.rs"]

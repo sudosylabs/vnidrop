@@ -162,7 +162,7 @@ impl VnidropCore {
         self.block_on(async {
             let row = self
                 .inner
-                .targeted_store()
+                .targeted_transfers
                 .get_row(&id)
                 .await?
                 .ok_or_else(|| VnidropError::invalid_input(anyhow::anyhow!("unknown transfer")))?;
@@ -198,7 +198,7 @@ impl VnidropCore {
                     VnidropError::invalid_input(anyhow::anyhow!("unknown targeted offer"))
                 })?;
             self.inner
-                .targeted_store()
+                .targeted_transfers
                 .persist_accepted_offer_intent(&offer)
                 .await?;
             self.inner
@@ -264,7 +264,7 @@ impl VnidropCore {
         self.block_on(async {
             let row = self
                 .inner
-                .targeted_store()
+                .targeted_transfers
                 .get_row(&id)
                 .await?
                 .ok_or_else(|| VnidropError::invalid_input(anyhow::anyhow!("unknown transfer")))?;
@@ -279,7 +279,7 @@ impl VnidropCore {
         self.block_on(async {
             let row = self
                 .inner
-                .targeted_store()
+                .targeted_transfers
                 .get_row(&id)
                 .await?
                 .ok_or_else(|| VnidropError::invalid_input(anyhow::anyhow!("unknown transfer")))?;

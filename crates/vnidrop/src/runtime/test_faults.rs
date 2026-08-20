@@ -36,7 +36,7 @@ impl TargetedStoreFaultAdapter {
     pub(crate) fn content_hash(&self, id: &str) -> Result<String, VnidropError> {
         self.runtime.block_on(async {
             self.inner
-                .targeted_store()
+                .targeted_transfers
                 .get_row(id)
                 .await?
                 .map(|row| row.content_hash)
@@ -47,7 +47,7 @@ impl TargetedStoreFaultAdapter {
     pub(crate) fn corrupt_content_hash(&self, id: &str) -> Result<(), VnidropError> {
         self.runtime.block_on(
             self.inner
-                .targeted_store()
+                .targeted_transfers
                 .corrupt_content_hash_for_test(id),
         )
     }

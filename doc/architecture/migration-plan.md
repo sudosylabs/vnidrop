@@ -53,6 +53,9 @@ covered before structural migration begins.
 
 ## Wave 2: concentrate core authority
 
+Status: implemented on `feat/device-history`; the gate commands remain the
+source of truth before integration.
+
 - Introduce the deep internal Targeted transfer module.
 - Move durable transitions, authorization custody, cleanup, recovery, and
   approval/stop race linearization behind its interface.

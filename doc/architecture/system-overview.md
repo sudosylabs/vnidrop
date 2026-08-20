@@ -39,22 +39,20 @@ receiving, lifecycle, provider behavior, the UniFFI facade, and startup wiring.
 Persistence is assembled by `persistence::open_all`, while each domain store
 owns its schema and operations.
 
-**Current:** Targeted transfer behavior crosses runtime facade methods,
-protocol handlers, callback seams, and platform workarounds. `CoreInner` must
-coordinate too much of that behavior.
-
-**Target:** one deep Targeted transfer module owns:
+**Current after Wave 2:** one deep Targeted transfer module owns:
 
 - immutable transfer identity and manifest;
 - durable registration and lifecycle transitions;
 - consent and authorization custody;
 - concurrent stop, approval, and failure rules;
-- cleanup and startup recovery;
-- neutral Runtime obligation facts.
+- cleanup and startup recovery.
 
 The Targeted wire protocol remains a narrow adapter. Device relationships remain
 a separate deep module consulted through a private seam; they are not absorbed
 into the transfer module.
+
+Wave 3 adds the caller-optimized preparation interface and neutral Runtime
+obligation facts without reopening this authority split.
 
 ## Change direction
 

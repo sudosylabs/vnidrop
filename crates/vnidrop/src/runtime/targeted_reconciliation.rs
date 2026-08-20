@@ -31,7 +31,7 @@ impl CoreInner {
     }
 
     async fn retry_targeted_completions(&self) {
-        let rows = match self.targeted_store().list_pending_completions().await {
+        let rows = match self.targeted_transfers.list_pending_completions().await {
             Ok(rows) => rows,
             Err(error) => {
                 tracing::warn!(%error, "failed to load pending targeted completions");
@@ -66,7 +66,7 @@ impl CoreInner {
             match self.acknowledge_targeted_completion(&auth).await {
                 Ok(()) => {
                     if let Err(error) = self
-                        .targeted_store()
+                        .targeted_transfers
                         .clear_pending_completion(&row.id)
                         .await
                     {
@@ -84,7 +84,7 @@ impl CoreInner {
 
     async fn defer_targeted_completion_with_log(&self, id: &str, next_attempt_at: i64) {
         if let Err(error) = self
-            .targeted_store()
+            .targeted_transfers
             .defer_pending_completion(id, next_attempt_at)
             .await
         {
@@ -94,7 +94,7 @@ impl CoreInner {
 
     async fn retry_targeted_authorization_deliveries(&self) {
         let rows = match self
-            .targeted_store()
+            .targeted_transfers
             .list_pending_authorization_deliveries()
             .await
         {
@@ -108,7 +108,7 @@ impl CoreInner {
             match self.deliver_stored_targeted_authorization(&row).await {
                 Ok(true) => {
                     if let Err(error) = self
-                        .targeted_store()
+                        .targeted_transfers
                         .clear_pending_authorization_delivery(&row.id)
                         .await
                     {
@@ -118,7 +118,7 @@ impl CoreInner {
                 Ok(false) => {
                     tracing::warn!(transfer_id = %row.id, "receiver rejected targeted authorization delivery");
                     if let Err(error) = self
-                        .targeted_store()
+                        .targeted_transfers
                         .defer_pending_authorization_delivery(&row.id, now_ms() + 5_000)
                         .await
                     {
@@ -128,7 +128,7 @@ impl CoreInner {
                 Err(error) => {
                     tracing::warn!(transfer_id = %row.id, %error, "targeted authorization delivery retry failed");
                     if let Err(error) = self
-                        .targeted_store()
+                        .targeted_transfers
                         .defer_pending_authorization_delivery(&row.id, now_ms() + 5_000)
                         .await
                     {
@@ -184,7 +184,7 @@ impl CoreInner {
     }
 
     async fn release_completed_targeted_payloads(&self) {
-        let rows = match self.targeted_store().list_completed_sender_rows().await {
+        let rows = match self.targeted_transfers.list_completed_sender_rows().await {
             Ok(rows) => rows,
             Err(error) => {
                 tracing::warn!(%error, "failed to load pending targeted payload releases");
@@ -198,7 +198,7 @@ impl CoreInner {
             {
                 Ok(()) => {
                     if let Err(error) = self
-                        .targeted_store()
+                        .targeted_transfers
                         .clear_pending_payload_release(&row.id)
                         .await
                     {

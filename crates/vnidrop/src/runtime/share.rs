@@ -62,7 +62,7 @@ impl CoreInner {
             .validate_metadata_text("sender name", metadata.sender_name.as_deref())
             .map_err(VnidropError::invalid_input)?;
         if self
-            .targeted_store()
+            .targeted_transfers
             .contains_protocol_id(metadata.transfer_id)
             .await
             .map_err(anyhow::Error::new)?

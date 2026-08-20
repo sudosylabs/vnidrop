@@ -4,7 +4,9 @@
 //! and public APIs. Blob import/streaming/output sinks are reused.
 
 mod auth;
+mod authorization_custody;
 pub(crate) mod inbox;
+mod module;
 pub(crate) mod protocol;
 mod schema;
 mod state;
@@ -17,6 +19,9 @@ pub(crate) use auth::{
     TargetedAuthorizationDraft,
 };
 pub(crate) use inbox::{RespondError, TargetedOfferInbox};
+pub(crate) use module::{
+    TargetedCleanupFuture, TargetedTransferModule, TargetedTransferModuleConfig,
+};
 pub(crate) use protocol::TargetedTransferProtocol;
 pub(crate) use schema::ensure_schema;
 pub(crate) use store::{state_as_str, TargetedTransferRow, TargetedTransferStore};

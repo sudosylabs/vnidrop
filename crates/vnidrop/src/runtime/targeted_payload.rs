@@ -135,7 +135,7 @@ impl CoreInner {
                         .saturating_sub(collection_metadata_bytes)
                         .min(payload_size);
                     if self
-                        .targeted_store()
+                        .targeted_transfers
                         .advance_verified_bytes(targeted_transfer_id, verified)
                         .await?
                     {
@@ -165,7 +165,7 @@ impl CoreInner {
                         );
                     }
                     if self
-                        .targeted_store()
+                        .targeted_transfers
                         .advance_verified_bytes(targeted_transfer_id, verified)
                         .await?
                     {

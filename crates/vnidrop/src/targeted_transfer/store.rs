@@ -571,26 +571,6 @@ impl TargetedTransferStore {
         Ok(rows.into_iter().map(|row| row.get("id")).collect())
     }
 
-    pub(crate) async fn protocol_ids_for_peer(
-        &self,
-        peer_endpoint_id: &str,
-    ) -> Result<Vec<u64>, VnidropError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT protocol_transfer_id FROM targeted_transfers
-            WHERE sender_endpoint_id = ?1 OR receiver_endpoint_id = ?1
-            "#,
-        )
-        .bind(peer_endpoint_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(rows
-            .into_iter()
-            .map(|row| row.get::<i64, _>(0) as u64)
-            .collect())
-    }
-
     pub(crate) async fn ids_for_peer(
         &self,
         peer_endpoint_id: &str,
@@ -606,53 +586,6 @@ impl TargetedTransferStore {
         .await
         .map_err(VnidropError::repository)?;
         Ok(rows.into_iter().map(|row| row.get("id")).collect())
-    }
-
-    pub(crate) async fn sender_payloads_for_peer(
-        &self,
-        peer_endpoint_id: &str,
-    ) -> Result<Vec<(String, u64)>, VnidropError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT id, protocol_transfer_id FROM targeted_transfers
-            WHERE role = 'sender'
-              AND (sender_endpoint_id = ?1 OR receiver_endpoint_id = ?1)
-            "#,
-        )
-        .bind(peer_endpoint_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(rows
-            .into_iter()
-            .map(|row| {
-                (
-                    row.get("id"),
-                    row.get::<i64, _>("protocol_transfer_id") as u64,
-                )
-            })
-            .collect())
-    }
-
-    pub(crate) async fn authorizations_for_peer(
-        &self,
-        peer_endpoint_id: &str,
-    ) -> Result<Vec<(String, String)>, VnidropError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT id, authorization_secret_handle FROM targeted_transfers
-            WHERE (sender_endpoint_id = ?1 OR receiver_endpoint_id = ?1)
-              AND authorization_secret_handle IS NOT NULL
-            "#,
-        )
-        .bind(peer_endpoint_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(rows
-            .into_iter()
-            .map(|row| (row.get(0), row.get(1)))
-            .collect())
     }
 
     pub(crate) async fn authorization_rows(

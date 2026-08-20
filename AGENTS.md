@@ -30,17 +30,14 @@ Domain docs (reference, do not paste into PRs):
 - [`crates/vnidrop/CORE_FLOW.md`](crates/vnidrop/CORE_FLOW.md)
 - [`crates/vnidrop/tests/README.md`](crates/vnidrop/tests/README.md)
 - **Saved Devices platform UI:** read
-  [`DEVICE-HISTORY-UI-HANDOFF.md`](DEVICE-HISTORY-UI-HANDOFF.md) before work on
-  `feat/device-history-kmp` or `feat/device-history-apple`; it defines branch
-  ownership, PR bases, product behavior, and completion gates.
+  [`DEVICE-HISTORY-UI-HANDOFF.md`](DEVICE-HISTORY-UI-HANDOFF.md) before changing
+  Saved Devices UI; it defines product behavior and completion gates.
 
 ---
 
 ## Absolute rules
 
-1. Prefer PRs into `master`. The Saved Devices platform branches are the
-   documented exception: their PR base is `feat/device-history`. Do not merge to
-   `master` locally unless the user asks.
+1. Prefer PRs into `master`. Do not merge to `master` locally unless the user asks.
 2. Do not `git push`, force-push, or open a PR unless the user asks.
 3. If `commit.gpgsign` is enabled, create **signed** commits only. If signing fails
    (empty `ssh-add -l`), stop and tell the user to unlock the key. Never switch to

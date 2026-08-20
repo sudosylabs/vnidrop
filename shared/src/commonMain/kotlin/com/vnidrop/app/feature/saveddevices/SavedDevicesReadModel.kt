@@ -35,7 +35,6 @@ internal class SavedDevicesReadModel {
 	fun derive(
 		inputs: SavedDevicesReadInputs,
 		dismissedEligibilityIds: Set<String> = emptySet(),
-		hiddenTransferIds: Set<String> = emptySet(),
 	): SavedDevicesReadSnapshot {
 		val savedNames = buildMap {
 			inputs.savedDevices.forEach { device ->
@@ -56,9 +55,7 @@ internal class SavedDevicesReadModel {
 			savedDevices = inputs.savedDevices.sortedByDescending(SavedDeviceModel::createdAt),
 			pendingOffers = inputs.pendingOffers.sortedBy(PendingTargetedOfferModel::receivedAt),
 			targetedTransfers = inputs.targetedTransfers
-				.filter { transfer ->
-					transfer.state != TargetedTransferStateModel.Deleted && transfer.id !in hiddenTransferIds
-				}
+				.filter { transfer -> transfer.state != TargetedTransferStateModel.Deleted }
 				.sortedByDescending(TargetedTransferModel::updatedAt)
 				.map { transfer -> transfer.toExperienceItem(savedNames) },
 			senderDisplayNames = savedNames,

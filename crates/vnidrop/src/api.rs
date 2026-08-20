@@ -103,7 +103,6 @@ pub struct TargetedTransfer {
     pub sender_endpoint_id: String,
     pub receiver_endpoint_id: String,
     pub manifest_id: String,
-    pub content_hash: String,
     pub transfer_name: String,
     pub file_count: u64,
     pub total_size: u64,

@@ -121,7 +121,6 @@ struct TargetedTransferModel: Equatable, Identifiable, Sendable {
 	let senderEndpointId: String
 	let receiverEndpointId: String
 	let manifestId: String
-	let contentHash: String
 	/// Peer-supplied and untrusted; render it as text, never as a path.
 	let transferName: String
 	let fileCount: UInt64

@@ -430,8 +430,8 @@ impl TargetedTransferStore {
     pub(crate) async fn get(&self, id: &str) -> Result<Option<TargetedTransfer>, VnidropError> {
         let row = sqlx::query(
             r#"
-            SELECT id, role, sender_endpoint_id, receiver_endpoint_id, manifest_id, content_hash,
-                   transfer_name, file_count, total_size, verified_bytes, state, created_at, updated_at
+            SELECT id, role, sender_endpoint_id, receiver_endpoint_id, manifest_id, transfer_name,
+                   file_count, total_size, verified_bytes, state, created_at, updated_at
             FROM targeted_transfers WHERE id = ?1
             "#,
         )
@@ -465,8 +465,8 @@ impl TargetedTransferStore {
     pub(crate) async fn list(&self) -> Result<Vec<TargetedTransfer>, VnidropError> {
         let rows = sqlx::query(
             r#"
-            SELECT id, role, sender_endpoint_id, receiver_endpoint_id, manifest_id, content_hash,
-                   transfer_name, file_count, total_size, verified_bytes, state, created_at, updated_at
+            SELECT id, role, sender_endpoint_id, receiver_endpoint_id, manifest_id, transfer_name,
+                   file_count, total_size, verified_bytes, state, created_at, updated_at
             FROM targeted_transfers
             ORDER BY updated_at DESC
             "#,
@@ -719,7 +719,6 @@ fn row_to_transfer(row: sqlx::sqlite::SqliteRow) -> Result<TargetedTransfer, Vni
         sender_endpoint_id: row.get("sender_endpoint_id"),
         receiver_endpoint_id: row.get("receiver_endpoint_id"),
         manifest_id: row.get("manifest_id"),
-        content_hash: row.get("content_hash"),
         transfer_name: row.get("transfer_name"),
         file_count: row.get::<i64, _>("file_count") as u64,
         total_size: row.get::<i64, _>("total_size") as u64,

@@ -23,10 +23,14 @@ mod targeted_create;
 mod targeted_payload;
 mod targeted_receive;
 mod targeted_reconciliation;
+#[cfg(test)]
+mod test_faults;
 
 pub use facade::VnidropCore;
 #[cfg(test)]
 pub(crate) use provider::{consume_request_updates, RequestStreamOutcome};
+#[cfg(test)]
+pub(crate) use test_faults::TargetedFaultAdapters;
 
 use std::{
     collections::{HashMap, HashSet},

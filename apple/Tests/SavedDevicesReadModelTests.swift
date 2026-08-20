@@ -24,8 +24,31 @@ final class SavedDevicesReadModelTests: XCTestCase {
 			XCTAssertEqual(item(state, .receiver).availableActions, expected, "incoming \(state)")
 		}
 		for state in terminalStates {
-			XCTAssertEqual(item(state, .sender).availableActions, [.delete], "\(state)")
+			for role: TargetedTransferRoleModel in [.sender, .receiver] {
+				XCTAssertEqual(item(state, role).availableActions, [.delete], "\(role) \(state)")
+			}
 		}
+	}
+
+	func testDurableRoleOwnsDirectionEvenWhenEndpointIdentityHasChanged() {
+		let outgoing = transfer(
+			"outgoing", .sender, .completed, 1,
+			senderEndpointId: "retired-local-identity", receiverEndpointId: "phone"
+		)
+		let incoming = transfer(
+			"incoming", .receiver, .completed, 2,
+			senderEndpointId: "laptop", receiverEndpointId: "retired-local-identity"
+		)
+		let items = Dictionary(
+			uniqueKeysWithValues: readModel.derive(
+				SavedDevicesReadInputs(targetedTransfers: [outgoing, incoming])
+			).targetedTransfers.map { ($0.id, $0) }
+		)
+
+		XCTAssertEqual(items["outgoing"]?.direction, .outgoing)
+		XCTAssertEqual(items["outgoing"]?.peerEndpointId, "phone")
+		XCTAssertEqual(items["incoming"]?.direction, .incoming)
+		XCTAssertEqual(items["incoming"]?.peerEndpointId, "laptop")
 	}
 
 	func testProgressFactsAreReceiverOnlyAndSurviveInterruption() {
@@ -67,6 +90,47 @@ final class SavedDevicesReadModelTests: XCTestCase {
 		XCTAssertEqual(snapshot.targetedTransfers.map(\.id), ["new", "old"])
 		XCTAssertEqual(snapshot.targetedTransfers.first { $0.id == "old" }?.peerDisplayName, "Desk")
 		XCTAssertEqual(snapshot.nextPairingPrompt, .incomingRequest(peerEndpointId: "incoming", remoteDisplayName: nil))
+	}
+
+	func testRelationshipRowsDoNotSynthesizeSavedDevicesOrTerminalDecisions() {
+		let snapshot = readModel.derive(
+			SavedDevicesReadInputs(
+				relationships: [
+					relationship("saved-without-device", .saved, 4),
+					relationship("revoked", .revoked, 3),
+					relationship("blocked", .blocked, 2),
+					relationship("pending", .pendingOutgoing, 1),
+				]
+			)
+		)
+
+		XCTAssertEqual(snapshot.pendingRelationships.map(\.remoteEndpointId), ["pending"])
+		XCTAssertTrue(snapshot.savedDevices.isEmpty)
+		XCTAssertNil(snapshot.nextPairingPrompt)
+	}
+
+	func testLifecycleInputsRemainIndependentDurableHistoryFacts() {
+		let snapshot = readModel.derive(
+			SavedDevicesReadInputs(
+				pendingOffers: [offer("abandoned-before-registration", 1)],
+				targetedTransfers: [
+					transfer("cancelled", .sender, .cancelled, 4),
+					transfer("approval-race", .receiver, .cancelled, 3),
+					transfer("failed-attempt", .sender, .failed, 2),
+					transfer("retry", .sender, .offering, 1),
+				]
+			)
+		)
+
+		XCTAssertEqual(
+			snapshot.targetedTransfers.map(\.id),
+			["cancelled", "approval-race", "failed-attempt", "retry"]
+		)
+		XCTAssertEqual(snapshot.targetedTransfers.first { $0.id == "cancelled" }?.availableActions, [.delete])
+		XCTAssertEqual(snapshot.targetedTransfers.first { $0.id == "approval-race" }?.availableActions, [.delete])
+		XCTAssertEqual(snapshot.targetedTransfers.first { $0.id == "failed-attempt" }?.availableActions, [.delete])
+		XCTAssertEqual(snapshot.targetedTransfers.first { $0.id == "retry" }?.availableActions, [.cancel])
+		XCTAssertEqual(snapshot.pendingOffers.map(\.transferId), ["abandoned-before-registration"])
 	}
 
 	func testRefreshAndRestartNeedOnlyDurableReadsNotAnEventPayload() {
@@ -128,13 +192,15 @@ final class SavedDevicesReadModelTests: XCTestCase {
 		_ id: String,
 		_ role: TargetedTransferRoleModel,
 		_ state: TargetedTransferStateModel,
-		_ updatedAt: Int64
+		_ updatedAt: Int64,
+		senderEndpointId: String? = nil,
+		receiverEndpointId: String? = nil
 	) -> TargetedTransferModel {
 		TargetedTransferModel(
 			id: id, role: role,
-			senderEndpointId: role == .sender ? "local" : "peer",
-			receiverEndpointId: role == .sender ? "peer" : "local",
-			manifestId: "manifest-\(id)", contentHash: "hash-\(id)",
+			senderEndpointId: senderEndpointId ?? (role == .sender ? "local" : "peer"),
+			receiverEndpointId: receiverEndpointId ?? (role == .sender ? "peer" : "local"),
+			manifestId: "manifest-\(id)",
 			transferName: id, fileCount: 1,
 			totalSize: 100, verifiedBytes: 40, state: state,
 			createdAt: 0, updatedAt: updatedAt

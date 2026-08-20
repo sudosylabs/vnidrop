@@ -50,8 +50,8 @@ data class SavedDeviceTransferItem(
 	val state: TargetedTransferStateModel,
 	val createdAt: Long,
 	val updatedAt: Long,
-	val availableActions: List<SavedDeviceTransferAction> = savedDeviceTransferActions(direction, state),
-	val progressFraction: Float? = savedDeviceTransferProgress(direction, state, verifiedBytes, totalSize),
+	val availableActions: List<SavedDeviceTransferAction>,
+	val progressFraction: Float?,
 )
 
 internal fun savedDeviceTransferActions(

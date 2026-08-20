@@ -163,6 +163,11 @@ class SavedDevicesScreenTest {
 									state = TargetedTransferStateModel.Interrupted,
 									createdAt = 1,
 									updatedAt = 2,
+									availableActions = listOf(
+										SavedDeviceTransferAction.Resume,
+										SavedDeviceTransferAction.Cancel,
+									),
+									progressFraction = 0.4f,
 								),
 							),
 						),

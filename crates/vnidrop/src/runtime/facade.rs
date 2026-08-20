@@ -180,16 +180,8 @@ impl VnidropCore {
         })
     }
 
-    pub(crate) fn suppress_targeted_completion_for_test(&self, suppress: bool) {
-        self.inner
-            .suppress_targeted_completion
-            .store(suppress, std::sync::atomic::Ordering::SeqCst);
-    }
-
-    pub(crate) fn suppress_targeted_authorization_delivery_for_test(&self, suppress: bool) {
-        self.inner
-            .suppress_targeted_authorization_delivery
-            .store(suppress, std::sync::atomic::Ordering::SeqCst);
+    pub(crate) fn targeted_faults_for_test(&self) -> super::TargetedFaultAdapters {
+        super::TargetedFaultAdapters::new(self.inner.clone(), self.runtime.handle().clone())
     }
 
     pub(crate) fn accept_targeted_offer_without_waiting_for_test(
@@ -232,17 +224,6 @@ impl VnidropCore {
                 .await
                 .map_err(VnidropError::repository)
         })
-    }
-
-    pub(crate) fn corrupt_targeted_content_hash_for_test(
-        &self,
-        id: String,
-    ) -> Result<(), VnidropError> {
-        self.block_on(
-            self.inner
-                .targeted_store()
-                .corrupt_content_hash_for_test(&id),
-        )
     }
 
     pub(crate) fn create_orphaned_targeted_authorization_for_test(
@@ -289,30 +270,6 @@ impl VnidropCore {
                 .ok_or_else(|| VnidropError::invalid_input(anyhow::anyhow!("unknown transfer")))?;
             self.inner.deliver_stored_targeted_authorization(&row).await
         })
-    }
-
-    pub(crate) fn targeted_authorization_delivery_attempts_for_test(&self) -> u64 {
-        self.inner
-            .targeted_authorization_delivery_attempts
-            .load(std::sync::atomic::Ordering::SeqCst)
-    }
-
-    pub(crate) fn hold_all_transfer_slots_for_test(&self) -> tokio::sync::oneshot::Sender<()> {
-        let inner = self.inner.clone();
-        let permits = inner.limits.max_concurrent_transfers as u32;
-        let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
-        let (release_tx, release_rx) = tokio::sync::oneshot::channel();
-        self.runtime.handle().spawn(async move {
-            let _permits = inner
-                .transfer_slots
-                .acquire_many(permits)
-                .await
-                .expect("transfer limiter open");
-            ready_tx.send(()).expect("slot holder ready");
-            let _ = release_rx.await;
-        });
-        ready_rx.recv().expect("slot holder started");
-        release_tx
     }
 
     pub(crate) fn targeted_payload_is_registered_for_test(

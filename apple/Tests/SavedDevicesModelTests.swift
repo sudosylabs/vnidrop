@@ -60,8 +60,7 @@ final class SavedDevicesModelTests: XCTestCase {
 			// Matches what the core records for a row created under the current
 			// identity; pass `role` explicitly to model one that predates a reset.
 			id: id, role: role ?? (sender == Self.localEndpoint ? .sender : .receiver),
-			senderEndpointId: sender, receiverEndpointId: receiver,
-			manifestId: "m", contentHash: "hash",
+			senderEndpointId: sender, receiverEndpointId: receiver, manifestId: "m",
 			transferName: "Photos", fileCount: 2, totalSize: totalSize, verifiedBytes: verifiedBytes,
 			state: state, createdAt: 1, updatedAt: updatedAt
 		)

@@ -88,8 +88,12 @@ core owns abandonment directly.
 - Kotlin: `SavedDevicesReadModelTest`
 - Apple: `SavedDevicesReadModelTests`
 
-Both suites cover the action matrix, receiver-only progress, sorting and joins,
-deleted-row filtering, role-based direction, and event-independent rebuilds.
+Both suites cover sender and receiver actions, receiver-only progress, sorting
+and joins, deleted-row filtering, role-based direction after identity reset,
+terminal relationship filtering, cancel/race/failure/retry history inputs, and
+event-independent rebuilds. A live offer without a durable transfer row is kept
+separate from transfer history, which characterizes the current
+pre-registration abandonment result.
 
 ## Wave 1 Runtime obligation matrix
 

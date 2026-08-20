@@ -42,7 +42,6 @@ fn saved_devices_relationships_and_targeted_transfers_are_distinct_contracts() {
         sender_endpoint_id: "sender-endpoint".to_string(),
         receiver_endpoint_id: device.endpoint_id.clone(),
         manifest_id: "immutable-manifest-id".to_string(),
-        content_hash: "immutable-content-hash".to_string(),
         transfer_name: "Holiday photos".to_string(),
         file_count: 2,
         total_size: 42,

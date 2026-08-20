@@ -23,7 +23,6 @@ struct ImmutableTargetedIdentity {
     sender_endpoint_id: String,
     receiver_endpoint_id: String,
     manifest_id: String,
-    content_hash: String,
 }
 
 impl From<&TargetedTransfer> for ImmutableTargetedIdentity {
@@ -33,7 +32,6 @@ impl From<&TargetedTransfer> for ImmutableTargetedIdentity {
             sender_endpoint_id: transfer.sender_endpoint_id.clone(),
             receiver_endpoint_id: transfer.receiver_endpoint_id.clone(),
             manifest_id: transfer.manifest_id.clone(),
-            content_hash: transfer.content_hash.clone(),
         }
     }
 }
@@ -45,19 +43,63 @@ impl From<&PendingTargetedOffer> for ImmutableTargetedIdentity {
             sender_endpoint_id: offer.sender_endpoint_id.clone(),
             receiver_endpoint_id: offer.receiver_endpoint_id.clone(),
             manifest_id: offer.manifest_id.clone(),
-            content_hash: offer.content_hash.clone(),
         }
     }
 }
 
 struct RecordingSink {
-    events: Mutex<Vec<CoreEvent>>,
+    observed: mpsc::Sender<CoreEvent>,
+    receiver: Mutex<mpsc::Receiver<CoreEvent>>,
+}
+
+impl RecordingSink {
+    fn new() -> Self {
+        let (observed, receiver) = mpsc::channel();
+        Self {
+            observed,
+            receiver: Mutex::new(receiver),
+        }
+    }
+
+    fn wait_for(&self, phase: &str, kind: &str) -> CoreEvent {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            let event = self
+                .receiver
+                .lock()
+                .unwrap()
+                .recv_timeout(remaining)
+                .unwrap_or_else(|_| panic!("timed out waiting for {phase}/{kind}"));
+            if event.phase == phase && event.kind == kind {
+                return event;
+            }
+        }
+    }
 }
 
 impl CoreEventSink for RecordingSink {
     fn on_event(&self, event: CoreEvent) {
-        self.events.lock().unwrap().push(event);
+        self.observed.send(event).unwrap();
     }
+}
+
+struct TeeSink {
+    recording: Arc<RecordingSink>,
+    downstream: Arc<dyn CoreEventSink>,
+}
+
+impl CoreEventSink for TeeSink {
+    fn on_event(&self, event: CoreEvent) {
+        self.recording.on_event(event.clone());
+        self.downstream.on_event(event);
+    }
+}
+
+struct NoopSink;
+
+impl CoreEventSink for NoopSink {
+    fn on_event(&self, _event: CoreEvent) {}
 }
 
 struct EventGateSink {
@@ -82,19 +124,23 @@ impl CoreEventSink for EventGateSink {
 struct ProtectedNode {
     data_dir: tempfile::TempDir,
     secret_store: Arc<FaultInjectingSecretStore>,
+    events: Arc<RecordingSink>,
     core: Option<Arc<VnidropCore>>,
 }
 
 impl ProtectedNode {
     fn new() -> Self {
-        Self::with_sink(Arc::new(RecordingSink {
-            events: Mutex::new(Vec::new()),
-        }))
+        Self::with_sink(Arc::new(NoopSink))
     }
 
-    fn with_sink(sink: Arc<dyn CoreEventSink>) -> Self {
+    fn with_sink(downstream: Arc<dyn CoreEventSink>) -> Self {
         let data_dir = tempfile::tempdir().unwrap();
         let secret_store = Arc::new(FaultInjectingSecretStore::default());
+        let events = Arc::new(RecordingSink::new());
+        let sink = Arc::new(TeeSink {
+            recording: events.clone(),
+            downstream,
+        });
         let core = VnidropCore::initialize_with_test_secret_store(
             data_dir.path().to_string_lossy().into_owned(),
             sink,
@@ -104,6 +150,7 @@ impl ProtectedNode {
         Self {
             data_dir,
             secret_store,
+            events,
             core: Some(core),
         }
     }
@@ -112,16 +159,20 @@ impl ProtectedNode {
         self.core.as_ref().unwrap().clone()
     }
 
+    fn events(&self) -> Arc<RecordingSink> {
+        self.events.clone()
+    }
+
     fn restart(mut self) -> Self {
         self.core.take().unwrap().shutdown();
+        let events = Arc::new(RecordingSink::new());
         let core = VnidropCore::initialize_with_test_secret_store(
             self.data_dir.path().to_string_lossy().into_owned(),
-            Arc::new(RecordingSink {
-                events: Mutex::new(Vec::new()),
-            }),
+            events.clone(),
             self.secret_store.clone(),
         )
         .unwrap();
+        self.events = events;
         self.core = Some(core);
         self
     }
@@ -239,15 +290,17 @@ fn establish_saved(sender: &ProtectedNode, receiver: &ProtectedNode, transfer_id
     }
 }
 
-fn wait_for_offer(core: &VnidropCore) -> PendingTargetedOffer {
-    let started = Instant::now();
-    loop {
-        if let Some(offer) = core.list_pending_targeted_offers().into_iter().next() {
-            return offer;
-        }
-        assert!(started.elapsed() < Duration::from_secs(20));
-        std::thread::sleep(Duration::from_millis(25));
-    }
+fn wait_for_offer(core: &VnidropCore, events: &RecordingSink) -> PendingTargetedOffer {
+    let event = events.wait_for("targeted_transfer", "offer-received");
+    let id = serde_json::from_str::<serde_json::Value>(&event.data_json).unwrap()
+        ["targeted_transfer_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    core.list_pending_targeted_offers()
+        .into_iter()
+        .find(|offer| offer.transfer_id == id)
+        .expect("offer is visible before its event is emitted")
 }
 
 fn approve(
@@ -260,8 +313,9 @@ fn approve(
     let path = dir.path().join(name);
     std::fs::write(&path, payload).unwrap();
     let receiver_core = receiver.core();
+    let receiver_events = receiver.events();
     let accept = std::thread::spawn(move || {
-        let offer = wait_for_offer(&receiver_core);
+        let offer = wait_for_offer(&receiver_core, &receiver_events);
         receiver_core.respond_to_targeted_offer(offer.transfer_id, true)
     });
     let transfer = sender
@@ -286,8 +340,9 @@ fn immutable_identity_round_trips_through_approval_reads_cancel_and_restart() {
     let path = dir.path().join("Quarterly report.pdf");
     std::fs::write(&path, b"report").unwrap();
     let receiver_core = receiver.core();
+    let receiver_events = receiver.events();
     let accept = std::thread::spawn(move || {
-        let offer = wait_for_offer(&receiver_core);
+        let offer = wait_for_offer(&receiver_core, &receiver_events);
         receiver_core
             .respond_to_targeted_offer(offer.transfer_id.clone(), true)
             .unwrap();
@@ -303,8 +358,18 @@ fn immutable_identity_round_trips_through_approval_reads_cancel_and_restart() {
         .unwrap();
     let offer = accept.join().unwrap();
     let identity = ImmutableTargetedIdentity::from(&offer);
+    let content_hash = offer.content_hash;
 
     assert_eq!(ImmutableTargetedIdentity::from(&transfer), identity);
+    assert_eq!(
+        sender
+            .core()
+            .targeted_faults_for_test()
+            .store
+            .content_hash(&transfer.id)
+            .unwrap(),
+        content_hash
+    );
     assert_eq!(transfer.transfer_name, "Quarterly report.pdf");
     let sender_get = sender
         .core()
@@ -338,6 +403,14 @@ fn immutable_identity_round_trips_through_approval_reads_cancel_and_restart() {
             .unwrap();
         assert_eq!(ImmutableTargetedIdentity::from(&restored), identity);
         assert_eq!(restored.transfer_name, "Quarterly report.pdf");
+        assert_eq!(
+            node.core()
+                .targeted_faults_for_test()
+                .store
+                .content_hash(&transfer.id)
+                .unwrap(),
+            content_hash
+        );
     }
 
     sender
@@ -351,6 +424,15 @@ fn immutable_identity_round_trips_through_approval_reads_cancel_and_restart() {
         .unwrap();
     assert_eq!(cancelled.state, TargetedTransferState::Cancelled);
     assert_eq!(ImmutableTargetedIdentity::from(&cancelled), identity);
+    assert_eq!(
+        sender
+            .core()
+            .targeted_faults_for_test()
+            .store
+            .content_hash(&cancelled.id)
+            .unwrap(),
+        content_hash
+    );
 }
 
 #[test]
@@ -370,8 +452,9 @@ fn accepted_event_is_emitted_only_after_receiver_snapshot_is_durable() {
     let path = dir.path().join("event.txt");
     std::fs::write(&path, b"event").unwrap();
     let receiver_core = receiver.core();
+    let receiver_events = receiver.events();
     let accept = std::thread::spawn(move || {
-        let offer = wait_for_offer(&receiver_core);
+        let offer = wait_for_offer(&receiver_core, &receiver_events);
         receiver_core.respond_to_targeted_offer(offer.transfer_id, true)
     });
     let sender_core = sender.core();

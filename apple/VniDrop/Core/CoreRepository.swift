@@ -765,8 +765,7 @@ private extension TargetedTransfer {
 		TargetedTransferModel(
 			id: id, role: role.toModel(),
 			senderEndpointId: senderEndpointId, receiverEndpointId: receiverEndpointId,
-			manifestId: manifestId, contentHash: contentHash,
-			transferName: transferName, fileCount: fileCount,
+			manifestId: manifestId, transferName: transferName, fileCount: fileCount,
 			totalSize: totalSize, verifiedBytes: verifiedBytes, state: state.toModel(),
 			createdAt: createdAt, updatedAt: updatedAt
 		)
@@ -814,5 +813,4 @@ private extension ReceiverRequest {
 		}
 	}
 }
-
 

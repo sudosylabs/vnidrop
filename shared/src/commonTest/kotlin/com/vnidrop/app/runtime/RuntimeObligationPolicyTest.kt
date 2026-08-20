@@ -101,7 +101,6 @@ class RuntimeObligationPolicyTest {
 		senderEndpointId = "sender",
 		receiverEndpointId = "receiver",
 		manifestId = "manifest",
-		contentHash = "hash",
 		transferName = "Photos",
 		fileCount = 1UL,
 		totalSize = 1UL,

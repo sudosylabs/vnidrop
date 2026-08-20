@@ -79,7 +79,6 @@ data class TargetedTransferModel(
 	val senderEndpointId: String,
 	val receiverEndpointId: String,
 	val manifestId: String,
-	val contentHash: String,
 	val transferName: String,
 	val fileCount: ULong,
 	val totalSize: ULong,

@@ -853,7 +853,9 @@ fn approved_authorization_delivery_retries_after_sender_restart() {
     establish_saved(&alice, &bob, 11_000);
     alice
         .core()
-        .suppress_targeted_authorization_delivery_for_test(true);
+        .targeted_faults_for_test()
+        .negotiation
+        .suppress_authorization_delivery(true);
 
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join("payload.txt");
@@ -914,7 +916,9 @@ fn accepted_intent_survives_receiver_and_sender_restart_until_delivery() {
     establish_saved(&alice, &bob, 110_000);
     alice
         .core()
-        .suppress_targeted_authorization_delivery_for_test(true);
+        .targeted_faults_for_test()
+        .negotiation
+        .suppress_authorization_delivery(true);
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join("payload.txt");
     std::fs::write(&source_path, b"restart consent").unwrap();
@@ -1099,7 +1103,9 @@ fn cancel_after_accepted_receiver_restart_revokes_durable_consent() {
     establish_saved(&alice, &bob, 110_003);
     alice
         .core()
-        .suppress_targeted_authorization_delivery_for_test(true);
+        .targeted_faults_for_test()
+        .negotiation
+        .suppress_authorization_delivery(true);
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join("payload.txt");
     std::fs::write(&source_path, b"revoked consent").unwrap();
@@ -1125,7 +1131,9 @@ fn cancel_after_accepted_receiver_restart_revokes_durable_consent() {
     let started = Instant::now();
     while alice
         .core()
-        .targeted_authorization_delivery_attempts_for_test()
+        .targeted_faults_for_test()
+        .negotiation
+        .authorization_delivery_attempts()
         == 0
     {
         assert!(started.elapsed() < Duration::from_secs(10));
@@ -1186,7 +1194,9 @@ fn corrupt_restored_target_does_not_strand_later_valid_target() {
     let valid = approve_one(&alice, &bob, b"valid", "valid.txt");
     alice
         .core()
-        .corrupt_targeted_content_hash_for_test(corrupt.id.clone())
+        .targeted_faults_for_test()
+        .store
+        .corrupt_content_hash(&corrupt.id)
         .unwrap();
 
     let alice = alice.restart();
@@ -1401,7 +1411,10 @@ fn completion_retries_after_receiver_restart_without_failing_published_receive()
     let bob = ProtectedNode::new();
     establish_saved(&alice, &bob, 11_025);
     let transfer = approve_one(&alice, &bob, b"eventual completion", "payload.txt");
-    bob.core().suppress_targeted_completion_for_test(true);
+    bob.core()
+        .targeted_faults_for_test()
+        .negotiation
+        .suppress_completion(true);
 
     let output = tempfile::tempdir().unwrap();
     bob.core()
@@ -1890,10 +1903,15 @@ fn mismatched_relay_profiles_are_typed_and_never_reinterpreted_as_ordinary_share
         failed.sender_endpoint_id.clone(),
         failed.receiver_endpoint_id.clone(),
         failed.manifest_id.clone(),
-        failed.content_hash.clone(),
     );
+    let content_hash = alice
+        .core()
+        .targeted_faults_for_test()
+        .store
+        .content_hash(&failed.id)
+        .unwrap();
     assert!(!failed.manifest_id.is_empty());
-    assert!(!failed.content_hash.is_empty());
+    assert!(!content_hash.is_empty());
 
     let alice = alice.restart();
     let restored = alice
@@ -1904,13 +1922,21 @@ fn mismatched_relay_profiles_are_typed_and_never_reinterpreted_as_ordinary_share
     assert_eq!(restored.state, TargetedTransferState::Failed);
     assert_eq!(
         (
-            restored.id,
-            restored.sender_endpoint_id,
-            restored.receiver_endpoint_id,
-            restored.manifest_id,
-            restored.content_hash,
+            restored.id.clone(),
+            restored.sender_endpoint_id.clone(),
+            restored.receiver_endpoint_id.clone(),
+            restored.manifest_id.clone(),
         ),
         immutable_identity
+    );
+    assert_eq!(
+        alice
+            .core()
+            .targeted_faults_for_test()
+            .store
+            .content_hash(&restored.id)
+            .unwrap(),
+        content_hash
     );
 }
 
@@ -2348,7 +2374,11 @@ fn targeted_cancel_while_waiting_for_transfer_slot_never_publishes() {
     let bob = ProtectedNode::new();
     establish_saved(&alice, &bob, 11_077);
     let transfer = approve_one(&alice, &bob, b"slot-starved payload", "queued.txt");
-    let release_slots = bob.core().hold_all_transfer_slots_for_test();
+    let release_slots = bob
+        .core()
+        .targeted_faults_for_test()
+        .timing
+        .hold_all_transfer_slots();
     let output = tempfile::tempdir().unwrap();
     let output_path = output.path().to_string_lossy().into_owned();
     let bob_core = bob.core();
@@ -2549,7 +2579,9 @@ fn approval_secret_failure_keeps_durable_consent_retryable() {
     let started = Instant::now();
     while alice
         .core()
-        .targeted_authorization_delivery_attempts_for_test()
+        .targeted_faults_for_test()
+        .negotiation
+        .authorization_delivery_attempts()
         == 0
     {
         assert!(started.elapsed() < Duration::from_secs(10));

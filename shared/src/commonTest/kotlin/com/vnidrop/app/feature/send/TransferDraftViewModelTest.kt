@@ -245,7 +245,6 @@ class TransferDraftViewModelTest {
 		senderEndpointId = "me",
 		receiverEndpointId = peerId,
 		manifestId = "manifest",
-		contentHash = "hash",
 		transferName = "Transfer",
 		fileCount = 1UL,
 		totalSize = 1UL,

@@ -55,13 +55,6 @@ import vnidrop.shared.generated.resources.status_offering
 import vnidrop.shared.generated.resources.status_preparing
 import vnidrop.shared.generated.resources.status_transferring
 
-enum class SavedDeviceTransferAction {
-	Receive,
-	Resume,
-	Cancel,
-	Delete,
-}
-
 internal fun LazyListScope.targetedTransferItems(
 	transfers: List<SavedDeviceTransferItem>,
 	busyTransferIds: Set<String>,
@@ -99,9 +92,6 @@ private fun TargetedTransferRow(
 	onAction: (SavedDeviceTransferAction) -> Unit,
 ) {
 	val colors = LocalVniDropColors.current
-	val progress = if (transfer.totalSize == 0UL) 0f else {
-		(transfer.verifiedBytes.toDouble() / transfer.totalSize.toDouble()).coerceIn(0.0, 1.0).toFloat()
-	}
 	Column(
 		Modifier.fillMaxWidth().padding(vertical = 14.dp),
 		verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -155,11 +145,7 @@ private fun TargetedTransferRow(
 				color = colors.foregroundLighter,
 			)
 		}
-		if (
-			transfer.direction == SavedDeviceTransferDirection.Incoming &&
-			transfer.totalSize > 0UL &&
-			transfer.state.showsProgress()
-		) {
+		transfer.progressFraction?.let { progress ->
 			LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
 			Text(
 				stringResource(
@@ -181,30 +167,30 @@ private fun TransferActions(
 	busy: Boolean,
 	onAction: (SavedDeviceTransferAction) -> Unit,
 ) {
-	val incoming = transfer.direction == SavedDeviceTransferDirection.Incoming
 	Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-		when {
-			incoming && transfer.state == TargetedTransferStateModel.Approved -> PrimaryButton(
+		when (transfer.availableActions.firstOrNull()) {
+			SavedDeviceTransferAction.Receive -> PrimaryButton(
 				stringResource(Res.string.saved_devices_transfer_receive),
 				{ onAction(SavedDeviceTransferAction.Receive) },
 				enabled = !busy,
 				leadingIcon = { PlatformIcon(AppIcon.Download, contentDescription = null, modifier = Modifier.size(18.dp)) },
 			)
-			incoming && transfer.state == TargetedTransferStateModel.Interrupted -> PrimaryButton(
+			SavedDeviceTransferAction.Resume -> PrimaryButton(
 				stringResource(Res.string.saved_devices_transfer_resume),
 				{ onAction(SavedDeviceTransferAction.Resume) },
 				enabled = !busy,
 				leadingIcon = { PlatformIcon(AppIcon.Sync, contentDescription = null, modifier = Modifier.size(18.dp)) },
 			)
+			else -> Unit
 		}
 		when {
-			transfer.state.isCancellable() -> SecondaryButton(
+			SavedDeviceTransferAction.Cancel in transfer.availableActions -> SecondaryButton(
 				stringResource(Res.string.saved_devices_transfer_cancel),
 				{ onAction(SavedDeviceTransferAction.Cancel) },
 				enabled = !busy,
 				leadingIcon = { PlatformIcon(AppIcon.StopCircle, contentDescription = null, modifier = Modifier.size(18.dp)) },
 			)
-			transfer.state.isDeletable() -> SecondaryButton(
+			SavedDeviceTransferAction.Delete in transfer.availableActions -> SecondaryButton(
 				stringResource(Res.string.saved_devices_transfer_delete),
 				{ onAction(SavedDeviceTransferAction.Delete) },
 				enabled = !busy,
@@ -228,27 +214,3 @@ private fun TargetedTransferStateModel.labelResource(): StringResource = when (t
 	TargetedTransferStateModel.Failed -> Res.string.status_failed
 	TargetedTransferStateModel.Deleted -> Res.string.status_cancelled
 }
-
-private fun TargetedTransferStateModel.showsProgress(): Boolean = this in setOf(
-	TargetedTransferStateModel.Connecting,
-	TargetedTransferStateModel.Transferring,
-	TargetedTransferStateModel.Interrupted,
-	TargetedTransferStateModel.Completed,
-)
-
-private fun TargetedTransferStateModel.isCancellable(): Boolean = this in setOf(
-	TargetedTransferStateModel.Preparing,
-	TargetedTransferStateModel.Offering,
-	TargetedTransferStateModel.AwaitingApproval,
-	TargetedTransferStateModel.Approved,
-	TargetedTransferStateModel.Connecting,
-	TargetedTransferStateModel.Transferring,
-	TargetedTransferStateModel.Interrupted,
-)
-
-private fun TargetedTransferStateModel.isDeletable(): Boolean = this in setOf(
-	TargetedTransferStateModel.Completed,
-	TargetedTransferStateModel.Declined,
-	TargetedTransferStateModel.Cancelled,
-	TargetedTransferStateModel.Failed,
-)

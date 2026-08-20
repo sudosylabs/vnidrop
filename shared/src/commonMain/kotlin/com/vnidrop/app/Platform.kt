@@ -36,6 +36,10 @@ fun interface DeviceInfoProvider {
 
 fun interface BackgroundRuntimeKeeper {
 	fun setRequired(required: Boolean)
+
+	fun close() {
+		setRequired(false)
+	}
 }
 
 data class AppDependencies(

@@ -386,6 +386,7 @@ class SavedDevicesViewModelTest {
 		senderEndpointId = sender,
 		receiverEndpointId = receiver,
 		manifestId = "manifest-$id",
+		contentHash = "hash-$id",
 		transferName = "Transfer $id",
 		fileCount = 2u,
 		totalSize = 100u,

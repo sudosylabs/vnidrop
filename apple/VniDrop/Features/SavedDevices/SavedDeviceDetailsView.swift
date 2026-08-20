@@ -317,10 +317,10 @@ private struct TargetedTransferRow: View {
 
 	/// At most one of receive/resume applies: one state each, receiving side only.
 	private var primaryAction: TransferAction? {
-		if transfer.canReceive {
+		if transfer.availableActions.contains(.receive) {
 			return TransferAction(id: "receive", title: L10n.Saved.devicesTransferReceive, run: onReceive)
 		}
-		if transfer.canResume {
+		if transfer.availableActions.contains(.resume) {
 			return TransferAction(id: "resume", title: L10n.Saved.devicesTransferResume, run: onResume)
 		}
 		return nil
@@ -328,10 +328,10 @@ private struct TargetedTransferRow: View {
 
 	private var overflowActions: [TransferAction] {
 		var actions: [TransferAction] = []
-		if transfer.state.canCancel {
+		if transfer.availableActions.contains(.cancel) {
 			actions.append(TransferAction(id: "cancel", title: L10n.Saved.devicesTransferCancel, run: onCancel))
 		}
-		if transfer.state.canDelete {
+		if transfer.availableActions.contains(.delete) {
 			actions.append(TransferAction(id: "delete", title: L10n.Saved.devicesTransferDelete, run: onDelete))
 		}
 		return actions

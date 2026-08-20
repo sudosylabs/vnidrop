@@ -13,9 +13,42 @@ use iroh_blobs::{get::request::get_hash_seq_and_sizes, ticket::BlobTicket};
 
 use crate::{
     secure_secret::FaultInjectingSecretStore, CoreEvent, CoreEventSink, DeviceRelationshipState,
-    PendingTargetedOffer, ShareMetadataInput, ShareSource, SourceKind, TargetedTransferState,
-    TransferAccessMode, VnidropCore,
+    PendingTargetedOffer, ShareMetadataInput, ShareSource, SourceKind, TargetedTransfer,
+    TargetedTransferState, TransferAccessMode, VnidropCore,
 };
+
+#[derive(Debug, PartialEq, Eq)]
+struct ImmutableTargetedIdentity {
+    id: String,
+    sender_endpoint_id: String,
+    receiver_endpoint_id: String,
+    manifest_id: String,
+    content_hash: String,
+}
+
+impl From<&TargetedTransfer> for ImmutableTargetedIdentity {
+    fn from(transfer: &TargetedTransfer) -> Self {
+        Self {
+            id: transfer.id.clone(),
+            sender_endpoint_id: transfer.sender_endpoint_id.clone(),
+            receiver_endpoint_id: transfer.receiver_endpoint_id.clone(),
+            manifest_id: transfer.manifest_id.clone(),
+            content_hash: transfer.content_hash.clone(),
+        }
+    }
+}
+
+impl From<&PendingTargetedOffer> for ImmutableTargetedIdentity {
+    fn from(offer: &PendingTargetedOffer) -> Self {
+        Self {
+            id: offer.transfer_id.clone(),
+            sender_endpoint_id: offer.sender_endpoint_id.clone(),
+            receiver_endpoint_id: offer.receiver_endpoint_id.clone(),
+            manifest_id: offer.manifest_id.clone(),
+            content_hash: offer.content_hash.clone(),
+        }
+    }
+}
 
 struct RecordingSink {
     events: Mutex<Vec<CoreEvent>>,
@@ -244,42 +277,80 @@ fn approve(
 }
 
 #[test]
-fn snapshot_name_round_trips_through_create_get_list_and_restart() {
+fn immutable_identity_round_trips_through_approval_reads_cancel_and_restart() {
     let sender = ProtectedNode::new();
     let receiver = ProtectedNode::new();
     establish_saved(&sender, &receiver, 21_001);
-    let transfer = approve(&sender, &receiver, "Quarterly report.pdf", b"report");
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("Quarterly report.pdf");
+    std::fs::write(&path, b"report").unwrap();
+    let receiver_core = receiver.core();
+    let accept = std::thread::spawn(move || {
+        let offer = wait_for_offer(&receiver_core);
+        receiver_core
+            .respond_to_targeted_offer(offer.transfer_id.clone(), true)
+            .unwrap();
+        offer
+    });
+    let transfer = sender
+        .core()
+        .create_targeted_transfer(
+            receiver.core().status().endpoint_id,
+            vec![source(&path)],
+            Some("Quarterly report.pdf".to_string()),
+        )
+        .unwrap();
+    let offer = accept.join().unwrap();
+    let identity = ImmutableTargetedIdentity::from(&offer);
+
+    assert_eq!(ImmutableTargetedIdentity::from(&transfer), identity);
     assert_eq!(transfer.transfer_name, "Quarterly report.pdf");
-    assert_eq!(
-        sender
+    let sender_get = sender
+        .core()
+        .get_targeted_transfer(transfer.id.clone())
+        .unwrap()
+        .unwrap();
+    assert_eq!(ImmutableTargetedIdentity::from(&sender_get), identity);
+    assert_eq!(sender_get.transfer_name, "Quarterly report.pdf");
+    let sender_list = sender
+        .core()
+        .list_targeted_transfers()
+        .unwrap()
+        .into_iter()
+        .find(|row| row.id == transfer.id)
+        .unwrap();
+    assert_eq!(ImmutableTargetedIdentity::from(&sender_list), identity);
+    let receiver_get = receiver
+        .core()
+        .get_targeted_transfer(transfer.id.clone())
+        .unwrap()
+        .unwrap();
+    assert_eq!(ImmutableTargetedIdentity::from(&receiver_get), identity);
+
+    let sender = sender.restart();
+    let receiver = receiver.restart();
+    for node in [&sender, &receiver] {
+        let restored = node
             .core()
             .get_targeted_transfer(transfer.id.clone())
             .unwrap()
-            .unwrap()
-            .transfer_name,
-        "Quarterly report.pdf"
-    );
-    assert_eq!(
-        sender
-            .core()
-            .list_targeted_transfers()
-            .unwrap()
-            .into_iter()
-            .find(|row| row.id == transfer.id)
-            .unwrap()
-            .transfer_name,
-        "Quarterly report.pdf"
-    );
-    let sender = sender.restart();
-    assert_eq!(
-        sender
-            .core()
-            .get_targeted_transfer(transfer.id)
-            .unwrap()
-            .unwrap()
-            .transfer_name,
-        "Quarterly report.pdf"
-    );
+            .unwrap();
+        assert_eq!(ImmutableTargetedIdentity::from(&restored), identity);
+        assert_eq!(restored.transfer_name, "Quarterly report.pdf");
+    }
+
+    sender
+        .core()
+        .cancel_targeted_transfer(transfer.id.clone())
+        .unwrap();
+    let cancelled = sender
+        .core()
+        .get_targeted_transfer(transfer.id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(cancelled.state, TargetedTransferState::Cancelled);
+    assert_eq!(ImmutableTargetedIdentity::from(&cancelled), identity);
 }
 
 #[test]

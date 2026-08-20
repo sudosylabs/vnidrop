@@ -236,6 +236,8 @@ testing, and pull request guidance.
 
 ## Learn more
 
+- [`doc/architecture/README.md`](doc/architecture/README.md) — architecture
+  boundaries, subsystem guides, and selected target designs
 - [`crates/vnidrop/CORE_FLOW.md`](crates/vnidrop/CORE_FLOW.md) — protocol,
   approval, durability, saved devices, targeted transfers, and file-handling
   details

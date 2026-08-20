@@ -5,15 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.vnidrop.app.core.CoreGateway
 import com.vnidrop.app.core.CoreSignal
 import com.vnidrop.app.core.DeviceRelationshipModel
-import com.vnidrop.app.core.DeviceRelationshipStateModel
 import com.vnidrop.app.core.FileSystemService
 import com.vnidrop.app.core.PairingEligibilityModel
 import com.vnidrop.app.core.ReceiveFolder
 import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.core.TargetedOfferResponseModel
-import com.vnidrop.app.core.TargetedTransferModel
-import com.vnidrop.app.core.TargetedTransferRoleModel
-import com.vnidrop.app.core.TargetedTransferStateModel
 import com.vnidrop.app.preferences.PreferencesRepository
 import com.vnidrop.app.ui.feedback.UiMessage
 import com.vnidrop.app.ui.feedback.UiMessageController
@@ -66,6 +62,7 @@ class SavedDevicesViewModel(
 	val state: StateFlow<SavedDevicesState> = _state.asStateFlow()
 
 	private val refreshMutex = Mutex()
+	private val readModel = SavedDevicesReadModel()
 	private val dismissedEligibility = mutableSetOf<String>()
 	private var receiveFolder: ReceiveFolder? = null
 
@@ -311,33 +308,33 @@ class SavedDevicesViewModel(
 				refreshFailed(it)
 				return@withLock
 			}
-			val savedNames = savedDevices.associate { device -> device.endpointId to device.displayNameOrNull() }
-				.filterValues { it != null }
-				.mapValues { it.value.orEmpty() }
-			val pendingRelationships = relationships.filter {
-				it.state == DeviceRelationshipStateModel.PendingIncoming ||
-					it.state == DeviceRelationshipStateModel.PendingOutgoing
-			}.sortedByDescending(DeviceRelationshipModel::updatedAt)
+			val snapshot = readModel.derive(
+				SavedDevicesReadInputs(
+					eligibilities = eligibilities,
+					relationships = relationships,
+					savedDevices = savedDevices,
+					pendingOffers = pendingOffers,
+					targetedTransfers = targetedTransfers,
+				),
+				dismissedEligibilityIds = dismissedEligibility,
+			)
 			val pairingPrompt = if (_state.value.pairingPrompt.busy) {
 				_state.value.pairingPrompt
 			} else {
-				PairingPromptState(prompt = nextPairingPrompt(pendingRelationships, eligibilities, savedNames))
+				PairingPromptState(prompt = snapshot.nextPairingPrompt)
 			}
 			_state.update {
 				it.copy(
 					isLoading = false,
 					loadFailed = false,
-					eligibilities = eligibilities.sortedByDescending(PairingEligibilityModel::createdAt),
-					pendingRelationships = pendingRelationships,
-					savedDevices = savedDevices.sortedByDescending(SavedDeviceModel::createdAt),
-					targetedTransfers = targetedTransfers
-						.filterNot { transfer -> transfer.state == TargetedTransferStateModel.Deleted }
-						.sortedByDescending(TargetedTransferModel::updatedAt)
-						.map { transfer -> transfer.toExperienceItem(savedNames) },
+					eligibilities = snapshot.eligibilities,
+					pendingRelationships = snapshot.pendingRelationships,
+					savedDevices = snapshot.savedDevices,
+					targetedTransfers = snapshot.targetedTransfers,
 					pairingPrompt = pairingPrompt,
 					targetedOffers = it.targetedOffers.copy(
-						pending = pendingOffers.sortedBy { offer -> offer.receivedAt },
-						senderDisplayNames = savedNames,
+						pending = snapshot.pendingOffers,
+						senderDisplayNames = snapshot.senderDisplayNames,
 					),
 				)
 			}
@@ -349,40 +346,4 @@ class SavedDevicesViewModel(
 		messages.error(error)
 	}
 
-	private fun nextPairingPrompt(
-		relationships: List<DeviceRelationshipModel>,
-		eligibilities: List<PairingEligibilityModel>,
-		savedNames: Map<String, String>,
-	): PairingPrompt? {
-		val incoming = relationships.firstOrNull { it.state == DeviceRelationshipStateModel.PendingIncoming }
-		if (incoming != null) {
-			val name = eligibilities.firstOrNull { it.peerEndpointId == incoming.remoteEndpointId }?.remoteDisplayName
-				?: savedNames[incoming.remoteEndpointId]
-			return PairingPrompt.IncomingRequest(incoming.remoteEndpointId, name)
-		}
-		return eligibilities.firstOrNull { it.peerEndpointId !in dismissedEligibility }?.let {
-			PairingPrompt.Eligibility(it.peerEndpointId, it.remoteDisplayName)
-		}
-	}
-
-	private fun TargetedTransferModel.toExperienceItem(savedNames: Map<String, String>): SavedDeviceTransferItem {
-		val outgoing = role == TargetedTransferRoleModel.Sender
-		val peerEndpointId = if (outgoing) receiverEndpointId else senderEndpointId
-		return SavedDeviceTransferItem(
-			id = id,
-			peerEndpointId = peerEndpointId,
-			peerDisplayName = savedNames[peerEndpointId],
-			direction = if (outgoing) SavedDeviceTransferDirection.Outgoing else SavedDeviceTransferDirection.Incoming,
-			transferName = transferName,
-			fileCount = fileCount,
-			totalSize = totalSize,
-			verifiedBytes = verifiedBytes,
-			state = state,
-			createdAt = createdAt,
-			updatedAt = updatedAt,
-		)
-	}
 }
-
-private fun SavedDeviceModel.displayNameOrNull(): String? =
-	localLabel?.takeIf(String::isNotBlank) ?: remoteDisplayName?.takeIf(String::isNotBlank)

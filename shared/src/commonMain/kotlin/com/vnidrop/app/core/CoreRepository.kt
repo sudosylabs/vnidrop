@@ -648,6 +648,7 @@ private fun TargetedTransfer.toModel(): TargetedTransferModel = TargetedTransfer
 	senderEndpointId = senderEndpointId,
 	receiverEndpointId = receiverEndpointId,
 	manifestId = manifestId,
+	contentHash = contentHash,
 	transferName = transferName,
 	fileCount = fileCount,
 	totalSize = totalSize,

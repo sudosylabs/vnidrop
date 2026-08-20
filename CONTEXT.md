@@ -5,16 +5,36 @@ Local peer-to-peer file transfer. This glossary is the product/core ubiquitous l
 ## Transfers
 
 **Transfer draft**:
-A temporary, local selection of files or one folder, an editable transfer name, and a destination intent before a transfer is created. A draft may produce an Invitation transfer or a Targeted transfer; it is neither until creation succeeds.
+A temporary, local selection of files or one folder, an editable transfer name, and a destination intent before a transfer is durably registered. A draft becomes an Invitation transfer or a Targeted transfer at durable registration; later delivery or approval is lifecycle, not creation.
 _Avoid_: pending transfer, temporary transfer, share draft
+
+**Transfer preparation**:
+Core-owned, ephemeral import and hashing of a submitted Transfer draft before durable registration. Abandoning preparation creates no transfer history.
+_Avoid_: Targeted transfer, pending transfer, transfer attempt
 
 **Invitation transfer**:
 A share anyone with the ticket can request, subject to approval and access policy. Ordinary multi-recipient send/receive.
 _Avoid_: contact send, held offer, reusable share offer
 
 **Targeted transfer**:
-A transfer bound to one saved-device relationship: immutable sender, receiver, manifest, and content identity; requires explicit approval before content.
+A transfer bound to one saved-device relationship from durable registration onward: immutable sender, receiver, manifest, and content identity; requires explicit approval before content.
 _Avoid_: contact transfer, private share
+
+**Targeted transfer cancellation**:
+Stopping a Targeted transfer while retaining it as durable `Cancelled` history.
+_Avoid_: abandon, discard, delete
+
+**Targeted transfer abandonment**:
+Stopping and removing a newly registered Targeted transfer when the sender's intent commits before approval; it does not remain in history. If approval commits first, the same intent is Targeted transfer cancellation instead.
+_Avoid_: cancel, failed transfer
+
+**Failed targeted transfer**:
+A durably registered Targeted transfer whose offer or later lifecycle failed. It remains in history; retrying creates a new Targeted transfer.
+_Avoid_: abandoned transfer, transfer draft
+
+**Runtime obligation**:
+A core-owned fact that VniDrop must remain available for active byte work or sender content availability. Passive offers, terminal history, and retry housekeeping are not Runtime obligations.
+_Avoid_: retention flag, active transfer, background task
 
 **Saved device**:
 A remote app identity this installation has mutually consented to remember, with directional grants at a relationship generation.

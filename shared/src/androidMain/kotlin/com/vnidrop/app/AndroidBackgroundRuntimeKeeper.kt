@@ -15,12 +15,28 @@ import androidx.core.content.ContextCompat
 internal class AndroidBackgroundRuntimeKeeper(
 	private val context: Context,
 ) : BackgroundRuntimeKeeper {
-	override fun setRequired(required: Boolean) {
-		if (!required) {
-			context.stopService(Intent(context, VniDropBackgroundRuntimeService::class.java))
-			return
+	private val lock = Any()
+	private var required = false
+	private var closed = false
+
+	override fun setRequired(required: Boolean) = synchronized(lock) {
+		if (closed || this.required == required) return@synchronized
+		val serviceIntent = Intent(context, VniDropBackgroundRuntimeService::class.java)
+		if (required) {
+			ContextCompat.startForegroundService(context, serviceIntent)
+		} else {
+			context.stopService(serviceIntent)
 		}
-		ContextCompat.startForegroundService(context, Intent(context, VniDropBackgroundRuntimeService::class.java))
+		this.required = required
+	}
+
+	override fun close() = synchronized(lock) {
+		if (closed) return@synchronized
+		closed = true
+		if (required) {
+			context.stopService(Intent(context, VniDropBackgroundRuntimeService::class.java))
+			required = false
+		}
 	}
 }
 

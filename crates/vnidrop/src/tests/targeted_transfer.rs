@@ -1883,10 +1883,34 @@ fn mismatched_relay_profiles_are_typed_and_never_reinterpreted_as_ordinary_share
         .list_targeted_transfers()
         .unwrap()
         .into_iter()
-        .find(|entry| matches!(entry.state, TargetedTransferState::Failed));
-    assert!(
-        failed.is_some(),
-        "failed targeted transfer must remain targeted, not an ordinary share"
+        .find(|entry| matches!(entry.state, TargetedTransferState::Failed))
+        .expect("failed targeted transfer must remain targeted, not an ordinary share");
+    let immutable_identity = (
+        failed.id.clone(),
+        failed.sender_endpoint_id.clone(),
+        failed.receiver_endpoint_id.clone(),
+        failed.manifest_id.clone(),
+        failed.content_hash.clone(),
+    );
+    assert!(!failed.manifest_id.is_empty());
+    assert!(!failed.content_hash.is_empty());
+
+    let alice = alice.restart();
+    let restored = alice
+        .core()
+        .get_targeted_transfer(failed.id)
+        .unwrap()
+        .expect("failed targeted transfer survives restart");
+    assert_eq!(restored.state, TargetedTransferState::Failed);
+    assert_eq!(
+        (
+            restored.id,
+            restored.sender_endpoint_id,
+            restored.receiver_endpoint_id,
+            restored.manifest_id,
+            restored.content_hash,
+        ),
+        immutable_identity
     );
 }
 

@@ -146,7 +146,7 @@ impl CoreInner {
                             "progress",
                             json!({ "downloaded": verified, "total_size": payload_size }),
                         );
-                        self.emit_targeted_lifecycle(targeted_transfer_id, "progress");
+                        self.emit_targeted_lifecycle("progress");
                     }
                 }
                 GetProgressItem::Done(_) => {
@@ -176,7 +176,7 @@ impl CoreInner {
                             "progress",
                             json!({ "downloaded": verified, "total_size": payload_size }),
                         );
-                        self.emit_targeted_lifecycle(targeted_transfer_id, "progress");
+                        self.emit_targeted_lifecycle("progress");
                     }
                     break;
                 }

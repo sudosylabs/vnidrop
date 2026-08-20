@@ -477,10 +477,9 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		if events.count > Self.maxEvents { events = Array(events.prefix(Self.maxEvents)) }
 		state.events = events
 
-		// Saved-device events identify their subject by peer endpoint or a string
-		// `targeted_transfer_id`, so they carry no numeric `transferId` and must be
-		// dispatched before the guard below. Both are payload-free wake-ups: the
-		// consumer re-reads durable state rather than trusting the event.
+		// Saved-device events carry no invitation `transferId` and must be
+		// dispatched before the guard below. Both are refresh wake-ups: the
+		// consumer re-reads durable state rather than trusting the event payload.
 		switch model.eventPhase {
 		case .pairing:
 			signalsSubject.send(.pairingChanged)
@@ -868,4 +867,3 @@ private extension ReceiverRequest {
 		}
 	}
 }
-

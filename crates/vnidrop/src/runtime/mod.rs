@@ -503,12 +503,8 @@ impl CoreInner {
                 repository: repository.clone(),
                 custody: secret_custody.clone(),
                 cleanup: targeted_cleanup,
-                emit_lifecycle: Arc::new(move |id, kind| {
-                    targeted_events.emit_endpoint(
-                        "targeted_transfer",
-                        kind,
-                        serde_json::json!({ "targeted_transfer_id": id }),
-                    );
+                emit_lifecycle: Arc::new(move |kind| {
+                    targeted_events.emit_endpoint("targeted_transfer", kind, serde_json::json!({}));
                 }),
             },
         );

@@ -67,9 +67,9 @@ The core linearizes the approval/abandon race. If abandon wins, a late approval
 is rejected. If approval wins, the same stop intent is a cancellation. Callers
 receive a precise stop outcome and do not infer the winner from timing.
 
-The existing blocking creation call is a compatibility adapter over the same
-prepare-and-negotiate implementation. Platform code no longer uses it; removal
-requires an explicit public contract version.
+Domain contract v2 exposes the preparation interface as the only Targeted
+creation path. `send` returns the durable identity after registration while
+core-owned negotiation continues.
 
 ## Runtime obligations
 

@@ -499,19 +499,27 @@ fn approve_one(
             .respond_to_targeted_offer(offer.transfer_id, true)
             .unwrap()
     });
-    let transfer = alice
-        .create_targeted_transfer(
-            bob_id,
-            vec![targeted_source(&source_path)],
-            Some(name.to_string()),
-        )
+    let preparation = alice.new_targeted_transfer_preparation(bob_id).unwrap();
+    let transfer = preparation
+        .send(vec![targeted_source(&source_path)], Some(name.to_string()))
         .unwrap();
     let response = accept.join().unwrap();
     assert!(matches!(
         response,
         crate::TargetedOfferResponse::Approved { .. }
     ));
-    transfer
+    let started = Instant::now();
+    loop {
+        let snapshot = alice
+            .get_targeted_transfer(transfer.id.clone())
+            .unwrap()
+            .unwrap();
+        if snapshot.state == TargetedTransferState::Approved {
+            break snapshot;
+        }
+        assert!(started.elapsed() < Duration::from_secs(20));
+        std::thread::sleep(Duration::from_millis(25));
+    }
 }
 
 fn recover_authoritative_state(
@@ -711,11 +719,7 @@ fn locked_or_absent_identity_fails_closed_while_missing_relationship_secrets_kee
         "identity must still serve tickets"
     );
 
-    let create_err = alice.core().create_targeted_transfer(
-        bob_id,
-        vec![targeted_source(&source_path)],
-        Some("still-works.txt".to_string()),
-    );
+    let create_err = alice.core().new_targeted_transfer_preparation(bob_id);
     assert!(
         create_err.is_err(),
         "saved-device transfer must fail without relationship secrets"

@@ -68,10 +68,9 @@ or production evidence demonstrate an unsolved torn-read problem.
 
 Events wake platform observers, which then refresh authoritative reads.
 
-**Current:** the preparation interface returns durable Targeted identity
-directly, and neither platform parses event JSON for identity. The old payload
-remains temporarily for compatibility and is retired only through an explicit
-contract version.
+**Current (domain contract v2):** the preparation interface returns durable
+Targeted identity directly, and neither platform parses event JSON for identity.
+Targeted events are payload-independent refresh hints.
 
 Retention consumes neutral Runtime obligation facts from the core and is owned
 at application-graph lifetime. Notifications are a separate module: they may

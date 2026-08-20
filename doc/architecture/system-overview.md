@@ -70,8 +70,10 @@ The selected migration is additive:
 3. Add the caller-optimized preparation/lifecycle interface and neutral Runtime
    obligation facts.
 4. Migrate Kotlin and Swift read models and retention consumers in parallel.
-5. Retain the old blocking creation call as a compatibility adapter until an
-   explicit public contract version removes it.
+5. Advance to domain contract v2 after both platforms adopt the preparation
+   interface, then remove the blocking creation adapter and event identity
+   payload.
 
-This sequence preserves working public behavior while moving authority toward
-the module that can enforce it atomically.
+This sequence preserved working behavior during migration while moving
+authority toward the module that can enforce it atomically. Contract v2 now
+exposes only the migrated interface.

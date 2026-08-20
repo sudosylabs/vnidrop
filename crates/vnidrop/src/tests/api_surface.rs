@@ -21,6 +21,7 @@ fn public_api_exposes_saved_device_surface_without_prototype_contact_entry_point
         "fn list_pending_offers(",
         "fn respond_to_offer(",
         "fn list_pending_pairings(",
+        "fn create_targeted_transfer(",
         "fn allow_device_to_reach_me(",
         "fn respond_to_pairing(",
         "fn forget_contact(",
@@ -55,7 +56,7 @@ fn public_api_exposes_saved_device_surface_without_prototype_contact_entry_point
         "fn list_saved_devices(",
         "fn list_device_relationships(",
         "fn request_saved_device_pairing(",
-        "fn create_targeted_transfer(",
+        "fn new_targeted_transfer_preparation(",
         "fn list_pending_targeted_offers(",
         "fn block_device(",
         "fn forget_saved_device(",
@@ -71,7 +72,7 @@ fn public_api_exposes_saved_device_surface_without_prototype_contact_entry_point
     }
 
     let caps = crate::saved_device_capabilities();
-    assert_eq!(caps.domain_contract_version, 1);
+    assert_eq!(caps.domain_contract_version, 2);
     assert_eq!(caps.relationship_protocol_version, 2);
     assert_eq!(caps.targeted_transfer_protocol_version, 3);
 }

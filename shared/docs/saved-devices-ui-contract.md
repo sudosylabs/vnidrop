@@ -23,8 +23,9 @@ Relevant kinds:
 - **pairing:** `eligibility-available`, `eligibility-removed`, `relationship-changed`, `relationship-grant-rotated`, `saved-device-forgotten`, `device-blocked`
 - **targeted_transfer:** `offer-received`, `approved`, `offer-declined`, `created`,
   `offering`, `awaiting-approval`, `connecting`, `transferring`, `progress`,
-  `interrupted`, `completed`, `cancelled`, `failed`, `deleted`. Durable-row
-  wake-ups include `targeted_transfer_id`; refresh list/get after each event.
+  `interrupted`, `completed`, `cancelled`, `failed`, `deleted`. Domain contract
+  v2 transports no transfer identity in these wake-ups; refresh list/get after
+  each event.
 
 ## Pairing
 

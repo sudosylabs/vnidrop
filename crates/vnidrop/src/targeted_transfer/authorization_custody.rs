@@ -14,7 +14,7 @@ use super::{
     TargetedAuthorizationDraft, TargetedTransferRole, TargetedTransferRow, TargetedTransferStore,
 };
 
-type EmitLifecycle = Arc<dyn Fn(&str, &str) + Send + Sync>;
+type EmitLifecycle = Arc<dyn Fn(&str) + Send + Sync>;
 
 #[derive(Clone)]
 pub(super) struct AuthorizationCustody {
@@ -130,7 +130,7 @@ impl AuthorizationCustody {
             }
         };
         if created {
-            (self.emit_lifecycle)(&authorization.transfer_id, "approved");
+            (self.emit_lifecycle)("approved");
         }
         Ok(created)
     }
@@ -161,7 +161,7 @@ impl AuthorizationCustody {
             }
             return Err(error);
         }
-        (self.emit_lifecycle)(&authorization.transfer_id, "approved");
+        (self.emit_lifecycle)("approved");
         Ok(())
     }
 

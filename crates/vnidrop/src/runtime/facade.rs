@@ -63,6 +63,20 @@ impl VnidropCore {
         self.runtime.handle().block_on(future)
     }
 
+    #[cfg(test)]
+    pub(crate) fn run_targeted_transfer_for_test(
+        &self,
+        receiver_endpoint_id: String,
+        sources: Vec<ShareSource>,
+        transfer_name: Option<String>,
+    ) -> Result<crate::api::TargetedTransfer, VnidropError> {
+        self.block_on(self.inner.run_targeted_transfer_for_test(
+            receiver_endpoint_id,
+            sources,
+            transfer_name,
+        ))
+    }
+
     pub(super) fn initialize_with_identity_mode(
         app_data_dir: String,
         event_sink: Arc<dyn CoreEventSink>,
@@ -737,26 +751,6 @@ impl VnidropCore {
     /// Invalidate the prior relationship generation, then activate a replacement grant.
     pub fn rotate_relationship_grant(&self, peer_endpoint_id: String) -> Result<u64, VnidropError> {
         self.block_on(self.inner.rotate_relationship_grant(peer_endpoint_id))
-    }
-
-    /// Create an immutable one-receiver transfer and submit its pre-approval offer.
-    ///
-    /// Blocks until the saved receiver approves or declines. On approval the
-    /// receiver stores bound authorization locally via
-    /// [`Self::respond_to_targeted_offer`]. This path creates no invitation
-    /// transfer, receiver approval request, invitation delivery receipt,
-    /// received-artifact record, or pairing eligibility.
-    pub fn create_targeted_transfer(
-        &self,
-        receiver_endpoint_id: String,
-        sources: Vec<ShareSource>,
-        transfer_name: Option<String>,
-    ) -> Result<crate::api::TargetedTransfer, VnidropError> {
-        self.block_on(self.inner.create_targeted_transfer(
-            receiver_endpoint_id,
-            sources,
-            transfer_name,
-        ))
     }
 
     /// Start a one-shot Targeted preparation whose send returns after registration.

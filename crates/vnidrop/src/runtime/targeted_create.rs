@@ -39,7 +39,8 @@ pub(super) struct PreparedTargetedTransfer {
 }
 
 impl CoreInner {
-    pub(super) async fn create_targeted_transfer(
+    #[cfg(test)]
+    pub(super) async fn run_targeted_transfer_for_test(
         self: &Arc<Self>,
         receiver_endpoint_id: String,
         sources: Vec<ShareSource>,

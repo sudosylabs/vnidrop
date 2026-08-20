@@ -292,15 +292,19 @@ fn establish_saved(sender: &ProtectedNode, receiver: &ProtectedNode, transfer_id
 
 fn wait_for_offer(core: &VnidropCore, events: &RecordingSink) -> PendingTargetedOffer {
     let event = events.wait_for("targeted_transfer", "offer-received");
-    let id = serde_json::from_str::<serde_json::Value>(&event.data_json).unwrap()
-        ["targeted_transfer_id"]
-        .as_str()
-        .unwrap()
-        .to_string();
-    core.list_pending_targeted_offers()
-        .into_iter()
-        .find(|offer| offer.transfer_id == id)
-        .expect("offer is visible before its event is emitted")
+    assert!(
+        serde_json::from_str::<serde_json::Value>(&event.data_json).unwrap()
+            ["targeted_transfer_id"]
+            .is_null(),
+        "contract v2 events are refresh hints, not identity transport"
+    );
+    let mut offers = core.list_pending_targeted_offers();
+    assert_eq!(
+        offers.len(),
+        1,
+        "offer is visible before its event is emitted"
+    );
+    offers.remove(0)
 }
 
 fn approve(
@@ -320,7 +324,7 @@ fn approve(
     });
     let transfer = sender
         .core()
-        .create_targeted_transfer(
+        .run_targeted_transfer_for_test(
             receiver.core().status().endpoint_id,
             vec![source(&path)],
             Some(name.to_string()),
@@ -350,7 +354,7 @@ fn immutable_identity_round_trips_through_approval_reads_cancel_and_restart() {
     });
     let transfer = sender
         .core()
-        .create_targeted_transfer(
+        .run_targeted_transfer_for_test(
             receiver.core().status().endpoint_id,
             vec![source(&path)],
             Some("Quarterly report.pdf".to_string()),
@@ -463,23 +467,25 @@ fn accepted_event_is_emitted_only_after_receiver_snapshot_is_durable() {
     let sender_core = sender.core();
     let receiver_id = receiver.core().status().endpoint_id;
     let create = std::thread::spawn(move || {
-        sender_core.create_targeted_transfer(
+        sender_core.run_targeted_transfer_for_test(
             receiver_id,
             vec![source(&path)],
             Some("event.txt".to_string()),
         )
     });
     let event = observed_rx.recv_timeout(Duration::from_secs(20)).unwrap();
-    let id = serde_json::from_str::<serde_json::Value>(&event.data_json).unwrap()
-        ["targeted_transfer_id"]
-        .as_str()
-        .unwrap()
-        .to_string();
-    let durable = receiver.core().get_targeted_transfer(id.clone()).unwrap();
+    assert!(
+        serde_json::from_str::<serde_json::Value>(&event.data_json).unwrap()
+            ["targeted_transfer_id"]
+            .is_null()
+    );
+    let mut durable = receiver.core().list_targeted_transfers().unwrap();
+    assert_eq!(durable.len(), 1);
+    let durable = durable.remove(0);
     release_tx.send(()).unwrap();
     accept.join().unwrap().unwrap();
     create.join().unwrap().unwrap();
-    assert_eq!(durable.unwrap().state, TargetedTransferState::Approved);
+    assert_eq!(durable.state, TargetedTransferState::Approved);
 }
 
 #[test]
@@ -501,10 +507,12 @@ fn terminal_events_have_ordered_revisions_and_no_later_progress() {
         .list_events(None)
         .unwrap()
         .into_iter()
-        .filter(|event| {
-            event.phase == "targeted_transfer" && event.data_json.contains(&transfer.id)
-        })
+        .filter(|event| event.phase == "targeted_transfer")
         .collect::<Vec<_>>();
+    assert!(events.iter().all(|event| {
+        serde_json::from_str::<serde_json::Value>(&event.data_json).unwrap()["targeted_transfer_id"]
+            .is_null()
+    }));
     events.sort_by_key(|event| event.revision);
     assert!(events
         .windows(2)

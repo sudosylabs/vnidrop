@@ -6,8 +6,9 @@ Move Targeted transfer lifecycle authority into one deep Rust module, give
 callers a preparation interface that returns durable identity promptly, and
 derive platform retention and read models from authoritative core facts.
 
-The migration is additive. Existing public behavior remains available through a
-compatibility adapter until an explicit contract version permits removal.
+The migration was additive through domain contract v1. Domain contract v2
+removes the superseded blocking creation entry point and Targeted event identity
+payload after both platforms migrated to authoritative reads.
 
 ## Parallelism rule
 
@@ -113,19 +114,23 @@ Kotlin and Swift migrations can run in parallel against the gated core contract.
   notification presentation.
 - Stop scraping Targeted transfer IDs from event JSON.
 
-### Shared compatibility cleanup
-
-- Keep the old event payload field temporarily for contract compatibility.
-- Remove it, and later the blocking creation call, only through an explicit
-  public contract version.
-
 ### Gate
 
 Rust, shared KMP, and Apple contract scenarios agree on identity, action facts,
 stop outcomes, retention, missed events, and restart behavior.
 
-The migration is complete. The old blocking creation call and Targeted event
-payload remain compatibility surface only; neither platform depends on them.
+## Domain contract v2 cleanup
+
+Status: implemented after the Wave 4 cross-platform gate.
+
+- Remove the blocking `create_targeted_transfer` UniFFI entry point.
+- Keep `new_targeted_transfer_preparation` as the single sender creation path.
+- Remove `targeted_transfer_id` from Targeted event JSON. Events are refresh
+  hints; callers obtain identities from preparation results and durable reads.
+- Advance `domain_contract_version` to `2` without changing either wire protocol
+  version.
+
+The migration and its compatibility cleanup are complete.
 
 ## Verification strategy
 

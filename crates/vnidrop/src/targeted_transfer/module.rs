@@ -34,7 +34,7 @@ pub(crate) type TargetedCleanupFuture =
     Pin<Box<dyn Future<Output = Result<(), VnidropError>> + Send>>;
 
 pub(crate) type Cleanup = Arc<dyn Fn(TargetedTransferRow) -> TargetedCleanupFuture + Send + Sync>;
-pub(crate) type EmitLifecycle = Arc<dyn Fn(&str, &str) + Send + Sync>;
+pub(crate) type EmitLifecycle = Arc<dyn Fn(&str) + Send + Sync>;
 
 pub(crate) struct TargetedTransferModuleConfig {
     pub(crate) store: TargetedTransferStore,
@@ -123,7 +123,7 @@ impl TargetedTransferModule {
                 store.clone(),
                 Repository::from_pool(store.pool.clone()),
                 None,
-                Arc::new(|_, _| {}),
+                Arc::new(|_| {}),
             ),
             store,
             protocol: None,
@@ -137,7 +137,7 @@ impl TargetedTransferModule {
                     Ok(())
                 })
             }),
-            emit_lifecycle: Arc::new(|_, _| {}),
+            emit_lifecycle: Arc::new(|_| {}),
         }
     }
 
@@ -475,7 +475,7 @@ impl TargetedTransferModule {
         row: &TargetedTransferRow,
     ) -> Result<(), VnidropError> {
         self.store.insert(row).await?;
-        (self.emit_lifecycle)(&row.id, "created");
+        (self.emit_lifecycle)("created");
         self.store
             .set_state(
                 &row.id,
@@ -483,7 +483,7 @@ impl TargetedTransferModule {
                 TargetedTransferState::Offering,
             )
             .await?;
-        (self.emit_lifecycle)(&row.id, "offering");
+        (self.emit_lifecycle)("offering");
         Ok(())
     }
 
@@ -495,7 +495,7 @@ impl TargetedTransferModule {
         event: &str,
     ) -> Result<(), VnidropError> {
         self.store.set_state(id, from, to).await?;
-        (self.emit_lifecycle)(id, event);
+        (self.emit_lifecycle)(event);
         Ok(())
     }
 
@@ -506,7 +506,7 @@ impl TargetedTransferModule {
         event: &str,
     ) -> Result<(), VnidropError> {
         self.store.set_state_from_any(id, to).await?;
-        (self.emit_lifecycle)(id, event);
+        (self.emit_lifecycle)(event);
         Ok(())
     }
 
@@ -560,7 +560,7 @@ impl TargetedTransferModule {
     pub(crate) async fn fail_resumable(&self, id: &str) -> Result<bool, VnidropError> {
         let changed = self.store.fail_resumable_and_clear_delivery(id).await?;
         if changed {
-            (self.emit_lifecycle)(id, "failed");
+            (self.emit_lifecycle)("failed");
         }
         Ok(changed)
     }
@@ -576,7 +576,7 @@ impl TargetedTransferModule {
             .transition_terminal(id, state, clear_authorization)
             .await?;
         if changed {
-            (self.emit_lifecycle)(id, state_as_str(state));
+            (self.emit_lifecycle)(state_as_str(state));
         }
         Ok(changed)
     }
@@ -611,8 +611,8 @@ impl TargetedTransferModule {
 
     pub(crate) async fn cancel_by_peer(&self, peer: &str) -> Result<Vec<String>, VnidropError> {
         let ids = self.store.cancel_by_peer(peer).await?;
-        for id in &ids {
-            (self.emit_lifecycle)(id, "cancelled");
+        for _id in &ids {
+            (self.emit_lifecycle)("cancelled");
         }
         Ok(ids)
     }
@@ -634,12 +634,12 @@ impl TargetedTransferModule {
 
     pub(crate) async fn recover_in_flight(&self) -> Result<Vec<String>, VnidropError> {
         for row in self.store.fail_sender_preapproval_on_restart().await? {
-            (self.emit_lifecycle)(&row.id, "failed");
+            (self.emit_lifecycle)("failed");
             (self.cleanup)(row).await?;
         }
         let ids = self.store.mark_interrupted_in_flight().await?;
-        for id in &ids {
-            (self.emit_lifecycle)(id, "interrupted");
+        for _id in &ids {
+            (self.emit_lifecycle)("interrupted");
         }
         Ok(ids)
     }
@@ -662,7 +662,7 @@ impl TargetedTransferModule {
             return Ok(TargetedPreparationStopOutcome::AlreadyTerminal);
         }
         if self.store.abandon_sender_preapproval(id).await? {
-            (self.emit_lifecycle)(id, "abandoned");
+            (self.emit_lifecycle)("abandoned");
             (self.cleanup)(row).await?;
             return Ok(TargetedPreparationStopOutcome::TransferAbandoned);
         }
@@ -735,7 +735,7 @@ impl TargetedTransferModule {
             .transition_terminal(transfer_id, TargetedTransferState::Cancelled, false)
             .await?;
         if changed {
-            (self.emit_lifecycle)(transfer_id, "cancelled");
+            (self.emit_lifecycle)("cancelled");
             (self.cleanup)(row).await?;
         }
         Ok(true)
@@ -747,7 +747,7 @@ impl TargetedTransferModule {
     ) -> Result<bool, VnidropError> {
         let changed = self.store.mark_sender_completed(transfer_id).await?;
         if changed {
-            (self.emit_lifecycle)(transfer_id, "completed");
+            (self.emit_lifecycle)("completed");
         }
         Ok(changed)
     }
@@ -790,7 +790,7 @@ impl TargetedTransferModule {
         self.store
             .complete_receiver_and_enqueue(id, verified_bytes)
             .await?;
-        (self.emit_lifecycle)(id, "completed");
+        (self.emit_lifecycle)("completed");
         Ok(())
     }
 
@@ -798,7 +798,7 @@ impl TargetedTransferModule {
         self.store
             .set_state_from_any(id, TargetedTransferState::Interrupted)
             .await?;
-        (self.emit_lifecycle)(id, "interrupted");
+        (self.emit_lifecycle)("interrupted");
         Ok(())
     }
 

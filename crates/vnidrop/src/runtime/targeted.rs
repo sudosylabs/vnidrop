@@ -20,12 +20,8 @@ use crate::{
 };
 
 impl CoreInner {
-    pub(crate) fn emit_targeted_lifecycle(&self, transfer_id: &str, kind: &str) {
-        self.emit_endpoint(
-            "targeted_transfer",
-            kind,
-            serde_json::json!({ "targeted_transfer_id": transfer_id }),
-        );
+    pub(crate) fn emit_targeted_lifecycle(&self, kind: &str) {
+        self.emit_endpoint("targeted_transfer", kind, serde_json::json!({}));
     }
 
     pub(super) fn connection_timeout(&self) -> std::time::Duration {

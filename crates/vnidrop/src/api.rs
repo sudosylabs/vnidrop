@@ -21,7 +21,7 @@ pub struct SavedDeviceCapabilities {
 #[uniffi::export]
 pub fn saved_device_capabilities() -> SavedDeviceCapabilities {
     SavedDeviceCapabilities {
-        domain_contract_version: 1,
+        domain_contract_version: 2,
         relationship_protocol_version: 2,
         targeted_transfer_protocol_version: 3,
     }

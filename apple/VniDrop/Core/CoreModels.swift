@@ -66,9 +66,8 @@ enum EventPhase: String, Equatable, Sendable {
 	case error
 	/// Saved-device consent lifecycle (eligibility, relationships, grants).
 	case pairing
-	/// Targeted-transfer offer and lifecycle. Its events identify the transfer by
-	/// a string `targeted_transfer_id`, not the numeric `transferId` used by
-	/// invitation shares.
+	/// Targeted-transfer offer and lifecycle refresh hints. Domain contract v2
+	/// transports no transfer identity in their payloads.
 	case targetedTransfer = "targeted_transfer"
 	/// Neutral wake-up indicating that lifecycle retention facts changed.
 	case runtimeObligation = "runtime_obligation"

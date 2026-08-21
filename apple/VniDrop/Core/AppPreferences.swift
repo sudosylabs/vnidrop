@@ -145,7 +145,7 @@ final class AppPreferencesRepository: ObservableObject {
 		static let themeMode = "theme_mode"
 		static let diagnosticsInstallId = "diagnostics_install_id"
 		static let relayConfiguration = "relay_configuration"
-	}
+			}
 
 	init(defaults: UserDefaults = .standard, fallback: AppPreferencesDefaults) {
 		self.defaults = defaults

@@ -53,24 +53,7 @@ private class JvmFileSystemService : FileSystemService {
 
 	override fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2? = null
 
-	override suspend fun sharePickedFiles(
-		repository: CoreGateway,
-		files: List<PickedShareFile>,
-		transferName: String,
-		senderName: String,
-		accessPolicy: ShareAccessPolicy,
-	): Result<Share> {
-		require(files.isNotEmpty()) { "Select at least one file to share" }
-		val sources = files.map { file ->
-			uniffi.vnidrop.ShareSource(
-				kind = uniffi.vnidrop.SourceKind.PATH,
-				value = file.value,
-				displayName = file.displayName,
-				isDirectory = file.isDirectory || File(file.value).isDirectory,
-			)
-		}
-		return repository.shareSources(sources, transferName, senderName, accessPolicy)
-	}
+
 }
 
 internal fun desktopTemporaryUsage(receiveFolder: ReceiveFolder): ULong {

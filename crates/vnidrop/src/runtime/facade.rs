@@ -3,19 +3,23 @@ use std::{future::Future, path::PathBuf, sync::Arc};
 use anyhow::Context;
 use serde_json::json;
 
-use super::CoreInner;
+use super::{CoreInner, IdentityMode};
 use crate::{
     api::{
         CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig, CoreStorageUsage,
-        ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact, ReceiverRequest, RuntimeStatus,
-        ShareMetadataInput, ShareResult, ShareSource, StoredTransfer, TicketInspection,
-        TransferAccessMode,
+        PairingEligibilitySummary, ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact,
+        ReceiverRequest, RuntimeObligationFacts, RuntimeStatus, ShareMetadataInput, ShareResult,
+        ShareSource, StoredTransfer, TicketInspection, TransferAccessMode,
     },
     error::VnidropError,
     filesystem::platform_path,
+    secure_secret::{lock_profile, platform_secret_store},
     ticket::parse_transfer_ticket_with_limits,
     transfer_state::{TransferDirection, TransferStatus},
 };
+
+#[cfg(test)]
+use crate::secure_secret::unlocked_profile_for_test;
 
 #[derive(uniffi::Object)]
 pub struct VnidropCore {
@@ -24,6 +28,30 @@ pub struct VnidropCore {
 }
 
 impl VnidropCore {
+    fn initialize_protected(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        limits: CoreLimits,
+        network_config: CoreNetworkConfig,
+    ) -> Result<Arc<Self>, VnidropError> {
+        let app_data_path = PathBuf::from(app_data_dir);
+        std::fs::create_dir_all(&app_data_path).map_err(VnidropError::filesystem)?;
+        let app_data_path =
+            std::fs::canonicalize(app_data_path).map_err(VnidropError::filesystem)?;
+        let profile_lock = lock_profile(&app_data_path)?;
+        let store = platform_secret_store(&app_data_path)?;
+        Self::initialize_with_identity_mode(
+            app_data_path.to_string_lossy().into_owned(),
+            event_sink,
+            limits,
+            network_config,
+            IdentityMode::Protected {
+                store,
+                profile_lock,
+            },
+        )
+    }
+
     /// Drive work on this core's multi-thread runtime from a sync API boundary.
     ///
     /// Uses [`tokio::runtime::Handle::block_on`] rather than exclusive
@@ -33,6 +61,369 @@ impl VnidropCore {
     /// thread while cancel/approve arrive from the UI or test harness thread.
     fn block_on<F: Future>(&self, future: F) -> F::Output {
         self.runtime.handle().block_on(future)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn run_targeted_transfer_for_test(
+        &self,
+        receiver_endpoint_id: String,
+        sources: Vec<ShareSource>,
+        transfer_name: Option<String>,
+    ) -> Result<crate::api::TargetedTransfer, VnidropError> {
+        self.block_on(self.inner.run_targeted_transfer_for_test(
+            receiver_endpoint_id,
+            sources,
+            transfer_name,
+        ))
+    }
+
+    pub(super) fn initialize_with_identity_mode(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        limits: CoreLimits,
+        network_config: CoreNetworkConfig,
+        identity_mode: IdentityMode,
+    ) -> Result<Arc<Self>, VnidropError> {
+        limits.validate().map_err(VnidropError::initialization)?;
+        let relay_urls = network_config
+            .validated_relay_urls()
+            .map_err(VnidropError::initialization)?;
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .thread_name("vnidrop")
+            .build()?;
+        let inner = runtime
+            .block_on(CoreInner::start(
+                PathBuf::from(app_data_dir),
+                event_sink,
+                limits,
+                network_config.mode,
+                relay_urls,
+                identity_mode,
+            ))
+            .map_err(|error| match error.downcast::<VnidropError>() {
+                Ok(error) => error,
+                Err(error) => VnidropError::initialization(error),
+            })?;
+        Ok(Arc::new(Self { runtime, inner }))
+    }
+}
+
+#[cfg(all(feature = "integration-test-store", debug_assertions))]
+impl VnidropCore {
+    /// Non-production Rust test harness entry that selects protected in-memory custody.
+    #[doc(hidden)]
+    pub fn initialize_for_integration_test(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        limits: CoreLimits,
+        network_config: CoreNetworkConfig,
+    ) -> Result<Arc<Self>, VnidropError> {
+        let path = std::fs::canonicalize(&app_data_dir)
+            .or_else(|_| {
+                std::fs::create_dir_all(&app_data_dir)?;
+                std::fs::canonicalize(&app_data_dir)
+            })
+            .map_err(VnidropError::filesystem)?;
+        crate::secure_secret::install_platform_secret_store_for_test(
+            &path,
+            Arc::new(crate::secure_secret::FaultInjectingSecretStore::default()),
+        );
+        Self::initialize_with_limits_and_network_config(
+            path.to_string_lossy().into_owned(),
+            event_sink,
+            limits,
+            network_config,
+        )
+    }
+}
+
+#[cfg(test)]
+impl VnidropCore {
+    /// Test-only protected identity with an injected secret store.
+    pub(crate) fn initialize_with_test_secret_store(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        store: Arc<dyn crate::secure_secret::SecureSecretStore>,
+    ) -> Result<Arc<Self>, VnidropError> {
+        Self::initialize_with_test_secret_store_and_network(
+            app_data_dir,
+            event_sink,
+            store,
+            CoreNetworkConfig::default(),
+        )
+    }
+
+    pub(crate) fn initialize_with_test_secret_store_and_network(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        store: Arc<dyn crate::secure_secret::SecureSecretStore>,
+        network_config: CoreNetworkConfig,
+    ) -> Result<Arc<Self>, VnidropError> {
+        Self::initialize_with_test_secret_store_limits_and_network(
+            app_data_dir,
+            event_sink,
+            store,
+            CoreLimits::default(),
+            network_config,
+        )
+    }
+
+    pub(crate) fn targeted_blob_ticket_for_test(
+        &self,
+        id: String,
+    ) -> Result<(u64, String), VnidropError> {
+        self.block_on(async {
+            let row = self
+                .inner
+                .targeted_transfers
+                .get_row(&id)
+                .await?
+                .ok_or_else(|| VnidropError::invalid_input(anyhow::anyhow!("unknown transfer")))?;
+            let encoded = self
+                .inner
+                .load_stored_authorization(&row)
+                .await?
+                .ok_or_else(|| {
+                    VnidropError::invalid_input(anyhow::anyhow!("authorization unavailable"))
+                })?;
+            Ok((
+                row.protocol_transfer_id,
+                crate::targeted_transfer::TargetedAuthorization::decode(&encoded)?.blob_ticket,
+            ))
+        })
+    }
+
+    pub(crate) fn targeted_faults_for_test(&self) -> super::TargetedFaultAdapters {
+        super::TargetedFaultAdapters::new(self.inner.clone(), self.runtime.handle().clone())
+    }
+
+    pub(crate) fn accept_targeted_offer_without_waiting_for_test(
+        &self,
+        id: String,
+    ) -> Result<(), VnidropError> {
+        self.block_on(async {
+            let offer = self
+                .inner
+                .targeted_offers
+                .pending_for_acceptance(&id)
+                .await
+                .ok_or_else(|| {
+                    VnidropError::invalid_input(anyhow::anyhow!("unknown targeted offer"))
+                })?;
+            self.inner
+                .targeted_transfers
+                .persist_accepted_offer_intent(&offer)
+                .await?;
+            self.inner
+                .targeted_offers
+                .accept_live(&id)
+                .await
+                .map_err(|_| {
+                    VnidropError::device_unavailable(anyhow::anyhow!(
+                        "sender disconnected before acceptance"
+                    ))
+                })
+        })
+    }
+
+    pub(crate) fn persist_block_without_cleanup_for_test(
+        &self,
+        endpoint_id: String,
+    ) -> Result<(), VnidropError> {
+        self.block_on(async {
+            self.inner
+                .blocked_devices
+                .block_endpoint(&endpoint_id, crate::util::now_ms())
+                .await
+                .map_err(VnidropError::repository)
+        })
+    }
+
+    pub(crate) fn create_orphaned_targeted_authorization_for_test(
+        &self,
+    ) -> Result<(), VnidropError> {
+        self.block_on(async {
+            let custody = self.inner.secret_custody.as_ref().ok_or_else(|| {
+                VnidropError::SecureStorageUnavailable {
+                    reason: "test custody unavailable".to_string(),
+                }
+            })?;
+            custody
+                .create_orphaned_targeted_authorization_for_test()
+                .await
+        })
+    }
+
+    pub(crate) fn targeted_authorization_handle_count_for_test(
+        &self,
+    ) -> Result<usize, VnidropError> {
+        self.block_on(async {
+            let custody = self.inner.secret_custody.as_ref().ok_or_else(|| {
+                VnidropError::SecureStorageUnavailable {
+                    reason: "test custody unavailable".to_string(),
+                }
+            })?;
+            Ok(custody
+                .list_active_handles(crate::secure_secret::SecretKind::TargetedAuthorization)
+                .await?
+                .len())
+        })
+    }
+
+    pub(crate) fn redeliver_targeted_authorization_for_test(
+        &self,
+        id: String,
+    ) -> Result<bool, VnidropError> {
+        self.block_on(async {
+            let row = self
+                .inner
+                .targeted_transfers
+                .get_row(&id)
+                .await?
+                .ok_or_else(|| VnidropError::invalid_input(anyhow::anyhow!("unknown transfer")))?;
+            self.inner.deliver_stored_targeted_authorization(&row).await
+        })
+    }
+
+    pub(crate) fn targeted_payload_is_registered_for_test(
+        &self,
+        id: String,
+    ) -> Result<bool, VnidropError> {
+        self.block_on(async {
+            let row = self
+                .inner
+                .targeted_transfers
+                .get_row(&id)
+                .await?
+                .ok_or_else(|| VnidropError::invalid_input(anyhow::anyhow!("unknown transfer")))?;
+            let hash = row
+                .content_hash
+                .parse::<iroh_blobs::Hash>()
+                .map_err(|error| VnidropError::invalid_input(anyhow::anyhow!(error)))?;
+            Ok(self
+                .inner
+                .transfer_ids_for_hash(hash)
+                .await
+                .contains(&row.protocol_transfer_id))
+        })
+    }
+
+    pub(crate) fn initialize_with_test_secret_store_limits_and_network(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        store: Arc<dyn crate::secure_secret::SecureSecretStore>,
+        limits: CoreLimits,
+        network_config: CoreNetworkConfig,
+    ) -> Result<Arc<Self>, VnidropError> {
+        let app_data_path = PathBuf::from(&app_data_dir);
+        std::fs::create_dir_all(&app_data_path).map_err(VnidropError::filesystem)?;
+        // In-process restart tests reopen the same directory immediately after
+        // drop; skip exclusive locking and rely on the injected store instead.
+        let profile_lock = unlocked_profile_for_test(&app_data_path)?;
+        Self::initialize_with_identity_mode(
+            app_data_dir,
+            event_sink,
+            limits,
+            network_config,
+            IdentityMode::Protected {
+                store,
+                profile_lock,
+            },
+        )
+    }
+
+    pub(crate) fn force_pairing_eligibility_expiry_for_test(
+        &self,
+        session_id: String,
+        expires_at: i64,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .pairing_eligibility
+                .force_expiry_for_test(&session_id, expires_at),
+        )
+    }
+
+    pub(crate) fn submit_pairing_eligibility_for_test(
+        &self,
+        peer_endpoint_id: String,
+        session_id: String,
+        capability: Vec<u8>,
+    ) -> Result<bool, VnidropError> {
+        self.block_on(self.inner.submit_pairing_eligibility_for_test(
+            peer_endpoint_id,
+            session_id,
+            capability,
+        ))
+    }
+
+    pub(crate) fn relationship_issued_grant_for_test(
+        &self,
+        peer_endpoint_id: String,
+    ) -> Result<Option<(u64, String)>, VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .issued_grant_snapshot(&peer_endpoint_id),
+        )
+    }
+
+    pub(crate) fn relationship_tombstones_for_test(
+        &self,
+        peer_endpoint_id: String,
+    ) -> Result<Vec<crate::device_relationship::GenerationTombstone>, VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .list_tombstones(&peer_endpoint_id),
+        )
+    }
+
+    pub(crate) fn insert_relationship_tombstone_for_test(
+        &self,
+        peer_endpoint_id: String,
+        generation: u64,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .insert_tombstone_for_test(&peer_endpoint_id, generation),
+        )
+    }
+
+    pub(crate) fn reject_relationship_generation_for_test(
+        &self,
+        peer_endpoint_id: String,
+        generation: u64,
+        grant_id: Option<String>,
+    ) -> Result<(), String> {
+        self.block_on(async {
+            self.inner
+                .device_relationships
+                .reject_replayed_generation(&peer_endpoint_id, generation, grant_id.as_deref())
+                .await
+                .map_err(|rejection| rejection.as_str().to_string())
+        })
+    }
+
+    pub(crate) fn targeted_cancel_log_for_test(&self) -> Vec<String> {
+        self.inner.targeted_cancel_log_for_test()
+    }
+
+    pub(crate) fn force_relationship_protocol_floor_for_test(
+        &self,
+        peer_endpoint_id: String,
+        minimum_protocol_version: u16,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .force_minimum_protocol_version_for_test(
+                    &peer_endpoint_id,
+                    minimum_protocol_version,
+                ),
+        )
     }
 }
 
@@ -86,29 +477,33 @@ impl VnidropCore {
         limits: CoreLimits,
         network_config: CoreNetworkConfig,
     ) -> Result<Arc<Self>, VnidropError> {
-        limits.validate().map_err(VnidropError::initialization)?;
-        let relay_urls = network_config
-            .validated_relay_urls()
-            .map_err(VnidropError::initialization)?;
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .thread_name("vnidrop")
-            .build()?;
-        let app_data_dir = PathBuf::from(app_data_dir);
-        let inner = runtime
-            .block_on(CoreInner::start(
-                app_data_dir,
-                event_sink,
-                limits,
-                network_config.mode,
-                relay_urls,
-            ))
-            .map_err(VnidropError::initialization)?;
-        Ok(Arc::new(Self { runtime, inner }))
+        Self::initialize_protected(app_data_dir, event_sink, limits, network_config)
+    }
+
+    /// Explicitly replace an endpoint identity whose protected credential is
+    /// missing or corrupted, invalidate identity-bound trust, and initialize.
+    /// A readable identity is never reset by this constructor.
+    #[uniffi::constructor]
+    pub fn reset_unrecoverable_identity_with_limits_and_network_config(
+        app_data_dir: String,
+        event_sink: Arc<dyn CoreEventSink>,
+        limits: CoreLimits,
+        network_config: CoreNetworkConfig,
+    ) -> Result<Arc<Self>, VnidropError> {
+        Self::reset_unrecoverable_identity_protected(
+            app_data_dir,
+            event_sink,
+            limits,
+            network_config,
+        )
     }
 
     pub fn status(&self) -> RuntimeStatus {
         self.block_on(self.inner.status())
+    }
+
+    pub fn runtime_obligation_facts(&self) -> Result<RuntimeObligationFacts, VnidropError> {
+        self.block_on(self.inner.runtime_obligation_facts())
     }
 
     pub fn share_files(
@@ -269,6 +664,221 @@ impl VnidropCore {
     ) -> Result<(), VnidropError> {
         self.block_on(self.inner.approval.respond(request_id, accepted, reason))
             .map_err(VnidropError::permission)
+    }
+
+    /// Single-use pairing windows created by completed authenticated transfers.
+    ///
+    /// Returns eligibility state only — never the capability material.
+    pub fn list_pairing_eligibilities(
+        &self,
+    ) -> Result<Vec<PairingEligibilitySummary>, VnidropError> {
+        self.block_on(self.inner.list_pairing_eligibilities())
+    }
+
+    /// Declines and removes pairing eligibility for a peer. Idempotent.
+    pub fn decline_pairing_eligibility(
+        &self,
+        peer_endpoint_id: String,
+    ) -> Result<(), VnidropError> {
+        self.block_on(self.inner.decline_pairing_eligibility(peer_endpoint_id))
+    }
+
+    /// Initiates saved-device pairing when local eligibility exists.
+    ///
+    /// Returns `false` when eligibility is missing or already consumed. Invalid
+    /// attempts produce no pairing prompt.
+    pub fn request_saved_device_pairing(
+        &self,
+        peer_endpoint_id: String,
+    ) -> Result<bool, VnidropError> {
+        self.block_on(self.inner.request_saved_device_pairing(peer_endpoint_id))
+    }
+
+    pub fn list_device_relationships(
+        &self,
+    ) -> Result<Vec<crate::api::DeviceRelationship>, VnidropError> {
+        self.block_on(self.inner.list_device_relationships())
+    }
+
+    pub fn list_saved_devices(&self) -> Result<Vec<crate::api::SavedDevice>, VnidropError> {
+        self.block_on(self.inner.list_saved_devices())
+    }
+
+    /// Sets the user-owned local label for a Saved device.
+    pub fn set_saved_device_label(
+        &self,
+        peer_endpoint_id: String,
+        label: Option<String>,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .set_saved_device_label(peer_endpoint_id, label),
+        )
+    }
+
+    pub fn respond_to_device_pairing(
+        &self,
+        peer_endpoint_id: String,
+        accepted: bool,
+    ) -> Result<bool, VnidropError> {
+        self.block_on(
+            self.inner
+                .respond_to_device_pairing(peer_endpoint_id, accepted),
+        )
+    }
+
+    /// Forget a saved device: revoke locally, clean secrets, cancel that
+    /// relationship's targeted transfers, and best-effort notify the peer.
+    pub fn forget_saved_device(&self, peer_endpoint_id: String) -> Result<(), VnidropError> {
+        self.block_on(self.inner.forget_saved_device(peer_endpoint_id))
+    }
+
+    /// Identity-wide deny across pairing, targeted transfer, invitation, and handshake.
+    pub fn block_device(&self, peer_endpoint_id: String) -> Result<(), VnidropError> {
+        self.block_on(self.inner.block_device(peer_endpoint_id))
+    }
+
+    /// Remove only the deny rule; does not restore grants or relationships.
+    pub fn unblock_device(&self, peer_endpoint_id: String) -> Result<(), VnidropError> {
+        self.block_on(self.inner.unblock_device(peer_endpoint_id))
+    }
+
+    pub fn list_blocked_devices(&self) -> Result<Vec<String>, VnidropError> {
+        self.block_on(self.inner.list_blocked_devices())
+    }
+
+    /// Invalidate the prior relationship generation, then activate a replacement grant.
+    pub fn rotate_relationship_grant(&self, peer_endpoint_id: String) -> Result<u64, VnidropError> {
+        self.block_on(self.inner.rotate_relationship_grant(peer_endpoint_id))
+    }
+
+    /// Start a one-shot Targeted preparation whose send returns after registration.
+    pub fn new_targeted_transfer_preparation(
+        &self,
+        receiver_endpoint_id: String,
+    ) -> Result<Arc<super::TargetedTransferPreparation>, VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .require_saved(&receiver_endpoint_id),
+        )?;
+        Ok(Arc::new(super::TargetedTransferPreparation::new(
+            self.inner.clone(),
+            self.runtime.handle().clone(),
+            receiver_endpoint_id,
+        )))
+    }
+
+    /// Ticket-free pending offers awaiting explicit local approval.
+    pub fn list_pending_targeted_offers(&self) -> Vec<crate::api::PendingTargetedOffer> {
+        self.block_on(self.inner.list_pending_targeted_offers())
+    }
+
+    /// Approve or decline a pending targeted offer.
+    ///
+    /// On approval, authorization stays in core custody; callers pull content
+    /// with [`Self::receive_targeted_transfer`] using the transfer id.
+    pub fn respond_to_targeted_offer(
+        &self,
+        transfer_id: String,
+        accepted: bool,
+    ) -> Result<crate::api::TargetedOfferResponse, VnidropError> {
+        self.block_on(self.inner.respond_to_targeted_offer(transfer_id, accepted))
+    }
+
+    /// Pull an approved targeted transfer through existing output-sink machinery.
+    pub fn receive_targeted_transfer(
+        &self,
+        transfer_id: String,
+        output_dir: String,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .receive_targeted_transfer(transfer_id, output_dir),
+        )
+    }
+
+    pub fn receive_targeted_transfer_with_output_sink(
+        &self,
+        transfer_id: String,
+        output_sink: Arc<dyn ReceiveOutputSink>,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .receive_targeted_transfer_with_output_sink(transfer_id, output_sink),
+        )
+    }
+
+    pub fn receive_targeted_transfer_with_output_sink_v2(
+        &self,
+        transfer_id: String,
+        output_sink: Arc<dyn ReceiveOutputSinkV2>,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .receive_targeted_transfer_with_output_sink_v2(transfer_id, output_sink),
+        )
+    }
+
+    pub fn get_targeted_transfer(
+        &self,
+        id: String,
+    ) -> Result<Option<crate::api::TargetedTransfer>, VnidropError> {
+        self.block_on(self.inner.get_targeted_transfer(id))
+    }
+
+    pub fn list_targeted_transfers(
+        &self,
+    ) -> Result<Vec<crate::api::TargetedTransfer>, VnidropError> {
+        self.block_on(self.inner.list_targeted_transfers())
+    }
+
+    /// Withdraw an offer or revoke an approved transfer.
+    ///
+    /// Stops active streaming synchronously before asynchronous cleanup.
+    pub fn cancel_targeted_transfer(&self, id: String) -> Result<(), VnidropError> {
+        let _ = self.inner.signal_targeted_transfer_cancel_by_id(&id);
+        self.block_on(self.inner.cancel_targeted_transfer(id))
+    }
+
+    /// Durably remove authorization, resumable state, and content service.
+    ///
+    /// Local denial is mandatory even when remote cleanup fails.
+    pub fn delete_targeted_transfer(&self, id: String) -> Result<(), VnidropError> {
+        let _ = self.inner.signal_targeted_transfer_cancel_by_id(&id);
+        self.block_on(self.inner.delete_targeted_transfer(id))
+    }
+
+    /// Resume an approved/interrupted transfer without another approval.
+    pub fn resume_targeted_transfer(
+        &self,
+        id: String,
+        output_dir: String,
+    ) -> Result<(), VnidropError> {
+        self.block_on(self.inner.resume_targeted_transfer(id, output_dir))
+    }
+
+    pub fn resume_targeted_transfer_with_output_sink(
+        &self,
+        id: String,
+        output_sink: Arc<dyn ReceiveOutputSink>,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .resume_targeted_transfer_with_output_sink(id, output_sink),
+        )
+    }
+
+    pub fn resume_targeted_transfer_with_output_sink_v2(
+        &self,
+        id: String,
+        output_sink: Arc<dyn ReceiveOutputSinkV2>,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .resume_targeted_transfer_with_output_sink_v2(id, output_sink),
+        )
     }
 
     pub fn list_transfers(&self) -> Result<Vec<StoredTransfer>, VnidropError> {

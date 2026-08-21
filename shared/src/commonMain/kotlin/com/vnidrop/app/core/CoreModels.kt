@@ -11,8 +11,24 @@ data class CoreStatus(
 	val activeShares: ULong,
 )
 
+data class RuntimeObligationFactsModel(
+	val activeInvitationTransfers: ULong,
+	val invitationProviderAvailability: ULong,
+	val targetedPreparations: ULong,
+	val activeTargetedTransfers: ULong,
+	val targetedProviderAvailability: ULong,
+) {
+	val requiresRuntime: Boolean
+		get() = activeInvitationTransfers > 0UL ||
+			invitationProviderAvailability > 0UL ||
+			targetedPreparations > 0UL ||
+			activeTargetedTransfers > 0UL ||
+			targetedProviderAvailability > 0UL
+}
+
 data class CoreEventModel(
 	val id: String,
+	val revision: ULong,
 	val timestamp: Long,
 	val scope: String,
 	val transferId: ULong?,
@@ -152,6 +168,28 @@ sealed interface CoreSignal {
 	data class ReceiverHistoryChanged(val transferId: ULong) : CoreSignal
 	/** Transfer status/history changed enough to re-read the durable snapshot. */
 	data class TransfersChanged(val transferId: ULong) : CoreSignal
+	/** Pairing / saved-device state changed; refresh eligibility, relationships, and saved list. */
+	data object PairingChanged : CoreSignal
+	/** Targeted-transfer offer or lifecycle changed; refresh pending offers and transfers. */
+	data object TargetedTransferChanged : CoreSignal
+	/** Runtime obligation facts changed; re-read them from the core. */
+	data object RuntimeObligationChanged : CoreSignal
+}
+
+enum class TargetedPreparationStopOutcomeModel {
+	PreparationStopped,
+	TransferAbandoned,
+	TransferCancelled,
+	AlreadyTerminal,
+}
+
+interface TargetedTransferPreparationGateway {
+	suspend fun send(
+		sources: List<uniffi.vnidrop.ShareSource>,
+		transferName: String?,
+	): Result<TargetedTransferModel>
+	suspend fun stop(): Result<TargetedPreparationStopOutcomeModel>
+	fun close()
 }
 
 interface CoreGateway {
@@ -191,4 +229,36 @@ interface CoreGateway {
 	suspend fun receiverRequests(transferId: ULong): Result<List<ReceiverRequestModel>>
 	suspend fun respondReceiverRequest(requestId: String, accepted: Boolean, reason: String? = null): Result<Unit>
 	suspend fun refresh(): Result<Unit>
+
+	// Saved devices / targeted transfers
+	suspend fun listPairingEligibilities(): Result<List<PairingEligibilityModel>>
+	suspend fun declinePairingEligibility(peerEndpointId: String): Result<Unit>
+	suspend fun requestSavedDevicePairing(peerEndpointId: String): Result<Boolean>
+	suspend fun respondToDevicePairing(peerEndpointId: String, accepted: Boolean): Result<Boolean>
+	suspend fun listDeviceRelationships(): Result<List<DeviceRelationshipModel>>
+	suspend fun listSavedDevices(): Result<List<SavedDeviceModel>>
+	suspend fun setSavedDeviceLabel(peerEndpointId: String, label: String?): Result<Unit>
+	suspend fun forgetSavedDevice(peerEndpointId: String): Result<Unit>
+	suspend fun blockDevice(peerEndpointId: String): Result<Unit>
+	suspend fun unblockDevice(peerEndpointId: String): Result<Unit>
+	suspend fun listBlockedDevices(): Result<List<String>>
+	suspend fun listPendingTargetedOffers(): Result<List<PendingTargetedOfferModel>>
+	suspend fun respondToTargetedOffer(transferId: String, accepted: Boolean): Result<TargetedOfferResponseModel>
+	suspend fun newTargetedTransferPreparation(receiverEndpointId: String): Result<TargetedTransferPreparationGateway>
+	suspend fun runtimeObligationFacts(): Result<RuntimeObligationFactsModel>
+	suspend fun getTargetedTransfer(id: String): Result<TargetedTransferModel?>
+	suspend fun listTargetedTransfers(): Result<List<TargetedTransferModel>>
+	suspend fun receiveTargetedTransfer(transferId: String, outputDir: String): Result<Unit>
+	suspend fun receiveTargetedTransferWithOutputSink(
+		transferId: String,
+		outputSink: ReceiveOutputSink,
+	): Result<Unit>
+	suspend fun receiveTargetedTransferWithOutputSinkV2(
+		transferId: String,
+		outputSink: ReceiveOutputSinkV2,
+	): Result<Unit>
+	suspend fun resumeTargetedTransfer(id: String, outputDir: String): Result<Unit>
+	suspend fun resumeTargetedTransferWithOutputSinkV2(id: String, outputSink: ReceiveOutputSinkV2): Result<Unit>
+	suspend fun cancelTargetedTransfer(id: String): Result<Unit>
+	suspend fun deleteTargetedTransfer(id: String): Result<Unit>
 }

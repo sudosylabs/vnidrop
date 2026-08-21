@@ -45,10 +45,52 @@ fn transfer_boundary_preserves_typed_errors_through_context() {
 }
 
 #[test]
+fn initialization_boundary_preserves_secure_storage_failures() {
+    let error = anyhow::Error::new(VnidropError::SecureStorageLocked {
+        reason: "credential store is locked".to_string(),
+    })
+    .context("endpoint identity could not be loaded");
+
+    let classified = VnidropError::initialization(error);
+
+    assert!(matches!(
+        classified,
+        VnidropError::SecureStorageLocked { ref reason }
+            if reason == "endpoint identity could not be loaded"
+    ));
+}
+
+#[test]
 fn transfer_boundary_classifies_database_failures() {
     let transfer = VnidropError::transfer(sqlx::Error::RowNotFound);
     let approval = VnidropError::permission(sqlx::Error::RowNotFound);
 
     assert!(matches!(transfer, VnidropError::Repository { .. }));
     assert!(matches!(approval, VnidropError::Repository { .. }));
+}
+
+#[test]
+fn saved_device_failures_remain_distinguishable() {
+    let unavailable = VnidropError::device_unavailable(anyhow::anyhow!("offline"));
+    let timeout = VnidropError::offer_timeout(anyhow::anyhow!("no answer"));
+    let relay = VnidropError::relay_policy_incompatible(anyhow::anyhow!("profiles differ"));
+    let protocol = VnidropError::protocol_incompatible(anyhow::anyhow!("downgrade"));
+
+    assert_eq!(unavailable.code(), "device_unavailable");
+    assert_eq!(timeout.code(), "offer_timeout");
+    assert_eq!(relay.code(), "relay_policy_incompatible");
+    assert_eq!(protocol.code(), "protocol_incompatible");
+    assert!(matches!(
+        unavailable,
+        VnidropError::DeviceUnavailable { .. }
+    ));
+    assert!(matches!(timeout, VnidropError::OfferTimeout { .. }));
+    assert!(matches!(
+        relay,
+        VnidropError::RelayPolicyIncompatible { .. }
+    ));
+    assert!(matches!(
+        protocol,
+        VnidropError::ProtocolIncompatible { .. }
+    ));
 }

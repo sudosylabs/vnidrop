@@ -27,7 +27,7 @@ use crate::{
         AtomicOutputFile,
     },
     handshake::{DeliveryReceipt, HandshakeResponse, HandshakeService},
-    repository::{PendingDeliveryReceiptInsert, ReceivedArtifactInsert, TransferUpsert},
+    invitation::{PendingDeliveryReceiptInsert, ReceivedArtifactInsert, TransferUpsert},
     ticket::{
         encode_persisted_sender_address, parse_transfer_ticket_with_limits, ParsedTransferTicket,
     },
@@ -43,7 +43,7 @@ pub(super) enum ReceiveTarget {
 #[derive(Clone, Copy)]
 struct ReceivedTransfer<'a> {
     protocol_id: u64,
-    local_id: &'a str,
+    local_id: Option<&'a str>,
 }
 
 pub(super) struct OutputSinkFile<'a> {
@@ -182,6 +182,10 @@ impl CoreInner {
         .await
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "targeted receive binds immutable authorization fields plus its cancel token"
+    )]
     pub(super) async fn receive_to_target(
         self: &Arc<Self>,
         ticket: String,
@@ -328,7 +332,7 @@ impl CoreInner {
 
         self.emit_transfer(transfer_id, "receive", "network", "connecting", json!({}));
         // Every VniDrop ticket carries metadata and must complete the handshake.
-        let delivery_receipt = self
+        let (delivery_receipt, authenticated_sender_name) = self
             .request_transfer_approval(
                 transfer_id,
                 sender_addr.clone(),
@@ -419,6 +423,19 @@ impl CoreInner {
             })
             .await
             .map_err(VnidropError::repository)?;
+        let peer_endpoint_id = sender_addr.id.to_string();
+        if let Err(error) = self
+            .pairing_eligibility
+            .activate_after_completed_transfer(
+                &peer_endpoint_id,
+                authenticated_sender_name.as_deref(),
+                &delivery_receipt.request_id,
+                &delivery_receipt.token,
+            )
+            .await
+        {
+            tracing::warn!(%error, "failed to activate pairing eligibility after receive");
+        }
         pending_delivery_receipt
             .lock()
             .expect("pending_delivery_receipt")
@@ -443,6 +460,7 @@ impl CoreInner {
                 direction: TransferDirection::Receive,
                 status: TransferStatus::Receiving,
                 transfer_name: Some(parsed.metadata.transfer_name.as_str()),
+                sender_name: parsed.metadata.sender_name.as_deref(),
                 content_hash: Some(parsed.metadata.content_hash.as_str()),
                 ticket: None,
                 file_count: parsed.metadata.file_count,
@@ -472,7 +490,7 @@ impl CoreInner {
         addr: iroh::EndpointAddr,
         metadata: &TransferMetadata,
         receiver_name: Option<&str>,
-    ) -> Result<DeliveryReceipt> {
+    ) -> Result<(DeliveryReceipt, Option<String>)> {
         self.emit_transfer(
             local_transfer_id,
             "receive",
@@ -495,6 +513,7 @@ impl CoreInner {
                 request_id,
                 token,
                 expires_at,
+                sender_name,
             } => {
                 self.emit_transfer(
                     local_transfer_id,
@@ -506,11 +525,14 @@ impl CoreInner {
                         "expires_at": expires_at,
                     }),
                 );
-                Ok(DeliveryReceipt {
-                    request_id,
-                    transfer_id: metadata.transfer_id,
-                    token,
-                })
+                Ok((
+                    DeliveryReceipt {
+                        request_id,
+                        transfer_id: metadata.transfer_id,
+                        token,
+                    },
+                    sender_name,
+                ))
             }
             HandshakeResponse::Denied { reason } => Err(VnidropError::permission(anyhow::anyhow!(
                 "transfer request was denied by sender: {reason}"
@@ -533,7 +555,58 @@ impl CoreInner {
             .map_err(VnidropError::repository)?;
         let received_transfer = ReceivedTransfer {
             protocol_id: transfer_id,
-            local_id: &transfer_local_id,
+            local_id: Some(&transfer_local_id),
+        };
+        for (i, (name, hash)) in collection.iter().enumerate() {
+            match &target {
+                ReceiveTarget::Directory(output_dir) => {
+                    self.export_blob_to_directory(
+                        received_transfer,
+                        total_files,
+                        i as u64,
+                        output_dir,
+                        name.as_ref(),
+                        *hash,
+                    )
+                    .await?;
+                }
+                ReceiveTarget::OutputSink(output_sink) => {
+                    self.export_blob_to_sink(
+                        transfer_id,
+                        total_files,
+                        i as u64,
+                        output_sink.as_ref(),
+                        name.as_ref(),
+                        *hash,
+                    )
+                    .await?;
+                }
+                ReceiveTarget::OutputSinkV2(output_sink) => {
+                    self.export_blob_to_sink_v2(
+                        received_transfer,
+                        total_files,
+                        i as u64,
+                        output_sink.as_ref(),
+                        name.as_ref(),
+                        *hash,
+                    )
+                    .await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) async fn export_collection_untracked(
+        &self,
+        transfer_id: u64,
+        total_files: u64,
+        target: ReceiveTarget,
+        collection: Collection,
+    ) -> Result<()> {
+        let received_transfer = ReceivedTransfer {
+            protocol_id: transfer_id,
+            local_id: None,
         };
         for (i, (name, hash)) in collection.iter().enumerate() {
             match &target {
@@ -644,17 +717,19 @@ impl CoreInner {
             .map_err(VnidropError::filesystem)?;
         let locator = pending_file.target().to_string_lossy().to_string();
         pending_file.commit().map_err(VnidropError::filesystem)?;
-        self.repository
-            .record_received_artifact(ReceivedArtifactInsert {
-                transfer_local_id: transfer.local_id,
-                protocol_transfer_id: transfer.protocol_id,
-                relative_path,
-                locator_kind: ReceivedLocatorKind::FilesystemPath,
-                locator: &locator,
-                logical_size: exported,
-            })
-            .await
-            .map_err(VnidropError::repository)?;
+        if let Some(local_id) = transfer.local_id {
+            self.repository
+                .record_received_artifact(ReceivedArtifactInsert {
+                    transfer_local_id: local_id,
+                    protocol_transfer_id: transfer.protocol_id,
+                    relative_path,
+                    locator_kind: ReceivedLocatorKind::FilesystemPath,
+                    locator: &locator,
+                    logical_size: exported,
+                })
+                .await
+                .map_err(VnidropError::repository)?;
+        }
         Ok(())
     }
 
@@ -772,17 +847,19 @@ impl CoreInner {
         }
 
         let published = output_file.finish()?;
-        self.repository
-            .record_received_artifact(ReceivedArtifactInsert {
-                transfer_local_id: transfer.local_id,
-                protocol_transfer_id: transfer.protocol_id,
-                relative_path: &relative_path,
-                locator_kind: published.locator_kind,
-                locator: &published.locator,
-                logical_size: exported,
-            })
-            .await
-            .map_err(VnidropError::repository)?;
+        if let Some(local_id) = transfer.local_id {
+            self.repository
+                .record_received_artifact(ReceivedArtifactInsert {
+                    transfer_local_id: local_id,
+                    protocol_transfer_id: transfer.protocol_id,
+                    relative_path: &relative_path,
+                    locator_kind: published.locator_kind,
+                    locator: &published.locator,
+                    logical_size: exported,
+                })
+                .await
+                .map_err(VnidropError::repository)?;
+        }
         Ok(())
     }
 }

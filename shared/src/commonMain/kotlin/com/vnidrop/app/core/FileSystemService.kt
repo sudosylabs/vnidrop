@@ -47,23 +47,6 @@ interface FileSystemService {
 	fun canRevealReceiveFolder(folder: ReceiveFolder): Boolean = false
 	suspend fun revealReceiveFolder(folder: ReceiveFolder): Result<Unit> =
 		Result.failure(UnsupportedOperationException("Revealing the receive folder is not supported"))
-	/** Releases only app-owned picker copies; implementations must never delete original user sources. */
-	suspend fun discardPickedFiles(files: List<PickedShareFile>) = Unit
-	suspend fun sharePickedFile(
-		repository: CoreGateway,
-		file: PickedShareFile,
-		transferName: String,
-		senderName: String,
-		accessPolicy: ShareAccessPolicy,
-	): Result<Share> = sharePickedFiles(repository, listOf(file), transferName, senderName, accessPolicy)
-
-	suspend fun sharePickedFiles(
-		repository: CoreGateway,
-		files: List<PickedShareFile>,
-		transferName: String,
-		senderName: String,
-		accessPolicy: ShareAccessPolicy,
-	): Result<Share>
 }
 
 @Composable

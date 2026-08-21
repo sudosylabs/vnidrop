@@ -6,13 +6,15 @@ use tokio::sync::{oneshot, Mutex};
 use uuid::Uuid;
 
 use crate::{
-    access_policy::{AccessPolicy, APPROVAL_SESSION_TTL_MS},
+    access_policy::{AccessDecision, AccessPolicy, APPROVAL_SESSION_TTL_MS},
+    blocked_devices::BlockStore,
     event_hub::EventHub,
     handshake::{
         DeliveryFailureReceipt, DeliveryReceipt, DeliveryReceiptResponse, HandshakeResponse,
         RequestTransfer,
     },
-    repository::{ReceiverRequestInsert, Repository},
+    invitation::{ReceiverRequestInsert, Repository},
+    pairing_eligibility::PairingEligibilityService,
     transfer_state::ReceiverRequestStatus,
     util::now_ms,
 };
@@ -30,11 +32,13 @@ pub(crate) struct ApprovalDecision {
 #[derive(Clone)]
 pub(crate) struct ApprovalService {
     repository: Repository,
+    blocked: BlockStore,
     event_hub: Arc<EventHub>,
     access_policy: Arc<AccessPolicy>,
     pending: Arc<Mutex<HashMap<String, oneshot::Sender<ApprovalDecision>>>>,
     max_pending: usize,
     max_metadata_bytes: u64,
+    pairing_eligibility: Option<PairingEligibilityService>,
 }
 
 impl ApprovalService {
@@ -54,7 +58,20 @@ impl ApprovalService {
             )
             .await
         {
-            Ok(()) => {
+            Ok(remote_display_name) => {
+                if let Some(eligibility) = &self.pairing_eligibility {
+                    if let Err(error) = eligibility
+                        .activate_after_completed_transfer(
+                            &remote_endpoint_id,
+                            remote_display_name.as_deref(),
+                            &receipt.request_id,
+                            &receipt.token,
+                        )
+                        .await
+                    {
+                        tracing::warn!(%error, "failed to activate pairing eligibility after delivery");
+                    }
+                }
                 self.event_hub.emit_transfer(
 					receipt.transfer_id,
 					"send",
@@ -115,18 +132,22 @@ impl ApprovalService {
 
     pub(crate) fn new(
         repository: Repository,
+        blocked: BlockStore,
         event_hub: Arc<EventHub>,
         access_policy: Arc<AccessPolicy>,
         max_pending: usize,
         max_metadata_bytes: u64,
+        pairing_eligibility: Option<PairingEligibilityService>,
     ) -> Self {
         Self {
             repository,
+            blocked,
             event_hub,
             access_policy,
             pending: Arc::new(Mutex::new(HashMap::new())),
             max_pending,
             max_metadata_bytes,
+            pairing_eligibility,
         }
     }
 
@@ -162,6 +183,17 @@ impl ApprovalService {
         remote_endpoint_id: String,
         request: RequestTransfer,
     ) -> HandshakeResponse {
+        if self
+            .blocked
+            .is_blocked(&remote_endpoint_id)
+            .await
+            .unwrap_or(true)
+        {
+            // Indistinguishable from other refusals so probing cannot detect blocks.
+            return self
+                .deny(request.transfer_id, remote_endpoint_id, "not-accepted")
+                .await;
+        }
         let metadata_values = [
             request.transfer_hash.as_str(),
             request.transfer_name.as_str(),
@@ -198,10 +230,15 @@ impl ApprovalService {
             .await
         {
             Ok(true) => {
+                // An existing access session means this endpoint was already
+                // authorised: either the share is public, or the sender pushed
+                // this transfer to them. Prompting again would ask the sender
+                // to approve a transfer they themselves initiated.
                 if self
                     .access_policy
-                    .allows_without_approval(request.transfer_id)
+                    .decide(request.transfer_id, Some(&remote_endpoint_id))
                     .await
+                    == AccessDecision::Allow
                 {
                     self.allow_without_sender_decision(remote_endpoint_id, request)
                         .await
@@ -277,6 +314,11 @@ impl ApprovalService {
             request_id,
             token,
             expires_at,
+            sender_name: self
+                .repository
+                .send_sender_name(request.transfer_id, &request.transfer_hash)
+                .await
+                .unwrap_or(None),
         }
     }
 
@@ -372,6 +414,11 @@ impl ApprovalService {
                     request_id: decision.request_id,
                     token,
                     expires_at,
+                    sender_name: self
+                        .repository
+                        .send_sender_name(request.transfer_id, &request.transfer_hash)
+                        .await
+                        .unwrap_or(None),
                 }
             }
             Ok(Ok(decision)) => {

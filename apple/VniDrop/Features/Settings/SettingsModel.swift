@@ -115,6 +115,8 @@ final class SettingsModel: ObservableObject {
 	private var hasLocalUsernameDraft = false
 	private var hasRelayConfigurationDraft = false
 	private var cancellables = Set<AnyCancellable>()
+	/// In-flight automatic trash purge, so overlapping foregrounds don't stack.
+	private var trashPurgeTask: Task<Void, Never>?
 
 	init(
 		environment: PlatformEnvironment,
@@ -173,6 +175,7 @@ final class SettingsModel: ObservableObject {
 		refreshNotificationPermission()
 		loadDeviceInfo()
 	}
+
 
 	func selectSection(_ section: SettingsSection) {
 		state.selectedSection = section
@@ -497,6 +500,44 @@ final class SettingsModel: ObservableObject {
 		}
 	}
 
+	/// Reclaims the `.Trash` folders the user has no way to reach, on the platforms
+	/// where that is the case (iOS/iPadOS). Nothing is recoverable from them there,
+	/// so leaving them costs storage for no benefit. Silent by design: it is
+	/// housekeeping, not an action the user asked for. No-op on macOS, where the
+	/// trash is the user's and only the explicit "free up space" action touches it.
+	func purgeUnreachableTrash() {
+		if fileSystemService.userCanReachTrash { return }
+		if trashPurgeTask != nil { return }
+		// The container's trash sits directly under each app-owned root; a deep walk
+		// would rescan the whole receive folder on every foreground for nothing.
+		let roots = [environment.defaultCoreDataDir, state.receiveFolder?.value].compactMap { $0 }
+		trashPurgeTask = Task {
+			let freed = await Task.detached { SettingsModel.purgeTrash(under: roots) }.value
+			trashPurgeTask = nil
+			if freed == 0 { return }
+			AppLogger.info("storage", "purged unreachable trash", ["bytes": String(freed)])
+			// Only re-measure when a breakdown is already on screen; otherwise the
+			// next visit to Storage computes it anyway.
+			if state.storage != nil { loadStorageUsage() }
+		}
+	}
+
+	/// Removes `<root>/.Trash` for each root, returning the bytes reclaimed.
+	nonisolated static func purgeTrash(under roots: [String]) -> UInt64 {
+		var freed: UInt64 = 0
+		for root in Set(roots) {
+			let path = (root as NSString).appendingPathComponent(trashDirectoryName)
+			var isDirectory: ObjCBool = false
+			guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory),
+				isDirectory.boolValue else { continue }
+			freed += directorySize(path)
+			try? FileManager.default.removeItem(atPath: path)
+		}
+		return freed
+	}
+
+	private nonisolated static let trashDirectoryName = ".Trash"
+
 	/// Deletes temp-directory contents and `.Trash` folders under the given roots,
 	/// returning the number of bytes reclaimed. Runs off the main actor.
 	nonisolated static func reclaimJunk(tempDir: String, dataDir: String, receiveTrashRoot: String?) -> UInt64 {
@@ -527,7 +568,7 @@ final class SettingsModel: ObservableObject {
 			at: url, includingPropertiesForKeys: [.isDirectoryKey]
 		) else { return [] }
 		var result: [String] = []
-		for case let fileURL as URL in enumerator where fileURL.lastPathComponent == ".Trash" {
+		for case let fileURL as URL in enumerator where fileURL.lastPathComponent == trashDirectoryName {
 			result.append(fileURL.path)
 			enumerator.skipDescendants()
 		}

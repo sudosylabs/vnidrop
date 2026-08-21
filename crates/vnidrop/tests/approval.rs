@@ -138,6 +138,61 @@ fn approval_required_denies_then_allows_receiver() {
 }
 
 #[test]
+fn approval_required_share_authorizes_multiple_receivers_independently() {
+    let source_dir = tempfile::tempdir().unwrap();
+    let first_output = tempfile::tempdir().unwrap();
+    let second_denied_output = tempfile::tempdir().unwrap();
+    let second_allowed_output = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("private-multi.txt");
+    std::fs::write(&source_path, b"independent receiver approval").unwrap();
+    let sender = TestNode::new();
+    let first_receiver = TestNode::new();
+    let second_receiver = TestNode::new();
+    let share = share_path(&sender.core, &source_path, 31, "private-multi.txt", false);
+
+    receive_with_response(
+        &sender.core,
+        share.transfer_id,
+        first_receiver.core.arc(),
+        share.ticket.clone(),
+        first_output.path(),
+        true,
+    )
+    .unwrap();
+    assert!(receive_with_response(
+        &sender.core,
+        share.transfer_id,
+        second_receiver.core.arc(),
+        share.ticket.clone(),
+        second_denied_output.path(),
+        false,
+    )
+    .is_err());
+    receive_with_response(
+        &sender.core,
+        share.transfer_id,
+        second_receiver.core.arc(),
+        share.ticket,
+        second_allowed_output.path(),
+        true,
+    )
+    .unwrap();
+
+    assert_eq!(
+        std::fs::read(first_output.path().join("private-multi.txt")).unwrap(),
+        b"independent receiver approval"
+    );
+    assert_eq!(
+        std::fs::read(second_allowed_output.path().join("private-multi.txt")).unwrap(),
+        b"independent receiver approval"
+    );
+    assert!(!second_denied_output
+        .path()
+        .join("private-multi.txt")
+        .exists());
+}
+
+#[test]
 fn receiver_can_cancel_while_waiting_for_approval() {
     let source_dir = tempfile::tempdir().unwrap();
     let output_dir = tempfile::tempdir().unwrap();

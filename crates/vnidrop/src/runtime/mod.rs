@@ -6,24 +6,42 @@
 //! - [`receive`] — ticket receive, download, export
 //! - [`lifecycle`] — cancel/delete/shutdown/status/access
 //! - [`provider`] — blob provider events and per-connection send progress
+//! - [`saved_devices`] — saved-device pairing, forget, block
+//! - [`targeted`] — saved-device targeted transfers
 
 mod delivery;
 mod facade;
+mod identity_recovery;
 mod lifecycle;
 mod provider;
 mod receive;
+mod saved_devices;
 mod share;
 mod storage;
+mod targeted;
+mod targeted_create;
+mod targeted_payload;
+mod targeted_preparation;
+mod targeted_receive;
+mod targeted_reconciliation;
+#[cfg(test)]
+mod test_faults;
 
 pub use facade::VnidropCore;
 #[cfg(test)]
 pub(crate) use provider::{consume_request_updates, RequestStreamOutcome};
+pub use targeted_preparation::TargetedTransferPreparation;
+#[cfg(test)]
+pub(crate) use test_faults::TargetedFaultAdapters;
 
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
     str::FromStr,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, AtomicU64},
+        Arc,
+    },
     time::Duration,
 };
 
@@ -52,11 +70,14 @@ use crate::{
     access_policy::{mode_from_storage, AccessPolicy},
     api::{CoreEvent, CoreEventSink, CoreLimits, CoreRelayMode},
     approval::ApprovalService,
+    device_relationship::{DeviceRelationshipService, RelationshipProtocol},
     event_hub::EventHub,
     handshake::HandshakeService,
+    invitation::Repository,
     logging::init_logging,
-    repository::Repository,
-    secret::load_or_create_secret,
+    pairing_eligibility::PairingEligibilityService,
+    secure_secret::{start_endpoint_identity, ProfileLock, SecureSecretStore},
+    targeted_transfer::{TargetedOfferInbox, TargetedTransferProtocol},
     ticket::ticket_matches_relay_profile,
     transfer_state::{TransferDirection, TransferStatus},
 };
@@ -88,8 +109,15 @@ pub(super) struct CoreInner {
     pub(super) router: Router,
     pub(super) store: FsStore,
     pub(super) repository: Repository,
+    pub(super) targeted_transfers: crate::targeted_transfer::TargetedTransferModule,
+    pub(super) blocked_devices: crate::blocked_devices::BlockStore,
+    _profile_lock: Option<ProfileLock>,
+    pub(super) secret_custody: Option<Arc<crate::secure_secret::SecretCustody>>,
     pub(super) event_hub: Arc<EventHub>,
     pub(super) approval: ApprovalService,
+    pub(super) pairing_eligibility: PairingEligibilityService,
+    pub(super) device_relationships: Arc<DeviceRelationshipService>,
+    pub(super) targeted_offers: TargetedOfferInbox,
     pub(super) limits: CoreLimits,
     pub(super) relay_mode: CoreRelayMode,
     pub(super) custom_relay_urls: Vec<RelayUrl>,
@@ -97,22 +125,48 @@ pub(super) struct CoreInner {
     pub(super) access_policy: Arc<AccessPolicy>,
     /// Sync mutex so cancel can remove + signal without awaiting (and without
     /// holding a Tokio lock across repository I/O).
-    pub(super) active_transfers: std::sync::Mutex<HashMap<u64, ActiveTransfer>>,
+    pub(super) active_transfers: Arc<std::sync::Mutex<HashMap<u64, ActiveTransfer>>>,
+    pub(super) active_targeted_transfers: Arc<std::sync::Mutex<HashMap<String, ActiveTransfer>>>,
+    pub(super) active_targeted_preparations: AtomicU64,
     // Active shares are protected by persistent Iroh tags.
     pub(super) active_shares: TokioMutex<HashMap<u64, ()>>,
     /// Content hash → active share transfer ids (root and collection members).
     /// Multiple transfers can share the same content-addressed hash.
-    pub(super) hash_to_transfer: TokioMutex<HashMap<String, HashSet<u64>>>,
+    pub(super) hash_to_transfer: Arc<TokioMutex<HashMap<String, HashSet<u64>>>>,
     pub(super) connection_endpoints: TokioMutex<HashMap<u64, String>>,
     pub(super) provider_task: TokioMutex<Option<JoinHandle<()>>>,
     pub(super) delivery_receipt_notify: Notify,
     pub(super) delivery_receipt_task: TokioMutex<Option<JoinHandle<()>>>,
+    pub(super) targeted_reconciliation_task: TokioMutex<Option<JoinHandle<()>>>,
     pub(super) shutdown_started: AtomicBool,
+    /// Test-only log of peers passed to [`Self::cancel_targeted_transfers_for_peer`].
+    #[cfg(test)]
+    targeted_cancel_log: std::sync::Mutex<Vec<String>>,
+    #[cfg(test)]
+    suppress_targeted_completion: AtomicBool,
+    #[cfg(test)]
+    suppress_targeted_authorization_delivery: AtomicBool,
+    #[cfg(test)]
+    targeted_authorization_delivery_attempts: std::sync::atomic::AtomicU64,
+    #[cfg(test)]
+    targeted_preparation_registration_gate: std::sync::Mutex<
+        Option<(
+            std::sync::mpsc::SyncSender<()>,
+            tokio::sync::oneshot::Receiver<()>,
+        )>,
+    >,
 }
 
 pub(super) struct ActiveTransfer {
     pub(super) direction: TransferDirection,
     pub(super) cancel: oneshot::Sender<()>,
+}
+
+pub(super) enum IdentityMode {
+    Protected {
+        store: Arc<dyn SecureSecretStore>,
+        profile_lock: ProfileLock,
+    },
 }
 
 impl CoreInner {
@@ -122,11 +176,28 @@ impl CoreInner {
         limits: CoreLimits,
         relay_mode: CoreRelayMode,
         relay_urls: Vec<RelayUrl>,
+        identity_mode: IdentityMode,
     ) -> Result<Arc<Self>> {
         tokio::fs::create_dir_all(&app_data_dir).await?;
         init_logging(&app_data_dir)?;
-        let secret_key = load_or_create_secret(&app_data_dir).await?;
-        let repository = Repository::open(&app_data_dir).await?;
+        let stores = crate::persistence::open_all(&app_data_dir).await?;
+        let repository = stores.invitation.clone();
+        let targeted_transfers = stores.targeted.clone();
+        let blocked_devices = stores.blocked.clone();
+        let (secret_key, secret_custody, profile_lock) = match identity_mode {
+            IdentityMode::Protected {
+                store,
+                profile_lock,
+            } => {
+                let (secret_key, custody) = start_endpoint_identity(
+                    stores.secrets.clone(),
+                    store,
+                    &app_data_dir.join("iroh.secret"),
+                )
+                .await?;
+                (secret_key, Some(Arc::new(custody)), Some(profile_lock))
+            }
+        };
         let store_root = app_data_dir.join("blobs");
         let mut store_options = FsStoreOptions::new(&store_root);
         store_options.gc = Some(GcConfig {
@@ -313,17 +384,141 @@ impl CoreInner {
                 store.tags().delete(name).await?;
             }
         }
+        let pairing_eligibility = PairingEligibilityService::new(
+            stores.eligibility.clone(),
+            stores.relationships.clone(),
+            secret_custody.clone(),
+            event_hub.clone(),
+            endpoint.id().to_string(),
+        );
         let approval = ApprovalService::new(
             repository.clone(),
+            blocked_devices.clone(),
             event_hub.clone(),
             access_policy.clone(),
             limits.max_pending_approvals as usize,
             limits.max_metadata_bytes,
+            Some(pairing_eligibility.clone()),
         );
         let handshake = HandshakeService::new(approval.clone());
+        let identity_cooldown = crate::control_plane::IdentityCooldown::new(
+            limits.identity_cooldown_ms,
+            limits.malformed_strike_limit,
+        );
+        let targeted_offers = TargetedOfferInbox::new(
+            event_hub.clone(),
+            limits.max_pending_offers as usize,
+            identity_cooldown,
+            limits.offer_timeout_ms,
+        );
+        let device_relationships = Arc::new(DeviceRelationshipService::new(
+            stores.relationships.clone(),
+            stores.blocked.clone(),
+            secret_custody.clone(),
+            pairing_eligibility.clone(),
+            event_hub.clone(),
+            endpoint.id().to_string(),
+            endpoint.clone(),
+            relay_mode,
+            relay_urls.clone(),
+            limits.max_saved_devices,
+            limits.pairing_timeout_ms,
+        ));
+        if let Some(custody) = &secret_custody {
+            let referenced = targeted_transfers.authorization_secret_handles().await?;
+            let removed = custody
+                .remove_orphaned_targeted_authorizations(&referenced)
+                .await?;
+            if removed > 0 {
+                tracing::warn!(removed, "removed orphaned targeted authorization secrets");
+            }
+        }
+        let active_transfers =
+            Arc::new(std::sync::Mutex::new(HashMap::<u64, ActiveTransfer>::new()));
+        let active_targeted_transfers = Arc::new(std::sync::Mutex::new(HashMap::<
+            String,
+            ActiveTransfer,
+        >::new()));
+        let hash_to_transfer = Arc::new(TokioMutex::new(restored_hashes));
+        let cleanup_targeted = active_targeted_transfers.clone();
+        let cleanup_hashes = hash_to_transfer.clone();
+        let cleanup_store = store.clone();
+        let cleanup_custody = secret_custody.clone();
+        let cleanup_targeted_store = targeted_transfers.clone();
+        let cleanup_access_policy = access_policy.clone();
+        let targeted_cleanup =
+            Arc::new(move |row: crate::targeted_transfer::TargetedTransferRow| {
+                let targeted = cleanup_targeted.clone();
+                let hashes = cleanup_hashes.clone();
+                let blobs = cleanup_store.clone();
+                let custody = cleanup_custody.clone();
+                let transfers = cleanup_targeted_store.clone();
+                let access_policy = cleanup_access_policy.clone();
+                Box::pin(async move {
+                    let active_targeted = targeted
+                        .lock()
+                        .expect("active_targeted_transfers")
+                        .remove(&row.id);
+                    if let Some(active_targeted) = active_targeted {
+                        let _ = active_targeted.cancel.send(());
+                    }
+                    {
+                        let mut hashes = hashes.lock().await;
+                        hashes.retain(|_, owners| {
+                            owners.remove(&row.protocol_transfer_id);
+                            !owners.is_empty()
+                        });
+                    }
+                    access_policy
+                        .remove_transfer(row.protocol_transfer_id)
+                        .await;
+                    if row.role == crate::targeted_transfer::TargetedTransferRole::Sender {
+                        blobs
+                            .tags()
+                            .delete(targeted_tag_name(&row.id))
+                            .await
+                            .map_err(crate::error::VnidropError::transfer)?;
+                    }
+                    if let Some(handle) = row.authorization_secret_handle {
+                        if let Some(custody) = custody {
+                            custody
+                                .remove(&crate::secure_secret::SecretHandle::from_stored(handle))
+                                .await?;
+                        }
+                        transfers.clear_authorization(&row.id).await?;
+                    }
+                    Ok(())
+                }) as crate::targeted_transfer::TargetedCleanupFuture
+            });
+        let targeted_events = event_hub.clone();
+        let targeted_module = crate::targeted_transfer::TargetedTransferModule::new(
+            crate::targeted_transfer::TargetedTransferModuleConfig {
+                store: targeted_transfers.clone(),
+                relationships: device_relationships.clone(),
+                inbox: targeted_offers.clone(),
+                limits: limits.clone(),
+                local_endpoint_id: endpoint.id().to_string(),
+                relay_mode,
+                custom_relay_urls: relay_urls.clone(),
+                repository: repository.clone(),
+                custody: secret_custody.clone(),
+                cleanup: targeted_cleanup,
+                emit_lifecycle: Arc::new(move |kind| {
+                    targeted_events.emit_endpoint("targeted_transfer", kind, serde_json::json!({}));
+                }),
+            },
+        );
         let router = Router::builder(endpoint.clone())
             .accept(iroh_blobs::ALPN, blobs)
             .accept(HandshakeService::ALPN, handshake)
+            .accept(
+                RelationshipProtocol::ALPN,
+                RelationshipProtocol::new(device_relationships.clone()),
+            )
+            .accept(
+                TargetedTransferProtocol::ALPN,
+                TargetedTransferProtocol::new(targeted_module.clone()),
+            )
             .spawn();
 
         let inner = Arc::new(Self {
@@ -332,22 +527,56 @@ impl CoreInner {
             router,
             store,
             repository,
+            targeted_transfers: targeted_module,
+            blocked_devices,
+            _profile_lock: profile_lock,
+            secret_custody: secret_custody.clone(),
             event_hub,
             approval,
+            pairing_eligibility,
+            device_relationships,
+            targeted_offers,
             relay_mode,
             custom_relay_urls: relay_urls,
             transfer_slots: Semaphore::new(limits.max_concurrent_transfers as usize),
             limits,
             access_policy,
-            active_transfers: std::sync::Mutex::new(HashMap::new()),
+            active_transfers,
+            active_targeted_transfers,
+            active_targeted_preparations: AtomicU64::new(0),
             active_shares: TokioMutex::new(restored_active_shares),
-            hash_to_transfer: TokioMutex::new(restored_hashes),
+            hash_to_transfer,
             connection_endpoints: TokioMutex::new(HashMap::new()),
             provider_task: TokioMutex::new(None),
             delivery_receipt_notify: Notify::new(),
             delivery_receipt_task: TokioMutex::new(None),
+            targeted_reconciliation_task: TokioMutex::new(None),
             shutdown_started: AtomicBool::new(false),
+            #[cfg(test)]
+            targeted_cancel_log: std::sync::Mutex::new(Vec::new()),
+            #[cfg(test)]
+            suppress_targeted_completion: AtomicBool::new(false),
+            #[cfg(test)]
+            suppress_targeted_authorization_delivery: AtomicBool::new(false),
+            #[cfg(test)]
+            targeted_authorization_delivery_attempts: std::sync::atomic::AtomicU64::new(0),
+            #[cfg(test)]
+            targeted_preparation_registration_gate: std::sync::Mutex::new(None),
         });
+
+        // In-flight connecting/transferring transfers become Interrupted across restart.
+        match inner.targeted_transfers.recover_in_flight().await {
+            Ok(ids) => {
+                drop(ids);
+            }
+            Err(error) => {
+                tracing::warn!(%error, "failed to mark in-flight targeted transfers interrupted");
+            }
+        }
+        // Restore permanent receiver ACLs for approved targeted shares.
+        if let Err(error) = inner.restore_targeted_transfer_access().await {
+            tracing::warn!(%error, "failed to restore targeted transfer access");
+        }
 
         inner.emit_endpoint(
             "startup",
@@ -360,6 +589,13 @@ impl CoreInner {
         );
         inner.spawn_provider_event_task(event_rx).await;
         inner.spawn_delivery_receipt_task().await;
+        inner.spawn_targeted_reconciliation_task().await;
+        if let Err(error) = inner.pairing_eligibility.reconcile().await {
+            tracing::warn!(%error, "failed to reconcile pairing eligibility");
+        }
+        if let Err(error) = inner.device_relationships.reconcile().await {
+            tracing::warn!(%error, "failed to reconcile device relationships");
+        }
         Ok(inner)
     }
 
@@ -411,38 +647,7 @@ pub(crate) fn filter_peer_addr_for_relay_mode(
     relay_mode: CoreRelayMode,
     custom_relay_urls: &[RelayUrl],
 ) -> Result<EndpointAddr> {
-    match relay_mode {
-        CoreRelayMode::Automatic => Ok(addr.clone()),
-        CoreRelayMode::StrictCustom | CoreRelayMode::CustomWithDirectFallback => {
-            let mut filtered = EndpointAddr::new(addr.id);
-            for ip_addr in addr.ip_addrs().copied() {
-                filtered = filtered.with_ip_addr(ip_addr);
-            }
-            for relay_url in addr
-                .relay_urls()
-                .filter(|relay_url| custom_relay_urls.contains(relay_url))
-                .cloned()
-            {
-                filtered = filtered.with_relay_url(relay_url);
-            }
-            if filtered.is_empty() {
-                anyhow::bail!(
-                    "invitation has no direct address or relay allowed by strict custom relay mode"
-                );
-            }
-            Ok(filtered)
-        }
-        CoreRelayMode::LocalOnly => {
-            let mut filtered = EndpointAddr::new(addr.id);
-            for ip_addr in addr.ip_addrs().copied() {
-                filtered = filtered.with_ip_addr(ip_addr);
-            }
-            if filtered.is_empty() {
-                anyhow::bail!("invitation has no direct address allowed by local-only mode");
-            }
-            Ok(filtered)
-        }
-    }
+    crate::ticket::filter_peer_addr_for_relay_mode(addr, relay_mode, custom_relay_urls)
 }
 
 pub(crate) async fn wait_for_relay(
@@ -490,4 +695,8 @@ fn relay_mode_label(relay_mode: CoreRelayMode) -> &'static str {
 
 pub(super) fn share_tag_name(local_id: &str) -> String {
     format!("vnidrop/share/{local_id}")
+}
+
+pub(super) fn targeted_tag_name(transfer_id: &str) -> String {
+    format!("vnidrop/targeted/{transfer_id}")
 }

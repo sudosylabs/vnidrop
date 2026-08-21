@@ -98,9 +98,11 @@ fn transfers_file_between_two_cores() {
     let completed = wait_for_sender_transfer_event(&sender, share.transfer_id, "completed");
     assert!(completed.data_json.contains("\"connection_id\":"));
     assert!(completed.data_json.contains("\"request_id\":"));
-    assert!(completed
+    // Production events redact endpoint ids; typed APIs remain the source of truth.
+    assert!(!completed
         .data_json
         .contains(receiver.core.status().endpoint_id.as_str()));
+    assert!(completed.data_json.contains("redacted"));
 
     receiver.core.delete_receive_history().unwrap();
     assert_eq!(receiver.core.list_received_artifacts().unwrap(), artifacts);

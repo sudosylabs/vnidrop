@@ -57,6 +57,13 @@ impl VnidropTicket {
     }
 }
 
+#[cfg(test)]
+pub(crate) fn rewrite_sender_name_for_test(value: &str, sender_name: &str) -> Result<String> {
+    let mut ticket = VnidropTicket::decode(value)?;
+    ticket.metadata.sender_name = Some(sender_name.to_string());
+    ticket.encode()
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct ParsedTransferTicket {
     pub(crate) blob_ticket: BlobTicket,
@@ -181,6 +188,76 @@ pub(crate) fn ticket_matches_relay_profile(
         }
         CoreRelayMode::LocalOnly => Ok(parsed.advertised_custom_relay_urls.is_empty()
             && parsed.blob_ticket.addr().relay_urls().next().is_none()),
+    }
+}
+
+/// Whether a remote peer's advertised network profile can be used under the
+/// local profile.
+pub(crate) fn relay_profiles_compatible(
+    local_mode: CoreRelayMode,
+    local_urls: &[RelayUrl],
+    remote_mode: CoreRelayMode,
+    remote_urls: &[RelayUrl],
+) -> bool {
+    match (local_mode, remote_mode) {
+        (CoreRelayMode::Automatic, CoreRelayMode::Automatic) => {
+            local_urls.is_empty() && remote_urls.is_empty()
+        }
+        (CoreRelayMode::LocalOnly, CoreRelayMode::LocalOnly)
+        | (CoreRelayMode::LocalOnly, CoreRelayMode::Automatic)
+        | (CoreRelayMode::Automatic, CoreRelayMode::LocalOnly) => {
+            // Local-only never enables relay fallback; Automatic peers are only
+            // compatible when neither side advertises custom relays.
+            local_urls.is_empty() && remote_urls.is_empty()
+        }
+        (
+            CoreRelayMode::StrictCustom | CoreRelayMode::CustomWithDirectFallback,
+            CoreRelayMode::StrictCustom | CoreRelayMode::CustomWithDirectFallback,
+        ) => {
+            let local = local_urls.iter().collect::<BTreeSet<_>>();
+            let remote = remote_urls.iter().collect::<BTreeSet<_>>();
+            !local.is_empty() && local == remote
+        }
+        _ => false,
+    }
+}
+
+pub(crate) fn filter_peer_addr_for_relay_mode(
+    addr: &EndpointAddr,
+    relay_mode: CoreRelayMode,
+    custom_relay_urls: &[RelayUrl],
+) -> Result<EndpointAddr> {
+    match relay_mode {
+        CoreRelayMode::Automatic => Ok(addr.clone()),
+        CoreRelayMode::StrictCustom | CoreRelayMode::CustomWithDirectFallback => {
+            let mut filtered = EndpointAddr::new(addr.id);
+            for ip_addr in addr.ip_addrs().copied() {
+                filtered = filtered.with_ip_addr(ip_addr);
+            }
+            for relay_url in addr
+                .relay_urls()
+                .filter(|relay_url| custom_relay_urls.contains(relay_url))
+                .cloned()
+            {
+                filtered = filtered.with_relay_url(relay_url);
+            }
+            if filtered.is_empty() {
+                anyhow::bail!(
+                    "invitation has no direct address or relay allowed by strict custom relay mode"
+                );
+            }
+            Ok(filtered)
+        }
+        CoreRelayMode::LocalOnly => {
+            let mut filtered = EndpointAddr::new(addr.id);
+            for ip_addr in addr.ip_addrs().copied() {
+                filtered = filtered.with_ip_addr(ip_addr);
+            }
+            if filtered.is_empty() {
+                anyhow::bail!("invitation has no direct address allowed by local-only mode");
+            }
+            Ok(filtered)
+        }
     }
 }
 

@@ -32,6 +32,8 @@ import androidx.compose.runtime.mutableStateOf
 import com.vnidrop.app.feature.approvals.ApprovalModalHost
 import com.vnidrop.app.feature.approvals.ApprovalState
 import com.vnidrop.app.feature.approvals.PendingApproval
+import com.vnidrop.app.feature.saveddevices.TargetedOfferModalHost
+import com.vnidrop.app.feature.saveddevices.TargetedOfferState
 import com.vnidrop.app.feature.receive.ReceiveHistoryDeleteTarget
 import com.vnidrop.app.feature.receive.ReceiveInvitationActions
 import com.vnidrop.app.feature.receive.ReceiveMethodAvailability
@@ -44,10 +46,15 @@ import com.vnidrop.app.feature.settings.StorageBreakdown
 import com.vnidrop.app.feature.settings.SettingsOverview
 import com.vnidrop.app.feature.send.SendScreen
 import com.vnidrop.app.feature.send.SendState
+import com.vnidrop.app.feature.send.DraftSourceId
+import com.vnidrop.app.feature.send.TransferComposer
+import com.vnidrop.app.feature.send.TransferDraftDestination
+import com.vnidrop.app.feature.send.TransferDraftSource
+import com.vnidrop.app.feature.send.TransferDraftState
 import com.vnidrop.app.feature.send.TransferCatalog
 import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.CoreState
-import com.vnidrop.app.core.PickedShareFile
+import com.vnidrop.app.core.PendingTargetedOfferModel
 import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferDirection
@@ -85,9 +92,12 @@ import vnidrop.shared.generated.resources.button_download_invitation
 import vnidrop.shared.generated.resources.button_open_settings
 import vnidrop.shared.generated.resources.button_receive_files
 import vnidrop.shared.generated.resources.nav_receive
+import vnidrop.shared.generated.resources.nav_saved_devices
 import vnidrop.shared.generated.resources.nav_send
 import vnidrop.shared.generated.resources.notifications_description
+import vnidrop.shared.generated.resources.notifications_enable_action
 import vnidrop.shared.generated.resources.notifications_local_title
+import vnidrop.shared.generated.resources.notifications_request_prompt
 import vnidrop.shared.generated.resources.notifications_title
 import vnidrop.shared.generated.resources.receive_choose_method_title
 import vnidrop.shared.generated.resources.receive_clear_history
@@ -135,6 +145,61 @@ class FoundationComposeTest {
 		}
 		onNodeWithText(Res.string.button_approve.value).performClick()
 		runOnIdle { assertEquals("request", accepted) }
+	}
+
+	@Test
+	fun approvalPromptOffersNotificationEnableAction() = runComposeUiTest {
+		var enabled = false
+		setContent {
+			VniDropTheme(isDarkTheme = false) {
+				ApprovalModalHost(
+					state = ApprovalState(pending = listOf(approval())),
+					onAccept = {},
+					onRefuse = {},
+					showNotificationPrompt = true,
+					onEnableNotifications = { enabled = true },
+				)
+			}
+		}
+
+		onNodeWithText(Res.string.notifications_request_prompt.value).assertIsDisplayed()
+		onNodeWithText(Res.string.notifications_enable_action.value).performClick()
+		runOnIdle { assertTrue(enabled) }
+	}
+
+	@Test
+	fun targetedOfferPromptOffersNotificationEnableAction() = runComposeUiTest {
+		var enabled = false
+		setContent {
+			VniDropTheme(isDarkTheme = false) {
+				TargetedOfferModalHost(
+					state = TargetedOfferState(
+						pending = listOf(
+							PendingTargetedOfferModel(
+								transferId = "targeted-1",
+								senderEndpointId = "sender",
+								receiverEndpointId = "receiver",
+								manifestId = "manifest",
+								contentHash = "hash",
+								transferName = "Photos",
+								fileCount = 1UL,
+								totalSize = 1UL,
+								protocolVersion = 1U,
+								receivedAt = 1L,
+							),
+						),
+					),
+					onAccept = {},
+					onDecline = {},
+					showNotificationPrompt = true,
+					onEnableNotifications = { enabled = true },
+				)
+			}
+		}
+
+		onNodeWithText(Res.string.notifications_request_prompt.value).assertIsDisplayed()
+		onNodeWithText(Res.string.notifications_enable_action.value).performClick()
+		runOnIdle { assertTrue(enabled) }
 	}
 
 	@Test
@@ -460,6 +525,26 @@ class FoundationComposeTest {
 	}
 
 	@Test
+	fun androidBottomNavigationPromotesSavedDevicesAsAProductDestination() = runComposeUiTest {
+		var selected = AppDestination.Send
+		setContent {
+			VniDropTheme(isDarkTheme = false) {
+				AppShell(
+					selectedDestination = selected,
+					windowClass = WindowClass.Phone,
+					uiPlatform = UiPlatform.Android,
+					onDestinationSelected = { selected = it },
+				) {
+					Text("Content")
+				}
+			}
+		}
+
+		onNodeWithText(Res.string.nav_saved_devices.value).assertIsDisplayed().performClick()
+		runOnIdle { assertEquals(AppDestination.SavedDevices, selected) }
+	}
+
+	@Test
 	fun narrowDesktopWindowKeepsDesktopSourceListNavigation() = runComposeUiTest {
 		var selected = AppDestination.Send
 		setContent {
@@ -602,30 +687,25 @@ class FoundationComposeTest {
 	}
 
 	@Test
-	fun phoneSendEmptyStateOpensCreationDrawer() = runComposeUiTest {
-		val state = mutableStateOf(SendState())
+	fun phoneTransferComposerShowsSourceChoices() = runComposeUiTest {
 		setContent {
 			VniDropTheme(isDarkTheme = false) {
-				SendScreen(
-					coreState = CoreState(isInitialized = true),
-					state = state.value,
+				TransferComposer(
+					coreInitialized = true,
+					state = TransferDraftState(destination = TransferDraftDestination.Invitation),
 					windowClass = WindowClass.Phone,
-					onOpenComposer = { state.value = state.value.copy(isComposerOpen = true) },
-					onDismissComposer = {},
 					onSelectFile = {},
+					onSelectFolder = {},
 					onClearFile = {},
+					onRemoveFile = {},
 					onTransferNameChanged = {},
 					onSenderNameChanged = {},
 					onAccessPolicyChanged = {},
-					onCreateShare = {},
-					onTransferSelected = {},
-					onCloseTransferDetails = {},
-					onCopyTicket = {},
+					onSubmit = {},
 				)
 			}
 		}
 
-		onNodeWithText(Res.string.button_create_new_transfer.value).performClick()
 		onNodeWithText(Res.string.send_choose_file_title.value).assertIsDisplayed()
 		onNodeWithText(Res.string.button_choose_files.value).assertIsDisplayed()
 	}
@@ -635,26 +715,23 @@ class FoundationComposeTest {
 		var selectedPolicy: ShareAccessPolicy? = null
 		setContent {
 			VniDropTheme(isDarkTheme = false) {
-				SendScreen(
-					coreState = CoreState(isInitialized = true),
-					state = SendState(
-						isComposerOpen = true,
-						selectedFiles = listOf(PickedShareFile("/tmp/photos.zip", "photos.zip", 1536UL)),
+				TransferComposer(
+					coreInitialized = true,
+					state = TransferDraftState(
+						destination = TransferDraftDestination.Invitation,
+						sources = listOf(TransferDraftSource(DraftSourceId("source-1"), "photos.zip", 1536UL, null, false)),
 						transferName = "photos.zip",
 						senderName = "Sender",
 					),
 					windowClass = WindowClass.Desktop,
-					onOpenComposer = {},
-					onDismissComposer = {},
 					onSelectFile = {},
+					onSelectFolder = {},
 					onClearFile = {},
+					onRemoveFile = {},
 					onTransferNameChanged = {},
 					onSenderNameChanged = {},
 					onAccessPolicyChanged = { selectedPolicy = it },
-					onCreateShare = {},
-					onTransferSelected = {},
-					onCloseTransferDetails = {},
-					onCopyTicket = {},
+					onSubmit = {},
 				)
 			}
 		}
@@ -674,13 +751,6 @@ class FoundationComposeTest {
 					state = SendState(),
 					windowClass = WindowClass.Phone,
 					onOpenComposer = {},
-					onDismissComposer = {},
-					onSelectFile = {},
-					onClearFile = {},
-					onTransferNameChanged = {},
-					onSenderNameChanged = {},
-					onAccessPolicyChanged = {},
-					onCreateShare = {},
 					onTransferSelected = { selectedId = it },
 					onCloseTransferDetails = {},
 					onCopyTicket = {},
@@ -704,9 +774,7 @@ class FoundationComposeTest {
 					coreState = CoreState(isInitialized = true, transfers = listOf(outgoingTransfer())),
 					state = state.value,
 					windowClass = WindowClass.Desktop,
-					onOpenComposer = {}, onDismissComposer = {}, onSelectFile = {}, onClearFile = {},
-					onTransferNameChanged = {}, onSenderNameChanged = {}, onAccessPolicyChanged = {},
-					onCreateShare = {}, onTransferSelected = {}, onCloseTransferDetails = {}, onCopyTicket = {},
+					onOpenComposer = {}, onTransferSelected = {}, onCloseTransferDetails = {}, onCopyTicket = {},
 					onShare = { state.value = state.value.copy(detailPanel = com.vnidrop.app.feature.send.TransferDetailPanel.Share) },
 				)
 			}
@@ -736,9 +804,7 @@ class FoundationComposeTest {
 						detailPanel = com.vnidrop.app.feature.send.TransferDetailPanel.Share,
 					),
 					windowClass = WindowClass.Desktop,
-					onOpenComposer = {}, onDismissComposer = {}, onSelectFile = {}, onClearFile = {},
-					onTransferNameChanged = {}, onSenderNameChanged = {}, onAccessPolicyChanged = {},
-					onCreateShare = {}, onTransferSelected = {}, onCloseTransferDetails = {}, onCopyTicket = {},
+					onOpenComposer = {}, onTransferSelected = {}, onCloseTransferDetails = {}, onCopyTicket = {},
 				)
 			}
 		}
@@ -763,9 +829,7 @@ class FoundationComposeTest {
 						detailPanel = com.vnidrop.app.feature.send.TransferDetailPanel.Share,
 					),
 					windowClass = WindowClass.Desktop,
-					onOpenComposer = {}, onDismissComposer = {}, onSelectFile = {}, onClearFile = {},
-					onTransferNameChanged = {}, onSenderNameChanged = {}, onAccessPolicyChanged = {},
-					onCreateShare = {}, onTransferSelected = {}, onCloseTransferDetails = {}, onCopyTicket = {},
+					onOpenComposer = {}, onTransferSelected = {}, onCloseTransferDetails = {}, onCopyTicket = {},
 				)
 			}
 		}

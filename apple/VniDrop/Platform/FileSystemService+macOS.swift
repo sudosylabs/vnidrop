@@ -39,15 +39,45 @@ struct MacFileSystemService: FileSystemService {
 		files: [PickedShareFile],
 		transferName: String,
 		senderName: String,
-		accessPolicy: ShareAccessPolicy
+		destination: ShareDestination
 	) async -> Result<Share, Error> {
 		guard !files.isEmpty else {
 			return .failure(InvitationError.shareEmpty)
 		}
-		// Re-acquire security-scoped access to every picked source (from the bookmark
-		// captured at pick time) and hold it across the whole share call. The core
-		// imports the bytes during shareFiles(), so access only needs to survive that
-		// call; without this, the import fails with EPERM under the App Store sandbox.
+		guard case .invitation(let accessPolicy) = destination else {
+			return .failure(InvitationError.unsupportedOperation)
+		}
+		return await withScopedSources(files) { sources in
+			await repository.shareSources(
+				sources, transferName: transferName, senderName: senderName, accessPolicy: accessPolicy
+			)
+		}
+	}
+
+	func sendPickedFilesToSavedDevice(
+		preparation: any TargetedTransferPreparationGateway,
+		files: [PickedShareFile],
+		transferName: String
+	) async -> Result<TargetedTransferModel, Error> {
+		guard !files.isEmpty else {
+			return .failure(InvitationError.shareEmpty)
+		}
+		return await withScopedSources(files) { sources in
+			await preparation.send(
+				sources: sources,
+				transferName: transferName.isEmpty ? nil : transferName
+			)
+		}
+	}
+
+	/// Re-acquires security-scoped access to every picked source (from the bookmark
+	/// captured at pick time) and holds it across `body`. The core imports the bytes
+	/// during that call, so access only needs to survive it; without this the import
+	/// fails with EPERM under the App Store sandbox.
+	private func withScopedSources<T>(
+		_ files: [PickedShareFile],
+		_ body: ([ShareSource]) async -> Result<T, Error>
+	) async -> Result<T, Error> {
 		var scopedURLs: [URL] = []
 		for file in files {
 			guard let bookmark = file.securityScopeBookmark else { continue }
@@ -63,9 +93,7 @@ struct MacFileSystemService: FileSystemService {
 		let sources = files.map {
 			ShareSource(kind: .path, value: $0.value, displayName: $0.displayName, isDirectory: $0.isDirectory)
 		}
-		return await repository.shareSources(
-			sources, transferName: transferName, senderName: senderName, accessPolicy: accessPolicy
-		)
+		return await body(sources)
 	}
 }
 #endif

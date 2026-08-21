@@ -3,6 +3,12 @@ import VnidropCore
 
 /// Maps technical failures to stable, user-facing catalog keys. Ported from
 /// `ui/feedback/UserFacingError.kt`. Never exposes raw `reason=` blobs.
+/// How an offered transfer ended without being accepted.
+enum OfferRefusal {
+	case declined
+	case noAnswer
+}
+
 extension Error {
 	func toUiText() -> UiText {
 		if let invitation = self as? InvitationError {
@@ -24,6 +30,10 @@ extension Error {
 				return .resource(L10n.Error.storageFull)
 			case .Network:
 				return .resource(L10n.Error.network)
+			case .DeviceUnavailable, .RelayPolicyIncompatible:
+				return .resource(L10n.Error.network)
+			case .OfferTimeout, .ProtocolIncompatible:
+				return .resource(L10n.Error.transfer)
 			case .Transfer(let reason):
 				return transferUiText(reason)
 			case .Repository:
@@ -32,6 +42,12 @@ extension Error {
 				return .resource(L10n.Error.generic)
 			case .InvalidInput:
 				return .resource(L10n.Error.invalidInput)
+			case .InvalidTransition:
+				return .resource(L10n.Error.invalidInput)
+			case .SecureStorageLocked, .SecureStorageUnavailable:
+				return .resource(L10n.Error.startingUp)
+			case .SecureStorageMissing, .SecureStorageCorrupted:
+				return .resource(L10n.Error.generic)
 			case .Initialization(let reason):
 				return initializationUiText(reason)
 			case .Internal(let reason):
@@ -57,14 +73,31 @@ extension Error {
 			|| haystack.contains("user canceled")
 	}
 
+	/// The other device answered, and the answer was no.
+	///
+	/// Not a failure of this device: the offer was delivered and a person
+	/// declined it, so it is reported as information rather than an error.
+	var offerRefusal: OfferRefusal? {
+		let haystack = technicalDetail.lowercased()
+		if haystack.contains("receiver-declined") || haystack.contains("declined-recently") {
+			return .declined
+		}
+		if haystack.contains("no-response") { return .noAnswer }
+		return nil
+	}
+
 	/// Prefers a `VnidropError` reason; else the localized description.
 	var technicalDetail: String {
 		if let vni = self as? VnidropError {
 			switch vni {
 			case .Initialization(let r), .Ticket(let r), .Filesystem(let r), .FilesystemPermission(let r),
 				 .DestinationExists(let r), .StorageFull(let r), .Network(let r),
+				 .DeviceUnavailable(let r), .OfferTimeout(let r),
+				 .RelayPolicyIncompatible(let r), .ProtocolIncompatible(let r),
 				 .Transfer(let r), .Permission(let r), .Repository(let r), .Cancelled(let r),
-				 .InvalidInput(let r), .Internal(let r):
+				 .InvalidInput(let r), .InvalidTransition(let r), .SecureStorageLocked(let r),
+				 .SecureStorageMissing(let r), .SecureStorageCorrupted(let r),
+				 .SecureStorageUnavailable(let r), .Internal(let r):
 				return r
 			}
 		}
@@ -74,7 +107,9 @@ extension Error {
 	var canRetryWithoutChangingInput: Bool {
 		guard let vni = self as? VnidropError else { return true }
 		switch vni {
-		case .FilesystemPermission, .DestinationExists, .InvalidInput: return false
+		case .FilesystemPermission, .DestinationExists, .InvalidInput,
+			 .SecureStorageMissing, .SecureStorageCorrupted:
+			return false
 		default: return true
 		}
 	}

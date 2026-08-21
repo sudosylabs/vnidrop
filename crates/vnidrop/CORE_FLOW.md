@@ -36,15 +36,68 @@ bytes through Kotlin memory.
 5. Only `vnd1:` VniDrop tickets are accepted. Raw iroh `BlobTicket` strings are
    rejected at parse time so receive always runs the approval handshake.
 
+## Saved Devices And Targeted Transfers
+
+1. A completed authenticated invitation transfer creates a short-lived pairing
+   eligibility. Both devices must explicitly consent before either relationship
+   becomes `Saved`; decline, forget, block, expiry, or replay cannot save it.
+2. A saved device's remote display name comes from authenticated transfer
+   metadata and may refresh after later authenticated transfers. A local label
+   is private to this installation, takes display precedence in the UI, and is
+   preserved independently across restart and schema migration.
+3. `new_targeted_transfer_preparation` creates a one-shot sender preparation.
+   Its `send` operation imports an immutable manifest, returns the durable
+   identity after registration, and sends only a receiver-bound offer. Approval
+   stores protected authorization in core custody; targeted work creates no
+   invitation history, receiver approval request, invitation delivery receipt,
+   received-artifact row, or pairing eligibility.
+4. Targeted blobs are default-deny and scoped to the intended saved endpoint.
+   Knowing a transfer id, manifest hash, member hash, or blob address does not
+   authorize another device to discover, approve, or download the payload.
+5. Approved receives use the same streaming, no-overwrite paths, and output-sink
+   terminal-callback guarantees as invitation receives. Verified progress is
+   monotonic and bounded; interrupted work and protected authorization resume
+   after restart without another approval.
+6. Receiver completion is durable locally and acknowledged to the sender with
+   idempotent retry. Targeted cancel and delete synchronously signal local active
+   work before durable cleanup; forget and block revoke affected relationships
+   and active targeted work within their core operation. All four durably deny
+   reuse and perform idempotent payload/secret cleanup.
+7. A missing or corrupted endpoint credential remains fail-closed during normal
+   startup. The explicit pre-start identity-reset constructor accepts only that
+   unrecoverable state, atomically invalidates identity-bound relationships,
+   eligibility, targeted authorization, and retry state, then creates a new
+   protected identity. Transfer history and received files remain; old active
+   Invitation transfers are stopped and Saved devices must be paired again.
+8. Saved devices, relationships, pairing eligibility, and targeted transfers are
+   shipped Rust core domains. Graduating the KMP and Apple Saved-device UI and
+   their existing experimental preference gates is outside this release gate.
+
 ## Core States And Events
 
 - Transfer statuses: `sharing`, `receiving`, `done`, `failed`, `cancelled`,
   `stopped`.
 - Main event phases: `endpoint`, `import`, `ticket`, `handshake`, `approval`,
-  `access`, `transfer`, `download`, `export`, `delivery`, `lifecycle`, `error`.
+  `access`, `transfer`, `download`, `export`, `delivery`, `lifecycle`, `error`,
+  `pairing`, and `targeted_transfer` (see catalog below).
 - Events are sent to `CoreEventSink` immediately and persisted through the event
   hub. `list_events` flushes queued persistence before reading SQLite.
 - `shutdown()` is idempotent and flushes events before stopping the router.
+
+### Pairing and targeted-transfer event catalog
+
+Treat every event as a wake-up: refresh durable state via list/get APIs.
+Targeted progress updates persist monotonic `verified_bytes`; Targeted events
+are refresh hints and the durable targeted-transfer snapshot is authoritative.
+
+**`pairing`:** `eligibility-available`, `eligibility-removed`,
+`relationship-changed`, `relationship-grant-rotated`, `saved-device-forgotten`,
+`device-blocked`.
+
+**`targeted_transfer`:** `offer-received`, `approved`, `offer-declined`,
+`created`, `offering`, `awaiting-approval`, `connecting`, `transferring`,
+`progress`, `interrupted`, `completed`, `cancelled`, `failed`, `deleted`.
+Domain contract v2 does not transport transfer identity in these event payloads.
 
 ## Platform File Rules
 

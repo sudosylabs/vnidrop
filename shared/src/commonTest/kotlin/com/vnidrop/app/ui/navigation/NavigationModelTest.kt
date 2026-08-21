@@ -9,10 +9,10 @@ class NavigationModelTest {
 	@Test
 	fun primaryNavigationContainsOnlyProductDestinations() {
 		assertEquals(
-			listOf(AppDestination.Send, AppDestination.Receive, AppDestination.Settings),
+			listOf(AppDestination.Send, AppDestination.Receive, AppDestination.SavedDevices, AppDestination.Settings),
 			primaryNavigationItems.map { it.destination },
 		)
-		assertEquals(3, primaryNavigationItems.map { it.label }.distinct().size)
+		assertEquals(4, primaryNavigationItems.map { it.label }.distinct().size)
 	}
 
 	@Test

@@ -7,7 +7,7 @@ use crate::{
     handshake::{
         DeliveryFailureReceipt, DeliveryReceipt, DeliveryReceiptResponse, HandshakeService,
     },
-    repository::PendingDeliveryReceipt,
+    invitation::PendingDeliveryReceipt,
     ticket::parse_persisted_sender_address,
 };
 

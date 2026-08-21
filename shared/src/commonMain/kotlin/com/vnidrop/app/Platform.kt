@@ -3,7 +3,6 @@ package com.vnidrop.app
 import com.vnidrop.app.core.FileSystemService
 import com.vnidrop.app.notifications.LocalNotificationService
 import com.vnidrop.app.feature.receive.ExternalInvitationController
-import com.vnidrop.app.background.BackgroundSharingController
 
 enum class UiPlatform {
 	Android,
@@ -35,11 +34,19 @@ fun interface DeviceInfoProvider {
 	suspend fun load(): DeviceInfo
 }
 
+fun interface BackgroundRuntimeKeeper {
+	fun setRequired(required: Boolean)
+
+	fun close() {
+		setRequired(false)
+	}
+}
+
 data class AppDependencies(
 	val environment: PlatformEnvironment,
 	val deviceInfoProvider: DeviceInfoProvider,
 	val fileSystemService: FileSystemService,
 	val localNotificationService: LocalNotificationService,
-	val backgroundSharingController: BackgroundSharingController,
 	val externalInvitations: ExternalInvitationController,
+	val backgroundRuntimeKeeper: BackgroundRuntimeKeeper,
 )

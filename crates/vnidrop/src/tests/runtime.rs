@@ -1,5 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
+use data_encoding::HEXLOWER;
+use iroh::SecretKey;
 use iroh_blobs::{
     provider::{
         events::{RequestUpdate, TransferCompleted},
@@ -9,16 +11,27 @@ use iroh_blobs::{
 };
 
 use crate::{
-    repository::{PendingDeliveryReceiptInsert, Repository, TransferUpsert},
-    runtime::{consume_request_updates, RequestStreamOutcome},
+    invitation::{PendingDeliveryReceiptInsert, Repository, TransferUpsert},
+    runtime::{consume_request_updates, CoreInner, IdentityMode, RequestStreamOutcome},
+    secure_secret::{
+        install_platform_secret_store_for_test, lock_profile, FaultInjectingSecretStore,
+    },
     transfer_state::{TransferDirection, TransferStatus},
-    CoreEvent, CoreEventSink, VnidropCore, VnidropError,
+    CoreEvent, CoreEventSink, CoreLimits, CoreRelayMode, VnidropCore, VnidropError,
 };
 
 struct TestSink;
 
 impl CoreEventSink for TestSink {
     fn on_event(&self, _event: CoreEvent) {}
+}
+
+fn install_protected_test_store(path: &std::path::Path) {
+    let canonical = std::fs::canonicalize(path).unwrap();
+    install_platform_secret_store_for_test(
+        &canonical,
+        Arc::new(FaultInjectingSecretStore::default()),
+    );
 }
 
 #[test]
@@ -55,6 +68,7 @@ fn provider_request_stream_distinguishes_success_from_silent_abort() {
 #[test]
 fn initializes_and_reports_endpoint() {
     let temp = tempfile::tempdir().unwrap();
+    install_protected_test_store(temp.path());
     let core = VnidropCore::initialize(
         temp.path().to_string_lossy().to_string(),
         Arc::new(TestSink),
@@ -66,8 +80,98 @@ fn initializes_and_reports_endpoint() {
 }
 
 #[test]
+fn all_standard_constructors_migrate_and_restart_one_protected_identity() {
+    let temp = tempfile::tempdir().unwrap();
+    let canonical = std::fs::canonicalize(temp.path()).unwrap();
+    let store = Arc::new(FaultInjectingSecretStore::default());
+    install_platform_secret_store_for_test(&canonical, store);
+    let original = SecretKey::generate();
+    let legacy = temp.path().join("iroh.secret");
+    std::fs::write(&legacy, HEXLOWER.encode(&original.to_bytes())).unwrap();
+    let path = temp.path().to_string_lossy().into_owned();
+    let network = || crate::CoreNetworkConfig {
+        mode: CoreRelayMode::LocalOnly,
+        relay_urls: Vec::new(),
+    };
+
+    type Constructor = Box<dyn FnOnce() -> Result<Arc<VnidropCore>, VnidropError>>;
+    let constructors: Vec<Constructor> = vec![
+        Box::new({
+            let path = path.clone();
+            move || VnidropCore::initialize(path, Arc::new(TestSink))
+        }),
+        Box::new({
+            let path = path.clone();
+            move || {
+                VnidropCore::initialize_with_limits(path, Arc::new(TestSink), CoreLimits::default())
+            }
+        }),
+        Box::new({
+            let path = path.clone();
+            move || VnidropCore::initialize_with_network_config(path, Arc::new(TestSink), network())
+        }),
+        Box::new(move || {
+            VnidropCore::initialize_with_limits_and_network_config(
+                path.clone(),
+                Arc::new(TestSink),
+                CoreLimits::default(),
+                network(),
+            )
+        }),
+    ];
+    for constructor in constructors {
+        let core = constructor().unwrap();
+        assert_eq!(core.status().endpoint_id, original.public().to_string());
+        assert!(!legacy.exists());
+        core.shutdown();
+        drop(core);
+    }
+}
+
+#[tokio::test]
+async fn protected_runtime_restart_preserves_identity_without_plaintext_fallback() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = Arc::new(FaultInjectingSecretStore::default());
+    let first = CoreInner::start(
+        temp.path().to_path_buf(),
+        Arc::new(TestSink),
+        CoreLimits::default(),
+        CoreRelayMode::LocalOnly,
+        Vec::new(),
+        IdentityMode::Protected {
+            store: store.clone(),
+            profile_lock: lock_profile(temp.path()).unwrap(),
+        },
+    )
+    .await
+    .unwrap();
+    let endpoint_id = first.endpoint.id();
+    first.shutdown().await;
+    drop(first);
+
+    let restarted = CoreInner::start(
+        temp.path().to_path_buf(),
+        Arc::new(TestSink),
+        CoreLimits::default(),
+        CoreRelayMode::LocalOnly,
+        Vec::new(),
+        IdentityMode::Protected {
+            store,
+            profile_lock: lock_profile(temp.path()).unwrap(),
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(restarted.endpoint.id(), endpoint_id);
+    assert!(!temp.path().join("iroh.secret").exists());
+    restarted.shutdown().await;
+}
+
+#[test]
 fn invalid_receive_ticket_is_typed_and_persisted_as_event() {
     let temp = tempfile::tempdir().unwrap();
+    install_protected_test_store(temp.path());
     let core = VnidropCore::initialize(
         temp.path().to_string_lossy().to_string(),
         Arc::new(TestSink),
@@ -93,6 +197,7 @@ fn invalid_receive_ticket_is_typed_and_persisted_as_event() {
 #[test]
 fn startup_recovers_interrupted_transfer_and_persists_event() {
     let temp = tempfile::tempdir().unwrap();
+    install_protected_test_store(temp.path());
     let preparation_runtime = tokio::runtime::Runtime::new().unwrap();
     preparation_runtime.block_on(async {
         let repository = Repository::open(temp.path()).await.unwrap();
@@ -103,6 +208,7 @@ fn startup_recovers_interrupted_transfer_and_persists_event() {
                 direction: TransferDirection::Receive,
                 status: TransferStatus::Receiving,
                 transfer_name: Some("interrupted"),
+                sender_name: None,
                 content_hash: Some("hash"),
                 ticket: None,
                 file_count: 1,
@@ -139,6 +245,7 @@ fn startup_recovers_interrupted_transfer_and_persists_event() {
 #[test]
 fn startup_processes_persisted_delivery_receipts() {
     let temp = tempfile::tempdir().unwrap();
+    install_protected_test_store(temp.path());
     let preparation_runtime = tokio::runtime::Runtime::new().unwrap();
     preparation_runtime.block_on(async {
         let repository = Repository::open(temp.path()).await.unwrap();
@@ -149,6 +256,7 @@ fn startup_processes_persisted_delivery_receipts() {
                 direction: TransferDirection::Receive,
                 status: TransferStatus::Receiving,
                 transfer_name: Some("completed receive"),
+                sender_name: None,
                 content_hash: Some("hash"),
                 ticket: None,
                 file_count: 1,
@@ -197,6 +305,7 @@ fn startup_processes_persisted_delivery_receipts() {
 #[test]
 fn startup_fails_persisted_share_when_root_blob_is_missing() {
     let temp = tempfile::tempdir().unwrap();
+    install_protected_test_store(temp.path());
     let preparation_runtime = tokio::runtime::Runtime::new().unwrap();
     preparation_runtime.block_on(async {
         let repository = Repository::open(temp.path()).await.unwrap();
@@ -208,6 +317,7 @@ fn startup_fails_persisted_share_when_root_blob_is_missing() {
                 direction: TransferDirection::Send,
                 status: TransferStatus::Sharing,
                 transfer_name: Some("missing blob"),
+                sender_name: None,
                 content_hash: Some(&missing_hash),
                 ticket: Some("ticket"),
                 file_count: 1,

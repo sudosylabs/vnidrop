@@ -80,6 +80,11 @@ struct SettingsScreen: View {
 
 	@ViewBuilder
 	private func sectionForm(_ section: SettingsSection) -> some View {
+		settingsSectionForm(section)
+	}
+
+	@ViewBuilder
+	private func settingsSectionForm(_ section: SettingsSection) -> some View {
 		let content = Form {
 			SettingsSectionContent(model: model, section: section)
 		}

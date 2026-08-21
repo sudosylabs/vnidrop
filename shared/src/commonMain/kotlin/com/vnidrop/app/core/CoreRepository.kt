@@ -18,23 +18,37 @@ import uniffi.vnidrop.CoreEvent
 import uniffi.vnidrop.CoreEventSink
 import uniffi.vnidrop.CoreNetworkConfig
 import uniffi.vnidrop.CoreRelayMode
+import uniffi.vnidrop.DeviceRelationship
+import uniffi.vnidrop.DeviceRelationshipState
+import uniffi.vnidrop.PairingEligibilitySummary
+import uniffi.vnidrop.PendingTargetedOffer
 import uniffi.vnidrop.ReceiveOutputSink
 import uniffi.vnidrop.ReceiveOutputSinkV2
 import uniffi.vnidrop.ReceiverRequest
+import uniffi.vnidrop.RuntimeObligationFacts
+import uniffi.vnidrop.SavedDevice
 import uniffi.vnidrop.ShareMetadataInput
 import uniffi.vnidrop.ShareResult
 import uniffi.vnidrop.ShareSource
 import uniffi.vnidrop.SourceKind
 import uniffi.vnidrop.StoredTransfer
+import uniffi.vnidrop.TargetedOfferResponse
+import uniffi.vnidrop.TargetedPreparationStopOutcome
+import uniffi.vnidrop.TargetedTransfer
+import uniffi.vnidrop.TargetedTransferPreparation
+import uniffi.vnidrop.TargetedTransferRole
+import uniffi.vnidrop.TargetedTransferState
 import uniffi.vnidrop.TicketInspection
 import uniffi.vnidrop.TransferMetadata
 import uniffi.vnidrop.TransferAccessMode
 import uniffi.vnidrop.VnidropCore
 import uniffi.vnidrop.clearInactiveTransferCache
+import uniffi.vnidrop.defaultCoreLimits
 import uniffi.vnidrop.defaultCoreNetworkConfig
 
-class CoreRepository(
+class CoreRepository internal constructor(
 	private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
+	private val coreFactory: CoreFactory = ProtectedCoreFactory,
 ) : CoreGateway {
 	private val _state = MutableStateFlow(CoreState())
 	override val state: StateFlow<CoreState> = _state.asStateFlow()
@@ -54,15 +68,12 @@ class CoreRepository(
 		override fun onEvent(event: CoreEvent) {
 			val model = event.toModel()
 			_state.update { current -> current.copy(events = (listOf(model) + current.events).take(MaxEvents)) }
+			for (signal in signalsForCoreEvent(model.phase, model.transferId)) {
+				_signals.tryEmit(signal)
+			}
 			val transferId = model.transferId
-			if (transferId != null) {
-				when (model.phase) {
-					"approval", "access" -> _signals.tryEmit(CoreSignal.ApprovalChanged(transferId))
-					"delivery" -> _signals.tryEmit(CoreSignal.ReceiverHistoryChanged(transferId))
-				}
-				if (model.shouldRefreshTransfers()) {
-					_signals.tryEmit(CoreSignal.TransfersChanged(transferId))
-				}
+			if (transferId != null && model.shouldRefreshTransfers()) {
+				_signals.tryEmit(CoreSignal.TransfersChanged(transferId))
 			}
 		}
 	}
@@ -79,7 +90,7 @@ class CoreRepository(
 			_state.update { it.copy(isInitialized = false, status = null) }
 			core = null
 			disposeCore(previousCore)
-			core = VnidropCore.initializeWithNetworkConfig(appDataDir, sink, relaySettings.toNative())
+			core = createCore(appDataDir, relaySettings)
 			currentAppDataDir = appDataDir
 			currentRelaySettings = relaySettings
 			refreshSnapshot(requireCore())
@@ -190,7 +201,7 @@ class CoreRepository(
 		try {
 			reclaimed = clearInactiveTransferCache(appDataDir)
 		} finally {
-			core = VnidropCore.initializeWithNetworkConfig(appDataDir, sink, relaySettings.toNative())
+			core = createCore(appDataDir, relaySettings)
 			refreshSnapshot(requireCore())
 			_state.update { it.copy(isInitialized = true) }
 		}
@@ -206,6 +217,9 @@ class CoreRepository(
 			activeCore.close()
 		}
 	}
+
+	private fun createCore(appDataDir: String, relaySettings: RelaySettings): VnidropCore =
+		coreFactory.create(appDataDir, sink, relaySettings)
 
 	override suspend fun receivedArtifacts(): Result<List<ReceivedArtifactModel>> = runCore { activeCore ->
 		activeCore.listReceivedArtifacts().map { artifact ->
@@ -250,6 +264,121 @@ class CoreRepository(
 
 	override suspend fun refresh(): Result<Unit> = runCore(::refreshSnapshot)
 
+	override suspend fun listPairingEligibilities(): Result<List<PairingEligibilityModel>> = runCore { activeCore ->
+		activeCore.listPairingEligibilities().map { it.toModel() }
+	}
+
+	override suspend fun declinePairingEligibility(peerEndpointId: String): Result<Unit> = runCore { activeCore ->
+		activeCore.declinePairingEligibility(peerEndpointId)
+	}
+
+	override suspend fun requestSavedDevicePairing(peerEndpointId: String): Result<Boolean> = runCore { activeCore ->
+		activeCore.requestSavedDevicePairing(peerEndpointId)
+	}
+
+	override suspend fun respondToDevicePairing(peerEndpointId: String, accepted: Boolean): Result<Boolean> =
+		runCore { activeCore ->
+			activeCore.respondToDevicePairing(peerEndpointId, accepted)
+		}
+
+	override suspend fun listDeviceRelationships(): Result<List<DeviceRelationshipModel>> = runCore { activeCore ->
+		activeCore.listDeviceRelationships().map { it.toModel() }
+	}
+
+	override suspend fun listSavedDevices(): Result<List<SavedDeviceModel>> = runCore { activeCore ->
+		activeCore.listSavedDevices().map { it.toModel() }
+	}
+
+	override suspend fun setSavedDeviceLabel(peerEndpointId: String, label: String?): Result<Unit> = runCore { activeCore ->
+		activeCore.setSavedDeviceLabel(peerEndpointId, label)
+	}
+
+	override suspend fun forgetSavedDevice(peerEndpointId: String): Result<Unit> = runCore { activeCore ->
+		activeCore.forgetSavedDevice(peerEndpointId)
+	}
+
+	override suspend fun blockDevice(peerEndpointId: String): Result<Unit> = runCore { activeCore ->
+		activeCore.blockDevice(peerEndpointId)
+	}
+
+	override suspend fun unblockDevice(peerEndpointId: String): Result<Unit> = runCore { activeCore ->
+		activeCore.unblockDevice(peerEndpointId)
+	}
+
+	override suspend fun listBlockedDevices(): Result<List<String>> = runCore { activeCore ->
+		activeCore.listBlockedDevices()
+	}
+
+	override suspend fun listPendingTargetedOffers(): Result<List<PendingTargetedOfferModel>> = runCore { activeCore ->
+		activeCore.listPendingTargetedOffers().map { it.toModel() }
+	}
+
+	override suspend fun respondToTargetedOffer(
+		transferId: String,
+		accepted: Boolean,
+	): Result<TargetedOfferResponseModel> = runCore { activeCore ->
+		activeCore.respondToTargetedOffer(transferId, accepted).toModel()
+	}
+
+	override suspend fun newTargetedTransferPreparation(
+		receiverEndpointId: String,
+	): Result<TargetedTransferPreparationGateway> = runCore { activeCore ->
+		CoreTargetedTransferPreparation(
+			owner = activeCore,
+			native = activeCore.newTargetedTransferPreparation(receiverEndpointId),
+		)
+	}
+
+	override suspend fun runtimeObligationFacts(): Result<RuntimeObligationFactsModel> = runCore { activeCore ->
+		activeCore.runtimeObligationFacts().toModel()
+	}
+
+	override suspend fun getTargetedTransfer(id: String): Result<TargetedTransferModel?> = runCore { activeCore ->
+		activeCore.getTargetedTransfer(id)?.toModel()
+	}
+
+	override suspend fun listTargetedTransfers(): Result<List<TargetedTransferModel>> = runCore { activeCore ->
+		activeCore.listTargetedTransfers().map { it.toModel() }
+	}
+
+	override suspend fun receiveTargetedTransfer(transferId: String, outputDir: String): Result<Unit> =
+		runCore { activeCore ->
+			activeCore.receiveTargetedTransfer(transferId, outputDir)
+		}
+
+	override suspend fun receiveTargetedTransferWithOutputSink(
+		transferId: String,
+		outputSink: ReceiveOutputSink,
+	): Result<Unit> = runCore { activeCore ->
+		activeCore.receiveTargetedTransferWithOutputSink(transferId, outputSink)
+	}
+
+	override suspend fun receiveTargetedTransferWithOutputSinkV2(
+		transferId: String,
+		outputSink: ReceiveOutputSinkV2,
+	): Result<Unit> = runCore { activeCore ->
+		activeCore.receiveTargetedTransferWithOutputSinkV2(transferId, outputSink)
+	}
+
+	override suspend fun resumeTargetedTransfer(id: String, outputDir: String): Result<Unit> = runCore { activeCore ->
+		activeCore.resumeTargetedTransfer(id, outputDir)
+	}
+
+	override suspend fun resumeTargetedTransferWithOutputSinkV2(
+		id: String,
+		outputSink: ReceiveOutputSinkV2,
+	): Result<Unit> = runCore { activeCore ->
+		activeCore.resumeTargetedTransferWithOutputSinkV2(id, outputSink)
+	}
+
+	override suspend fun cancelTargetedTransfer(id: String): Result<Unit> = runCore { activeCore ->
+		activeCore.cancelTargetedTransfer(id)
+	}
+
+	override suspend fun deleteTargetedTransfer(id: String): Result<Unit> = runCore { activeCore ->
+		activeCore.deleteTargetedTransfer(id)
+	}
+
 	override suspend fun shareSources(
 		sources: List<ShareSource>,
 		transferName: String,
@@ -283,6 +412,29 @@ class CoreRepository(
 		return withPlatformPathAccess(source.kind, source.value) {
 			withPlatformPathAccess(sources, index + 1, block)
 		}
+	}
+
+	private inner class CoreTargetedTransferPreparation(
+		private val owner: VnidropCore,
+		private val native: TargetedTransferPreparation,
+	) : TargetedTransferPreparationGateway {
+		override suspend fun send(
+			sources: List<ShareSource>,
+			transferName: String?,
+		): Result<TargetedTransferModel> = runCore { activeCore ->
+			check(activeCore === owner) { "The core changed during targeted transfer preparation" }
+			require(sources.isNotEmpty()) { "Select at least one file to share" }
+			withPlatformPathAccess(sources) {
+				native.send(sources, transferName).toModel()
+			}
+		}
+
+		override suspend fun stop(): Result<TargetedPreparationStopOutcomeModel> = runCore { activeCore ->
+			check(activeCore === owner) { "The core changed during targeted transfer preparation" }
+			native.stop().toModel()
+		}
+
+		override fun close() = native.close()
 	}
 
 	private fun refreshSnapshot(activeCore: VnidropCore) {
@@ -330,6 +482,23 @@ class CoreRepository(
 	}
 }
 
+internal fun interface CoreFactory {
+	fun create(appDataDir: String, eventSink: CoreEventSink, relaySettings: RelaySettings): VnidropCore
+}
+
+private object ProtectedCoreFactory : CoreFactory {
+	override fun create(
+		appDataDir: String,
+		eventSink: CoreEventSink,
+		relaySettings: RelaySettings,
+	): VnidropCore = VnidropCore.initializeWithLimitsAndNetworkConfig(
+		appDataDir,
+		eventSink,
+		defaultCoreLimits(),
+		relaySettings.toNative(),
+	)
+}
+
 private fun RelaySettings.toNative(): CoreNetworkConfig = when (mode) {
 	RelayMode.Automatic -> defaultCoreNetworkConfig()
 	RelayMode.StrictCustom -> CoreNetworkConfig(
@@ -348,6 +517,7 @@ private fun RelaySettings.toNative(): CoreNetworkConfig = when (mode) {
 
 private fun CoreEvent.toModel(): CoreEventModel = CoreEventModel(
 	id = id,
+	revision = revision,
 	timestamp = timestamp,
 	scope = scope,
 	transferId = transferId,
@@ -452,3 +622,106 @@ private fun ReceiverRequest.toModel(): ReceiverRequestModel = ReceiverRequestMod
 	respondedAt = respondedAt,
 	completedAt = completedAt,
 )
+
+private fun PairingEligibilitySummary.toModel(): PairingEligibilityModel = PairingEligibilityModel(
+	peerEndpointId = peerEndpointId,
+	remoteDisplayName = remoteDisplayName,
+	sessionId = sessionId,
+	protocolVersion = protocolVersion,
+	createdAt = createdAt,
+	expiresAt = expiresAt,
+)
+
+private fun DeviceRelationship.toModel(): DeviceRelationshipModel = DeviceRelationshipModel(
+	remoteEndpointId = remoteEndpointId,
+	state = state.toModel(),
+	generation = generation,
+	minimumProtocolVersion = minimumProtocolVersion,
+	createdAt = createdAt,
+	updatedAt = updatedAt,
+)
+
+private fun DeviceRelationshipState.toModel(): DeviceRelationshipStateModel = when (this) {
+	DeviceRelationshipState.PENDING_OUTGOING -> DeviceRelationshipStateModel.PendingOutgoing
+	DeviceRelationshipState.PENDING_INCOMING -> DeviceRelationshipStateModel.PendingIncoming
+	DeviceRelationshipState.SAVED -> DeviceRelationshipStateModel.Saved
+	DeviceRelationshipState.REVOKED -> DeviceRelationshipStateModel.Revoked
+	DeviceRelationshipState.BLOCKED -> DeviceRelationshipStateModel.Blocked
+}
+
+private fun SavedDevice.toModel(): SavedDeviceModel = SavedDeviceModel(
+	endpointId = endpointId,
+	localLabel = localLabel,
+	remoteDisplayName = remoteDisplayName,
+	createdAt = createdAt,
+	lastAuthenticatedAt = lastAuthenticatedAt,
+)
+
+private fun PendingTargetedOffer.toModel(): PendingTargetedOfferModel = PendingTargetedOfferModel(
+	transferId = transferId,
+	senderEndpointId = senderEndpointId,
+	receiverEndpointId = receiverEndpointId,
+	manifestId = manifestId,
+	contentHash = contentHash,
+	transferName = transferName,
+	fileCount = fileCount,
+	totalSize = totalSize,
+	protocolVersion = protocolVersion,
+	receivedAt = receivedAt,
+)
+
+private fun TargetedTransfer.toModel(): TargetedTransferModel = TargetedTransferModel(
+	id = id,
+	role = role.toModel(),
+	senderEndpointId = senderEndpointId,
+	receiverEndpointId = receiverEndpointId,
+	manifestId = manifestId,
+	transferName = transferName,
+	fileCount = fileCount,
+	totalSize = totalSize,
+	verifiedBytes = verifiedBytes,
+	state = state.toModel(),
+	createdAt = createdAt,
+	updatedAt = updatedAt,
+)
+
+private fun TargetedTransferRole.toModel(): TargetedTransferRoleModel = when (this) {
+	TargetedTransferRole.SENDER -> TargetedTransferRoleModel.Sender
+	TargetedTransferRole.RECEIVER -> TargetedTransferRoleModel.Receiver
+}
+
+private fun TargetedTransferState.toModel(): TargetedTransferStateModel = when (this) {
+	TargetedTransferState.PREPARING -> TargetedTransferStateModel.Preparing
+	TargetedTransferState.OFFERING -> TargetedTransferStateModel.Offering
+	TargetedTransferState.AWAITING_APPROVAL -> TargetedTransferStateModel.AwaitingApproval
+	TargetedTransferState.APPROVED -> TargetedTransferStateModel.Approved
+	TargetedTransferState.CONNECTING -> TargetedTransferStateModel.Connecting
+	TargetedTransferState.TRANSFERRING -> TargetedTransferStateModel.Transferring
+	TargetedTransferState.INTERRUPTED -> TargetedTransferStateModel.Interrupted
+	TargetedTransferState.COMPLETED -> TargetedTransferStateModel.Completed
+	TargetedTransferState.DECLINED -> TargetedTransferStateModel.Declined
+	TargetedTransferState.CANCELLED -> TargetedTransferStateModel.Cancelled
+	TargetedTransferState.FAILED -> TargetedTransferStateModel.Failed
+	TargetedTransferState.DELETED -> TargetedTransferStateModel.Deleted
+}
+
+private fun RuntimeObligationFacts.toModel(): RuntimeObligationFactsModel = RuntimeObligationFactsModel(
+	activeInvitationTransfers = activeInvitationTransfers,
+	invitationProviderAvailability = invitationProviderAvailability,
+	targetedPreparations = targetedPreparations,
+	activeTargetedTransfers = activeTargetedTransfers,
+	targetedProviderAvailability = targetedProviderAvailability,
+)
+
+private fun TargetedPreparationStopOutcome.toModel(): TargetedPreparationStopOutcomeModel = when (this) {
+	TargetedPreparationStopOutcome.PREPARATION_STOPPED -> TargetedPreparationStopOutcomeModel.PreparationStopped
+	TargetedPreparationStopOutcome.TRANSFER_ABANDONED -> TargetedPreparationStopOutcomeModel.TransferAbandoned
+	TargetedPreparationStopOutcome.TRANSFER_CANCELLED -> TargetedPreparationStopOutcomeModel.TransferCancelled
+	TargetedPreparationStopOutcome.ALREADY_TERMINAL -> TargetedPreparationStopOutcomeModel.AlreadyTerminal
+}
+
+private fun TargetedOfferResponse.toModel(): TargetedOfferResponseModel = when (this) {
+	is TargetedOfferResponse.Approved -> TargetedOfferResponseModel.Approved(transferId)
+	TargetedOfferResponse.Declined -> TargetedOfferResponseModel.Declined
+	is TargetedOfferResponse.AlreadySettled -> TargetedOfferResponseModel.AlreadySettled(transferId)
+}

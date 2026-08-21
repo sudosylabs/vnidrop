@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 data class AppState(
 	val destination: AppDestination = AppDestination.Send,
 	val themeMode: ThemeMode = ThemeMode.System,
+	/** True after the first core initialize attempt finishes (success or failure). */
+	val startupSettled: Boolean = false,
 )
 
 class AppGraphViewModel(dependencies: AppDependencies) : ViewModel() {
@@ -46,6 +48,7 @@ class AppViewModel(
 		viewModelScope.launch {
 			val relaySettings = preferencesRepository.preferences.first().relaySettings
 			repository.initialize(environment.defaultCoreDataDir, relaySettings).onFailure(messages::error)
+			_state.update { it.copy(startupSettled = true) }
 		}
 		viewModelScope.launch {
 			preferencesRepository.preferences.collect { preferences ->

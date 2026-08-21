@@ -2,7 +2,6 @@ package com.vnidrop.app
 
 import com.vnidrop.app.core.CoreGateway
 import com.vnidrop.app.core.CoreRepository
-import com.vnidrop.app.background.BackgroundSharingCoordinator
 import com.vnidrop.app.diagnostics.DiagnosticsCoordinator
 import com.vnidrop.app.diagnostics.createDiagnosticsTransport
 import com.vnidrop.app.feature.approvals.ApprovalCoordinator
@@ -14,6 +13,7 @@ import com.vnidrop.app.platform.AppVisibility
 import com.vnidrop.app.preferences.AppPreferencesDefaults
 import com.vnidrop.app.preferences.AppPreferencesRepository
 import com.vnidrop.app.preferences.createAppPreferencesDataStore
+import com.vnidrop.app.runtime.RuntimeObligationCoordinator
 import com.vnidrop.app.ui.feedback.UiMessageController
 import com.vnidrop.app.ui.theme.ThemeMode
 import kotlinx.coroutines.CoroutineScope
@@ -67,10 +67,11 @@ class AppGraph(
 		messages = messages,
 		scope = applicationScope,
 	)
-	private val backgroundSharingCoordinator = BackgroundSharingCoordinator(
+	private val runtimeObligationCoordinator = RuntimeObligationCoordinator(
 		repository = coreRepository,
-		controller = dependencies.backgroundSharingController,
-		scope = applicationScope,
+		keeper = dependencies.backgroundRuntimeKeeper,
+		platform = dependencies.environment.uiPlatform,
+		applicationScope = applicationScope,
 	)
 
 	init {
@@ -79,7 +80,7 @@ class AppGraph(
 	}
 
 	fun close() {
-		backgroundSharingCoordinator.stop()
+		runtimeObligationCoordinator.close()
 		coreRepository.shutdown()
 		applicationScope.cancel()
 	}

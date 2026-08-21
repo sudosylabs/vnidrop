@@ -1,27 +1,43 @@
 mod access_policy;
 mod api;
 mod approval;
+mod blocked_devices;
+mod control_plane;
+mod device_relationship;
 mod error;
 mod event_hub;
 mod filesystem;
+mod grant;
 mod handshake;
+mod identity_recovery;
+mod invitation;
 mod logging;
-mod repository;
+mod pairing_eligibility;
+mod persistence;
 mod runtime;
-mod secret;
+#[allow(
+    dead_code,
+    reason = "the private custody seam is activated by platform credential adapters"
+)]
+mod secure_secret;
+mod targeted_transfer;
 mod ticket;
 mod transfer_state;
 mod util;
 
 pub use api::{
-    clear_inactive_transfer_cache, default_core_limits, default_core_network_config, CoreEvent,
-    CoreEventSink, CoreLimits, CoreNetworkConfig, CoreRelayMode, CoreStorageUsage, PublishedOutput,
-    ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest,
-    RuntimeStatus, ShareMetadataInput, ShareResult, ShareSource, SourceKind, StoredTransfer,
-    TicketInspection, TransferAccessMode, TransferMetadata,
+    clear_inactive_transfer_cache, default_core_limits, default_core_network_config,
+    saved_device_capabilities, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig,
+    CoreRelayMode, CoreStorageUsage, DeviceRelationship, DeviceRelationshipState,
+    PairingEligibilitySummary, PendingTargetedOffer, PublishedOutput, ReceiveOutputSink,
+    ReceiveOutputSinkV2, ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest,
+    RuntimeObligationFacts, RuntimeStatus, SavedDevice, SavedDeviceCapabilities,
+    ShareMetadataInput, ShareResult, ShareSource, SourceKind, StoredTransfer,
+    TargetedOfferResponse, TargetedPreparationStopOutcome, TargetedTransfer, TargetedTransferRole,
+    TargetedTransferState, TicketInspection, TransferAccessMode, TransferMetadata,
 };
 pub use error::VnidropError;
-pub use runtime::VnidropCore;
+pub use runtime::{TargetedTransferPreparation, VnidropCore};
 
 uniffi::setup_scaffolding!();
 

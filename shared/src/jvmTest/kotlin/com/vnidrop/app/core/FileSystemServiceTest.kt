@@ -7,8 +7,50 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import uniffi.vnidrop.SourceKind
 
 class FileSystemServiceTest {
+	@Test
+	fun desktopShareAdapterPreservesDirectorySourcesForRustTraversal() = kotlinx.coroutines.test.runTest {
+		val directory = createTempDirectory("vnidrop-share-adapter")
+		try {
+			val adapter = JvmPickedShareSourceAdapter()
+			val result = adapter.withShareSources(
+				listOf(PickedShareFile(directory.toString(), "Photos", isDirectory = true)),
+			) { sources -> sources }
+
+			val source = result.getOrThrow().single()
+			assertEquals(SourceKind.PATH, source.kind)
+			assertEquals(directory.toString(), source.value)
+			assertTrue(source.isDirectory)
+		} finally {
+			directory.toFile().deleteRecursively()
+		}
+	}
+
+	@Test
+	fun desktopShareAdapterDeletesOnlyExplicitAppOwnedCopies() = kotlinx.coroutines.test.runTest {
+		val root = createTempDirectory("vnidrop-share-cleanup")
+		try {
+			val owned = root.resolve("owned.tmp")
+			val original = root.resolve("original.txt")
+			Files.writeString(owned, "owned")
+			Files.writeString(original, "original")
+
+			JvmPickedShareSourceAdapter().discardPickedFiles(
+				listOf(
+					PickedShareFile(owned.toString(), "owned.tmp", isTemporaryCopy = true),
+					PickedShareFile(original.toString(), "original.txt"),
+				),
+			)
+
+			assertFalse(Files.exists(owned))
+			assertTrue(Files.exists(original))
+		} finally {
+			root.toFile().deleteRecursively()
+		}
+	}
+
 	@Test
 	fun desktopTemporaryUsageCountsOnlyVnidropPartFiles() {
 		val root = createTempDirectory("vnidrop-temporary-usage")

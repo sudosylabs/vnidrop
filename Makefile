@@ -10,7 +10,7 @@ include $(ROOT)/make/release.mk
 
 .PHONY: help doctor setup setup-localization setup-docs setup-diagnostics
 .PHONY: format test check check-rust audit-rust test-rust test-rust-all
-.PHONY: test-rust-transfer test-rust-approval test-rust-lifecycle test-rust-output-sink
+.PHONY: test-rust-transfer test-rust-approval test-rust-lifecycle test-rust-output-sink test-rust-saved-devices
 .PHONY: check-shared test-shared test-android-host check-android verify-android-libs build-android run-desktop
 .PHONY: apple-core apple-version-config apple-app-config apple-project open-apple-project open-apple build-apple-macos build-apple-ios check-apple package-apple-core
 .PHONY: prepare-release check-version check-release check-localization localization localization-migrate
@@ -71,42 +71,49 @@ check-version: ## Validate the canonical version and its platform mappings.
 	cd $(ROOT) && $(GRADLE) verifyVersion $(GRADLE_FLAGS)
 
 check-release: ## Validate coordinated release scripts and workflow YAML.
-	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh
+	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh make/tests/test-open-apple.sh make/tests/test-with-secret-service.sh make/with-secret-service.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh
 	cd $(ROOT) && apple/scripts/tests/test-notarize.sh
 	cd $(ROOT) && apple/scripts/tests/test-generate-appconfig.sh
 	cd $(ROOT) && apple/scripts/tests/test-sign-exported-app.sh
 	cd $(ROOT) && packaging/android/tests/test_verify_apk_signature.sh
 	cd $(ROOT) && packaging/release/test-assemble-release.sh
 	cd $(ROOT) && packaging/release/test-release-config.sh
+	cd $(ROOT) && make/tests/test-open-apple.sh
+	cd $(ROOT) && make/tests/test-with-secret-service.sh
 	cd $(ROOT) && python3 -m unittest discover -s packaging/android/tests -v
 	cd $(ROOT) && ruby -e 'require "yaml"; ARGV.each { |file| YAML.load_file(file) }' .github/workflows/*.yml
 
 check-rust: ## Run Rust formatting, lint, tests, and documentation checks.
 	cd $(ROOT) && $(CARGO) fmt --all -- --check
-	cd $(ROOT) && $(CARGO) clippy --workspace --all-targets -- -D warnings
-	cd $(ROOT) && $(CARGO) test --workspace --all-targets
+	cd $(ROOT) && $(CARGO) clippy --workspace --all-targets --features integration-test-store -- -D warnings
+	cd $(ROOT) && $(CARGO) test --workspace --all-targets --features integration-test-store
 	cd $(ROOT) && RUSTDOCFLAGS='-D warnings' $(CARGO) doc --workspace --no-deps
 
 audit-rust: ## Audit Rust dependencies (requires cargo-audit).
 	cd $(ROOT) && $(CARGO) audit
 
 test-rust: ## Run the focused Rust core suite.
-	cd $(ROOT) && $(CARGO) test -p vnidrop
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store
 
 test-rust-all: ## Run every Rust workspace test target.
-	cd $(ROOT) && $(CARGO) test --workspace --all-targets
+	cd $(ROOT) && $(CARGO) test --workspace --all-targets --features integration-test-store
 
 test-rust-transfer: ## Run Rust transfer integration tests.
-	cd $(ROOT) && $(CARGO) test -p vnidrop --test transfer
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --test transfer
 
 test-rust-approval: ## Run Rust approval integration tests.
-	cd $(ROOT) && $(CARGO) test -p vnidrop --test approval
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --test approval
 
 test-rust-lifecycle: ## Run Rust lifecycle integration tests.
-	cd $(ROOT) && $(CARGO) test -p vnidrop --test lifecycle
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --test lifecycle
 
 test-rust-output-sink: ## Run Rust output-sink integration tests.
-	cd $(ROOT) && $(CARGO) test -p vnidrop --test output_sink
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --test output_sink
+
+test-rust-saved-devices: ## Run the Saved devices production-core release gate.
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --lib
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --test saved_device_domain
+	cd $(ROOT) && $(CARGO) test -p vnidrop --features integration-test-store --test transfer --test approval --test lifecycle --test output_sink
 
 check-shared: ## Test and compile the shared Android/JVM module.
 	cd $(ROOT) && $(GRADLE) :shared:jvmTest :shared:compileKotlinJvm $(GRADLE_FLAGS)
@@ -115,7 +122,7 @@ test-shared: ## Run shared JVM tests.
 	cd $(ROOT) && $(GRADLE) :shared:jvmTest $(GRADLE_FLAGS)
 
 test-android-host: ## Run Android host-side shared tests.
-	cd $(ROOT) && $(GRADLE) :shared:testAndroidHostTest $(GRADLE_FLAGS)
+	cd $(ROOT) && $(GRADLE) :shared:testDebugUnitTest $(GRADLE_FLAGS)
 
 check-android: ## Build Android debug and verify packaged Rust libraries.
 	cd $(ROOT) && $(GRADLE) :androidApp:assembleDebug :androidApp:verifyDebugVnidropLibraries $(GRADLE_FLAGS)
@@ -157,7 +164,9 @@ build-apple-dmg: localization ## Build the signed/notarized direct-download .dmg
 package-apple-core: ## Zip the prebuilt core (xcframework + bindings) + checksum into apple/dist (build the core first).
 	cd $(ROOT) && apple/scripts/package-core.sh
 
-open-apple: build-apple-macos ## Build and launch the native macOS app.
+open-apple: ## Build and launch a signed native macOS app.
+	@test "$(APPLE_CODE_SIGNING)" = YES || { printf 'The protected device identity requires a signed macOS app. Configure apple/Local.xcconfig, then run make open-apple APPLE_CODE_SIGNING=YES.\n' >&2; exit 1; }
+	$(MAKE) build-apple-macos
 	@test -d "$(APPLE_DERIVED_DATA)/Build/Products/$(APPLE_CONFIGURATION)/VniDrop.app" || { printf 'Built macOS app was not found.\n' >&2; exit 1; }
 	$(OPEN) "$(APPLE_DERIVED_DATA)/Build/Products/$(APPLE_CONFIGURATION)/VniDrop.app"
 
@@ -178,7 +187,7 @@ check-apple: apple-project ## Build the Apple core and run iOS simulator tests.
 		destination="platform=iOS Simulator,id=$$device_id"; \
 	fi; \
 	printf 'Testing on: %s\n' "$$destination"; \
-	cd $(ROOT)/apple && $(XCODEBUILD) test -project VniDrop.xcodeproj -scheme VniDrop -configuration $(APPLE_CONFIGURATION) -derivedDataPath "$(APPLE_DERIVED_DATA)" -destination "$$destination" CODE_SIGNING_ALLOWED=$(APPLE_CODE_SIGNING) CODE_SIGNING_REQUIRED=$(APPLE_CODE_SIGNING)
+	cd $(ROOT)/apple && $(XCODEBUILD) test -project VniDrop.xcodeproj -scheme VniDrop -configuration $(APPLE_CONFIGURATION) -derivedDataPath "$(APPLE_DERIVED_DATA)" -destination "$$destination" CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=$(APPLE_TEST_CODE_SIGN_IDENTITY) PROVISIONING_PROFILE_SPECIFIER=
 
 check-localization: setup-localization ## Validate the localization source catalog.
 	cd $(ROOT)/localization && $(BUN) run validate

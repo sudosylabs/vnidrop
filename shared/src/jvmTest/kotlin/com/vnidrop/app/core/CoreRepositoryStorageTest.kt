@@ -1,25 +1,44 @@
 package com.vnidrop.app.core
 
+import com.vnidrop.app.skipWhenHostCredentialStoreIsUnavailable
 import java.nio.file.Files
 import kotlin.io.path.createTempDirectory
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import uniffi.vnidrop.CoreNetworkConfig
+import uniffi.vnidrop.CoreRelayMode
+import uniffi.vnidrop.VnidropCore
+import uniffi.vnidrop.VnidropException
 
 class CoreRepositoryStorageTest {
 	@Test
 	fun cacheClearWaitsForActiveSharesThenRestartsWithTheSameIdentity() = runTest {
 		val appData = createTempDirectory("vnidrop-cache-clear")
 		val source = Files.write(appData.resolve("source.bin"), ByteArray(64 * 1024) { 5 })
-		val repository = CoreRepository()
+		val repository = CoreRepository(
+			coreFactory = CoreFactory { appDataDir, eventSink, _ ->
+				VnidropCore.initializeWithNetworkConfig(
+					appDataDir,
+					eventSink,
+					CoreNetworkConfig(CoreRelayMode.LOCAL_ONLY, emptyList()),
+				)
+			},
+		)
 		try {
-			assertTrue(
-				repository.initialize(
-					appData.toString(),
-					RelaySettings(mode = RelayMode.LocalOnly),
-				).isSuccess,
+			val initialized = repository.initialize(
+				appData.toString(),
+				RelaySettings(mode = RelayMode.LocalOnly),
 			)
+			val initializationError = initialized.exceptionOrNull()
+			if (
+				initializationError is VnidropException.SecureStorageUnavailable ||
+				initializationError is VnidropException.SecureStorageLocked
+			) {
+				skipWhenHostCredentialStoreIsUnavailable(initializationError)
+			}
+			initialized.getOrThrow()
 			val endpointId = repository.state.value.status?.endpointId
 			val share = repository.sharePath(
 				path = source.toString(),

@@ -54,8 +54,20 @@ src/
     receive.rs    # receive, download, export, OutputSinkFile
     lifecycle.rs  # cancel share, delete, status, access mode, shutdown
     provider.rs   # provider messages, per-peer transfer progress
+    saved_devices.rs # saved-device pairing, forget, block
+    targeted.rs   # targeted lifecycle and restart restoration
+    targeted_create.rs # targeted import, offer, and sender approval
+    targeted_receive.rs # targeted download, resume, and completion
+    targeted_payload.rs # targeted blob fetch and export bridge
+    targeted_reconciliation.rs # durable delivery and cleanup retries
+  persistence.rs  # AppDataStores / persistence open (domain stores)
+  invitation/     # invitation-transfer domain store (type name: Repository)
+  pairing_eligibility/ # eligibility service + store
+  device_relationship/ # store + service + protocol (ALPN pairing)
+  targeted_transfer/   # targeted protocol + store adapter
+  blocked_devices.rs
+  secure_secret/  # custody + platform credential adapters (+ metadata store)
   filesystem.rs   # collect sources, atomic publish, path rules
-  repository.rs   # SQLite
   approval.rs / handshake.rs / ticket.rs / access_policy.rs / event_hub.rs
   api.rs          # UniFFI records/enums
   tests/          # crate-private unit tests
@@ -63,7 +75,8 @@ tests/            # public-API integration tests + support/
 ```
 
 **Do not** reassemble a single huge `runtime.rs`. Prefer new focused modules if a
-file approaches ~800 LoC of non-test code.
+file approaches ~800 LoC of non-test code. Do not add new `SqlitePool` call sites —
+open domain stores via `persistence::open_all`.
 
 ---
 
@@ -78,11 +91,14 @@ file approaches ~800 LoC of non-test code.
 4. **Cancel:** signal active-transfer oneshot **synchronously** before async DB
    work. Use existing `take_active_transfer` / facade cancel path. Do not reintroduce
    nested exclusive `Runtime::block_on` deadlocks.
-5. **No lock across await:** Clippy `await_holding_lock` fails CI.
-6. **ReceiveOutputSink:** after successful `start_file`, exactly one of
+5. **SecureSecretStore:** never call the sync store from an async task body.
+   Linux Secret Service / zbus blocking nests Tokio `block_on`; `SecretCustody`
+   must keep those calls on `spawn_blocking`.
+6. **No lock across await:** Clippy `await_holding_lock` fails CI.
+7. **ReceiveOutputSink:** after successful `start_file`, exactly one of
    `finish_file` or `abort_file` (see `OutputSinkFile` Drop).
-7. **No-overwrite publish** for path receives (temp + hard link / exclusive rename).
-8. Integration tests must use the **public** API + `tests/support/` only.
+8. **No-overwrite publish** for path receives (temp + hard link / exclusive rename).
+9. Integration tests must use the **public** API + `tests/support/` only.
 
 ---
 

@@ -8,6 +8,9 @@ license = "Apache-2.0"
 name = "vnidrop"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
+[features]
+integration-test-store = []
+
 [dependencies]
 anyhow = "1.0.102"
 async-channel = "2.5.0"
@@ -16,6 +19,7 @@ blake3 = "1.8.3"
 data-encoding = "2.11.0"
 futures = "0.3"
 futures-lite = "2.6.1"
+getrandom = "0.3.4"
 iroh = "1.0.3"
 iroh-blobs = "0.103.0"
 irpc = "0.17.0"
@@ -35,6 +39,20 @@ uniffi = { version = "=0.29.4", features = ["tokio"] }
 uuid = { version = "1.23.3", features = ["v4", "serde"] }
 walkdir = "2.5.0"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+secret-service = { version = "5.1.0", default-features = false, features = ["rt-tokio-crypto-rust"] }
+
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
+security-framework = { version = "3.7.0", features = ["OSX_10_15"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21.1"
+ndk-context = "0.1.1"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security_Cryptography", "Win32_Storage_FileSystem"] }
+
 [dev-dependencies]
 iroh-relay = { version = "1.0.3", features = ["server"] }
+secret-service = { version = "5.1.0", default-features = false, features = ["rt-tokio-crypto-rust"] }
 tempfile = "3.27.0"

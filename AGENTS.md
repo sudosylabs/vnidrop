@@ -29,6 +29,9 @@ Domain docs (reference, do not paste into PRs):
 
 - [`crates/vnidrop/CORE_FLOW.md`](crates/vnidrop/CORE_FLOW.md)
 - [`crates/vnidrop/tests/README.md`](crates/vnidrop/tests/README.md)
+- **Saved Devices platform UI:** read
+  [`DEVICE-HISTORY-UI-HANDOFF.md`](DEVICE-HISTORY-UI-HANDOFF.md) before changing
+  Saved Devices UI; it defines product behavior and completion gates.
 
 ---
 
@@ -139,7 +142,7 @@ crates/vnidrop/src/runtime/
   provider.rs   # provider events, per-connection send progress
 ```
 
-Other core modules: `filesystem.rs`, `repository.rs`, `approval.rs`,
+Other core modules: `filesystem.rs`, `invitation/`, `approval.rs`,
 `handshake.rs`, `ticket.rs`, `access_policy.rs`, `event_hub.rs`, `api.rs`.
 
 ### Shared app
@@ -199,7 +202,7 @@ For UI and presentation work, **load and follow** the in-repo skill:
 .codex/skills/compose-skill/SKILL.md
 ```
 
-- Open at most one `references/*.md` file when the skill’s Quick Routing requires it.
+- Open at most one `references/*.md` file when the skill links to it for the current task.
 - Do not invent a second Compose style guide.
 - VniDrop uses **MVVM-style** ViewModels (`*State` + `StateFlow` + named methods),
   not a forced MVI `onEvent` base — adapt, do not rewrite.
@@ -279,7 +282,7 @@ branch from updated `master`.
 
 | Task | Start here |
 |------|------------|
-| Share / multi-file / folders | `runtime/share.rs`, `filesystem.rs`, platform `FileSystemService.*` |
+| Share / multi-file / folders | `runtime/share.rs`, `filesystem.rs`, platform `PickedShareSourceAdapter.*` |
 | Receive / export / sinks | `runtime/receive.rs` |
 | Cancel / delete / stop share | `runtime/lifecycle.rs`, `facade.rs` |
 | Per-receiver send progress | `runtime/provider.rs`, `ui/state/AppUiModels.kt` |

@@ -93,7 +93,10 @@ class ReceiveViewModel(
 						}
 					}
 					is CoreSignal.ApprovalChanged,
-					is CoreSignal.ReceiverHistoryChanged -> Unit
+					is CoreSignal.ReceiverHistoryChanged,
+					CoreSignal.PairingChanged,
+					CoreSignal.TargetedTransferChanged,
+					CoreSignal.RuntimeObligationChanged -> Unit
 				}
 			}
 		}

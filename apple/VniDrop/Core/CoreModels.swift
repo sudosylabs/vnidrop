@@ -10,8 +10,25 @@ struct CoreStatus: Equatable, Sendable {
 	let activeShares: UInt64
 }
 
+struct RuntimeObligationFactsModel: Equatable, Sendable {
+	let activeInvitationTransfers: UInt64
+	let invitationProviderAvailability: UInt64
+	let targetedPreparations: UInt64
+	let activeTargetedTransfers: UInt64
+	let targetedProviderAvailability: UInt64
+
+	var requiresRuntime: Bool {
+		activeInvitationTransfers > 0
+			|| invitationProviderAvailability > 0
+			|| targetedPreparations > 0
+			|| activeTargetedTransfers > 0
+			|| targetedProviderAvailability > 0
+	}
+}
+
 struct CoreEventModel: Equatable, Identifiable, Sendable {
 	let id: String
+	let revision: UInt64
 	let timestamp: Int64
 	let scope: String
 	let transferId: UInt64?
@@ -26,6 +43,7 @@ struct CoreEventModel: Equatable, Identifiable, Sendable {
 	var eventDirection: EventDirection? { direction.flatMap(EventDirection.init(rawValue:)) }
 	var eventPhase: EventPhase? { EventPhase(rawValue: phase) }
 	var eventKind: EventKind? { EventKind(rawValue: kind) }
+
 }
 
 /// Direction of a core event, matching the wire strings the core emits.
@@ -46,6 +64,13 @@ enum EventPhase: String, Equatable, Sendable {
 	case network
 	case handshake
 	case error
+	/// Saved-device consent lifecycle (eligibility, relationships, grants).
+	case pairing
+	/// Targeted-transfer offer and lifecycle refresh hints. Domain contract v2
+	/// transports no transfer identity in their payloads.
+	case targetedTransfer = "targeted_transfer"
+	/// Neutral wake-up indicating that Runtime obligation facts changed.
+	case runtimeObligation = "runtime_obligation"
 }
 
 /// Kind of a core progress event (the `kind` wire field).
@@ -70,6 +95,11 @@ enum EventKind: String, Equatable, Sendable {
 enum ShareAccessPolicy: Equatable, Sendable {
 	case requireApproval
 	case anyoneWithTransfer
+}
+
+/// Where a picked selection is going.
+enum ShareDestination: Equatable, Sendable {
+	case invitation(accessPolicy: ShareAccessPolicy)
 }
 
 enum TransferDirection: Equatable, Sendable {
@@ -168,6 +198,15 @@ enum CoreSignal: Equatable, Sendable {
 	case receiverHistoryChanged(transferId: UInt64)
 	/// Transfer status/history changed enough to re-read the durable snapshot.
 	case transfersChanged(transferId: UInt64)
+	/// Pairing / saved-device state changed; refresh eligibility, relationships,
+	/// and the saved list. Carries no payload: core events are wake-ups, not
+	/// authoritative state, so consumers re-query rather than apply a delta.
+	case pairingChanged
+	/// Targeted-transfer offer or lifecycle changed; refresh pending offers and
+	/// transfers. Payload-free for the same reason as `pairingChanged`.
+	case targetedTransferChanged
+	/// Runtime obligation facts changed; consumers re-read the neutral snapshot.
+	case runtimeObligationChanged
 }
 
 // MARK: - Transfer helpers (ported from AppUiModels.kt)

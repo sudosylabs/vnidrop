@@ -16,6 +16,14 @@ pub enum VnidropError {
     StorageFull { reason: String },
     #[error("network error: {reason}")]
     Network { reason: String },
+    #[error("device unavailable: {reason}")]
+    DeviceUnavailable { reason: String },
+    #[error("offer timed out: {reason}")]
+    OfferTimeout { reason: String },
+    #[error("relay policy incompatible: {reason}")]
+    RelayPolicyIncompatible { reason: String },
+    #[error("protocol incompatible: {reason}")]
+    ProtocolIncompatible { reason: String },
     #[error("transfer error: {reason}")]
     Transfer { reason: String },
     #[error("permission error: {reason}")]
@@ -26,20 +34,28 @@ pub enum VnidropError {
     Cancelled { reason: String },
     #[error("invalid input: {reason}")]
     InvalidInput { reason: String },
+    #[error("invalid targeted transfer transition: {reason}")]
+    InvalidTransition { reason: String },
+    #[error("secure storage is locked: {reason}")]
+    SecureStorageLocked { reason: String },
+    #[error("secure storage item is missing: {reason}")]
+    SecureStorageMissing { reason: String },
+    #[error("secure storage item is corrupted: {reason}")]
+    SecureStorageCorrupted { reason: String },
+    #[error("secure storage is unavailable: {reason}")]
+    SecureStorageUnavailable { reason: String },
     #[error("internal error: {reason}")]
     Internal { reason: String },
 }
 
 impl VnidropError {
     pub(crate) fn initialization(error: impl Into<anyhow::Error>) -> Self {
-        Self::Initialization {
-            reason: error.into().to_string(),
-        }
+        Self::from_error(error.into(), |reason| Self::Initialization { reason })
     }
 
     pub(crate) fn ticket(error: impl Into<anyhow::Error>) -> Self {
         Self::Ticket {
-            reason: error.into().to_string(),
+            reason: crate::control_plane::redact_text(&error.into().to_string()),
         }
     }
 
@@ -50,6 +66,24 @@ impl VnidropError {
 
     pub(crate) fn network(error: impl Into<anyhow::Error>) -> Self {
         Self::from_error(error.into(), |reason| Self::Network { reason })
+    }
+
+    pub(crate) fn device_unavailable(error: impl Into<anyhow::Error>) -> Self {
+        Self::from_error(error.into(), |reason| Self::DeviceUnavailable { reason })
+    }
+
+    pub(crate) fn offer_timeout(error: impl Into<anyhow::Error>) -> Self {
+        Self::from_error(error.into(), |reason| Self::OfferTimeout { reason })
+    }
+
+    pub(crate) fn relay_policy_incompatible(error: impl Into<anyhow::Error>) -> Self {
+        Self::from_error(error.into(), |reason| Self::RelayPolicyIncompatible {
+            reason,
+        })
+    }
+
+    pub(crate) fn protocol_incompatible(error: impl Into<anyhow::Error>) -> Self {
+        Self::from_error(error.into(), |reason| Self::ProtocolIncompatible { reason })
     }
 
     pub(crate) fn transfer(error: impl Into<anyhow::Error>) -> Self {
@@ -88,11 +122,20 @@ impl VnidropError {
             Self::DestinationExists { .. } => "destination_exists",
             Self::StorageFull { .. } => "storage_full",
             Self::Network { .. } => "network",
+            Self::DeviceUnavailable { .. } => "device_unavailable",
+            Self::OfferTimeout { .. } => "offer_timeout",
+            Self::RelayPolicyIncompatible { .. } => "relay_policy_incompatible",
+            Self::ProtocolIncompatible { .. } => "protocol_incompatible",
             Self::Transfer { .. } => "transfer",
             Self::Permission { .. } => "permission_denied",
             Self::Repository { .. } => "repository",
             Self::Cancelled { .. } => "cancelled",
             Self::InvalidInput { .. } => "invalid_input",
+            Self::InvalidTransition { .. } => "invalid_transition",
+            Self::SecureStorageLocked { .. } => "secure_storage_locked",
+            Self::SecureStorageMissing { .. } => "secure_storage_missing",
+            Self::SecureStorageCorrupted { .. } => "secure_storage_corrupted",
+            Self::SecureStorageUnavailable { .. } => "secure_storage_unavailable",
             Self::Internal { .. } => "internal",
         }
     }
@@ -106,17 +149,26 @@ impl VnidropError {
             | Self::DestinationExists { reason }
             | Self::StorageFull { reason }
             | Self::Network { reason }
+            | Self::DeviceUnavailable { reason }
+            | Self::OfferTimeout { reason }
+            | Self::RelayPolicyIncompatible { reason }
+            | Self::ProtocolIncompatible { reason }
             | Self::Transfer { reason }
             | Self::Permission { reason }
             | Self::Repository { reason }
             | Self::Cancelled { reason }
             | Self::InvalidInput { reason }
+            | Self::InvalidTransition { reason }
+            | Self::SecureStorageLocked { reason }
+            | Self::SecureStorageMissing { reason }
+            | Self::SecureStorageCorrupted { reason }
+            | Self::SecureStorageUnavailable { reason }
             | Self::Internal { reason } => reason,
         }
     }
 
     fn classify(error: anyhow::Error, fallback: impl FnOnce(String) -> Self) -> Self {
-        let reason = error.to_string();
+        let reason = crate::control_plane::redact_text(&error.to_string());
         if let Some(existing) = error.chain().find_map(|cause| cause.downcast_ref::<Self>()) {
             return existing.with_reason(reason);
         }
@@ -141,7 +193,7 @@ impl VnidropError {
     }
 
     fn from_error(error: anyhow::Error, fallback: impl FnOnce(String) -> Self) -> Self {
-        let reason = error.to_string();
+        let reason = crate::control_plane::redact_text(&error.to_string());
         if let Some(existing) = error.chain().find_map(|cause| cause.downcast_ref::<Self>()) {
             existing.with_reason(reason)
         } else {
@@ -158,11 +210,20 @@ impl VnidropError {
             Self::DestinationExists { .. } => Self::DestinationExists { reason },
             Self::StorageFull { .. } => Self::StorageFull { reason },
             Self::Network { .. } => Self::Network { reason },
+            Self::DeviceUnavailable { .. } => Self::DeviceUnavailable { reason },
+            Self::OfferTimeout { .. } => Self::OfferTimeout { reason },
+            Self::RelayPolicyIncompatible { .. } => Self::RelayPolicyIncompatible { reason },
+            Self::ProtocolIncompatible { .. } => Self::ProtocolIncompatible { reason },
             Self::Transfer { .. } => Self::Transfer { reason },
             Self::Permission { .. } => Self::Permission { reason },
             Self::Repository { .. } => Self::Repository { reason },
             Self::Cancelled { .. } => Self::Cancelled { reason },
             Self::InvalidInput { .. } => Self::InvalidInput { reason },
+            Self::InvalidTransition { .. } => Self::InvalidTransition { reason },
+            Self::SecureStorageLocked { .. } => Self::SecureStorageLocked { reason },
+            Self::SecureStorageMissing { .. } => Self::SecureStorageMissing { reason },
+            Self::SecureStorageCorrupted { .. } => Self::SecureStorageCorrupted { reason },
+            Self::SecureStorageUnavailable { .. } => Self::SecureStorageUnavailable { reason },
             Self::Internal { .. } => Self::Internal { reason },
         }
     }

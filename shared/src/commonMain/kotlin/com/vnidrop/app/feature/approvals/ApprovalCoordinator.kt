@@ -8,7 +8,9 @@ import com.vnidrop.app.core.ReceiverRequestModel
 import com.vnidrop.app.core.ReceiverDeliveryStatus
 import com.vnidrop.app.notifications.LocalNotification
 import com.vnidrop.app.notifications.LocalNotificationService
+import com.vnidrop.app.notifications.LocalizedNotificationTextFormatter
 import com.vnidrop.app.notifications.NotificationPermission
+import com.vnidrop.app.notifications.NotificationTextFormatter
 import com.vnidrop.app.platform.AppVisibility
 import com.vnidrop.app.preferences.PreferencesRepository
 import com.vnidrop.app.ui.feedback.UiMessageController
@@ -20,11 +22,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.getString
-import vnidrop.shared.generated.resources.Res
-import vnidrop.shared.generated.resources.approval_connection_request
-import vnidrop.shared.generated.resources.approval_nearby_device
-import vnidrop.shared.generated.resources.approval_request_body
 
 data class PendingApproval(
 	val id: String,
@@ -45,14 +42,32 @@ data class ApprovalState(
 		get() = pending.firstOrNull()
 }
 
-class ApprovalCoordinator(
+class ApprovalCoordinator internal constructor(
 	private val repository: CoreGateway,
 	private val preferencesRepository: PreferencesRepository,
 	private val notifications: LocalNotificationService,
 	private val visibility: AppVisibility,
 	private val messages: UiMessageController,
 	private val scope: CoroutineScope,
+	private val notificationText: NotificationTextFormatter,
 ) {
+	constructor(
+		repository: CoreGateway,
+		preferencesRepository: PreferencesRepository,
+		notifications: LocalNotificationService,
+		visibility: AppVisibility,
+		messages: UiMessageController,
+		scope: CoroutineScope,
+	) : this(
+		repository,
+		preferencesRepository,
+		notifications,
+		visibility,
+		messages,
+		scope,
+		LocalizedNotificationTextFormatter,
+	)
+
 	private val _state = MutableStateFlow(ApprovalState())
 	val state: StateFlow<ApprovalState> = _state.asStateFlow()
 
@@ -64,7 +79,10 @@ class ApprovalCoordinator(
 				when (signal) {
 					is CoreSignal.ApprovalChanged -> refresh(signal.transferId)
 					is CoreSignal.ReceiverHistoryChanged,
-					is CoreSignal.TransfersChanged -> Unit
+					is CoreSignal.TransfersChanged,
+					CoreSignal.PairingChanged,
+					CoreSignal.TargetedTransferChanged,
+					CoreSignal.RuntimeObligationChanged -> Unit
 				}
 			}
 		}
@@ -138,18 +156,19 @@ class ApprovalCoordinator(
 
 	private suspend fun synchronizeNotifications(context: NotificationContext) {
 		if (context.foreground || !context.enabled || context.permission != NotificationPermission.Granted) {
-			notifications.cancelAll()
+			publishedNotificationIds.forEach { notifications.cancel(notificationId(it)) }
 			return
 		}
 		context.pending.filterNot { it.id in publishedNotificationIds }.forEach { request ->
-			val receiver = request.receiverName
-				?: request.receiverDeviceName
-				?: getString(Res.string.approval_nearby_device)
+			val text = notificationText.approvalRequest(
+				receiver = request.receiverName ?: request.receiverDeviceName,
+				transferName = request.transferName,
+			)
 			notifications.publish(
 				LocalNotification(
 					id = notificationId(request.id),
-					title = getString(Res.string.approval_connection_request),
-					body = getString(Res.string.approval_request_body, receiver, request.transferName),
+					title = text.title,
+					body = text.body,
 				),
 			).onSuccess {
 				publishedNotificationIds += request.id

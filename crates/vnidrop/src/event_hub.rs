@@ -8,7 +8,8 @@ use tokio::{
 
 use crate::{
     api::{CoreEvent, CoreEventSink},
-    repository::Repository,
+    control_plane::redact_json,
+    invitation::Repository,
     transfer_state::TransferDirection,
     util::now_ms,
 };
@@ -47,6 +48,12 @@ enum EventPhase {
     Transfer,
     /// Delivery receipts from receivers (completed download acknowledgements).
     Delivery,
+    /// Saved-device pairing eligibility and consent prompts.
+    Pairing,
+    /// Saved-device targeted-transfer pre-approval prompts.
+    TargetedTransfer,
+    /// Payload-free wake-up for platform Runtime obligation fact refreshes.
+    RuntimeObligation,
 }
 
 impl EventPhase {
@@ -68,6 +75,9 @@ impl EventPhase {
             "approval" => Some(Self::Approval),
             "transfer" => Some(Self::Transfer),
             "delivery" => Some(Self::Delivery),
+            "pairing" => Some(Self::Pairing),
+            "targeted_transfer" => Some(Self::TargetedTransfer),
+            "runtime_obligation" => Some(Self::RuntimeObligation),
             _ => None,
         }
     }
@@ -90,6 +100,9 @@ impl EventPhase {
             Self::Approval => "approval",
             Self::Transfer => "transfer",
             Self::Delivery => "delivery",
+            Self::Pairing => "pairing",
+            Self::TargetedTransfer => "targeted_transfer",
+            Self::RuntimeObligation => "runtime_obligation",
         }
     }
 }
@@ -230,22 +243,26 @@ impl EventHub {
             .sequence
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let id = format!("{timestamp}-{}", *sequence);
-        *sequence += 1;
+        let revision = *sequence;
+        let id = format!("{timestamp}-{revision}");
+        *sequence = sequence.saturating_add(1);
         drop(sequence);
 
         // Compose observes this event synchronously, while SQLite persistence is
         // serialized through the queue.  That keeps the UI responsive without
         // losing the ability to flush persisted history during shutdown/tests.
+        // Production diagnostics redact endpoint ids, tickets, grants, and paths;
+        // typed UniFFI list APIs still expose the values the UI needs.
         let event = CoreEvent {
             id,
+            revision,
             timestamp,
             scope: scope.as_str().to_string(),
             transfer_id,
             direction: direction.map(|direction| direction.as_str().to_string()),
             phase: phase.as_str().to_string(),
             kind: kind.0,
-            data_json: data.to_string(),
+            data_json: redact_json(data).to_string(),
         };
         if let Err(error) = self.tx.try_send(EventCommand::Persist(event.clone())) {
             tracing::warn!(event_id = %event.id, %error, "event persistence queue dropped event");

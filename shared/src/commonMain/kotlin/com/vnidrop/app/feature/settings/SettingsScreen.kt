@@ -8,14 +8,15 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.core.RelayMode
+import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.ThemeMode
 
 @Composable
 fun SettingsScreen(
 	state: SettingsState,
 	windowClass: WindowClass,
+	modifier: Modifier = Modifier,
 	onSectionSelected: (SettingsSection) -> Unit,
 	onUsernameChanged: (String) -> Unit,
 	onThemeModeChanged: (ThemeMode) -> Unit,
@@ -41,17 +42,22 @@ fun SettingsScreen(
 ) {
 	if (windowClass == WindowClass.Desktop) {
 		Row(
-			modifier = Modifier.fillMaxWidth(),
+			modifier.fillMaxWidth(),
 			horizontalArrangement = Arrangement.spacedBy(24.dp),
 		) {
 			Column(Modifier.widthIn(min = 280.dp, max = 340.dp)) {
-				SettingsOverview(state, onSectionSelected, largeTitle = false)
+				SettingsOverview(
+					state,
+					onSectionSelected,
+					largeTitle = false,
+				)
 			}
 			Column(Modifier.weight(1f)) {
 				SettingsSectionContent(
 					state = state,
 					windowClass = windowClass,
-					section = state.selectedSection.takeUnless { it == SettingsSection.Overview } ?: SettingsSection.Preferences,
+					section = state.selectedSection.takeUnless { it == SettingsSection.Overview }
+						?: SettingsSection.Preferences,
 					onBack = {},
 					showBack = false,
 					onSectionSelected = onSectionSelected,
@@ -81,7 +87,11 @@ fun SettingsScreen(
 		}
 	} else {
 		when (state.selectedSection) {
-			SettingsSection.Overview -> SettingsOverview(state, onSectionSelected, largeTitle = true)
+			SettingsSection.Overview -> SettingsOverview(
+				state,
+				onSectionSelected,
+				largeTitle = true,
+			)
 			else -> SettingsSectionContent(
 				state = state,
 				windowClass = windowClass,

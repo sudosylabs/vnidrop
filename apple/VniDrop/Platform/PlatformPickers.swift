@@ -70,6 +70,9 @@ struct SendPickers: ViewModifier {
 	}
 }
 
+/// File picker for "send to this device", reusing the share picker's selection
+/// handling so security-scoped bookmarks are captured the same way.
+
 enum PickerSupport {
 	static func receiveFolder(from url: URL) -> ReceiveFolder {
 		#if os(iOS)
@@ -129,4 +132,5 @@ extension View {
 	func sendPickers(model: SendModel) -> some View {
 		modifier(SendPickers(model: model))
 	}
+
 }

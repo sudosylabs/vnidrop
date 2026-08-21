@@ -4,16 +4,26 @@ import com.vnidrop.app.core.CoreGateway
 import com.vnidrop.app.core.CoreStorageUsageModel
 import com.vnidrop.app.core.CoreSignal
 import com.vnidrop.app.core.CoreState
+import com.vnidrop.app.core.DeviceRelationshipModel
 import com.vnidrop.app.core.FileSystemService
 import com.vnidrop.app.core.FolderAccessStatus
+import com.vnidrop.app.core.PairingEligibilityModel
+import com.vnidrop.app.core.PendingTargetedOfferModel
 import com.vnidrop.app.core.PickedShareFile
+import com.vnidrop.app.core.PickedShareSourceAdapter
 import com.vnidrop.app.core.ReceiveFolder
 import com.vnidrop.app.core.ReceivedArtifactModel
 import com.vnidrop.app.core.ReceivedStorageInspection
 import com.vnidrop.app.core.RelaySettings
+import com.vnidrop.app.core.RuntimeObligationFactsModel
 import com.vnidrop.app.core.ReceiverRequestModel
+import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.core.Share
 import com.vnidrop.app.core.ShareAccessPolicy
+import com.vnidrop.app.core.TargetedOfferResponseModel
+import com.vnidrop.app.core.TargetedPreparationStopOutcomeModel
+import com.vnidrop.app.core.TargetedTransferPreparationGateway
+import com.vnidrop.app.core.TargetedTransferModel
 import com.vnidrop.app.core.TicketInspectionModel
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferDirection
@@ -196,6 +206,192 @@ class FakeCoreGateway : CoreGateway {
 		return responseResult
 	}
 	override suspend fun refresh() = Result.success(Unit)
+
+	var pairingEligibilities: List<PairingEligibilityModel> = emptyList()
+	var deviceRelationships: List<DeviceRelationshipModel> = emptyList()
+	var savedDevices: List<SavedDeviceModel> = emptyList()
+	var blockedDevices: List<String> = emptyList()
+	var pendingTargetedOffers: List<PendingTargetedOfferModel> = emptyList()
+	var targetedTransfers: List<TargetedTransferModel> = emptyList()
+	var listPairingEligibilitiesCount = 0
+	var listDeviceRelationshipsCount = 0
+	var listPendingTargetedOffersCount = 0
+	var listSavedDevicesCount = 0
+	var respondTargetedResult: Result<TargetedOfferResponseModel> =
+		Result.success(TargetedOfferResponseModel.Declined)
+	var createTargetedResult: Result<TargetedTransferModel> =
+		Result.failure(UnsupportedOperationException())
+	var targetedPreparationStopResult: Result<TargetedPreparationStopOutcomeModel> =
+		Result.success(TargetedPreparationStopOutcomeModel.PreparationStopped)
+	var runtimeObligationFactsResult: Result<RuntimeObligationFactsModel> = Result.success(
+		RuntimeObligationFactsModel(0UL, 0UL, 0UL, 0UL, 0UL),
+	)
+	var runtimeObligationFactsCount = 0
+	val forgottenDevices = mutableListOf<String>()
+	val blockedPeers = mutableListOf<String>()
+	val labeledDevices = mutableListOf<Pair<String, String?>>()
+	var beforeSetSavedDeviceLabel: suspend () -> Unit = {}
+	var setSavedDeviceLabelResult: Result<Unit> = Result.success(Unit)
+
+	override suspend fun listPairingEligibilities(): Result<List<PairingEligibilityModel>> {
+		listPairingEligibilitiesCount += 1
+		return Result.success(pairingEligibilities)
+	}
+	override suspend fun declinePairingEligibility(peerEndpointId: String): Result<Unit> {
+		pairingEligibilities = pairingEligibilities.filterNot { it.peerEndpointId == peerEndpointId }
+		return Result.success(Unit)
+	}
+	val requestedPairings = mutableListOf<String>()
+	val pairingResponses = mutableListOf<Pair<String, Boolean>>()
+	var requestPairingResult: Result<Boolean> = Result.success(true)
+	var respondPairingResult: Result<Boolean> = Result.success(true)
+	val createdTargetedTransfers = mutableListOf<Triple<String, List<uniffi.vnidrop.ShareSource>, String?>>()
+	val receivedTargetedTransferIds = mutableListOf<String>()
+	val receivedTargetedPathDirs = mutableListOf<Pair<String, String>>()
+	val receivedTargetedViaSinkIds = mutableListOf<String>()
+	val resumedTargetedTransferIds = mutableListOf<String>()
+	val resumedTargetedPathDirs = mutableListOf<Pair<String, String>>()
+	val resumedTargetedViaSinkIds = mutableListOf<String>()
+	val cancelledTargetedTransferIds = mutableListOf<String>()
+	val deletedTargetedTransferIds = mutableListOf<String>()
+	val respondedTargetedOffers = mutableListOf<Pair<String, Boolean>>()
+
+	override suspend fun requestSavedDevicePairing(peerEndpointId: String): Result<Boolean> {
+		requestedPairings += peerEndpointId
+		return requestPairingResult
+	}
+	override suspend fun respondToDevicePairing(peerEndpointId: String, accepted: Boolean): Result<Boolean> {
+		pairingResponses += peerEndpointId to accepted
+		return respondPairingResult.map { accepted }
+	}
+	override suspend fun listDeviceRelationships(): Result<List<DeviceRelationshipModel>> {
+		listDeviceRelationshipsCount += 1
+		return Result.success(deviceRelationships)
+	}
+	override suspend fun listSavedDevices(): Result<List<SavedDeviceModel>> {
+		listSavedDevicesCount += 1
+		return Result.success(savedDevices)
+	}
+	override suspend fun setSavedDeviceLabel(peerEndpointId: String, label: String?): Result<Unit> {
+		beforeSetSavedDeviceLabel()
+		labeledDevices += peerEndpointId to label
+		if (setSavedDeviceLabelResult.isFailure) return setSavedDeviceLabelResult
+		savedDevices = savedDevices.map {
+			if (it.endpointId == peerEndpointId) it.copy(localLabel = label) else it
+		}
+		return setSavedDeviceLabelResult
+	}
+	override suspend fun forgetSavedDevice(peerEndpointId: String): Result<Unit> {
+		forgottenDevices += peerEndpointId
+		savedDevices = savedDevices.filterNot { it.endpointId == peerEndpointId }
+		return Result.success(Unit)
+	}
+	override suspend fun blockDevice(peerEndpointId: String): Result<Unit> {
+		blockedPeers += peerEndpointId
+		blockedDevices = (blockedDevices + peerEndpointId).distinct()
+		return Result.success(Unit)
+	}
+	override suspend fun unblockDevice(peerEndpointId: String): Result<Unit> {
+		blockedDevices = blockedDevices.filterNot { it == peerEndpointId }
+		return Result.success(Unit)
+	}
+	override suspend fun listBlockedDevices() = Result.success(blockedDevices)
+	override suspend fun listPendingTargetedOffers(): Result<List<PendingTargetedOfferModel>> {
+		listPendingTargetedOffersCount += 1
+		return Result.success(pendingTargetedOffers)
+	}
+	override suspend fun respondToTargetedOffer(transferId: String, accepted: Boolean): Result<TargetedOfferResponseModel> {
+		respondedTargetedOffers += transferId to accepted
+		return respondTargetedResult.onSuccess {
+			pendingTargetedOffers = pendingTargetedOffers.filterNot { offer -> offer.transferId == transferId }
+		}
+	}
+	override suspend fun newTargetedTransferPreparation(
+		receiverEndpointId: String,
+	): Result<TargetedTransferPreparationGateway> = Result.success(
+		FakeTargetedTransferPreparation(
+			sendResult = { sources, transferName ->
+				createdTargetedTransfers += Triple(receiverEndpointId, sources, transferName)
+				createTargetedResult
+			},
+			stopResult = { targetedPreparationStopResult },
+		),
+	)
+	override suspend fun runtimeObligationFacts(): Result<RuntimeObligationFactsModel> {
+		runtimeObligationFactsCount += 1
+		return runtimeObligationFactsResult
+	}
+	override suspend fun getTargetedTransfer(id: String) =
+		Result.success(targetedTransfers.firstOrNull { it.id == id })
+	override suspend fun listTargetedTransfers() = Result.success(targetedTransfers)
+	override suspend fun receiveTargetedTransfer(transferId: String, outputDir: String): Result<Unit> {
+		receivedTargetedTransferIds += transferId
+		receivedTargetedPathDirs += transferId to outputDir
+		return receiveResult
+	}
+	override suspend fun receiveTargetedTransferWithOutputSink(
+		transferId: String,
+		outputSink: ReceiveOutputSink,
+	): Result<Unit> {
+		receivedTargetedTransferIds += transferId
+		receivedTargetedViaSinkIds += transferId
+		return receiveResult
+	}
+	override suspend fun receiveTargetedTransferWithOutputSinkV2(
+		transferId: String,
+		outputSink: ReceiveOutputSinkV2,
+	): Result<Unit> {
+		receivedTargetedTransferIds += transferId
+		receivedTargetedViaSinkIds += transferId
+		return receiveResult
+	}
+	override suspend fun resumeTargetedTransfer(id: String, outputDir: String): Result<Unit> {
+		resumedTargetedTransferIds += id
+		resumedTargetedPathDirs += id to outputDir
+		return receiveResult
+	}
+	override suspend fun resumeTargetedTransferWithOutputSinkV2(
+		id: String,
+		outputSink: ReceiveOutputSinkV2,
+	): Result<Unit> {
+		resumedTargetedTransferIds += id
+		resumedTargetedViaSinkIds += id
+		return receiveResult
+	}
+	override suspend fun cancelTargetedTransfer(id: String): Result<Unit> {
+		cancelledTargetedTransferIds += id
+		targetedTransfers = targetedTransfers.map { transfer ->
+			if (transfer.id == id) transfer.copy(state = com.vnidrop.app.core.TargetedTransferStateModel.Cancelled) else transfer
+		}
+		return Result.success(Unit)
+	}
+	override suspend fun deleteTargetedTransfer(id: String): Result<Unit> {
+		deletedTargetedTransferIds += id
+		targetedTransfers = targetedTransfers.filterNot { it.id == id }
+		return Result.success(Unit)
+	}
+}
+
+class FakeTargetedTransferPreparation(
+	private val sendResult: suspend (List<uniffi.vnidrop.ShareSource>, String?) -> Result<TargetedTransferModel>,
+	private val stopResult: suspend () -> Result<TargetedPreparationStopOutcomeModel>,
+) : TargetedTransferPreparationGateway {
+	var stopCount = 0
+	var closeCount = 0
+
+	override suspend fun send(
+		sources: List<uniffi.vnidrop.ShareSource>,
+		transferName: String?,
+	): Result<TargetedTransferModel> = sendResult(sources, transferName)
+
+	override suspend fun stop(): Result<TargetedPreparationStopOutcomeModel> {
+		stopCount += 1
+		return stopResult()
+	}
+
+	override fun close() {
+		closeCount += 1
+	}
 }
 
 class FakePreferencesRepository(
@@ -242,6 +438,7 @@ class FakeNotificationService(
 
 class FakeFileSystemService(
 	private val folder: ReceiveFolder,
+	private val receiveOutputSink: ReceiveOutputSinkV2? = null,
 ) : FileSystemService {
 	var supportsCustomFolders = true
 	var effectiveFolder: ReceiveFolder? = null
@@ -250,7 +447,6 @@ class FakeFileSystemService(
 	var reclaimTemporaryStorageCount = 0
 	var revealFolderResult: Result<Unit> = Result.success(Unit)
 	val revealedFolders = mutableListOf<ReceiveFolder>()
-	val discardedPickedFiles = mutableListOf<PickedShareFile>()
 	override val supportsCustomReceiveFolders: Boolean get() = supportsCustomFolders
 	override fun defaultReceiveFolder() = folder
 	override fun effectiveReceiveFolder(configuredFolder: ReceiveFolder) =
@@ -263,31 +459,39 @@ class FakeFileSystemService(
 		reclaimTemporaryStorageCount += 1
 		return reclaimedTemporaryBytes
 	}
-	override fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2? = null
+	override fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2? = receiveOutputSink
 	override fun canRevealReceiveFolder(folder: ReceiveFolder) = canRevealFolder
 	override suspend fun revealReceiveFolder(folder: ReceiveFolder): Result<Unit> {
 		revealedFolders += folder
 		return revealFolderResult
 	}
-	override suspend fun discardPickedFiles(files: List<PickedShareFile>) {
-		discardedPickedFiles += files
-	}
-	override suspend fun sharePickedFiles(
-		repository: CoreGateway,
+}
+
+internal class FakePickedShareSourceAdapter : PickedShareSourceAdapter {
+	val discardedPickedFiles = mutableListOf<PickedShareFile>()
+	var adaptResult: Result<Unit> = Result.success(Unit)
+	var beforeOperation: suspend () -> Unit = {}
+
+	override suspend fun <T> withShareSources(
 		files: List<PickedShareFile>,
-		transferName: String,
-		senderName: String,
-		accessPolicy: ShareAccessPolicy,
-	): Result<Share> {
-		val sources = files.map { file ->
-			uniffi.vnidrop.ShareSource(
-				kind = uniffi.vnidrop.SourceKind.PATH,
-				value = file.value,
-				displayName = file.displayName,
-				isDirectory = false,
-			)
-		}
-		return repository.shareSources(sources, transferName, senderName, accessPolicy)
+		operation: suspend (List<uniffi.vnidrop.ShareSource>) -> T,
+	): Result<T> = runCatching {
+		adaptResult.getOrThrow()
+		beforeOperation()
+		operation(
+			files.map { file ->
+				uniffi.vnidrop.ShareSource(
+					kind = uniffi.vnidrop.SourceKind.PATH,
+					value = file.value,
+					displayName = file.displayName,
+					isDirectory = file.isDirectory,
+				)
+			},
+		)
+	}
+
+	override suspend fun discardPickedFiles(files: List<PickedShareFile>) {
+		discardedPickedFiles += files.filter(PickedShareFile::isTemporaryCopy)
 	}
 }
 

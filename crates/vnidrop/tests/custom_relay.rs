@@ -51,6 +51,10 @@ fn local_only_mode_advertises_direct_addresses_and_transfers_on_lan() {
     let (ticket_value, blob_ticket) = read_blob_ticket(&share.ticket);
     assert!(ticket_value.get("relay_urls").is_none());
     assert_eq!(blob_ticket.addr().relay_urls().count(), 0);
+    assert!(
+        blob_ticket.addr().ip_addrs().next().is_some(),
+        "local-only ticket must advertise a direct address"
+    );
     assert!(!sender.core.status().addr.contains("iroh.link"));
 
     receive_with_response(

@@ -39,6 +39,7 @@ ICONS = (
 	IconSource("code", "code", "Code", "code", "code-xml"),
 	IconSource("cloud_off", "cloud_off", "Cloud Off", "cloud_off", "cloud-off"),
 	IconSource("delete", "delete", "Delete", "delete", "trash-2"),
+	IconSource("device", "devices", "Desktop", "desktop", "monitor"),
 	IconSource("document", "description", "Document", "document", "file-text"),
 	IconSource("download", "download", "Arrow Download", "arrow_download", "download"),
 	IconSource("file", "draft", "Document", "document", "file"),

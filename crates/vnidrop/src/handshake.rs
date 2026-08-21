@@ -142,6 +142,7 @@ pub(crate) enum HandshakeResponse {
         request_id: String,
         token: String,
         expires_at: i64,
+        sender_name: Option<String>,
     },
     Denied {
         reason: String,

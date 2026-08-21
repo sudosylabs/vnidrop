@@ -6,25 +6,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vnidrop.app.core.rememberShareFilePicker
 import com.vnidrop.app.ui.state.WindowClass
 
 @Composable
-fun SendRoute(
+internal fun SendRoute(
 	viewModel: SendViewModel,
+	draftViewModel: TransferDraftViewModel,
+	defaultSenderName: String,
 	windowClass: WindowClass,
+	onTransferCreated: (TransferDraftCreation) -> Unit,
 ) {
 	val state by viewModel.state.collectAsStateWithLifecycle()
 	val coreState by viewModel.coreState.collectAsStateWithLifecycle()
 	val clipboard = LocalClipboardManager.current
-	val picker = rememberShareFilePicker(viewModel::onFilesPicked, viewModel::onFilePickFailed)
 	val shareActions = rememberTransferShareActions()
 
 	LaunchedEffect(viewModel) {
 		viewModel.effectFlow.collect { effect ->
 			when (effect) {
-				SendEffect.OpenFilePicker -> picker.pickFiles()
-				SendEffect.OpenFolderPicker -> picker.pickFolder()
 				is SendEffect.CopyTicket -> clipboard.setText(AnnotatedString(effect.ticket))
 			}
 		}
@@ -35,16 +34,7 @@ fun SendRoute(
 		state = state,
 		windowClass = windowClass,
 		shareActions = shareActions,
-		onOpenComposer = viewModel::openComposer,
-		onDismissComposer = viewModel::dismissComposer,
-		onSelectFile = viewModel::selectFile,
-		onSelectFolder = viewModel::selectFolder,
-		onClearFile = viewModel::clearSelectedSource,
-		onRemoveFile = viewModel::removeSelectedFile,
-		onTransferNameChanged = viewModel::setTransferName,
-		onSenderNameChanged = viewModel::setSenderName,
-		onAccessPolicyChanged = viewModel::setAccessPolicy,
-		onCreateShare = viewModel::createShare,
+		onOpenComposer = { draftViewModel.openInvitation(defaultSenderName) },
 		onTransferSelected = viewModel::openTransfer,
 		onShareTransfer = { transferId ->
 			viewModel.openTransfer(transferId)
@@ -63,4 +53,8 @@ fun SendRoute(
 		onDismissDelete = viewModel::dismissDeleteTransfer,
 		onConfirmDelete = viewModel::confirmDeleteTransfer,
 	)
+	TransferDraftHost(draftViewModel, windowClass) { creation ->
+		viewModel.onDraftCreated(creation)
+		onTransferCreated(creation)
+	}
 }

@@ -37,9 +37,15 @@ import com.vnidrop.app.feature.receive.ReceiveRoute
 import com.vnidrop.app.feature.receive.ReceiveFloatingAction
 import com.vnidrop.app.feature.receive.ReceiveViewModel
 import com.vnidrop.app.feature.receive.ReceiveMethod
+import com.vnidrop.app.feature.saveddevices.PairingPromptHost
+import com.vnidrop.app.feature.saveddevices.SavedDevicesRoute
+import com.vnidrop.app.feature.saveddevices.SavedDevicesViewModel
+import com.vnidrop.app.feature.saveddevices.TargetedOfferModalHost
 import com.vnidrop.app.feature.send.SendRoute
 import com.vnidrop.app.feature.send.SendFloatingAction
 import com.vnidrop.app.feature.send.SendViewModel
+import com.vnidrop.app.feature.send.TransferDraftViewModel
+import com.vnidrop.app.feature.send.TransferDraftHost
 import com.vnidrop.app.feature.settings.SettingsRoute
 import com.vnidrop.app.feature.settings.SettingsViewModel
 import com.vnidrop.app.platform.PlatformSystemAppearance
@@ -57,10 +63,12 @@ import com.vnidrop.app.ui.theme.VniDropTheme
 import com.vnidrop.app.ui.theme.rememberResolvedDarkTheme
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.stringResource
 import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.app_starting
+import com.vnidrop.app.core.rememberPickedShareSourceAdapter
 
 @Composable
 fun App(
@@ -70,9 +78,11 @@ fun App(
 	useNativeWindowBackdrop: Boolean = false,
 	onResolvedDarkThemeChanged: (Boolean) -> Unit = {},
 	windowChrome: (@Composable () -> Unit)? = null,
+	windowFocused: Boolean = true,
 ) {
 	val graphHolder = viewModel { AppGraphViewModel(dependencies) }
 	val graph = graphHolder.graph
+	val sourceAdapter = rememberPickedShareSourceAdapter()
 
 	val appViewModel = viewModel {
 		AppViewModel(
@@ -85,8 +95,22 @@ fun App(
 	val sendViewModel = viewModel {
 		SendViewModel(
 			graph.coreRepository,
-			dependencies.fileSystemService,
-			graph.preferencesRepository,
+			graph.filePreviewRepository,
+			graph.messages,
+		)
+	}
+	val invitationDraftViewModel = viewModel(key = "invitation-transfer-draft") {
+		TransferDraftViewModel(
+			graph.coreRepository,
+			sourceAdapter,
+			graph.filePreviewRepository,
+			graph.messages,
+		)
+	}
+	val targetedDraftViewModel = viewModel(key = "targeted-transfer-draft") {
+		TransferDraftViewModel(
+			graph.coreRepository,
+			sourceAdapter,
 			graph.filePreviewRepository,
 			graph.messages,
 		)
@@ -106,13 +130,29 @@ fun App(
 			graph.diagnostics.bugReports,
 		)
 	}
+	val savedDevicesViewModel = viewModel {
+		SavedDevicesViewModel(
+			graph.coreRepository,
+			dependencies.fileSystemService,
+			graph.preferencesRepository,
+			graph.messages,
+		)
+	}
 	val appState by appViewModel.state.collectAsStateWithLifecycle()
 	val sendState by sendViewModel.state.collectAsStateWithLifecycle()
 	val sendCoreState by sendViewModel.coreState.collectAsStateWithLifecycle()
 	val receiveState by receiveViewModel.state.collectAsStateWithLifecycle()
 	val receiveCoreState by receiveViewModel.coreState.collectAsStateWithLifecycle()
 	val approvalState by graph.approvalCoordinator.state.collectAsStateWithLifecycle()
+	val savedDevicesState by savedDevicesViewModel.state.collectAsStateWithLifecycle()
+	val settingsState by settingsViewModel.state.collectAsStateWithLifecycle()
+	val username by graph.preferencesRepository.preferences
+		.map { it.username }
+		.collectAsStateWithLifecycle(initialValue = dependencies.environment.defaultUsername)
 	val lifecycleOwner = LocalLifecycleOwner.current
+	LaunchedEffect(graph, windowFocused) {
+		graph.visibility.setWindowFocused(windowFocused)
+	}
 	LaunchedEffect(dependencies.externalInvitations, appViewModel, receiveViewModel) {
 		dependencies.externalInvitations.invitations.collect { invitation ->
 			appViewModel.selectDestination(AppDestination.Receive)
@@ -145,12 +185,16 @@ fun App(
 					graph.visibility.setForeground(true)
 					settingsViewModel.refreshNotificationPermission()
 				}
-				Lifecycle.Event.ON_STOP -> graph.visibility.setForeground(false)
+				Lifecycle.Event.ON_STOP -> {
+					graph.visibility.setForeground(false)
+				}
 				else -> Unit
 			}
 		}
 		lifecycleOwner.lifecycle.addObserver(observer)
-		onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+		onDispose {
+			lifecycleOwner.lifecycle.removeObserver(observer)
+		}
 	}
 
 	val darkTheme = rememberResolvedDarkTheme(appState.themeMode)
@@ -199,7 +243,7 @@ fun App(
 						floatingAction = if (showSendAction) {
 							{
 								SendFloatingAction(
-									onClick = sendViewModel::openComposer,
+									onClick = { invitationDraftViewModel.openInvitation(username) },
 									modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
 								)
 							}
@@ -215,21 +259,56 @@ fun App(
 						},
 					) {
 						when (appState.destination) {
-							AppDestination.Send -> SendRoute(sendViewModel, windowClass)
+							AppDestination.Send -> SendRoute(
+								sendViewModel,
+								invitationDraftViewModel,
+								username,
+								windowClass,
+								onTransferCreated = { creation ->
+									if (creation.awaitsRemoteApproval) settingsViewModel.promptForBackgroundNotifications()
+								},
+							)
 							AppDestination.Receive -> ReceiveRoute(receiveViewModel, windowClass)
-							AppDestination.Settings -> ScreenScrollContainer { SettingsRoute(settingsViewModel, windowClass) }
+							AppDestination.SavedDevices -> SavedDevicesRoute(
+								savedDevicesViewModel,
+								targetedDraftViewModel,
+								windowClass,
+							)
+							AppDestination.Settings -> ScreenScrollContainer {
+								SettingsRoute(settingsViewModel, windowClass)
+							}
 						}
 					}
 					ApprovalModalHost(
 						state = approvalState,
 						onAccept = graph.approvalCoordinator::accept,
 						onRefuse = graph.approvalCoordinator::refuse,
+						showNotificationPrompt = settingsState.shouldOfferNotificationEnable,
+						onEnableNotifications = settingsViewModel::enableNotificationsFromContext,
 					)
+					if (appState.destination != AppDestination.SavedDevices) {
+						PairingPromptHost(
+							state = savedDevicesState.pairingPrompt,
+							onAccept = savedDevicesViewModel::acceptPairingPrompt,
+							onDecline = savedDevicesViewModel::declinePairingPrompt,
+							onDismiss = savedDevicesViewModel::dismissPairingPrompt,
+						)
+						TargetedOfferModalHost(
+							state = savedDevicesState.targetedOffers,
+							onAccept = savedDevicesViewModel::acceptTargetedOffer,
+							onDecline = savedDevicesViewModel::declineTargetedOffer,
+							showNotificationPrompt = settingsState.shouldOfferNotificationEnable,
+							onEnableNotifications = settingsViewModel::enableNotificationsFromContext,
+						)
+					}
+					TransferDraftHost(targetedDraftViewModel, windowClass) { creation ->
+						if (creation.awaitsRemoteApproval) settingsViewModel.promptForBackgroundNotifications()
+					}
 				}
 				windowChrome?.invoke()
 				val startingLabel = stringResource(Res.string.app_starting)
 				AnimatedVisibility(
-					visible = !sendCoreState.isInitialized,
+					visible = !sendCoreState.isInitialized && !appState.startupSettled,
 					enter = fadeIn(),
 					exit = fadeOut(),
 				) {

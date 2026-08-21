@@ -10,6 +10,134 @@ use crate::util::{non_empty, now_ms};
 pub(crate) const MAX_CUSTOM_RELAYS: usize = 8;
 pub(crate) const MAX_RELAY_URL_BYTES: usize = 2_048;
 
+/// Versions the saved-device domain seam and its wire protocols.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct SavedDeviceCapabilities {
+    pub domain_contract_version: u16,
+    pub relationship_protocol_version: u16,
+    pub targeted_transfer_protocol_version: u16,
+}
+
+#[uniffi::export]
+pub fn saved_device_capabilities() -> SavedDeviceCapabilities {
+    SavedDeviceCapabilities {
+        domain_contract_version: 2,
+        relationship_protocol_version: 2,
+        targeted_transfer_protocol_version: 3,
+    }
+}
+
+/// Public view of a single-use pairing window after a completed transfer.
+///
+/// The eligibility capability itself never crosses this boundary.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct PairingEligibilitySummary {
+    pub peer_endpoint_id: String,
+    pub remote_display_name: Option<String>,
+    pub session_id: String,
+    pub protocol_version: u16,
+    pub created_at: i64,
+    pub expires_at: i64,
+}
+
+/// A remote VniDrop app-installation identity that completed mutual consent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct SavedDevice {
+    pub endpoint_id: String,
+    pub local_label: Option<String>,
+    pub remote_display_name: Option<String>,
+    pub created_at: i64,
+    pub last_authenticated_at: Option<i64>,
+}
+
+/// Durable consent lifecycle for one remote app-installation identity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum DeviceRelationshipState {
+    PendingOutgoing,
+    PendingIncoming,
+    Saved,
+    Revoked,
+    Blocked,
+}
+
+/// Public relationship state; directional grant material remains core-private.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct DeviceRelationship {
+    pub remote_endpoint_id: String,
+    pub state: DeviceRelationshipState,
+    pub generation: u64,
+    pub minimum_protocol_version: u16,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+/// Rust-owned lifecycle for an immutable one-sender, one-receiver transfer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum TargetedTransferState {
+    Preparing,
+    Offering,
+    AwaitingApproval,
+    Approved,
+    Connecting,
+    Transferring,
+    Interrupted,
+    Completed,
+    Declined,
+    Cancelled,
+    Failed,
+    Deleted,
+}
+
+/// This installation's immutable role in a Targeted transfer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum TargetedTransferRole {
+    Sender,
+    Receiver,
+}
+
+/// Immutable recipient-bound transfer snapshot, separate from an ordinary share.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct TargetedTransfer {
+    pub id: String,
+    pub role: TargetedTransferRole,
+    pub sender_endpoint_id: String,
+    pub receiver_endpoint_id: String,
+    pub manifest_id: String,
+    pub transfer_name: String,
+    pub file_count: u64,
+    pub total_size: u64,
+    /// Bytes verified so far; survives interruption for resume.
+    pub verified_bytes: u64,
+    pub state: TargetedTransferState,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+/// Pre-approval offer summary. Deliberately omits any reusable share ticket.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct PendingTargetedOffer {
+    pub transfer_id: String,
+    pub sender_endpoint_id: String,
+    pub receiver_endpoint_id: String,
+    pub manifest_id: String,
+    pub content_hash: String,
+    pub transfer_name: String,
+    pub file_count: u64,
+    pub total_size: u64,
+    pub protocol_version: u16,
+    pub received_at: i64,
+}
+
+/// Local approve/decline outcome for a pending targeted offer.
+///
+/// Authorization stays in core custody; callers only receive transfer ids.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum TargetedOfferResponse {
+    Approved { transfer_id: String },
+    Declined,
+    AlreadySettled { transfer_id: String },
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
 pub enum CoreRelayMode {
     Automatic,
@@ -180,8 +308,22 @@ pub struct CoreLimits {
     pub max_metadata_bytes: u64,
     pub max_events: u64,
     pub max_pending_approvals: u64,
+    /// Incoming pairing / targeted offers awaiting the local user's decision.
+    pub max_pending_offers: u64,
     pub max_concurrent_transfers: u64,
     pub event_queue_capacity: u64,
+    /// Cap on Saved + pending mutual-consent relationships.
+    pub max_saved_devices: u64,
+    /// Quiet period after a decline or repeated malformed control-plane traffic.
+    pub identity_cooldown_ms: u64,
+    /// Malformed control-plane messages from one identity before cooldown.
+    pub malformed_strike_limit: u64,
+    /// Pairing RPC / acknowledgement wait bound (milliseconds).
+    pub pairing_timeout_ms: u64,
+    /// Pre-approval offer decision wait bound (milliseconds).
+    pub offer_timeout_ms: u64,
+    /// Connection establishment bound for targeted transfers (milliseconds).
+    pub connection_timeout_ms: u64,
 }
 
 impl Default for CoreLimits {
@@ -198,8 +340,17 @@ impl Default for CoreLimits {
             max_events: 500,
             // Bound handshake spam / notification pressure on the sender.
             max_pending_approvals: 64,
+            // A pairing prompt needs the user in front of the device, so this
+            // is far smaller than the handshake queue.
+            max_pending_offers: 16,
             max_concurrent_transfers: 8,
             event_queue_capacity: 1_024,
+            max_saved_devices: 256,
+            identity_cooldown_ms: 60_000,
+            malformed_strike_limit: 5,
+            pairing_timeout_ms: 15_000,
+            offer_timeout_ms: 120_000,
+            connection_timeout_ms: 30_000,
         }
     }
 }
@@ -215,8 +366,15 @@ impl CoreLimits {
             ("max_metadata_bytes", self.max_metadata_bytes),
             ("max_events", self.max_events),
             ("max_pending_approvals", self.max_pending_approvals),
+            ("max_pending_offers", self.max_pending_offers),
             ("max_concurrent_transfers", self.max_concurrent_transfers),
             ("event_queue_capacity", self.event_queue_capacity),
+            ("max_saved_devices", self.max_saved_devices),
+            ("identity_cooldown_ms", self.identity_cooldown_ms),
+            ("malformed_strike_limit", self.malformed_strike_limit),
+            ("pairing_timeout_ms", self.pairing_timeout_ms),
+            ("offer_timeout_ms", self.offer_timeout_ms),
+            ("connection_timeout_ms", self.connection_timeout_ms),
         ];
         for (name, value) in positive {
             if value == 0 {
@@ -225,8 +383,11 @@ impl CoreLimits {
         }
         for (name, value) in [
             ("max_pending_approvals", self.max_pending_approvals),
+            ("max_pending_offers", self.max_pending_offers),
             ("max_concurrent_transfers", self.max_concurrent_transfers),
             ("event_queue_capacity", self.event_queue_capacity),
+            ("max_saved_devices", self.max_saved_devices),
+            ("malformed_strike_limit", self.malformed_strike_limit),
         ] {
             usize::try_from(value)
                 .with_context(|| format!("core limit {name} exceeds platform capacity"))?;
@@ -263,6 +424,8 @@ pub fn default_core_limits() -> CoreLimits {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 pub struct CoreEvent {
     pub id: String,
+    /// Monotonic per-process revision for at-least-once delivery deduplication.
+    pub revision: u64,
     pub timestamp: i64,
     pub scope: String,
     pub transfer_id: Option<u64>,
@@ -353,6 +516,24 @@ pub struct RuntimeStatus {
     pub addr: String,
     pub active_transfers: u64,
     pub active_shares: u64,
+}
+
+/// Neutral core facts used by platform lifecycle policy.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct RuntimeObligationFacts {
+    pub active_invitation_transfers: u64,
+    pub invitation_provider_availability: u64,
+    pub targeted_preparations: u64,
+    pub active_targeted_transfers: u64,
+    pub targeted_provider_availability: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum TargetedPreparationStopOutcome {
+    PreparationStopped,
+    TransferAbandoned,
+    TransferCancelled,
+    AlreadyTerminal,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Enum)]

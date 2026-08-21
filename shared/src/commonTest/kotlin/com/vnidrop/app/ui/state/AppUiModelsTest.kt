@@ -1,11 +1,13 @@
 package com.vnidrop.app.ui.state
 
 import com.vnidrop.app.feature.receive.ReceiveState
-import com.vnidrop.app.feature.send.SendState
+import com.vnidrop.app.feature.send.TransferDraftDestination
+import com.vnidrop.app.feature.send.TransferDraftSource
+import com.vnidrop.app.feature.send.TransferDraftState
+import com.vnidrop.app.feature.send.DraftSourceId
 import com.vnidrop.app.core.CoreEventModel
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.ShareAccessPolicy
-import com.vnidrop.app.core.PickedShareFile
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.ui.theme.ThemeMode
@@ -52,16 +54,17 @@ class AppUiModelsTest {
 	}
 
 	@Test
-	fun sendStateExposesShareEligibility() {
-		val ready = SendState(
-			selectedFiles = listOf(PickedShareFile("/tmp/payload.txt", "payload.txt", 128UL)),
+	fun transferDraftStateExposesSubmitEligibility() {
+		val ready = TransferDraftState(
+			destination = TransferDraftDestination.Invitation,
+			sources = listOf(TransferDraftSource(DraftSourceId("source-1"), "payload.txt", 128UL, null, false)),
 			transferName = "payload.txt",
 		)
 
-		assertTrue(ready.canCreateShare(coreInitialized = true))
-		assertFalse(ready.canCreateShare(coreInitialized = false))
-		assertFalse(SendState().canCreateShare(coreInitialized = true))
-		assertFalse(ready.copy(isSharing = true).canCreateShare(coreInitialized = true))
+		assertTrue(ready.canSubmit(coreInitialized = true))
+		assertFalse(ready.canSubmit(coreInitialized = false))
+		assertFalse(TransferDraftState().canSubmit(coreInitialized = true))
+		assertFalse(ready.copy(isSubmitting = true).canSubmit(coreInitialized = true))
 	}
 
 	@Test
@@ -180,6 +183,7 @@ class AppUiModelsTest {
 			),
 			CoreEventModel(
 				id = "conn",
+				revision = 1UL,
 				timestamp = 1L,
 				scope = "endpoint",
 				transferId = null,
@@ -330,6 +334,7 @@ class AppUiModelsTest {
 		direction: String = "receive",
 	) = CoreEventModel(
 		id = id,
+		revision = 1UL,
 		timestamp = 1L,
 		scope = "transfer",
 		transferId = transferId,

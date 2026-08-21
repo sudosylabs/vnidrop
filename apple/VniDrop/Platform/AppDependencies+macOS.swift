@@ -42,9 +42,10 @@ private struct MacDeviceInfoProvider: DeviceInfoProvider {
 		var size = 0
 		sysctlbyname("hw.model", nil, &size, nil, 0)
 		guard size > 0 else { return nil }
-		var model = [CChar](repeating: 0, count: size)
+		var model = [UInt8](repeating: 0, count: size)
 		sysctlbyname("hw.model", &model, &size, nil, 0)
-		return String(cString: model)
+		// sysctl reports a NUL-terminated C string; drop the terminator(s).
+		return String(decoding: model.prefix(while: { $0 != 0 }), as: UTF8.self)
 	}
 }
 #endif

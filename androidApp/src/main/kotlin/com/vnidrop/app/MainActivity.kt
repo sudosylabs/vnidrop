@@ -3,15 +3,16 @@ package com.vnidrop.app
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
+import com.vnidrop.app.core.initializeAndroidCoreRuntime
 import com.vnidrop.app.feature.receive.ExternalInvitationController
 import com.vnidrop.app.feature.receive.MaxVniDropInvitationBytes
-import com.vnidrop.app.feature.receive.VniDropInvitationExtension
-import com.vnidrop.app.feature.receive.VniDropInvitationMimeType
 import com.vnidrop.app.feature.receive.decodeInvitationBytes
+import com.vnidrop.app.feature.receive.isVniDropInvitationDocument
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -22,6 +23,7 @@ class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		enableEdgeToEdge()
 		super.onCreate(savedInstanceState)
+		initializeAndroidCoreRuntime(applicationContext)
 		setContent {
 			App(rememberAndroidAppDependencies(this, externalInvitations))
 		}
@@ -52,11 +54,12 @@ class MainActivity : ComponentActivity() {
 
 	private fun readInvitation(uri: Uri, declaredType: String?): Result<String> = runCatching {
 		val resolvedType = declaredType ?: contentResolver.getType(uri)
-		val path = uri.path.orEmpty()
-		val lastSegment = uri.lastPathSegment.orEmpty()
-		val hasExpectedName = lastSegment.endsWith(".$VniDropInvitationExtension", ignoreCase = true) ||
-			path.endsWith(".$VniDropInvitationExtension", ignoreCase = true)
-		require(resolvedType == VniDropInvitationMimeType || hasExpectedName) { "This is not a VniDrop invitation" }
+		val displayName = runCatching {
+			contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+				if (cursor.moveToFirst()) cursor.getString(0) else null
+			}
+		}.getOrNull()
+		require(isVniDropInvitationDocument(resolvedType, uri.path, displayName)) { "This is not a VniDrop invitation" }
 		val bytes = contentResolver.openInputStream(uri)?.use { it.readNBytes(MaxVniDropInvitationBytes + 1) }
 			?: error("The invitation could not be opened")
 		decodeInvitationBytes(bytes)

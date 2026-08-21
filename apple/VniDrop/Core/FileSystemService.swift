@@ -25,6 +25,11 @@ struct PickedShareFile: Equatable, Identifiable, Sendable {
 @MainActor
 protocol FileSystemService {
 	var supportsCustomReceiveFolders: Bool { get }
+	/// Whether the user can see and restore what the system moved to `.Trash`
+	/// inside app-owned directories. False on iOS/iPadOS, where the Files app
+	/// hides the container's `.Trash` with no way back — the bytes are lost
+	/// already, so the app reclaims them on its own.
+	var userCanReachTrash: Bool { get }
 
 	func defaultReceiveFolder() -> ReceiveFolder
 	func effectiveReceiveFolder(_ configured: ReceiveFolder) -> ReceiveFolder
@@ -33,17 +38,29 @@ protocol FileSystemService {
 	func revealReceiveFolder(_ folder: ReceiveFolder) async -> Result<Void, Error>
 	/// Releases only app-owned picker copies; never deletes original user sources.
 	func discardPickedFiles(_ files: [PickedShareFile]) async
+	/// Imports a picked selection, either as an invitation or straight to a
+	/// remembered device. One entry point so the platform's security-scoped
+	/// access handling covers both.
 	func sharePickedFiles(
 		repository: CoreGateway,
 		files: [PickedShareFile],
 		transferName: String,
 		senderName: String,
-		accessPolicy: ShareAccessPolicy
+		destination: ShareDestination
 	) async -> Result<Share, Error>
+	/// Sends a picked selection straight to one saved device. Separate from
+	/// `sharePickedFiles` because a targeted transfer is its own domain with its
+	/// own result type — it is not an access mode on an invitation share.
+	func sendPickedFilesToSavedDevice(
+		preparation: any TargetedTransferPreparationGateway,
+		files: [PickedShareFile],
+		transferName: String
+	) async -> Result<TargetedTransferModel, Error>
 }
 
 extension FileSystemService {
 	var supportsCustomReceiveFolders: Bool { true }
+	var userCanReachTrash: Bool { true }
 
 	func effectiveReceiveFolder(_ configured: ReceiveFolder) -> ReceiveFolder {
 		supportsCustomReceiveFolders ? configured : defaultReceiveFolder()

@@ -3,6 +3,7 @@ import { STRINGS_JSON } from "../config";
 import type { StringsFile } from "../types";
 
 const TOKEN = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+const PLATFORM_PLACEHOLDER = /%(?:\d+\$)?(?:l{0,2})?[@sdif]/;
 
 export async function validate() {
   const doc = JSON.parse(await Bun.file(STRINGS_JSON).text()) as StringsFile;
@@ -33,6 +34,9 @@ export async function validate() {
     }
 
     for (const text of texts) {
+      if (argNames.size > 0 && PLATFORM_PLACEHOLDER.test(text)) {
+        errors.push(`${where}: uses a platform printf placeholder; use declared {name} placeholders in strings.json.`);
+      }
       for (const m of text.matchAll(TOKEN)) {
         if (!argNames.has(m[1]!)) {
           errors.push(`${where}: uses {${m[1]}} but no matching arg is declared.`);

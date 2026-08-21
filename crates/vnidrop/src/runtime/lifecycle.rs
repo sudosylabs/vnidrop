@@ -6,7 +6,7 @@ use serde_json::json;
 use super::{share_tag_name, CoreInner};
 use crate::{
     access_policy::mode_to_storage,
-    api::{RuntimeStatus, TransferAccessMode},
+    api::{RuntimeObligationFacts, RuntimeStatus, TransferAccessMode},
     transfer_state::{ReceiverRequestStatus, TransferDirection, TransferStatus},
 };
 
@@ -24,6 +24,27 @@ impl CoreInner {
             active_transfers,
             active_shares,
         }
+    }
+
+    pub(super) async fn runtime_obligation_facts(
+        &self,
+    ) -> Result<RuntimeObligationFacts, crate::error::VnidropError> {
+        let active_invitation_transfers = self
+            .active_transfers
+            .lock()
+            .expect("active_transfers")
+            .len() as u64;
+        let invitation_provider_availability = self.active_shares.lock().await.len() as u64;
+        let active_targeted_transfers = self.targeted_transfers.receiver_obligation_count().await?;
+        let targeted_provider_availability =
+            self.targeted_transfers.provider_obligation_count().await?;
+        Ok(RuntimeObligationFacts {
+            active_invitation_transfers,
+            invitation_provider_availability,
+            targeted_preparations: self.active_targeted_preparations.load(Ordering::SeqCst),
+            active_targeted_transfers,
+            targeted_provider_availability,
+        })
     }
 
     /// Remove an in-flight transfer and fire its cancel oneshot synchronously.
@@ -179,7 +200,7 @@ impl CoreInner {
         Ok(())
     }
 
-    pub(super) async fn shutdown(&self) {
+    pub(crate) async fn shutdown(&self) {
         if self.shutdown_started.swap(true, Ordering::SeqCst) {
             return;
         }
@@ -188,6 +209,10 @@ impl CoreInner {
         // event even if the process exits soon after Compose disposes the core.
         self.event_hub.flush().await;
         if let Some(task) = self.delivery_receipt_task.lock().await.take() {
+            task.abort();
+            let _ = task.await;
+        }
+        if let Some(task) = self.targeted_reconciliation_task.lock().await.take() {
             task.abort();
             let _ = task.await;
         }

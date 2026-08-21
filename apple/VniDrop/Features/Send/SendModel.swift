@@ -96,6 +96,11 @@ final class SendModel: ObservableObject {
 				case .receiverHistoryChanged(let id), .approvalChanged(let id):
 					if id == self.state.selectedTransferId { self.refreshReceivers(id) }
 					self.refreshReceiverStatuses(for: id)
+				case .pairingChanged, .targetedTransferChanged, .runtimeObligationChanged:
+					// Saved-device domain; owned by SavedDevicesModel. Listed
+					// explicitly rather than via `default` so a new signal still
+					// forces a decision here.
+					break
 				}
 			}
 			.store(in: &cancellables)
@@ -351,7 +356,7 @@ final class SendModel: ObservableObject {
 				files: current.selectedFiles,
 				transferName: current.transferName.trimmingCharacters(in: .whitespacesAndNewlines),
 				senderName: current.senderName.trimmingCharacters(in: .whitespacesAndNewlines),
-				accessPolicy: current.accessPolicy
+				destination: .invitation(accessPolicy: current.accessPolicy)
 			)
 			switch result {
 			case .success(let share):

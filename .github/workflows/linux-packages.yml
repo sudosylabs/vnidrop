@@ -53,7 +53,12 @@ jobs:
       - name: Install packaging tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes fakeroot unzip
+          sudo apt-get install --yes \
+            dbus-x11 \
+            fakeroot \
+            gnome-keyring \
+            libsecret-tools \
+            unzip
 
       - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
@@ -89,7 +94,7 @@ jobs:
           echo "app=$version" >> "$GITHUB_OUTPUT"
 
       - name: Test and build Debian package
-        run: make package-deb
+        run: make/with-secret-service.sh make package-deb
 
       - name: Upload Debian artifact
         if: github.event_name != 'pull_request'

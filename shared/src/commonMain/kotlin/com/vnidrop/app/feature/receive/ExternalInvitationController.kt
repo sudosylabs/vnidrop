@@ -50,3 +50,12 @@ fun decodeInvitationBytes(bytes: ByteArray): String {
 	require(text.isNotBlank()) { "The invitation is empty" }
 	return text
 }
+
+fun isVniDropInvitationDocument(
+	declaredType: String?,
+	uriPath: String?,
+	displayName: String?,
+): Boolean = declaredType.equals(VniDropInvitationMimeType, ignoreCase = true) ||
+	sequenceOf(displayName, uriPath)
+		.filterNotNull()
+		.any { it.endsWith(".$VniDropInvitationExtension", ignoreCase = true) }

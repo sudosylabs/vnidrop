@@ -19,10 +19,17 @@ captures
 node_modules/
 target/
 .junie
+.claude/settings.local.json
 config.override.mk
+bin/
+tmp/
 
 # Local design export scratch
 output/
+.scratch/
+
+# Local ADRs (not tracked — agent/session decisions)
+docs/adr/
 .screenshots
 apple/RELEASE-MACOS.md
 apple/Generated/*.xcconfig

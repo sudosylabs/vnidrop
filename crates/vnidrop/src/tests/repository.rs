@@ -1,6 +1,6 @@
 use crate::{
     api::{CoreEvent, ReceivedLocatorKind},
-    repository::{
+    invitation::{
         PendingDeliveryReceiptInsert, ReceivedArtifactInsert, ReceiverRequestInsert, Repository,
         TransferUpsert,
     },
@@ -18,6 +18,7 @@ fn transfer(
         direction,
         status,
         transfer_name: Some("demo"),
+        sender_name: None,
         content_hash: Some("hash"),
         ticket: Some("ticket"),
         file_count: 1,
@@ -66,7 +67,7 @@ async fn received_artifacts_survive_history_deletion() {
 async fn persists_transfers_and_events_across_reopen() {
     let temp = tempfile::tempdir().unwrap();
     let repository = Repository::open(temp.path()).await.unwrap();
-    assert_eq!(repository.schema_version().await.unwrap(), 7);
+    assert_eq!(repository.schema_version().await.unwrap(), 13);
     repository
         .insert_transfer(transfer(
             7,
@@ -87,6 +88,7 @@ async fn persists_transfers_and_events_across_reopen() {
         .insert_event(
             &CoreEvent {
                 id: "event-1".to_string(),
+                revision: 1,
                 timestamp: 10,
                 scope: "transfer".to_string(),
                 transfer_id: Some(7),
@@ -515,6 +517,7 @@ async fn share_completion_is_conditional_and_atomic() {
             direction: TransferDirection::Send,
             status: TransferStatus::Importing,
             transfer_name: Some("pending"),
+            sender_name: None,
             content_hash: None,
             ticket: None,
             file_count: 0,
@@ -531,6 +534,7 @@ async fn share_completion_is_conditional_and_atomic() {
             direction: TransferDirection::Send,
             status: TransferStatus::Sharing,
             transfer_name: Some("complete"),
+            sender_name: None,
             content_hash: Some("final-hash"),
             ticket: Some("final-ticket"),
             file_count: 2,
@@ -569,6 +573,7 @@ async fn injected_write_failure_preserves_previous_state() {
             direction: TransferDirection::Send,
             status: TransferStatus::Importing,
             transfer_name: Some("pending"),
+            sender_name: None,
             content_hash: None,
             ticket: None,
             file_count: 0,
@@ -645,7 +650,7 @@ async fn migrates_schema_v2_identity_without_losing_transfer() {
     pool.close().await;
 
     let repository = Repository::open(temp.path()).await.unwrap();
-    assert_eq!(repository.schema_version().await.unwrap(), 7);
+    assert_eq!(repository.schema_version().await.unwrap(), 13);
     let stored = repository.list_transfers().await.unwrap().remove(0);
     assert_eq!(stored.transfer_id, 7);
     assert_eq!(stored.local_id, "legacy-7-send");
@@ -663,6 +668,7 @@ async fn event_reads_respect_configured_history_limit() {
             .insert_event(
                 &CoreEvent {
                     id: format!("event-{sequence}"),
+                    revision: 1,
                     timestamp: sequence,
                     scope: "endpoint".to_string(),
                     transfer_id: None,
@@ -711,6 +717,7 @@ async fn deleting_transfer_removes_related_history_transactionally() {
         .insert_event(
             &CoreEvent {
                 id: "event-delete".to_string(),
+                revision: 1,
                 timestamp: 1,
                 scope: "transfer".to_string(),
                 transfer_id: Some(88),
@@ -775,6 +782,7 @@ async fn deleting_receive_history_only_removes_terminal_receives_and_dependants(
             .insert_event(
                 &CoreEvent {
                     id: format!("event-{transfer_id}"),
+                    revision: 1,
                     timestamp: transfer_id as i64,
                     scope: "transfer".to_string(),
                     transfer_id: Some(transfer_id),
@@ -857,6 +865,7 @@ async fn receive_history_mid_transaction_failure_preserves_all_related_rows() {
         .insert_event(
             &CoreEvent {
                 id: "event-preserved".to_string(),
+                revision: 1,
                 timestamp: 1,
                 scope: "transfer".to_string(),
                 transfer_id: Some(106),

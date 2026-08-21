@@ -9,7 +9,8 @@ use crate::{
     api::{CoreLimits, CoreRelayMode, TransferMetadata},
     ticket::{
         encode_persisted_sender_address, parse_persisted_sender_address, parse_transfer_ticket,
-        parse_transfer_ticket_with_limits, ticket_matches_relay_profile, VnidropTicket,
+        parse_transfer_ticket_with_limits, relay_profiles_compatible, ticket_matches_relay_profile,
+        VnidropTicket,
     },
 };
 
@@ -284,4 +285,61 @@ fn parser_rejects_or_parses_generated_inputs_without_panicking() {
         }
         let _ = parse_transfer_ticket(&input);
     }
+}
+
+#[test]
+fn relay_profiles_compatible_matches_network_profile_matrix() {
+    let relay: RelayUrl = "https://relay.example.com".parse().unwrap();
+    let other: RelayUrl = "https://other.example.com".parse().unwrap();
+    let relay_urls = std::slice::from_ref(&relay);
+    let other_urls = std::slice::from_ref(&other);
+
+    assert!(relay_profiles_compatible(
+        CoreRelayMode::Automatic,
+        &[],
+        CoreRelayMode::Automatic,
+        &[],
+    ));
+    assert!(relay_profiles_compatible(
+        CoreRelayMode::LocalOnly,
+        &[],
+        CoreRelayMode::LocalOnly,
+        &[],
+    ));
+    assert!(relay_profiles_compatible(
+        CoreRelayMode::LocalOnly,
+        &[],
+        CoreRelayMode::Automatic,
+        &[],
+    ));
+    assert!(relay_profiles_compatible(
+        CoreRelayMode::StrictCustom,
+        relay_urls,
+        CoreRelayMode::StrictCustom,
+        relay_urls,
+    ));
+    assert!(relay_profiles_compatible(
+        CoreRelayMode::CustomWithDirectFallback,
+        relay_urls,
+        CoreRelayMode::StrictCustom,
+        relay_urls,
+    ));
+    assert!(!relay_profiles_compatible(
+        CoreRelayMode::Automatic,
+        &[],
+        CoreRelayMode::StrictCustom,
+        relay_urls,
+    ));
+    assert!(!relay_profiles_compatible(
+        CoreRelayMode::StrictCustom,
+        relay_urls,
+        CoreRelayMode::StrictCustom,
+        other_urls,
+    ));
+    assert!(!relay_profiles_compatible(
+        CoreRelayMode::LocalOnly,
+        &[],
+        CoreRelayMode::StrictCustom,
+        relay_urls,
+    ));
 }

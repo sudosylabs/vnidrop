@@ -71,7 +71,7 @@ check-version: ## Validate the canonical version and its platform mappings.
 	cd $(ROOT) && $(GRADLE) verifyVersion $(GRADLE_FLAGS)
 
 check-release: ## Validate coordinated release scripts and workflow YAML.
-	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh make/tests/test-open-apple.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh
+	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh make/tests/test-open-apple.sh make/tests/test-with-secret-service.sh make/with-secret-service.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh
 	cd $(ROOT) && apple/scripts/tests/test-notarize.sh
 	cd $(ROOT) && apple/scripts/tests/test-generate-appconfig.sh
 	cd $(ROOT) && apple/scripts/tests/test-sign-exported-app.sh
@@ -79,6 +79,7 @@ check-release: ## Validate coordinated release scripts and workflow YAML.
 	cd $(ROOT) && packaging/release/test-assemble-release.sh
 	cd $(ROOT) && packaging/release/test-release-config.sh
 	cd $(ROOT) && make/tests/test-open-apple.sh
+	cd $(ROOT) && make/tests/test-with-secret-service.sh
 	cd $(ROOT) && python3 -m unittest discover -s packaging/android/tests -v
 	cd $(ROOT) && ruby -e 'require "yaml"; ARGV.each { |file| YAML.load_file(file) }' .github/workflows/*.yml
 

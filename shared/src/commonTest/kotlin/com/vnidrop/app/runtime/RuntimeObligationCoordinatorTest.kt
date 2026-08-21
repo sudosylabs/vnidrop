@@ -12,7 +12,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class RuntimeRetentionCoordinatorTest {
+class RuntimeObligationCoordinatorTest {
 	@Test
 	fun applicationLifetimeCoordinatorTracksCoreFactsWithoutAComposableCollector() = runTest {
 		val core = FakeCoreGateway().apply {
@@ -20,7 +20,7 @@ class RuntimeRetentionCoordinatorTest {
 			runtimeObligationFactsResult = Result.success(facts(activeInvitationTransfers = 1UL))
 		}
 		val keeper = RecordingRuntimeKeeper()
-		val coordinator = RuntimeRetentionCoordinator(core, keeper, UiPlatform.Android, backgroundScope)
+		val coordinator = RuntimeObligationCoordinator(core, keeper, UiPlatform.Android, backgroundScope)
 		runCurrent()
 
 		assertEquals(true, keeper.requiredCalls.last())
@@ -43,7 +43,7 @@ class RuntimeRetentionCoordinatorTest {
 			runtimeObligationFactsResult = Result.success(facts(targetedProviderAvailability = 1UL))
 		}
 		val keeper = RecordingRuntimeKeeper()
-		val coordinator = RuntimeRetentionCoordinator(core, keeper, UiPlatform.Android, backgroundScope)
+		val coordinator = RuntimeObligationCoordinator(core, keeper, UiPlatform.Android, backgroundScope)
 		runCurrent()
 		assertEquals(true, keeper.requiredCalls.last())
 
@@ -62,13 +62,13 @@ class RuntimeRetentionCoordinatorTest {
 	}
 
 	@Test
-	fun desktopDoesNotStartTheAndroidRetentionMapping() = runTest {
+	fun desktopDoesNotStartTheAndroidObligationMapping() = runTest {
 		val core = FakeCoreGateway().apply {
 			mutableState.value = mutableState.value.copy(isInitialized = true)
 			runtimeObligationFactsResult = Result.success(facts(targetedPreparations = 1UL))
 		}
 		val keeper = RecordingRuntimeKeeper()
-		val coordinator = RuntimeRetentionCoordinator(core, keeper, UiPlatform.Linux, backgroundScope)
+		val coordinator = RuntimeObligationCoordinator(core, keeper, UiPlatform.Linux, backgroundScope)
 		runCurrent()
 
 		assertEquals(emptyList(), keeper.requiredCalls)

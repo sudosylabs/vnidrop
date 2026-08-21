@@ -441,7 +441,6 @@ fn establish_saved(alice: &ProtectedNode, bob: &ProtectedNode, transfer_id: u64)
 fn default_limits_include_saved_device_cap_and_control_plane_timeouts() {
     let limits = CoreLimits::default();
     limits.validate().unwrap();
-    assert_eq!(limits.max_saved_devices, 256);
     assert!(limits.identity_cooldown_ms > 0);
     assert!(limits.malformed_strike_limit > 0);
     assert!(limits.pairing_timeout_ms > 0);

@@ -68,6 +68,7 @@ class TransferNotificationCoordinatorTest {
 			visibility = AppVisibility(initiallyForeground = false),
 			messages = UiMessageController(),
 			scope = backgroundScope,
+			notificationText = FakeNotificationTextFormatter,
 		)
 
 		runCurrent()

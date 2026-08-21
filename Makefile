@@ -71,13 +71,14 @@ check-version: ## Validate the canonical version and its platform mappings.
 	cd $(ROOT) && $(GRADLE) verifyVersion $(GRADLE_FLAGS)
 
 check-release: ## Validate coordinated release scripts and workflow YAML.
-	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh
+	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh make/tests/test-open-apple.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh
 	cd $(ROOT) && apple/scripts/tests/test-notarize.sh
 	cd $(ROOT) && apple/scripts/tests/test-generate-appconfig.sh
 	cd $(ROOT) && apple/scripts/tests/test-sign-exported-app.sh
 	cd $(ROOT) && packaging/android/tests/test_verify_apk_signature.sh
 	cd $(ROOT) && packaging/release/test-assemble-release.sh
 	cd $(ROOT) && packaging/release/test-release-config.sh
+	cd $(ROOT) && make/tests/test-open-apple.sh
 	cd $(ROOT) && python3 -m unittest discover -s packaging/android/tests -v
 	cd $(ROOT) && ruby -e 'require "yaml"; ARGV.each { |file| YAML.load_file(file) }' .github/workflows/*.yml
 
@@ -120,7 +121,7 @@ test-shared: ## Run shared JVM tests.
 	cd $(ROOT) && $(GRADLE) :shared:jvmTest $(GRADLE_FLAGS)
 
 test-android-host: ## Run Android host-side shared tests.
-	cd $(ROOT) && $(GRADLE) :shared:testAndroidHostTest $(GRADLE_FLAGS)
+	cd $(ROOT) && $(GRADLE) :shared:testDebugUnitTest $(GRADLE_FLAGS)
 
 check-android: ## Build Android debug and verify packaged Rust libraries.
 	cd $(ROOT) && $(GRADLE) :androidApp:assembleDebug :androidApp:verifyDebugVnidropLibraries $(GRADLE_FLAGS)
@@ -162,7 +163,9 @@ build-apple-dmg: localization ## Build the signed/notarized direct-download .dmg
 package-apple-core: ## Zip the prebuilt core (xcframework + bindings) + checksum into apple/dist (build the core first).
 	cd $(ROOT) && apple/scripts/package-core.sh
 
-open-apple: build-apple-macos ## Build and launch the native macOS app.
+open-apple: ## Build and launch a signed native macOS app.
+	@test "$(APPLE_CODE_SIGNING)" = YES || { printf 'The protected device identity requires a signed macOS app. Configure apple/Local.xcconfig, then run make open-apple APPLE_CODE_SIGNING=YES.\n' >&2; exit 1; }
+	$(MAKE) build-apple-macos
 	@test -d "$(APPLE_DERIVED_DATA)/Build/Products/$(APPLE_CONFIGURATION)/VniDrop.app" || { printf 'Built macOS app was not found.\n' >&2; exit 1; }
 	$(OPEN) "$(APPLE_DERIVED_DATA)/Build/Products/$(APPLE_CONFIGURATION)/VniDrop.app"
 

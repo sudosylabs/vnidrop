@@ -844,9 +844,6 @@ fn apple_public_bindings_omit_raw_secrets_and_generic_mutation() {
                 swift.display()
             );
         }
-        assert!(!source.contains("initializeWithExperimentalSavedDevices"));
-        assert!(!source.contains("ExperimentalSavedDeviceCapabilities"));
-        assert!(!source.contains("experimentalSavedDeviceCapabilities"));
         assert!(
             source.contains("initializeWithLimitsAndNetworkConfig"),
             "Swift bindings must expose standard protected initialization"
@@ -881,8 +878,6 @@ fn apple_public_bindings_omit_raw_secrets_and_generic_mutation() {
     )
     .expect("api.rs");
     for forbidden in [
-        "ExperimentalSavedDeviceCapabilities",
-        "experimental_saved_device_capabilities",
         "SecretMaterial",
         "SecretHandle",
         "SecureSecretStore",

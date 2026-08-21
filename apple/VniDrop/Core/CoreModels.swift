@@ -69,7 +69,7 @@ enum EventPhase: String, Equatable, Sendable {
 	/// Targeted-transfer offer and lifecycle refresh hints. Domain contract v2
 	/// transports no transfer identity in their payloads.
 	case targetedTransfer = "targeted_transfer"
-	/// Neutral wake-up indicating that lifecycle retention facts changed.
+	/// Neutral wake-up indicating that Runtime obligation facts changed.
 	case runtimeObligation = "runtime_obligation"
 }
 
@@ -205,7 +205,7 @@ enum CoreSignal: Equatable, Sendable {
 	/// Targeted-transfer offer or lifecycle changed; refresh pending offers and
 	/// transfers. Payload-free for the same reason as `pairingChanged`.
 	case targetedTransferChanged
-	/// Runtime-retention facts changed; consumers re-read the neutral snapshot.
+	/// Runtime obligation facts changed; consumers re-read the neutral snapshot.
 	case runtimeObligationChanged
 }
 

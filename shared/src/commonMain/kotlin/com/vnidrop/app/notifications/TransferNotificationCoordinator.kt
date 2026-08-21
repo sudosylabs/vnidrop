@@ -15,22 +15,6 @@ import com.vnidrop.app.ui.feedback.UiMessageController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.getString
-import vnidrop.shared.generated.resources.Res
-import vnidrop.shared.generated.resources.approval_nearby_device
-import vnidrop.shared.generated.resources.notifications_receive_completed_body
-import vnidrop.shared.generated.resources.notifications_receive_completed_title
-import vnidrop.shared.generated.resources.notifications_receive_failed_body
-import vnidrop.shared.generated.resources.notifications_receive_failed_title
-import vnidrop.shared.generated.resources.notifications_receiver_completed_body
-import vnidrop.shared.generated.resources.notifications_receiver_completed_title
-import vnidrop.shared.generated.resources.notifications_receiver_failed_body
-import vnidrop.shared.generated.resources.notifications_receiver_failed_title
-import vnidrop.shared.generated.resources.notifications_send_failed_body
-import vnidrop.shared.generated.resources.notifications_send_failed_title
-import vnidrop.shared.generated.resources.receive_unknown_transfer
-import vnidrop.shared.generated.resources.targeted_offer_body
-import vnidrop.shared.generated.resources.targeted_offer_title
 
 internal enum class TransferNotificationKind {
 	SendFailed,
@@ -97,14 +81,32 @@ internal fun plannedTargetedOfferNotifications(
 	).takeUnless { id in published }
 }
 
-class TransferNotificationCoordinator(
+class TransferNotificationCoordinator internal constructor(
 	private val repository: CoreGateway,
 	private val preferencesRepository: PreferencesRepository,
 	private val notifications: LocalNotificationService,
 	private val visibility: AppVisibility,
 	private val messages: UiMessageController,
 	private val scope: CoroutineScope,
+	private val notificationText: NotificationTextFormatter,
 ) {
+	constructor(
+		repository: CoreGateway,
+		preferencesRepository: PreferencesRepository,
+		notifications: LocalNotificationService,
+		visibility: AppVisibility,
+		messages: UiMessageController,
+		scope: CoroutineScope,
+	) : this(
+		repository,
+		preferencesRepository,
+		notifications,
+		visibility,
+		messages,
+		scope,
+		LocalizedNotificationTextFormatter,
+	)
+
 	private val published = mutableSetOf<String>()
 	private var transfersPrimed = false
 	private var notificationsEnabled = false
@@ -180,48 +182,8 @@ class TransferNotificationCoordinator(
 			visibility.isForeground.value ||
 			notifications.permission.value != NotificationPermission.Granted
 		) return
-		val transferName = plan.transferName ?: getString(Res.string.receive_unknown_transfer)
-		val notification = when (plan.kind) {
-			TransferNotificationKind.SendFailed -> LocalNotification(
-				plan.id,
-				getString(Res.string.notifications_send_failed_title),
-				getString(Res.string.notifications_send_failed_body, transferName),
-			)
-			TransferNotificationKind.ReceiveCompleted -> LocalNotification(
-				plan.id,
-				getString(Res.string.notifications_receive_completed_title),
-				getString(Res.string.notifications_receive_completed_body, transferName),
-			)
-			TransferNotificationKind.ReceiveFailed -> LocalNotification(
-				plan.id,
-				getString(Res.string.notifications_receive_failed_title),
-				getString(Res.string.notifications_receive_failed_body, transferName),
-			)
-			TransferNotificationKind.ReceiverCompleted -> {
-				val receiver = plan.receiver ?: getString(Res.string.approval_nearby_device)
-				LocalNotification(
-					plan.id,
-					getString(Res.string.notifications_receiver_completed_title),
-					getString(Res.string.notifications_receiver_completed_body, receiver, transferName),
-				)
-			}
-			TransferNotificationKind.ReceiverFailed -> {
-				val receiver = plan.receiver ?: getString(Res.string.approval_nearby_device)
-				LocalNotification(
-					plan.id,
-					getString(Res.string.notifications_receiver_failed_title),
-					getString(Res.string.notifications_receiver_failed_body, receiver, transferName),
-				)
-			}
-			TransferNotificationKind.TargetedOffer -> {
-				val sender = plan.receiver ?: getString(Res.string.approval_nearby_device)
-				LocalNotification(
-					plan.id,
-					getString(Res.string.targeted_offer_title),
-					getString(Res.string.targeted_offer_body, sender, transferName),
-				)
-			}
-		}
+		val text = notificationText.transfer(plan)
+		val notification = LocalNotification(plan.id, text.title, text.body)
 		notifications.publish(notification).onFailure(messages::error)
 	}
 }

@@ -52,7 +52,7 @@ enum EventPhase {
     Pairing,
     /// Saved-device targeted-transfer pre-approval prompts.
     TargetedTransfer,
-    /// Payload-free wake-up for platform runtime-retention fact refreshes.
+    /// Payload-free wake-up for platform Runtime obligation fact refreshes.
     RuntimeObligation,
 }
 

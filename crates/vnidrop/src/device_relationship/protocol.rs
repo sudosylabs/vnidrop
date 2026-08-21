@@ -128,7 +128,7 @@ impl RelationshipClient {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct PairingRequest {
     pub(super) session_id: String,
     pub(super) capability: Vec<u8>,
@@ -144,7 +144,7 @@ pub(crate) enum PairingRequestResponse {
     Rejected,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct PairingConsent {
     pub(super) accepted: bool,
     pub(super) grant: Option<WireGrant>,
@@ -153,7 +153,7 @@ pub(crate) struct PairingConsent {
     pub(super) protocol_version: u16,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) enum PairingConsentResponse {
     Completed {
         grant: Box<WireGrant>,
@@ -164,7 +164,7 @@ pub(crate) enum PairingConsentResponse {
     Rejected,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct PairingAck {
     pub(super) possession_proof: WireProof,
     pub(super) challenge: String,
@@ -179,7 +179,7 @@ pub(crate) enum PairingAckResponse {
     Rejected,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct WireGrant {
     pub(super) grant_id: String,
     pub(super) secret: String,
@@ -189,7 +189,7 @@ pub(crate) struct WireGrant {
     pub(super) protocol_version: u16,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct WireProof {
     pub(crate) grant_id: String,
     pub(crate) mac: String,
@@ -201,6 +201,27 @@ pub(crate) struct RevokeNotice {
     pub(super) generation: u64,
     pub(super) issued_grant_id: Option<String>,
 }
+
+macro_rules! redacted_debug {
+    ($($type:ty),+ $(,)?) => {
+        $(
+            impl fmt::Debug for $type {
+                fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    formatter.write_str(concat!(stringify!($type), "(redacted)"))
+                }
+            }
+        )+
+    };
+}
+
+redacted_debug!(
+    PairingRequest,
+    PairingConsent,
+    PairingConsentResponse,
+    PairingAck,
+    WireGrant,
+    WireProof,
+);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) enum RevokeNoticeResponse {
@@ -223,4 +244,77 @@ enum RelationshipMessages {
     PairingAck(PairingAck),
     #[rpc(tx = oneshot::Sender<RevokeNoticeResponse>)]
     RevokeNotice(RevokeNotice),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sensitive_pairing_wire_debug_is_redacted() {
+        let grant = WireGrant {
+            grant_id: "grant-id".to_string(),
+            secret: "grant-secret".to_string(),
+            issuer_endpoint_id: "issuer-endpoint".to_string(),
+            holder_endpoint_id: "holder-endpoint".to_string(),
+            generation: 1,
+            protocol_version: 1,
+        };
+        let proof = WireProof {
+            grant_id: "grant-id".to_string(),
+            mac: "proof-mac".to_string(),
+            challenge: "proof-challenge".to_string(),
+        };
+
+        assert_eq!(
+            format!(
+                "{:?}",
+                PairingRequest {
+                    session_id: "session-id".to_string(),
+                    capability: b"pairing-capability".to_vec(),
+                    protocol_version: 1,
+                    generation: 1,
+                }
+            ),
+            "PairingRequest(redacted)"
+        );
+        assert_eq!(format!("{grant:?}"), "WireGrant(redacted)");
+        assert_eq!(format!("{proof:?}"), "WireProof(redacted)");
+        assert_eq!(
+            format!(
+                "{:?}",
+                PairingConsent {
+                    accepted: true,
+                    grant: Some(grant.clone()),
+                    challenge: Some("consent-challenge".to_string()),
+                    generation: 1,
+                    protocol_version: 1,
+                }
+            ),
+            "PairingConsent(redacted)"
+        );
+        assert_eq!(
+            format!(
+                "{:?}",
+                PairingConsentResponse::Completed {
+                    grant: Box::new(grant),
+                    possession_proof: proof.clone(),
+                    ack_challenge: "ack-challenge".to_string(),
+                }
+            ),
+            "PairingConsentResponse(redacted)"
+        );
+        assert_eq!(
+            format!(
+                "{:?}",
+                PairingAck {
+                    possession_proof: proof,
+                    challenge: "ack-challenge".to_string(),
+                    generation: 1,
+                    protocol_version: 1,
+                }
+            ),
+            "PairingAck(redacted)"
+        );
+    }
 }

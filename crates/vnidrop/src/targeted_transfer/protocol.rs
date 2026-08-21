@@ -105,7 +105,7 @@ impl ProtocolHandler for TargetedTransferProtocol {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct TargetedTransferClient {
     inner: Client<TargetedTransferMessages>,
 }
@@ -152,7 +152,7 @@ struct ChallengeResponse {
     challenge: Challenge,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct SubmitTargetedOffer {
     pub(crate) proof: WireProof,
     pub(crate) generation: u64,
@@ -177,7 +177,7 @@ pub(crate) enum WireOfferResponse {
     Refused { reason: String },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct DeliverTargetedAuthorization {
     pub(crate) transfer_id: String,
     pub(crate) authorization: String,
@@ -201,7 +201,7 @@ pub(crate) enum CancelWireOfferResponse {
     Rejected,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct CompleteTargetedTransfer {
     pub(crate) transfer_id: String,
     pub(crate) verified_bytes: u64,
@@ -213,6 +213,25 @@ pub(crate) enum CompletionResponse {
     Recorded,
     Rejected,
 }
+
+macro_rules! redacted_debug {
+    ($($type:ty),+ $(,)?) => {
+        $(
+            impl fmt::Debug for $type {
+                fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    formatter.write_str(concat!(stringify!($type), "(redacted)"))
+                }
+            }
+        )+
+    };
+}
+
+redacted_debug!(
+    TargetedTransferClient,
+    SubmitTargetedOffer,
+    DeliverTargetedAuthorization,
+    CompleteTargetedTransfer,
+);
 
 #[rpc_requests(message = TargetedTransferMessage)]
 #[derive(Debug, Serialize, Deserialize)]
@@ -250,5 +269,53 @@ pub(crate) fn map_offer_refuse_reason(reason: &str) -> VnidropError {
             "targeted-transfer protocol is incompatible"
         )),
         other => VnidropError::permission(anyhow::anyhow!("targeted offer refused: {other}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sensitive_targeted_wire_debug_is_redacted() {
+        let offer = SubmitTargetedOffer {
+            proof: WireProof {
+                grant_id: "grant-id".to_string(),
+                mac: "proof-mac".to_string(),
+                challenge: "proof-challenge".to_string(),
+            },
+            generation: 1,
+            relationship_protocol_version: 1,
+            protocol_version: 1,
+            transfer_id: "transfer-id".to_string(),
+            sender_endpoint_id: "sender-endpoint".to_string(),
+            receiver_endpoint_id: "receiver-endpoint".to_string(),
+            manifest_id: "manifest-id".to_string(),
+            content_hash: "content-hash".to_string(),
+            transfer_name: "private-name".to_string(),
+            file_count: 1,
+            total_size: 1,
+            relay_mode: CoreRelayMode::LocalOnly,
+            relay_urls: vec!["https://private-relay.invalid".to_string()],
+        };
+        let delivery = DeliverTargetedAuthorization {
+            transfer_id: "transfer-id".to_string(),
+            authorization: "targeted-authorization".to_string(),
+        };
+        let completion = CompleteTargetedTransfer {
+            transfer_id: "transfer-id".to_string(),
+            verified_bytes: 1,
+            authorization: "targeted-authorization".to_string(),
+        };
+
+        assert_eq!(format!("{offer:?}"), "SubmitTargetedOffer(redacted)");
+        assert_eq!(
+            format!("{delivery:?}"),
+            "DeliverTargetedAuthorization(redacted)"
+        );
+        assert_eq!(
+            format!("{completion:?}"),
+            "CompleteTargetedTransfer(redacted)"
+        );
     }
 }

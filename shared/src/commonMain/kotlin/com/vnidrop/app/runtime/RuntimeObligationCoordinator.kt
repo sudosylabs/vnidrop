@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-internal class RuntimeRetentionCoordinator(
+internal class RuntimeObligationCoordinator(
 	private val repository: CoreGateway,
 	private val keeper: BackgroundRuntimeKeeper,
 	platform: UiPlatform,

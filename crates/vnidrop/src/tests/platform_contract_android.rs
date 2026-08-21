@@ -957,9 +957,6 @@ fn android_public_surface_omits_raw_secrets_and_generic_mutation() {
                 path.display()
             );
         }
-        assert!(!kotlin.contains("initializeWithExperimentalSavedDevices"));
-        assert!(!kotlin.contains("ExperimentalSavedDeviceCapabilities"));
-        assert!(!kotlin.contains("experimentalSavedDeviceCapabilities"));
         assert!(
             kotlin.contains("initializeWithLimitsAndNetworkConfig"),
             "production protected Android init must remain on the public binding surface"

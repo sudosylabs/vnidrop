@@ -1,18 +1,22 @@
 # Saved devices UI contract (KMP + Apple)
 
-Experimental product UI for saved devices and targeted transfers. Rust UniFFI is the source of behaviour; this document keeps Apple and KMP interaction semantics aligned.
+Product UI for saved devices and targeted transfers. Rust UniFFI is the source
+of behaviour; this document keeps Apple and KMP interaction semantics aligned.
 
-Status: experimental (default off in KMP Settings).
+Status: production, top-level product surface.
 
 ## Vocabulary
 
 Use **saved device**, **device relationship**, **targeted transfer**, **invitation transfer**. Do not say contact, person, or account in UI copy.
 
-## Experimental gate
+## Product surface
 
-- KMP Android / Windows / Linux: Settings → Experimental → Saved devices, preference default **off**, persisted.
-- KMP generic desktop host (`UiPlatform.Desktop`, e.g. macOS JVM): experimental UI **hidden**.
-- Apple: gate shape is platform-owned; semantics below still apply when the feature is enabled.
+- KMP Android, Windows, and Linux expose Saved Devices as a top-level
+  destination. It is not controlled by an experimental preference.
+- Apple exposes Saved Devices in the native iOS tab bar and macOS sidebar.
+- The populated main screen lists saved devices and outstanding consent
+  requests. Targeted Transfer history belongs to the selected device's detail
+  surface, not the global list.
 
 ## Events are wake-ups
 
@@ -40,11 +44,14 @@ After a completed invitation transfer, eligibility may exist. The user may accep
    - `AlreadySettled { transfer_id }`
 3. Never accept or display authorization/grant strings across the public binding.
 4. Pull / resume with **transfer id + destination** (path or output sink).
-   - Android KMP: invitation MediaStore Downloads sink for the experimental MVP receive.
+   - Android KMP: the MediaStore Downloads sink used by Invitation receives.
    - Windows / Linux KMP: configured filesystem receive folder path when no output sink is provided.
 
-## Out of this contract’s MVP chrome
+## Targeted lifecycle
 
-Resume / cancel / delete / grant-rotate UI, background notifications, and mid-transfer progress polish may follow without changing the approve/pull rules above.
+The selected device's detail surface owns receive, resume, cancel, delete,
+progress, and terminal Targeted Transfer states. Background approval
+notifications are wake-ups into the same durable-state refresh path.
 
-Block is available from the Saved devices area. Unblock is not required for the KMP MVP chrome when the product surface does not already expose blocked-device management.
+Label, forget, and block actions are available from Saved Devices. Label edits
+preserve the draft and editor on failure and close only after a successful save.

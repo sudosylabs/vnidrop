@@ -19,6 +19,7 @@ captures
 node_modules/
 target/
 .junie
+.claude/settings.local.json
 config.override.mk
 bin/
 tmp/

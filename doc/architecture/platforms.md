@@ -25,7 +25,7 @@ access.
 
 Shared presentation follows MVVM-style ViewModels with state flows and named
 methods. The application graph owns application-lifetime services and read
-models. A composable must not become the authority for runtime retention merely
+models. A composable must not become the authority for Runtime obligations merely
 because it observes transfer UI state.
 
 Android source adapters open file descriptors for files. Folder sharing walks a

@@ -6,6 +6,8 @@
 //! the receiver identity invalidates the MAC; presenting an intact capability
 //! from another endpoint still fails provider ACL and local identity checks.
 
+use std::fmt;
+
 use data_encoding::{BASE64URL_NOPAD, HEXLOWER};
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +15,7 @@ use crate::{error::VnidropError, secure_secret::SecretMaterial};
 
 const AUTH_CONTEXT: &[u8] = b"vnidrop-targeted-auth-v1";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct TargetedAuthorization {
     pub(crate) transfer_id: String,
     pub(crate) protocol_transfer_id: u64,
@@ -31,7 +33,7 @@ pub(crate) struct TargetedAuthorization {
     pub(crate) mac: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct TargetedAuthorizationDraft {
     pub(crate) transfer_id: String,
     pub(crate) protocol_transfer_id: u64,
@@ -45,6 +47,20 @@ pub(crate) struct TargetedAuthorizationDraft {
     pub(crate) transfer_name: String,
     pub(crate) blob_ticket: String,
 }
+
+macro_rules! redacted_debug {
+    ($($type:ty),+ $(,)?) => {
+        $(
+            impl fmt::Debug for $type {
+                fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    formatter.write_str(concat!(stringify!($type), "(redacted)"))
+                }
+            }
+        )+
+    };
+}
+
+redacted_debug!(TargetedAuthorization, TargetedAuthorizationDraft);
 
 impl TargetedAuthorization {
     pub(crate) fn issue(draft: TargetedAuthorizationDraft) -> Result<Self, VnidropError> {
@@ -177,4 +193,33 @@ pub(crate) fn reconstruct_authorization(
     };
     auth.mac = HEXLOWER.encode(&auth.compute_mac()?);
     Ok(auth)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn targeted_authorization_debug_is_redacted() {
+        let draft = TargetedAuthorizationDraft {
+            transfer_id: "transfer-id".to_string(),
+            protocol_transfer_id: 1,
+            sender_endpoint_id: "sender-endpoint".to_string(),
+            receiver_endpoint_id: "receiver-endpoint".to_string(),
+            manifest_id: "manifest-id".to_string(),
+            content_hash: "content-hash".to_string(),
+            file_count: 1,
+            total_size: 1,
+            protocol_version: 1,
+            transfer_name: "private-name".to_string(),
+            blob_ticket: "private-ticket".to_string(),
+        };
+        assert_eq!(format!("{draft:?}"), "TargetedAuthorizationDraft(redacted)");
+
+        let authorization = TargetedAuthorization::issue(draft).unwrap();
+        assert_eq!(
+            format!("{authorization:?}"),
+            "TargetedAuthorization(redacted)"
+        );
+    }
 }

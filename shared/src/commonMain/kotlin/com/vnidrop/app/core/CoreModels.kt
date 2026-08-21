@@ -172,7 +172,7 @@ sealed interface CoreSignal {
 	data object PairingChanged : CoreSignal
 	/** Targeted-transfer offer or lifecycle changed; refresh pending offers and transfers. */
 	data object TargetedTransferChanged : CoreSignal
-	/** Runtime-retention facts changed; re-read them from the core. */
+	/** Runtime obligation facts changed; re-read them from the core. */
 	data object RuntimeObligationChanged : CoreSignal
 }
 

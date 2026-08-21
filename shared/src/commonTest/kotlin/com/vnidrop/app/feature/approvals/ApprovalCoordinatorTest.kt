@@ -8,6 +8,7 @@ import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.ReceiveFolder
 import com.vnidrop.app.core.ReceiveFolderKind
 import com.vnidrop.app.platform.AppVisibility
+import com.vnidrop.app.notifications.FakeNotificationTextFormatter
 import com.vnidrop.app.preferences.AppPreferences
 import com.vnidrop.app.support.FakeCoreGateway
 import com.vnidrop.app.support.FakeNotificationService
@@ -31,7 +32,15 @@ class ApprovalCoordinatorTest {
 		core.mutableState.value = CoreState(isInitialized = true, transfers = listOf(activeTransfer()))
 		val notifications = FakeNotificationService()
 		val visibility = AppVisibility(initiallyForeground = false)
-		val coordinator = ApprovalCoordinator(core, preferences(enabled = true), notifications, visibility, UiMessageController(), backgroundScope)
+		val coordinator = ApprovalCoordinator(
+			core,
+			preferences(enabled = true),
+			notifications,
+			visibility,
+			UiMessageController(),
+			backgroundScope,
+			FakeNotificationTextFormatter,
+		)
 
 		runCurrent()
 		core.mutableSignals.emit(CoreSignal.ApprovalChanged(1UL))
@@ -71,6 +80,7 @@ class ApprovalCoordinatorTest {
 			AppVisibility(),
 			UiMessageController(),
 			backgroundScope,
+			FakeNotificationTextFormatter,
 		)
 		runCurrent()
 		core.mutableSignals.emit(CoreSignal.ApprovalChanged(1UL))

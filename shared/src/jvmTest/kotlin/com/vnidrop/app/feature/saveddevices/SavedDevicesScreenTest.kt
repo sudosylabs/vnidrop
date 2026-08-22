@@ -13,7 +13,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.unit.dp
 import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.DeviceRelationshipModel
 import com.vnidrop.app.core.DeviceRelationshipStateModel
@@ -64,6 +66,8 @@ class SavedDevicesScreenTest {
 		runOnIdle { state.value = SavedDevicesState(isLoading = false) }
 		onNodeWithText(Res.string.saved_devices_empty_title.value).assertIsDisplayed()
 		onNodeWithText(Res.string.saved_devices_empty.value).assertIsDisplayed()
+		val iconBounds = onNodeWithTag("saved-devices-empty-icon").getUnclippedBoundsInRoot()
+		assertEquals(36.dp, iconBounds.bottom - iconBounds.top)
 		onAllNodesWithText(Res.string.saved_devices_transfers_title.value).assertCountEquals(0)
 	}
 

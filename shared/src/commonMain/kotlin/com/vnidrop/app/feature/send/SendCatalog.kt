@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,7 +38,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vnidrop.app.core.CoreEventModel
@@ -47,7 +45,11 @@ import com.vnidrop.app.core.ReceiverDeliveryStatus
 import com.vnidrop.app.core.ReceiverRequestModel
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferStatus
+import com.vnidrop.app.isDesktop
+import com.vnidrop.app.ui.components.AppContextMenuItem
 import com.vnidrop.app.ui.components.PillTone
+import com.vnidrop.app.ui.components.FeatureEmptyState
+import com.vnidrop.app.ui.components.PlatformContextMenu
 import com.vnidrop.app.ui.components.PrimaryButton
 import com.vnidrop.app.ui.components.ProgressRow
 import com.vnidrop.app.ui.components.StatusPill
@@ -157,7 +159,7 @@ internal fun TransferCatalog(
 private fun CatalogHeader(showAction: Boolean, onOpenComposer: () -> Unit) {
 	Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
 		Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-			Text(stringResource(Res.string.send_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+			Text(stringResource(Res.string.send_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
 		}
 		if (showAction) {
 			Spacer(Modifier.width(16.dp))
@@ -168,39 +170,25 @@ private fun CatalogHeader(showAction: Boolean, onOpenComposer: () -> Unit) {
 
 @Composable
 private fun SendEmptyState(onOpenComposer: () -> Unit) {
-	val colors = LocalVniDropColors.current
-	Column(
-		modifier = Modifier.fillMaxWidth().heightIn(min = 430.dp).padding(horizontal = 20.dp),
-		horizontalAlignment = Alignment.CenterHorizontally,
-		verticalArrangement = Arrangement.Center,
-	) {
-		PlatformIcon(
+	Box(Modifier.fillMaxWidth().heightIn(min = 430.dp), contentAlignment = Alignment.Center) {
+		FeatureEmptyState(
 			icon = AppIcon.Send,
-			contentDescription = null,
-			tint = colors.brandLink,
-			modifier = Modifier
-				.size(88.dp)
-				.testTag("send-empty-icon"),
-		)
-		Text(
-			stringResource(Res.string.send_empty_title),
-			modifier = Modifier.padding(top = 12.dp),
-			style = MaterialTheme.typography.headlineSmall,
-			fontWeight = FontWeight.Bold,
-			textAlign = TextAlign.Center,
-		)
-		Text(
-			stringResource(Res.string.send_empty_body),
-			modifier = Modifier.padding(top = 8.dp).widthIn(max = 480.dp),
-			color = colors.foregroundLighter,
-			style = MaterialTheme.typography.bodyMedium,
-			textAlign = TextAlign.Center,
-		)
+			title = stringResource(Res.string.send_empty_title),
+			description = stringResource(Res.string.send_empty_body),
+			iconTestTag = "send-empty-icon",
+		) {
 		PrimaryButton(
 			stringResource(Res.string.button_create_new_transfer),
 			onClick = onOpenComposer,
-			modifier = Modifier.padding(top = 22.dp),
+			leadingIcon = {
+				PlatformIcon(
+					AppIcon.Add,
+					contentDescription = null,
+					modifier = Modifier.size(18.dp).testTag("send-empty-action-icon"),
+				)
+			},
 		)
+		}
 	}
 }
 
@@ -215,8 +203,15 @@ private fun TransferListItem(
 	onDelete: () -> Unit,
 ) {
 	val colors = LocalVniDropColors.current
-	Surface(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = colors.backgroundSurface200) {
-		Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+	val usesDesktopMenu = LocalUiPlatform.current.isDesktop
+	val contextMenuItems = buildList {
+		if (transfer.ticket != null) add(AppContextMenuItem(stringResource(Res.string.transfer_share_title), onShare))
+		if (transfer.status == TransferStatus.Sharing) add(AppContextMenuItem(stringResource(Res.string.send_stop_sharing), onStopSharing))
+		add(AppContextMenuItem(stringResource(Res.string.button_delete_transfer), onDelete))
+	}
+	PlatformContextMenu(if (usesDesktopMenu) contextMenuItems else emptyList()) {
+		Surface(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = colors.backgroundSurface200) {
+			Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
 			Box(
 				modifier = Modifier.size(44.dp).background(colors.backgroundSurface300, RoundedCornerShape(12.dp)),
 				contentAlignment = Alignment.Center,
@@ -248,7 +243,8 @@ private fun TransferListItem(
 					ProgressRow(label = progress.label, progress = progress.progress, detail = progress.detail)
 				}
 			}
-			TransferActionsMenu(transfer, onShare, onStopSharing, onDelete)
+				if (!usesDesktopMenu) TransferActionsMenu(transfer, onShare, onStopSharing, onDelete)
+			}
 		}
 	}
 }

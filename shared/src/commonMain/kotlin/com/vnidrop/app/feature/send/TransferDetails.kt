@@ -49,7 +49,9 @@ import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.ui.components.AppCard
 import com.vnidrop.app.ui.components.DestructiveButton
+import com.vnidrop.app.ui.components.DestructiveQuietButton
 import com.vnidrop.app.ui.components.PrimaryButton
+import com.vnidrop.app.ui.components.QuietButton
 import com.vnidrop.app.ui.components.ProgressRow
 import com.vnidrop.app.ui.components.SecondaryButton
 import com.vnidrop.app.ui.icons.AppIcon
@@ -387,8 +389,8 @@ internal fun DeleteTransferPanel(
 			style = MaterialTheme.typography.bodyMedium,
 		)
 		Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
-			SecondaryButton(stringResource(Res.string.button_cancel), onClick = onCancel, enabled = !isDeleting)
-			DestructiveButton(
+			QuietButton(stringResource(Res.string.button_cancel), onClick = onCancel, enabled = !isDeleting)
+			DestructiveQuietButton(
 				if (isDeleting) stringResource(Res.string.transfer_deleting) else stringResource(Res.string.button_delete_transfer),
 				onClick = onConfirm,
 				enabled = !isDeleting,

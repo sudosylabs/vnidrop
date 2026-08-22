@@ -23,7 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vnidrop.app.ui.components.AdaptiveDrawer
 import com.vnidrop.app.ui.components.DestructiveButton
+import com.vnidrop.app.ui.components.DestructiveQuietButton
 import com.vnidrop.app.ui.components.SecondaryButton
+import com.vnidrop.app.ui.components.QuietButton
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
 import com.vnidrop.app.ui.state.formatBytes
@@ -237,8 +239,8 @@ private fun ClearTransferCachePanel(
 			style = MaterialTheme.typography.bodyMedium,
 		)
 		Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
-			SecondaryButton(stringResource(Res.string.button_cancel), onClick = onCancel)
-			DestructiveButton(
+			QuietButton(stringResource(Res.string.button_cancel), onClick = onCancel)
+			DestructiveQuietButton(
 				stringResource(Res.string.storage_clear_transfer_cache),
 				onClick = onConfirm,
 				modifier = Modifier.testTag("confirm-clear-transfer-cache"),
@@ -267,8 +269,8 @@ private fun DeleteAllTransfersPanel(
 			style = MaterialTheme.typography.bodyMedium,
 		)
 		Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
-			SecondaryButton(stringResource(Res.string.button_cancel), onClick = onCancel)
-			DestructiveButton(
+			QuietButton(stringResource(Res.string.button_cancel), onClick = onCancel)
+			DestructiveQuietButton(
 				stringResource(Res.string.storage_delete_transfers),
 				onClick = onConfirm,
 				modifier = Modifier.testTag("confirm-delete-all-transfers"),

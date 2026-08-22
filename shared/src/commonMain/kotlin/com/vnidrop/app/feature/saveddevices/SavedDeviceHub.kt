@@ -29,7 +29,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vnidrop.app.core.DeviceRelationshipModel
@@ -39,6 +38,7 @@ import com.vnidrop.app.core.PendingTargetedOfferModel
 import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.ui.components.PrimaryButton
 import com.vnidrop.app.ui.components.SecondaryButton
+import com.vnidrop.app.ui.components.FeatureEmptyState
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
 import com.vnidrop.app.ui.theme.LocalVniDropColors
@@ -369,22 +369,13 @@ private fun GroupDivider() {
 
 @Composable
 private fun SavedDevicesEmptyState(modifier: Modifier = Modifier) {
-	val colors = LocalVniDropColors.current
 	Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-		Column(
-			modifier = Modifier.padding(horizontal = 24.dp),
-			horizontalAlignment = Alignment.CenterHorizontally,
-			verticalArrangement = Arrangement.spacedBy(10.dp),
-		) {
-			PlatformIcon(AppIcon.Device, contentDescription = null, tint = colors.foregroundLighter, modifier = Modifier.size(36.dp))
-			Text(stringResource(Res.string.saved_devices_empty_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-			Text(
-				stringResource(Res.string.saved_devices_empty),
-				style = MaterialTheme.typography.bodyMedium,
-				color = colors.foregroundLight,
-				textAlign = TextAlign.Center,
-			)
-		}
+		FeatureEmptyState(
+			icon = AppIcon.Device,
+			title = stringResource(Res.string.saved_devices_empty_title),
+			description = stringResource(Res.string.saved_devices_empty),
+			iconTestTag = "saved-devices-empty-icon",
+		)
 	}
 }
 

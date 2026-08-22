@@ -42,7 +42,7 @@ fun AdaptiveDrawer(
 			sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
 			containerColor = LocalVniDropColors.current.backgroundDialog,
 		) {
-			ClosableModalContent(onDismissRequest, Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 12.dp), content)
+			Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 12.dp)) { content() }
 		}
 	} else {
 		Dialog(

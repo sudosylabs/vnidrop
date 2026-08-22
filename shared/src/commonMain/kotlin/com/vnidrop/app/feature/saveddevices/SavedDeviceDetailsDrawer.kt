@@ -19,7 +19,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,7 +33,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.ui.components.AdaptiveDrawer
+import com.vnidrop.app.ui.components.DestructiveQuietButton
 import com.vnidrop.app.ui.components.PrimaryButton
+import com.vnidrop.app.ui.components.QuietButton
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
 import com.vnidrop.app.ui.state.WindowClass
@@ -196,18 +197,17 @@ internal fun SavedDeviceDetailsDrawer(
 				)
 			},
 			confirmButton = {
-				TextButton(
+				DestructiveQuietButton(
+					text = stringResource(if (isBlock) Res.string.saved_devices_block_action else Res.string.saved_devices_forget_action),
 					onClick = {
 						pendingAction = null
 						onDismiss()
 						if (isBlock) onBlock() else onForget()
 					},
-				) {
-					Text(stringResource(if (isBlock) Res.string.saved_devices_block_action else Res.string.saved_devices_forget_action))
-				}
+				)
 			},
 			dismissButton = {
-				TextButton(onClick = { pendingAction = null }) { Text(stringResource(Res.string.button_cancel)) }
+				QuietButton(stringResource(Res.string.button_cancel), onClick = { pendingAction = null })
 			},
 		)
 	}

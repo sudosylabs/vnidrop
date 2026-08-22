@@ -20,6 +20,15 @@ dependencies {
 	testImplementation(libs.kotlin.testJunit)
 }
 
+sourceSets {
+	main {
+		resources {
+			srcDir(rootProject.file("assets/desktop"))
+			include("app-icon.png")
+		}
+	}
+}
+
 compose.desktop {
 	application {
 		mainClass = "com.vnidrop.app.MainKt"
@@ -38,7 +47,7 @@ compose.desktop {
 			linux {
 				packageName = "vnidrop"
 				iconFile.set(project.file("../assets/linux/app-icon.png"))
-				modules("jdk.security.auth")
+				modules("jdk.security.auth", "jdk.unsupported")
 				debMaintainer = "support@sudosy.fr"
 				appRelease = "1"
 				rpmLicenseType = "Apache-2.0"

@@ -8,8 +8,12 @@ export function SiteHeader() {
       <div className="header-inner page-shell">
         <Brand />
         <nav className="header-nav" aria-label="Site">
-          <Link href="/download/">Download</Link>
-          <Link href="/privacy/">Privacy</Link>
+          <Link className="header-how" href="/#how-it-works">
+            How it works
+          </Link>
+          <Link className="btn btn-primary" href="/download/">
+            Download
+          </Link>
           <a href={githubRepoUrl} target="_blank" rel="noreferrer">
             GitHub
           </a>

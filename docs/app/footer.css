@@ -1,6 +1,5 @@
 .site-footer {
   border-top: 1px solid var(--line);
-  background: var(--paper);
 }
 
 .footer-inner {
@@ -8,7 +7,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 24px 40px;
-  padding: 28px 0;
+  padding: 28px 0 40px;
 }
 
 .footer-identity {
@@ -17,30 +16,27 @@
   align-items: baseline;
   gap: 8px 14px;
   color: var(--ink-muted);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .footer-identity strong {
   color: var(--ink);
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 500;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
 .footer-links {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 20px;
+  gap: 8px 18px;
 }
 
 .footer-links a {
   color: var(--ink-soft);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .footer-links a:hover {
   color: var(--ink);
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }

@@ -40,10 +40,9 @@ function BrandMark() {
 
 export async function GET() {
   const fontsDir = join(process.cwd(), "og-fonts");
-  const [regular, italic, sans] = await Promise.all([
-    readFile(join(fontsDir, "newsreader-500.ttf")),
-    readFile(join(fontsDir, "newsreader-500-italic.ttf")),
+  const [regular, semibold] = await Promise.all([
     readFile(join(fontsDir, "source-sans-400.ttf")),
+    readFile(join(fontsDir, "source-sans-600.ttf")),
   ]);
 
   return new ImageResponse(
@@ -55,8 +54,8 @@ export async function GET() {
         flexDirection: "column",
         justifyContent: "space-between",
         padding: "72px 80px 64px",
-        background: "#f6f3ef",
-        color: "#1a1618",
+        background: "#000000",
+        color: "#f4f4f5",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -65,9 +64,9 @@ export async function GET() {
           <div
             style={{
               marginLeft: 12,
-              fontFamily: "Newsreader",
+              fontFamily: "Source Sans 3",
               fontSize: 28,
-              fontWeight: 500,
+              fontWeight: 600,
               letterSpacing: -0.6,
             }}
           >
@@ -76,9 +75,10 @@ export async function GET() {
         </div>
         <div
           style={{
-            color: "#746c72",
+            color: "#a1a1aa",
             fontFamily: "Source Sans 3",
             fontSize: 18,
+            fontWeight: 400,
           }}
         >
           Open source · Beta
@@ -88,24 +88,24 @@ export async function GET() {
       <div style={{ display: "flex", flexDirection: "column", maxWidth: 920 }}>
         <div
           style={{
-            fontFamily: "Newsreader",
-            fontSize: 56,
-            fontWeight: 500,
-            lineHeight: 1.12,
-            letterSpacing: -1.3,
+            fontFamily: "Source Sans 3",
+            fontSize: 54,
+            fontWeight: 600,
+            lineHeight: 1.1,
+            letterSpacing: -1.4,
           }}
         >
           Send files from this device to that one.
         </div>
         <div
           style={{
-            marginTop: 12,
-            fontFamily: "Newsreader",
-            fontSize: 40,
-            fontStyle: "italic",
-            fontWeight: 500,
-            lineHeight: 1.2,
-            letterSpacing: -0.7,
+            marginTop: 14,
+            fontFamily: "Source Sans 3",
+            fontSize: 32,
+            fontWeight: 400,
+            lineHeight: 1.25,
+            letterSpacing: -0.5,
+            color: "#a1a1aa",
           }}
         >
           They ask. You decide.
@@ -115,7 +115,7 @@ export async function GET() {
       <div
         style={{
           display: "flex",
-          color: "#746c72",
+          color: "#71717a",
           fontFamily: "Source Sans 3",
           fontSize: 20,
         }}
@@ -126,9 +126,8 @@ export async function GET() {
     {
       ...imageSize,
       fonts: [
-        { name: "Newsreader", data: regular, weight: 500, style: "normal" },
-        { name: "Newsreader", data: italic, weight: 500, style: "italic" },
-        { name: "Source Sans 3", data: sans, weight: 400, style: "normal" },
+        { name: "Source Sans 3", data: regular, weight: 400, style: "normal" },
+        { name: "Source Sans 3", data: semibold, weight: 600, style: "normal" },
       ],
     },
   );

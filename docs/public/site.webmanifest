@@ -4,7 +4,7 @@
   "description": "Send files from this device to that one. They ask. You decide.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f6f3ef",
+  "background_color": "#000000",
   "theme_color": "#a855f7",
   "icons": [
     {

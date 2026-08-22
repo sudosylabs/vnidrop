@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Newsreader, Source_Sans_3 } from "next/font/google";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import "./base.css";
@@ -10,21 +9,6 @@ import "./footer.css";
 import "./privacy/privacy-document.css";
 import "./responsive.css";
 import "./privacy/privacy-responsive.css";
-
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  display: "swap",
-  style: ["normal", "italic"],
-  weight: ["400", "500", "600"],
-  variable: "--font-newsreader",
-});
-
-const sourceSans = Source_Sans_3({
-  subsets: ["latin"],
-  display: "swap",
-  weight: ["400", "500", "600"],
-  variable: "--font-source-sans",
-});
 
 const configuredSiteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ??
@@ -86,14 +70,14 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f6f3ef" },
-    { media: "(prefers-color-scheme: dark)", color: "#171419" },
+    { media: "(prefers-color-scheme: light)", color: "#000000" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" className={`${newsreader.variable} ${sourceSans.variable}`}>
+    <html lang="en" data-scroll-behavior="smooth">
       <body>
         <a className="skip-link" href="#main-content">
           Skip to content

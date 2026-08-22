@@ -1,36 +1,35 @@
 .download-page {
-  background: var(--paper);
+  padding-bottom: 24px;
 }
 
 .download-hero {
-  padding: 64px 0 12px;
+  padding: 48px 0 8px;
 }
 
 .download-hero-inner {
   max-width: var(--measure);
 }
 
+.download-kicker {
+  margin-bottom: 12px;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
 .download-hero h1 {
-  margin-bottom: 18px;
-  font-size: clamp(2.25rem, 4vw, 3rem);
+  margin-bottom: 12px;
+  font-size: clamp(2rem, 4vw, 2.5rem);
   letter-spacing: -0.03em;
-  line-height: 1.12;
+  line-height: 1.1;
 }
 
-.download-hero h1 em {
-  display: block;
-  margin-top: 0.12em;
-  font-style: italic;
-  font-weight: 400;
-}
-
-.download-hero p:not(.hero-status) {
+.download-hero p:not(.download-kicker) {
   margin: 0;
   color: var(--ink-soft);
 }
 
 .download-list-section {
-  padding: 48px 0 104px;
+  padding: 32px 0 80px;
 }
 
 .download-list {
@@ -41,72 +40,41 @@
 }
 
 .download-list > li {
-  display: grid;
-  grid-template-columns: minmax(7rem, 0.28fr) minmax(0, 1fr);
-  gap: 12px 40px;
-  padding: 28px 0;
+  scroll-margin-top: 72px;
+  padding: 24px 0;
   border-bottom: 1px solid var(--line);
 }
 
 .download-list h2 {
-  margin: 0;
-  font-size: 1.35rem;
-  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  font-size: 1.05rem;
 }
 
-.download-list p {
+.download-list > li > p {
   margin: 0 0 10px;
   color: var(--ink-soft);
-  font-size: 0.98rem;
+  font-size: 0.95rem;
 }
 
 .download-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 22px;
-  margin-bottom: 0;
-  font-weight: 500;
+  gap: 8px 20px;
+  margin: 0;
+}
+
+.download-list .copy-command {
+  margin-top: 12px;
 }
 
 .download-meta {
   color: var(--ink-muted);
-  font-weight: 400;
-}
-
-.download-list pre {
-  margin: 12px 0 0;
-  padding: 10px 12px;
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.download-list pre code {
-  font-size: inherit;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
 }
 
 .download-checksums {
-  margin: 28px 0 0;
+  margin: 24px 0 0;
   color: var(--ink-muted);
   font-size: 14px;
-}
-
-@media (max-width: 720px) {
-  .download-hero {
-    padding-top: 40px;
-  }
-
-  .download-list-section {
-    padding-bottom: 80px;
-  }
-
-  .download-list > li {
-    grid-template-columns: 1fr;
-    gap: 6px;
-    padding: 24px 0;
-  }
 }

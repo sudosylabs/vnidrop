@@ -8,10 +8,10 @@
 
 .header-inner {
   display: flex;
-  height: 56px;
+  min-height: 56px;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 16px;
 }
 
 .brand {
@@ -22,16 +22,15 @@
 }
 
 .brand-mark-image {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   object-fit: contain;
 }
 
 .brand-name {
   color: var(--ink);
-  font-family: var(--font-display);
-  font-size: 1.125rem;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1;
 }
@@ -39,27 +38,34 @@
 .header-nav {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 18px;
 }
 
-.header-nav a {
+.header-nav a:not(.btn) {
   color: var(--ink-soft);
   font-size: 15px;
-  font-weight: 500;
 }
 
-.header-nav a:hover {
+.header-nav a:not(.btn):hover {
   color: var(--ink);
-  text-decoration: underline;
-  text-underline-offset: 4px;
+}
+
+.header-nav .btn {
+  padding: 8px 14px;
+  font-size: 14px;
 }
 
 @media (max-width: 520px) {
   .header-nav {
-    gap: 14px;
+    gap: 12px;
   }
 
-  .header-nav a {
+  .header-nav a:not(.btn) {
     font-size: 14px;
+  }
+
+  .header-how,
+  .brand-name {
+    display: none;
   }
 }

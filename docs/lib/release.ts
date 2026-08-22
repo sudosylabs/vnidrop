@@ -39,22 +39,26 @@ export type LatestRelease = {
   apk?: ReleaseAsset;
 };
 
-function assetUrl(name: string) {
-  return `https://github.com/${GITHUB_REPO}/releases/latest/download/${encodeURIComponent(name)}`;
+export function assetDownloadUrl(tag: string, name: string): string {
+  return `https://github.com/${GITHUB_REPO}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(name)}`;
 }
 
-function toAsset(file: ManifestFile): ReleaseAsset {
+function toAsset(tag: string, file: ManifestFile): ReleaseAsset {
   return {
     name: file.name,
-    url: assetUrl(file.name),
+    url: assetDownloadUrl(tag, file.name),
     bytes: file.bytes,
     sha256: file.sha256,
   };
 }
 
-function findFile(files: ManifestFile[], pattern: RegExp): ReleaseAsset | undefined {
+function findFile(
+  tag: string,
+  files: ManifestFile[],
+  pattern: RegExp,
+): ReleaseAsset | undefined {
   const match = files.find((file) => pattern.test(file.name));
-  return match ? toAsset(match) : undefined;
+  return match ? toAsset(tag, match) : undefined;
 }
 
 export function formatBytes(bytes: number): string {
@@ -71,23 +75,26 @@ export function formatBytes(bytes: number): string {
 }
 
 export async function loadLatestRelease(): Promise<LatestRelease> {
-  const response = await fetch(manifestUrl, { cache: "force-cache" });
+  const response = await fetch(manifestUrl, {
+    cache: process.env.NODE_ENV === "development" ? "no-store" : "force-cache",
+  });
   if (!response.ok) {
     throw new Error(`Failed to load GitHub release manifest (${response.status})`);
   }
 
   const manifest = (await response.json()) as Manifest;
   const files = manifest.files ?? [];
+  const tag = manifest.tag;
 
   return {
     version: manifest.productVersion,
     channel: manifest.releaseChannel,
-    tag: manifest.tag,
-    tagUrl: `https://github.com/${GITHUB_REPO}/releases/tag/${encodeURIComponent(manifest.tag)}`,
-    checksumsUrl: assetUrl("SHA256SUMS"),
-    dmg: findFile(files, /^VniDrop-.+\.dmg$/),
-    deb: findFile(files, /\.deb$/),
-    rpm: findFile(files, /\.rpm$/),
-    apk: findFile(files, /play-universal\.apk$/),
+    tag,
+    tagUrl: `https://github.com/${GITHUB_REPO}/releases/tag/${encodeURIComponent(tag)}`,
+    checksumsUrl: assetDownloadUrl(tag, "SHA256SUMS"),
+    dmg: findFile(tag, files, /^VniDrop-.+\.dmg$/),
+    deb: findFile(tag, files, /\.deb$/),
+    rpm: findFile(tag, files, /\.rpm$/),
+    apk: findFile(tag, files, /play-universal\.apk$/),
   };
 }

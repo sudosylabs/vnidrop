@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --experimental-detect-module --test lib/release.test.ts"
   },
   "dependencies": {
     "next": "16.2.10",

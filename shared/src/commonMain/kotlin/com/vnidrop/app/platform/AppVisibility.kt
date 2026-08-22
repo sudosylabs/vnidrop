@@ -7,8 +7,20 @@ import kotlinx.coroutines.flow.asStateFlow
 class AppVisibility(initiallyForeground: Boolean = true) {
 	private val _isForeground = MutableStateFlow(initiallyForeground)
 	val isForeground: StateFlow<Boolean> = _isForeground.asStateFlow()
+	private var lifecycleForeground = initiallyForeground
+	private var windowFocused = true
 
 	fun setForeground(value: Boolean) {
-		_isForeground.value = value
+		lifecycleForeground = value
+		update()
+	}
+
+	fun setWindowFocused(value: Boolean) {
+		windowFocused = value
+		update()
+	}
+
+	private fun update() {
+		_isForeground.value = lifecycleForeground && windowFocused
 	}
 }

@@ -78,6 +78,7 @@ fun App(
 	useNativeWindowBackdrop: Boolean = false,
 	onResolvedDarkThemeChanged: (Boolean) -> Unit = {},
 	windowChrome: (@Composable () -> Unit)? = null,
+	windowFocused: Boolean = true,
 ) {
 	val graphHolder = viewModel { AppGraphViewModel(dependencies) }
 	val graph = graphHolder.graph
@@ -144,10 +145,14 @@ fun App(
 	val receiveCoreState by receiveViewModel.coreState.collectAsStateWithLifecycle()
 	val approvalState by graph.approvalCoordinator.state.collectAsStateWithLifecycle()
 	val savedDevicesState by savedDevicesViewModel.state.collectAsStateWithLifecycle()
+	val settingsState by settingsViewModel.state.collectAsStateWithLifecycle()
 	val username by graph.preferencesRepository.preferences
 		.map { it.username }
 		.collectAsStateWithLifecycle(initialValue = dependencies.environment.defaultUsername)
 	val lifecycleOwner = LocalLifecycleOwner.current
+	LaunchedEffect(graph, windowFocused) {
+		graph.visibility.setWindowFocused(windowFocused)
+	}
 	LaunchedEffect(dependencies.externalInvitations, appViewModel, receiveViewModel) {
 		dependencies.externalInvitations.invitations.collect { invitation ->
 			appViewModel.selectDestination(AppDestination.Receive)
@@ -180,12 +185,16 @@ fun App(
 					graph.visibility.setForeground(true)
 					settingsViewModel.refreshNotificationPermission()
 				}
-				Lifecycle.Event.ON_STOP -> graph.visibility.setForeground(false)
+				Lifecycle.Event.ON_STOP -> {
+					graph.visibility.setForeground(false)
+				}
 				else -> Unit
 			}
 		}
 		lifecycleOwner.lifecycle.addObserver(observer)
-		onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+		onDispose {
+			lifecycleOwner.lifecycle.removeObserver(observer)
+		}
 	}
 
 	val darkTheme = rememberResolvedDarkTheme(appState.themeMode)
@@ -250,7 +259,15 @@ fun App(
 						},
 					) {
 						when (appState.destination) {
-							AppDestination.Send -> SendRoute(sendViewModel, invitationDraftViewModel, username, windowClass)
+							AppDestination.Send -> SendRoute(
+								sendViewModel,
+								invitationDraftViewModel,
+								username,
+								windowClass,
+								onTransferCreated = { creation ->
+									if (creation.awaitsRemoteApproval) settingsViewModel.promptForBackgroundNotifications()
+								},
+							)
 							AppDestination.Receive -> ReceiveRoute(receiveViewModel, windowClass)
 							AppDestination.SavedDevices -> SavedDevicesRoute(
 								savedDevicesViewModel,
@@ -266,6 +283,8 @@ fun App(
 						state = approvalState,
 						onAccept = graph.approvalCoordinator::accept,
 						onRefuse = graph.approvalCoordinator::refuse,
+						showNotificationPrompt = settingsState.shouldOfferNotificationEnable,
+						onEnableNotifications = settingsViewModel::enableNotificationsFromContext,
 					)
 					if (appState.destination != AppDestination.SavedDevices) {
 						PairingPromptHost(
@@ -278,9 +297,13 @@ fun App(
 							state = savedDevicesState.targetedOffers,
 							onAccept = savedDevicesViewModel::acceptTargetedOffer,
 							onDecline = savedDevicesViewModel::declineTargetedOffer,
+							showNotificationPrompt = settingsState.shouldOfferNotificationEnable,
+							onEnableNotifications = settingsViewModel::enableNotificationsFromContext,
 						)
 					}
-					TransferDraftHost(targetedDraftViewModel, windowClass, onCreated = {})
+					TransferDraftHost(targetedDraftViewModel, windowClass) { creation ->
+						if (creation.awaitsRemoteApproval) settingsViewModel.promptForBackgroundNotifications()
+					}
 				}
 				windowChrome?.invoke()
 				val startingLabel = stringResource(Res.string.app_starting)

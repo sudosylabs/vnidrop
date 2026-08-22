@@ -3,20 +3,6 @@
 This document coordinates the platform UI work built on the production Saved
 Devices and Targeted Transfer core.
 
-## Branch topology
-
-| Branch | Ownership | Pull-request base |
-|---|---|---|
-| `feat/device-history` | Shared core contract and integration base | `master` only when the complete feature is ready |
-| `feat/device-history-kmp` | Android, Windows, and Linux Compose UI | `feat/device-history` |
-| `feat/device-history-apple` | Native iOS and macOS SwiftUI | `feat/device-history` |
-
-Create both platform branches from the same `feat/device-history` commit. Keep
-platform work on its matching branch. Open every platform PR against
-`feat/device-history`, never `master` or the sibling platform branch. When the
-base advances, merge or rebase `feat/device-history` into the platform branch;
-do not merge one platform branch into the other.
-
 ## Product contract
 
 - Saved Device is a top-level product feature, not an experimental setting.
@@ -51,13 +37,12 @@ The KMP implementation under
 `shared/src/commonMain/kotlin/com/vnidrop/app/feature/saveddevices/` is a tested
 behavioral reference, not an Apple visual specification.
 
-## KMP implementation branch
+## KMP implementation
 
-Start on `feat/device-history-kmp` and follow
-[`shared/AGENTS.md`](shared/AGENTS.md) plus
+Follow [`shared/AGENTS.md`](shared/AGENTS.md) plus
 [`.codex/skills/compose-skill/SKILL.md`](.codex/skills/compose-skill/SKILL.md).
 
-The branch owns:
+The KMP implementation owns:
 
 - `shared/`, `androidApp/`, and `desktopApp/` Saved Devices presentation work;
 - Material Android and native-feeling Windows/Linux presentations;
@@ -70,12 +55,11 @@ Before handoff, run `make check-localization`, `make check-shared`, and the
 relevant Android build. Inspect the actual Android emulator and desktop window;
 record any host that could not be rendered.
 
-## Apple implementation branch
+## Apple implementation
 
-Start on `feat/device-history-apple`. Apple remains native SwiftUI; do not add
-Apple presentation to `shared/`.
+Apple remains native SwiftUI; do not add Apple presentation to `shared/`.
 
-The branch owns:
+The Apple implementation owns:
 
 - a top-level Saved Devices destination in the iOS tab bar and macOS sidebar;
 - an Apple-native Saved Devices model/coordinator and SwiftUI screen;

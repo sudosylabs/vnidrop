@@ -413,6 +413,59 @@ impl DeviceRelationshipStore {
         row.map(relationship_row_from_sql).transpose()
     }
 
+    pub(super) async fn generation_floor(
+        &self,
+        peer_endpoint_id: &str,
+    ) -> Result<u64, VnidropError> {
+        let row = sqlx::query(
+            r#"
+            SELECT MAX(generation) AS generation
+            FROM (
+                SELECT generation FROM device_relationships WHERE remote_endpoint_id = ?1
+                UNION ALL
+                SELECT generation FROM relationship_generation_tombstones WHERE remote_endpoint_id = ?1
+            )
+            "#,
+        )
+        .bind(peer_endpoint_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(row.get::<Option<i64>, _>("generation").unwrap_or(0) as u64)
+    }
+
+    pub(super) async fn set_pending_generation(
+        &self,
+        peer_endpoint_id: &str,
+        session_id: &str,
+        generation: u64,
+    ) -> Result<bool, VnidropError> {
+        let result = sqlx::query(
+            r#"
+            UPDATE device_relationships
+            SET generation = ?3,
+                issued_grant_handle = CASE WHEN generation = ?3 THEN issued_grant_handle ELSE NULL END,
+                held_grant_handle = CASE WHEN generation = ?3 THEN held_grant_handle ELSE NULL END,
+                issued_grant_id = CASE WHEN generation = ?3 THEN issued_grant_id ELSE NULL END,
+                held_grant_id = CASE WHEN generation = ?3 THEN held_grant_id ELSE NULL END,
+                peer_ack = CASE WHEN generation = ?3 THEN peer_ack ELSE 0 END,
+                local_ack = CASE WHEN generation = ?3 THEN local_ack ELSE 0 END,
+                updated_at = ?4
+            WHERE remote_endpoint_id = ?1
+              AND session_id = ?2
+              AND state IN ('pending_outgoing', 'pending_incoming')
+            "#,
+        )
+        .bind(peer_endpoint_id)
+        .bind(session_id)
+        .bind(generation as i64)
+        .bind(now_ms())
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(result.rows_affected() == 1)
+    }
+
     pub(super) async fn upsert(&self, entry: RelationshipUpsert<'_>) -> Result<(), VnidropError> {
         sqlx::query(
             r#"
@@ -430,10 +483,26 @@ impl DeviceRelationshipStore {
                 session_id = excluded.session_id,
                 remote_display_name = COALESCE(excluded.remote_display_name, device_relationships.remote_display_name),
                 last_authenticated_at = COALESCE(excluded.last_authenticated_at, device_relationships.last_authenticated_at),
-                issued_grant_handle = COALESCE(excluded.issued_grant_handle, device_relationships.issued_grant_handle),
-                held_grant_handle = COALESCE(excluded.held_grant_handle, device_relationships.held_grant_handle),
-                issued_grant_id = COALESCE(excluded.issued_grant_id, device_relationships.issued_grant_id),
-                held_grant_id = COALESCE(excluded.held_grant_id, device_relationships.held_grant_id),
+                issued_grant_handle = CASE
+                    WHEN excluded.generation = device_relationships.generation
+                    THEN COALESCE(excluded.issued_grant_handle, device_relationships.issued_grant_handle)
+                    ELSE excluded.issued_grant_handle
+                END,
+                held_grant_handle = CASE
+                    WHEN excluded.generation = device_relationships.generation
+                    THEN COALESCE(excluded.held_grant_handle, device_relationships.held_grant_handle)
+                    ELSE excluded.held_grant_handle
+                END,
+                issued_grant_id = CASE
+                    WHEN excluded.generation = device_relationships.generation
+                    THEN COALESCE(excluded.issued_grant_id, device_relationships.issued_grant_id)
+                    ELSE excluded.issued_grant_id
+                END,
+                held_grant_id = CASE
+                    WHEN excluded.generation = device_relationships.generation
+                    THEN COALESCE(excluded.held_grant_id, device_relationships.held_grant_id)
+                    ELSE excluded.held_grant_id
+                END,
                 peer_ack = excluded.peer_ack,
                 local_ack = excluded.local_ack,
                 updated_at = excluded.updated_at
@@ -567,6 +636,28 @@ impl DeviceRelationshipStore {
                 revoked_at: row.get("revoked_at"),
             })
             .collect())
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn insert_tombstone_for_test(
+        &self,
+        peer_endpoint_id: &str,
+        generation: u64,
+    ) -> Result<(), VnidropError> {
+        sqlx::query(
+            r#"
+            INSERT INTO relationship_generation_tombstones (
+                remote_endpoint_id, generation, issued_grant_id, held_grant_id, revoked_at
+            ) VALUES (?1, ?2, NULL, NULL, ?3)
+            "#,
+        )
+        .bind(peer_endpoint_id)
+        .bind(generation as i64)
+        .bind(now_ms())
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(())
     }
 }
 

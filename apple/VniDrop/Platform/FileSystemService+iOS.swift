@@ -8,6 +8,7 @@ import VnidropCore
 /// supported because raw external picker URLs do not survive relaunch.
 struct IosFileSystemService: FileSystemService {
 	var supportsCustomReceiveFolders: Bool { false }
+	var userCanReachTrash: Bool { false }
 
 	func defaultReceiveFolder() -> ReceiveFolder {
 		let path = FileManager.default
@@ -70,6 +71,22 @@ struct IosFileSystemService: FileSystemService {
 		}
 		return await repository.shareSources(
 			sources, transferName: transferName, senderName: senderName, accessPolicy: accessPolicy
+		)
+	}
+
+	func sendPickedFilesToSavedDevice(
+		preparation: any TargetedTransferPreparationGateway,
+		files: [PickedShareFile],
+		transferName: String
+	) async -> Result<TargetedTransferModel, Error> {
+		guard !files.isEmpty else {
+			return .failure(InvitationError.shareEmpty)
+		}
+		// iOS picks by copying into the container, so no security scope has to be
+		// re-acquired here (unlike macOS).
+		return await preparation.send(
+			sources: files.map { $0.toIosShareSource() },
+			transferName: transferName.isEmpty ? nil : transferName
 		)
 	}
 

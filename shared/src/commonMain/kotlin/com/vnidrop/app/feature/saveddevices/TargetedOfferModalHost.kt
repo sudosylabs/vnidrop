@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.vnidrop.app.ui.components.PrimaryButton
+import com.vnidrop.app.ui.components.NotificationEnableCallout
 import com.vnidrop.app.ui.components.SecondaryButton
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
@@ -40,6 +41,8 @@ fun TargetedOfferModalHost(
 	state: TargetedOfferState,
 	onAccept: (String) -> Unit,
 	onDecline: (String) -> Unit,
+	showNotificationPrompt: Boolean = false,
+	onEnableNotifications: () -> Unit = {},
 ) {
 	val offer = state.current ?: return
 	val busy = offer.transferId in state.respondingIds
@@ -83,6 +86,9 @@ fun TargetedOfferModalHost(
 					style = MaterialTheme.typography.bodyLarge,
 					color = colors.foregroundLight,
 				)
+				if (showNotificationPrompt) {
+					NotificationEnableCallout(onEnable = onEnableNotifications)
+				}
 				BoxWithConstraints(Modifier.fillMaxWidth()) {
 					if (maxWidth < 330.dp) {
 						Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {

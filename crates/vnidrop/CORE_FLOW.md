@@ -45,10 +45,12 @@ bytes through Kotlin memory.
    metadata and may refresh after later authenticated transfers. A local label
    is private to this installation, takes display precedence in the UI, and is
    preserved independently across restart and schema migration.
-3. `create_targeted_transfer` imports an immutable manifest and sends only a
-   receiver-bound offer. Approval stores protected authorization in core custody;
-   targeted work creates no invitation history, receiver approval request,
-   invitation delivery receipt, received-artifact row, or pairing eligibility.
+3. `new_targeted_transfer_preparation` creates a one-shot sender preparation.
+   Its `send` operation imports an immutable manifest, returns the durable
+   identity after registration, and sends only a receiver-bound offer. Approval
+   stores protected authorization in core custody; targeted work creates no
+   invitation history, receiver approval request, invitation delivery receipt,
+   received-artifact row, or pairing eligibility.
 4. Targeted blobs are default-deny and scoped to the intended saved endpoint.
    Knowing a transfer id, manifest hash, member hash, or blob address does not
    authorize another device to discover, approve, or download the payload.
@@ -85,8 +87,8 @@ bytes through Kotlin memory.
 ### Pairing and targeted-transfer event catalog
 
 Treat every event as a wake-up: refresh durable state via list/get APIs.
-Targeted progress updates persist monotonic `verified_bytes`; event payloads are
-advisory and the durable targeted-transfer snapshot is authoritative.
+Targeted progress updates persist monotonic `verified_bytes`; Targeted events
+are refresh hints and the durable targeted-transfer snapshot is authoritative.
 
 **`pairing`:** `eligibility-available`, `eligibility-removed`,
 `relationship-changed`, `relationship-grant-rotated`, `saved-device-forgotten`,
@@ -95,7 +97,7 @@ advisory and the durable targeted-transfer snapshot is authoritative.
 **`targeted_transfer`:** `offer-received`, `approved`, `offer-declined`,
 `created`, `offering`, `awaiting-approval`, `connecting`, `transferring`,
 `progress`, `interrupted`, `completed`, `cancelled`, `failed`, `deleted`.
-Lifecycle payloads identify the durable row with `targeted_transfer_id`.
+Domain contract v2 does not transport transfer identity in these event payloads.
 
 ## Platform File Rules
 

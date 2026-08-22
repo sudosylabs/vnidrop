@@ -18,11 +18,11 @@ class DesktopWindowChromeTest {
 	@Test
 	fun closeControlUsesDestructiveStateWhenHoveredOrPressed() {
 		assertEquals(
-			LinuxWindowControlVisualState.DestructiveActive,
+			LinuxWindowControlVisualState.DestructiveHovered,
 			linuxWindowControlVisualState(isClose = true, isHovered = true, isPressed = false),
 		)
 		assertEquals(
-			LinuxWindowControlVisualState.DestructiveActive,
+			LinuxWindowControlVisualState.DestructivePressed,
 			linuxWindowControlVisualState(isClose = true, isHovered = false, isPressed = true),
 		)
 	}
@@ -30,12 +30,38 @@ class DesktopWindowChromeTest {
 	@Test
 	fun standardControlsKeepNeutralInteractionState() {
 		assertEquals(
-			LinuxWindowControlVisualState.NeutralActive,
+			LinuxWindowControlVisualState.NeutralHovered,
 			linuxWindowControlVisualState(isClose = false, isHovered = true, isPressed = false),
+		)
+		assertEquals(
+			LinuxWindowControlVisualState.NeutralPressed,
+			linuxWindowControlVisualState(isClose = false, isHovered = false, isPressed = true),
 		)
 		assertEquals(
 			LinuxWindowControlVisualState.Default,
 			linuxWindowControlVisualState(isClose = false, isHovered = false, isPressed = false),
+		)
+	}
+
+	@Test
+	fun inactiveWindowDimsControlsUntilTheyAreInteractedWith() {
+		assertEquals(
+			LinuxWindowControlVisualState.Inactive,
+			linuxWindowControlVisualState(
+				isClose = false,
+				isHovered = false,
+				isPressed = false,
+				isWindowFocused = false,
+			),
+		)
+		assertEquals(
+			LinuxWindowControlVisualState.NeutralHovered,
+			linuxWindowControlVisualState(
+				isClose = false,
+				isHovered = true,
+				isPressed = false,
+				isWindowFocused = false,
+			),
 		)
 	}
 

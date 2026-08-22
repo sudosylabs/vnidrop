@@ -103,8 +103,13 @@ jobs:
           echo "ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_ROOT=${{ steps.setup-ndk.outputs.ndk-path }}" >> "$GITHUB_ENV"
 
+      - name: Install Linux credential service
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes dbus-x11 gnome-keyring libsecret-tools
+
       - name: Run shared JVM tests
-        run: make check-shared
+        run: make/with-secret-service.sh make check-shared
 
       - name: Verify Android native libraries
         run: make verify-android-libs

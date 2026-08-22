@@ -148,7 +148,6 @@ impl TargetedOfferInbox {
             "targeted_transfer",
             "offer-received",
             json!({
-                "targeted_transfer_id": offer.transfer_id,
                 "sender_endpoint_id": offer.sender_endpoint_id,
                 "file_count": offer.file_count,
                 "total_size": offer.total_size,
@@ -289,11 +288,8 @@ impl TargetedOfferInbox {
                     reason: "receiver-declined".to_string(),
                 },
             );
-            self.event_hub.emit_endpoint(
-                "targeted_transfer",
-                "offer-declined",
-                json!({ "targeted_transfer_id": transfer_id }),
-            );
+            self.event_hub
+                .emit_endpoint("targeted_transfer", "offer-declined", json!({}));
             return Ok(None);
         }
 

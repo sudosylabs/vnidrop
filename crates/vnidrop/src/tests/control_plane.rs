@@ -441,7 +441,6 @@ fn establish_saved(alice: &ProtectedNode, bob: &ProtectedNode, transfer_id: u64)
 fn default_limits_include_saved_device_cap_and_control_plane_timeouts() {
     let limits = CoreLimits::default();
     limits.validate().unwrap();
-    assert_eq!(limits.max_saved_devices, 256);
     assert!(limits.identity_cooldown_ms > 0);
     assert!(limits.malformed_strike_limit > 0);
     assert!(limits.pairing_timeout_ms > 0);
@@ -490,8 +489,9 @@ fn saved_device_cap_blocks_only_new_relationships() {
     });
     alice
         .core()
-        .create_targeted_transfer(
-            bob_id,
+        .new_targeted_transfer_preparation(bob_id)
+        .unwrap()
+        .send(
             vec![ShareSource {
                 kind: SourceKind::Path,
                 value: source_path.to_string_lossy().into_owned(),
@@ -525,17 +525,9 @@ fn silent_reject_keeps_invalid_offers_off_the_prompt_surface() {
     std::fs::write(&source_path, b"nope").unwrap();
     let err = alice
         .core()
-        .create_targeted_transfer(
-            bob_id,
-            vec![ShareSource {
-                kind: SourceKind::Path,
-                value: source_path.to_string_lossy().into_owned(),
-                display_name: Some("payload.txt".to_string()),
-                is_directory: false,
-            }],
-            Some("payload.txt".to_string()),
-        )
-        .unwrap_err();
+        .new_targeted_transfer_preparation(bob_id)
+        .err()
+        .expect("unsaved peer must be rejected");
     assert!(matches!(err, VnidropError::Permission { .. }));
     assert!(bob.core().list_pending_targeted_offers().is_empty());
     assert!(

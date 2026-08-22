@@ -7,14 +7,11 @@ use iroh_blobs::ticket::BlobTicket;
 
 use super::{receive::ReceiveTarget, targeted::BlobTicketParse, CoreInner};
 use crate::{
-    api::{saved_device_capabilities, TargetedTransferState},
+    api::TargetedTransferState,
     error::VnidropError,
-    secure_secret::{SecretHandle, SecretKind},
     targeted_transfer::{
-        auth_secret_material,
         protocol::{CompleteTargetedTransfer, CompletionResponse, TargetedTransferProtocol},
-        reconstruct_authorization, TargetedAuthorization, TargetedAuthorizationDraft,
-        TargetedTransferRow,
+        TargetedAuthorization, TargetedTransferRow,
     },
 };
 
@@ -91,7 +88,7 @@ impl CoreInner {
         id: String,
         target: ReceiveTarget,
     ) -> Result<(), VnidropError> {
-        let store = self.targeted_store();
+        let store = &self.targeted_transfers;
         let row = store.get_row(&id).await?.ok_or_else(|| {
             VnidropError::invalid_input(anyhow::anyhow!("unknown targeted transfer"))
         })?;
@@ -117,7 +114,7 @@ impl CoreInner {
         &self,
         transfer_id: &str,
     ) -> Result<TargetedAuthorization, VnidropError> {
-        let store = self.targeted_store();
+        let store = &self.targeted_transfers;
         let row = store.get_row(transfer_id).await?.ok_or_else(|| {
             VnidropError::invalid_input(anyhow::anyhow!("unknown targeted transfer"))
         })?;
@@ -172,26 +169,11 @@ impl CoreInner {
         target: ReceiveTarget,
         cancelled: tokio::sync::oneshot::Receiver<()>,
     ) -> Result<(), VnidropError> {
-        let store = self.targeted_store();
+        let store = &self.targeted_transfers;
         if let Some(row) = store.get_row(&auth.transfer_id).await? {
             match row.state {
                 TargetedTransferState::Approved | TargetedTransferState::Interrupted => {
-                    store
-                        .set_state(
-                            &auth.transfer_id,
-                            row.state,
-                            TargetedTransferState::Connecting,
-                        )
-                        .await?;
-                    self.emit_targeted_lifecycle(&auth.transfer_id, "connecting");
-                    store
-                        .set_state(
-                            &auth.transfer_id,
-                            TargetedTransferState::Connecting,
-                            TargetedTransferState::Transferring,
-                        )
-                        .await?;
-                    self.emit_targeted_lifecycle(&auth.transfer_id, "transferring");
+                    store.begin_receive(&auth.transfer_id, row.state).await?;
                 }
                 TargetedTransferState::Connecting | TargetedTransferState::Transferring => {
                     return Err(VnidropError::InvalidTransition {
@@ -229,9 +211,8 @@ impl CoreInner {
                     VnidropError::internal(anyhow::anyhow!("targeted transfer missing"))
                 })?;
                 store
-                    .complete_receiver_and_enqueue(&auth.transfer_id, row.total_size)
+                    .complete_receiver(&auth.transfer_id, row.total_size)
                     .await?;
-                self.emit_targeted_lifecycle(&auth.transfer_id, "completed");
                 if self.acknowledge_targeted_completion(auth).await.is_ok() {
                     store.clear_pending_completion(&auth.transfer_id).await?;
                 }
@@ -245,16 +226,8 @@ impl CoreInner {
                             TargetedTransferState::Connecting | TargetedTransferState::Transferring
                         ) =>
                     {
-                        match store
-                            .set_state_from_any(
-                                &auth.transfer_id,
-                                TargetedTransferState::Interrupted,
-                            )
-                            .await
-                        {
-                            Ok(()) => {
-                                self.emit_targeted_lifecycle(&auth.transfer_id, "interrupted")
-                            }
+                        match store.interrupt_receive(&auth.transfer_id).await {
+                            Ok(()) => {}
                             Err(state_error) => {
                                 tracing::warn!(transfer_id = %auth.transfer_id, %state_error, "failed to persist targeted receive interruption")
                             }
@@ -311,71 +284,15 @@ impl CoreInner {
         &self,
         authorization: &TargetedAuthorization,
     ) -> Result<(), VnidropError> {
-        let custody =
-            self.secret_custody
-                .as_ref()
-                .ok_or_else(|| VnidropError::SecureStorageUnavailable {
-                    reason: "targeted authorization requires protected custody".to_string(),
-                })?;
-        let handle = custody
-            .protect(
-                SecretKind::TargetedAuthorization,
-                auth_secret_material(authorization)?,
-                None,
-            )
-            .await?;
-        if let Err(error) = self
-            .targeted_store()
-            .finalize_sender_authorization_and_enqueue(
-                &authorization.transfer_id,
-                &authorization.blob_ticket,
-                handle.as_str(),
-            )
+        self.targeted_transfers
+            .protect_sender_authorization(authorization)
             .await
-        {
-            if let Err(cleanup_error) = custody.remove(&handle).await {
-                tracing::warn!(%cleanup_error, "failed to roll back targeted sender authorization secret");
-            }
-            return Err(error);
-        }
-        Ok(())
     }
 
     pub(crate) async fn load_stored_authorization(
         &self,
         row: &TargetedTransferRow,
     ) -> Result<Option<String>, VnidropError> {
-        let (Some(handle), Some(blob_ticket)) = (
-            row.authorization_secret_handle.as_ref(),
-            row.blob_ticket.as_ref(),
-        ) else {
-            return Ok(None);
-        };
-        let custody =
-            self.secret_custody
-                .as_ref()
-                .ok_or_else(|| VnidropError::SecureStorageUnavailable {
-                    reason: "targeted authorization requires protected custody".to_string(),
-                })?;
-        let material = custody
-            .load(&SecretHandle::from_stored(handle.clone()))
-            .await?;
-        let auth = reconstruct_authorization(
-            TargetedAuthorizationDraft {
-                transfer_id: row.id.clone(),
-                protocol_transfer_id: row.protocol_transfer_id,
-                sender_endpoint_id: row.sender_endpoint_id.clone(),
-                receiver_endpoint_id: row.receiver_endpoint_id.clone(),
-                manifest_id: row.manifest_id.clone(),
-                content_hash: row.content_hash.clone(),
-                file_count: row.file_count,
-                total_size: row.total_size,
-                protocol_version: saved_device_capabilities().targeted_transfer_protocol_version,
-                transfer_name: row.transfer_name.clone(),
-                blob_ticket: blob_ticket.clone(),
-            },
-            &material,
-        )?;
-        Ok(Some(auth.encode()?))
+        self.targeted_transfers.load_authorization(row).await
     }
 }

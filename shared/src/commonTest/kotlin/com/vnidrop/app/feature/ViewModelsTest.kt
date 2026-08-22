@@ -42,6 +42,7 @@ import com.vnidrop.app.ui.navigation.AppDestination
 import com.vnidrop.app.ui.theme.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -60,6 +61,8 @@ import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.button_show_in_files
 import vnidrop.shared.generated.resources.error_permission
 import vnidrop.shared.generated.resources.error_destination_exists
+import vnidrop.shared.generated.resources.notifications_enable_action
+import vnidrop.shared.generated.resources.notifications_sharing_prompt
 import vnidrop.shared.generated.resources.receive_open_files_failed
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -111,6 +114,42 @@ class ViewModelsTest {
 		advanceUntilIdle()
 		assertFalse(preferences.mutablePreferences.value.notificationsEnabled)
 		assertEquals(1, notifications.cancelAllCount)
+	}
+
+	@Test
+	fun settingsOffersContextualNotificationEnableAfterShareCreated() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val preferences = preferences()
+		val messages = UiMessageController()
+		val viewModel = settingsViewModel(
+			preferences = preferences,
+			notifications = FakeNotificationService(NotificationPermission.Granted),
+			messages = messages,
+		)
+		advanceUntilIdle()
+		val nextMessage = async { messages.messages.first() }
+
+		viewModel.promptForBackgroundNotifications()
+		val prompt = nextMessage.await()
+
+		assertEquals(UiText.Resource(Res.string.notifications_sharing_prompt), prompt.text)
+		assertEquals(UiText.Resource(Res.string.notifications_enable_action), prompt.actionLabel)
+		assertNotNull(prompt.onAction).invoke()
+		advanceUntilIdle()
+		assertTrue(preferences.mutablePreferences.value.notificationsEnabled)
+	}
+
+	@Test
+	fun contextualNotificationEnableOpensSettingsWhenPermissionWasDenied() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val notifications = FakeNotificationService(NotificationPermission.Denied)
+		val viewModel = settingsViewModel(notifications = notifications)
+		advanceUntilIdle()
+
+		viewModel.enableNotificationsFromContext()
+		advanceUntilIdle()
+
+		assertEquals(1, notifications.openSettingsCount)
 	}
 
 	@Test
@@ -868,6 +907,7 @@ class ViewModelsTest {
 		transport: DiagnosticsTransport = RecordingDiagnosticsTransport(),
 		fileSystem: FakeFileSystemService = FakeFileSystemService(folder),
 		repository: FakeCoreGateway = FakeCoreGateway(),
+		messages: UiMessageController = UiMessageController(),
 	) = SettingsViewModel(
 		environment(),
 		{ DeviceInfo("Device", "Model", "OS", "Wi-Fi", "80%") },
@@ -875,7 +915,7 @@ class ViewModelsTest {
 		repository,
 		preferences,
 		notifications,
-		UiMessageController(),
+		messages,
 		BugReportService(
 			preferencesRepository = preferences,
 			transport = transport,

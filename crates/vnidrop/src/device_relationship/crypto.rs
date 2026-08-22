@@ -113,7 +113,7 @@ mod grant_vectors {
         let mac_hex = HEXLOWER.encode(proof.mac());
         assert_eq!(
             mac_hex,
-            "e6cc2641183b84fae9e3805761961d69e09d25a1f8ceeaeede952774ddd95d6b"
+            "faab284de3b13049ee418da86a890c41b07330a023f7810cc347768c6ac32d1a"
         );
         assert!(verify_relationship_grant(
             &secret, &proof, &challenge, "issuer", "other", 1, protocol,

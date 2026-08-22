@@ -432,12 +432,14 @@ The Rust core exposes separate typed models and operations for:
 - Creating and submitting targeted transfers.
 - Approving, declining, cancelling, resuming, and deleting transfers.
 - Querying durable state and current capability availability.
-- Subscribing to typed events carrying stable IDs and monotonic state revisions.
+- Subscribing to typed wake-up events carrying stable event IDs and monotonic
+  per-process delivery revisions.
 
 Bindings must not expose raw secrets or generic state mutation. Events are
 wake-up notifications, not authoritative storage. They may be delivered at
-least once; consumers deduplicate by stable ID and revision, then query current
-state after reconnect or restart.
+least once; consumers deduplicate by stable event ID, use the revision only to
+order emissions from the current process, and query current state after each
+wake-up, reconnect, or restart.
 
 ### 13.1 Pairing and targeted-transfer event catalog
 
@@ -467,9 +469,10 @@ monotonic `verified_bytes`; event payloads remain advisory.
 | `connecting`, `transferring`, `progress`, `interrupted` | Receiver-side pull lifecycle or verified payload progress changed. |
 | `completed`, `cancelled`, `failed`, `deleted` | A durable targeted-transfer terminal snapshot changed. |
 
-Lifecycle payloads use `targeted_transfer_id`; consumers refresh the corresponding
-snapshot after receiving the wake-up. Progress payloads remain advisory and the
-durable snapshot is authoritative.
+Domain contract v2 intentionally carries no transfer identity in Targeted event
+payloads. Consumers refresh the Targeted offer and transfer collections after
+each wake-up. Progress events remain advisory and the durable snapshot is
+authoritative.
 
 Failures remain typed where callers can act differently, including:
 

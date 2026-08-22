@@ -8,8 +8,8 @@ use crate::{
     api::{
         CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig, CoreStorageUsage,
         PairingEligibilitySummary, ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact,
-        ReceiverRequest, RuntimeStatus, ShareMetadataInput, ShareResult, ShareSource,
-        StoredTransfer, TicketInspection, TransferAccessMode,
+        ReceiverRequest, RuntimeObligationFacts, RuntimeStatus, ShareMetadataInput, ShareResult,
+        ShareSource, StoredTransfer, TicketInspection, TransferAccessMode,
     },
     error::VnidropError,
     filesystem::platform_path,
@@ -61,6 +61,20 @@ impl VnidropCore {
     /// thread while cancel/approve arrive from the UI or test harness thread.
     fn block_on<F: Future>(&self, future: F) -> F::Output {
         self.runtime.handle().block_on(future)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn run_targeted_transfer_for_test(
+        &self,
+        receiver_endpoint_id: String,
+        sources: Vec<ShareSource>,
+        transfer_name: Option<String>,
+    ) -> Result<crate::api::TargetedTransfer, VnidropError> {
+        self.block_on(self.inner.run_targeted_transfer_for_test(
+            receiver_endpoint_id,
+            sources,
+            transfer_name,
+        ))
     }
 
     pub(super) fn initialize_with_identity_mode(
@@ -162,7 +176,7 @@ impl VnidropCore {
         self.block_on(async {
             let row = self
                 .inner
-                .targeted_store()
+                .targeted_transfers
                 .get_row(&id)
                 .await?
                 .ok_or_else(|| VnidropError::invalid_input(anyhow::anyhow!("unknown transfer")))?;
@@ -180,16 +194,8 @@ impl VnidropCore {
         })
     }
 
-    pub(crate) fn suppress_targeted_completion_for_test(&self, suppress: bool) {
-        self.inner
-            .suppress_targeted_completion
-            .store(suppress, std::sync::atomic::Ordering::SeqCst);
-    }
-
-    pub(crate) fn suppress_targeted_authorization_delivery_for_test(&self, suppress: bool) {
-        self.inner
-            .suppress_targeted_authorization_delivery
-            .store(suppress, std::sync::atomic::Ordering::SeqCst);
+    pub(crate) fn targeted_faults_for_test(&self) -> super::TargetedFaultAdapters {
+        super::TargetedFaultAdapters::new(self.inner.clone(), self.runtime.handle().clone())
     }
 
     pub(crate) fn accept_targeted_offer_without_waiting_for_test(
@@ -206,7 +212,7 @@ impl VnidropCore {
                     VnidropError::invalid_input(anyhow::anyhow!("unknown targeted offer"))
                 })?;
             self.inner
-                .targeted_store()
+                .targeted_transfers
                 .persist_accepted_offer_intent(&offer)
                 .await?;
             self.inner
@@ -232,17 +238,6 @@ impl VnidropCore {
                 .await
                 .map_err(VnidropError::repository)
         })
-    }
-
-    pub(crate) fn corrupt_targeted_content_hash_for_test(
-        &self,
-        id: String,
-    ) -> Result<(), VnidropError> {
-        self.block_on(
-            self.inner
-                .targeted_store()
-                .corrupt_content_hash_for_test(&id),
-        )
     }
 
     pub(crate) fn create_orphaned_targeted_authorization_for_test(
@@ -283,36 +278,12 @@ impl VnidropCore {
         self.block_on(async {
             let row = self
                 .inner
-                .targeted_store()
+                .targeted_transfers
                 .get_row(&id)
                 .await?
                 .ok_or_else(|| VnidropError::invalid_input(anyhow::anyhow!("unknown transfer")))?;
             self.inner.deliver_stored_targeted_authorization(&row).await
         })
-    }
-
-    pub(crate) fn targeted_authorization_delivery_attempts_for_test(&self) -> u64 {
-        self.inner
-            .targeted_authorization_delivery_attempts
-            .load(std::sync::atomic::Ordering::SeqCst)
-    }
-
-    pub(crate) fn hold_all_transfer_slots_for_test(&self) -> tokio::sync::oneshot::Sender<()> {
-        let inner = self.inner.clone();
-        let permits = inner.limits.max_concurrent_transfers as u32;
-        let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
-        let (release_tx, release_rx) = tokio::sync::oneshot::channel();
-        self.runtime.handle().spawn(async move {
-            let _permits = inner
-                .transfer_slots
-                .acquire_many(permits)
-                .await
-                .expect("transfer limiter open");
-            ready_tx.send(()).expect("slot holder ready");
-            let _ = release_rx.await;
-        });
-        ready_rx.recv().expect("slot holder started");
-        release_tx
     }
 
     pub(crate) fn targeted_payload_is_registered_for_test(
@@ -322,7 +293,7 @@ impl VnidropCore {
         self.block_on(async {
             let row = self
                 .inner
-                .targeted_store()
+                .targeted_transfers
                 .get_row(&id)
                 .await?
                 .ok_or_else(|| VnidropError::invalid_input(anyhow::anyhow!("unknown transfer")))?;
@@ -406,6 +377,18 @@ impl VnidropCore {
             self.inner
                 .device_relationships
                 .list_tombstones(&peer_endpoint_id),
+        )
+    }
+
+    pub(crate) fn insert_relationship_tombstone_for_test(
+        &self,
+        peer_endpoint_id: String,
+        generation: u64,
+    ) -> Result<(), VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .insert_tombstone_for_test(&peer_endpoint_id, generation),
         )
     }
 
@@ -517,6 +500,10 @@ impl VnidropCore {
 
     pub fn status(&self) -> RuntimeStatus {
         self.block_on(self.inner.status())
+    }
+
+    pub fn runtime_obligation_facts(&self) -> Result<RuntimeObligationFacts, VnidropError> {
+        self.block_on(self.inner.runtime_obligation_facts())
     }
 
     pub fn share_files(
@@ -766,24 +753,21 @@ impl VnidropCore {
         self.block_on(self.inner.rotate_relationship_grant(peer_endpoint_id))
     }
 
-    /// Create an immutable one-receiver transfer and submit its pre-approval offer.
-    ///
-    /// Blocks until the saved receiver approves or declines. On approval the
-    /// receiver stores bound authorization locally via
-    /// [`Self::respond_to_targeted_offer`]. This path creates no invitation
-    /// transfer, receiver approval request, invitation delivery receipt,
-    /// received-artifact record, or pairing eligibility.
-    pub fn create_targeted_transfer(
+    /// Start a one-shot Targeted preparation whose send returns after registration.
+    pub fn new_targeted_transfer_preparation(
         &self,
         receiver_endpoint_id: String,
-        sources: Vec<ShareSource>,
-        transfer_name: Option<String>,
-    ) -> Result<crate::api::TargetedTransfer, VnidropError> {
-        self.block_on(self.inner.create_targeted_transfer(
+    ) -> Result<Arc<super::TargetedTransferPreparation>, VnidropError> {
+        self.block_on(
+            self.inner
+                .device_relationships
+                .require_saved(&receiver_endpoint_id),
+        )?;
+        Ok(Arc::new(super::TargetedTransferPreparation::new(
+            self.inner.clone(),
+            self.runtime.handle().clone(),
             receiver_endpoint_id,
-            sources,
-            transfer_name,
-        ))
+        )))
     }
 
     /// Ticket-free pending offers awaiting explicit local approval.

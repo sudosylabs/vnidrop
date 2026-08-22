@@ -474,20 +474,31 @@ fn approve_targeted(
             .respond_to_targeted_offer(offer.transfer_id, true)
             .unwrap()
     });
-    let transfer = alice
+    let preparation = alice
         .core()
-        .create_targeted_transfer(
-            bob_id,
-            vec![targeted_source(&source_path)],
-            Some(name.to_string()),
-        )
+        .new_targeted_transfer_preparation(bob_id)
+        .unwrap();
+    let transfer = preparation
+        .send(vec![targeted_source(&source_path)], Some(name.to_string()))
         .unwrap();
     let response = accept.join().unwrap();
     assert!(matches!(
         response,
         crate::TargetedOfferResponse::Approved { .. }
     ));
-    transfer
+    let started = Instant::now();
+    loop {
+        let snapshot = alice
+            .core()
+            .get_targeted_transfer(transfer.id.clone())
+            .unwrap()
+            .unwrap();
+        if snapshot.state == TargetedTransferState::Approved {
+            break snapshot;
+        }
+        assert!(started.elapsed() < Duration::from_secs(20));
+        std::thread::sleep(Duration::from_millis(25));
+    }
 }
 
 #[test]
@@ -755,15 +766,32 @@ fn unavailable_relationship_secrets_disable_only_saved_device_paths() {
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join("x.txt");
     std::fs::write(&source_path, b"x").unwrap();
-    let targeted = alice.core().create_targeted_transfer(
-        bob_id,
-        vec![targeted_source(&source_path)],
-        Some("x.txt".to_string()),
-    );
-    assert!(
-        targeted.is_err(),
-        "targeted transfers require usable relationship secrets"
-    );
+    let targeted = alice
+        .core()
+        .new_targeted_transfer_preparation(bob_id)
+        .unwrap()
+        .send(
+            vec![targeted_source(&source_path)],
+            Some("x.txt".to_string()),
+        )
+        .unwrap();
+    let started = Instant::now();
+    loop {
+        let snapshot = alice
+            .core()
+            .get_targeted_transfer(targeted.id.clone())
+            .unwrap()
+            .unwrap();
+        if snapshot.state == TargetedTransferState::Failed {
+            break;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(20),
+            "targeted negotiation must fail without relationship secrets"
+        );
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    assert!(bob.core().list_pending_targeted_offers().is_empty());
 
     let stranger = AndroidContractNode::new();
     complete_invitation_transfer(&alice, &stranger, 15_013, b"new eligibility");
@@ -929,9 +957,6 @@ fn android_public_surface_omits_raw_secrets_and_generic_mutation() {
                 path.display()
             );
         }
-        assert!(!kotlin.contains("initializeWithExperimentalSavedDevices"));
-        assert!(!kotlin.contains("ExperimentalSavedDeviceCapabilities"));
-        assert!(!kotlin.contains("experimentalSavedDeviceCapabilities"));
         assert!(
             kotlin.contains("initializeWithLimitsAndNetworkConfig"),
             "production protected Android init must remain on the public binding surface"

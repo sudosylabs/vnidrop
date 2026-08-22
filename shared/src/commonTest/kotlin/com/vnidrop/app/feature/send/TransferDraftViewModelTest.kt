@@ -6,6 +6,7 @@ import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.core.Share
 import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.TargetedTransferModel
+import com.vnidrop.app.core.TargetedTransferRoleModel
 import com.vnidrop.app.core.TargetedTransferStateModel
 import com.vnidrop.app.support.FakeCoreGateway
 import com.vnidrop.app.support.FakeFilePreviewRepository
@@ -59,7 +60,11 @@ class TransferDraftViewModelTest {
 		invitation.submit()
 		advanceUntilIdle()
 		val invitationCreated = assertIs<TransferDraftEffect.Created>(invitation.effectFlow.first()).creation
-		assertIs<TransferDraftCreation.Invitation>(invitationCreated)
+		assertEquals(
+			TransferDraftCreation.Invitation(7UL, ShareAccessPolicy.AnyoneWithTransfer),
+			assertIs<TransferDraftCreation.Invitation>(invitationCreated),
+		)
+		assertFalse(invitationCreated.awaitsRemoteApproval)
 		assertEquals(ShareAccessPolicy.AnyoneWithTransfer, core.lastShareAccessPolicy)
 		assertFalse(invitation.state.value.isOpen)
 
@@ -83,6 +88,7 @@ class TransferDraftViewModelTest {
 		advanceUntilIdle()
 		val created = assertIs<TransferDraftEffect.Created>(targeted.effectFlow.first()).creation
 		assertEquals(TransferDraftCreation.Targeted("target-9", "peer-9"), created)
+		assertTrue(created.awaitsRemoteApproval)
 		assertTrue(core.createdTargetedTransfers.single().second.single().isDirectory)
 	}
 
@@ -235,6 +241,7 @@ class TransferDraftViewModelTest {
 
 	private fun targeted(id: String, peerId: String) = TargetedTransferModel(
 		id = id,
+		role = TargetedTransferRoleModel.Sender,
 		senderEndpointId = "me",
 		receiverEndpointId = peerId,
 		manifestId = "manifest",

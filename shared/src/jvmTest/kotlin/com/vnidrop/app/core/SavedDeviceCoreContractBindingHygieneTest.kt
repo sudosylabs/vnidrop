@@ -32,10 +32,6 @@ class SavedDeviceCoreContractBindingHygieneTest {
 				"generated binding ${binding.path} must not expose `$token`",
 			)
 		}
-		assertFalse(source.contains("initializeWithExperimentalSavedDevices"))
-		assertFalse(source.contains("ExperimentalSavedDeviceCapabilities"))
-		assertFalse(source.contains("experimentalSavedDeviceCapabilities"))
-
 		assertTrue(
 			source.contains("initializeWithLimitsAndNetworkConfig"),
 			"production protected initializer must remain public",
@@ -44,6 +40,8 @@ class SavedDeviceCoreContractBindingHygieneTest {
 		assertTrue(
 			source.contains("public expect fun `savedDeviceCapabilities`(): SavedDeviceCapabilities"),
 		)
+		assertTrue(source.contains("var `role`: TargetedTransferRole"))
+		assertTrue(source.contains("public enum class TargetedTransferRole"))
 		assertTrue(
 			source.contains("SavedDevice"),
 			"SavedDevice model must remain on the public surface",

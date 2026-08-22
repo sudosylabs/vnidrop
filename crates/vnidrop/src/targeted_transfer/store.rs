@@ -6,7 +6,7 @@
 use sqlx::{Row, SqlitePool};
 
 use crate::{
-    api::{TargetedTransfer, TargetedTransferState},
+    api::{TargetedTransfer, TargetedTransferRole, TargetedTransferState},
     error::VnidropError,
     util::now_ms,
 };
@@ -115,6 +115,49 @@ impl TargetedTransferStore {
         .await
         .map_err(VnidropError::repository)?;
         Ok(row.get::<i64, _>(0) != 0)
+    }
+
+    pub(crate) async fn count_sender_provider_obligations(&self) -> Result<u64, VnidropError> {
+        let row = sqlx::query(
+            r#"
+            SELECT COUNT(*) FROM targeted_transfers
+            WHERE role = 'sender'
+              AND state IN ('preparing', 'offering', 'awaiting_approval', 'approved',
+                            'connecting', 'transferring', 'interrupted')
+            "#,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(row.get::<i64, _>(0) as u64)
+    }
+
+    pub(crate) async fn count_receiver_runtime_obligations(&self) -> Result<u64, VnidropError> {
+        let row = sqlx::query(
+            r#"
+            SELECT COUNT(*) FROM targeted_transfers
+            WHERE role = 'receiver' AND state IN ('approved', 'connecting', 'transferring')
+            "#,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(row.get::<i64, _>(0) as u64)
+    }
+
+    pub(crate) async fn abandon_sender_preapproval(&self, id: &str) -> Result<bool, VnidropError> {
+        let result = sqlx::query(
+            r#"
+            DELETE FROM targeted_transfers
+            WHERE id = ?1 AND role = 'sender'
+              AND state IN ('preparing', 'offering', 'awaiting_approval')
+            "#,
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(result.rows_affected() == 1)
     }
 
     pub(crate) async fn insert(&self, transfer: &TargetedTransferRow) -> Result<(), VnidropError> {
@@ -430,7 +473,7 @@ impl TargetedTransferStore {
     pub(crate) async fn get(&self, id: &str) -> Result<Option<TargetedTransfer>, VnidropError> {
         let row = sqlx::query(
             r#"
-            SELECT id, sender_endpoint_id, receiver_endpoint_id, manifest_id, transfer_name,
+            SELECT id, role, sender_endpoint_id, receiver_endpoint_id, manifest_id, transfer_name,
                    file_count, total_size, verified_bytes, state, created_at, updated_at
             FROM targeted_transfers WHERE id = ?1
             "#,
@@ -465,7 +508,7 @@ impl TargetedTransferStore {
     pub(crate) async fn list(&self) -> Result<Vec<TargetedTransfer>, VnidropError> {
         let rows = sqlx::query(
             r#"
-            SELECT id, sender_endpoint_id, receiver_endpoint_id, manifest_id, transfer_name,
+            SELECT id, role, sender_endpoint_id, receiver_endpoint_id, manifest_id, transfer_name,
                    file_count, total_size, verified_bytes, state, created_at, updated_at
             FROM targeted_transfers
             ORDER BY updated_at DESC
@@ -571,26 +614,6 @@ impl TargetedTransferStore {
         Ok(rows.into_iter().map(|row| row.get("id")).collect())
     }
 
-    pub(crate) async fn protocol_ids_for_peer(
-        &self,
-        peer_endpoint_id: &str,
-    ) -> Result<Vec<u64>, VnidropError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT protocol_transfer_id FROM targeted_transfers
-            WHERE sender_endpoint_id = ?1 OR receiver_endpoint_id = ?1
-            "#,
-        )
-        .bind(peer_endpoint_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(rows
-            .into_iter()
-            .map(|row| row.get::<i64, _>(0) as u64)
-            .collect())
-    }
-
     pub(crate) async fn ids_for_peer(
         &self,
         peer_endpoint_id: &str,
@@ -606,53 +629,6 @@ impl TargetedTransferStore {
         .await
         .map_err(VnidropError::repository)?;
         Ok(rows.into_iter().map(|row| row.get("id")).collect())
-    }
-
-    pub(crate) async fn sender_payloads_for_peer(
-        &self,
-        peer_endpoint_id: &str,
-    ) -> Result<Vec<(String, u64)>, VnidropError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT id, protocol_transfer_id FROM targeted_transfers
-            WHERE role = 'sender'
-              AND (sender_endpoint_id = ?1 OR receiver_endpoint_id = ?1)
-            "#,
-        )
-        .bind(peer_endpoint_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(rows
-            .into_iter()
-            .map(|row| {
-                (
-                    row.get("id"),
-                    row.get::<i64, _>("protocol_transfer_id") as u64,
-                )
-            })
-            .collect())
-    }
-
-    pub(crate) async fn authorizations_for_peer(
-        &self,
-        peer_endpoint_id: &str,
-    ) -> Result<Vec<(String, String)>, VnidropError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT id, authorization_secret_handle FROM targeted_transfers
-            WHERE (sender_endpoint_id = ?1 OR receiver_endpoint_id = ?1)
-              AND authorization_secret_handle IS NOT NULL
-            "#,
-        )
-        .bind(peer_endpoint_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(rows
-            .into_iter()
-            .map(|row| (row.get(0), row.get(1)))
-            .collect())
     }
 
     pub(crate) async fn authorization_rows(
@@ -690,12 +666,41 @@ impl TargetedTransferStore {
         .map_err(VnidropError::repository)?;
         Ok(rows.into_iter().map(|row| row.get("id")).collect())
     }
-}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum TargetedTransferRole {
-    Sender,
-    Receiver,
+    pub(crate) async fn fail_sender_preapproval_on_restart(
+        &self,
+    ) -> Result<Vec<TargetedTransferRow>, VnidropError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, protocol_transfer_id, sender_endpoint_id, receiver_endpoint_id,
+                   manifest_id, content_hash, transfer_name, file_count, total_size,
+                   verified_bytes, blob_ticket, authorization_secret_handle, role,
+                   state, created_at, updated_at
+            FROM targeted_transfers
+            WHERE role = 'sender' AND state IN ('preparing', 'offering', 'awaiting_approval')
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        let rows = rows
+            .into_iter()
+            .map(row_to_full)
+            .collect::<Result<Vec<_>, _>>()?;
+        if !rows.is_empty() {
+            sqlx::query(
+                r#"
+                UPDATE targeted_transfers SET state = 'failed', updated_at = ?1
+                WHERE role = 'sender' AND state IN ('preparing', 'offering', 'awaiting_approval')
+                "#,
+            )
+            .bind(now_ms())
+            .execute(&self.pool)
+            .await
+            .map_err(VnidropError::repository)?;
+        }
+        Ok(rows)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -721,6 +726,7 @@ pub(crate) struct TargetedTransferRow {
 fn row_to_transfer(row: sqlx::sqlite::SqliteRow) -> Result<TargetedTransfer, VnidropError> {
     Ok(TargetedTransfer {
         id: row.get("id"),
+        role: parse_role(&row.get::<String, _>("role"))?,
         sender_endpoint_id: row.get("sender_endpoint_id"),
         receiver_endpoint_id: row.get("receiver_endpoint_id"),
         manifest_id: row.get("manifest_id"),

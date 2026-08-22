@@ -50,4 +50,15 @@ class ExternalInvitationControllerTest {
 			decodeInvitationBytes(byteArrayOf())
 		}
 	}
+
+	@Test
+	fun acceptsOpaqueContentUriWhenProviderExposesVniDropDisplayName() {
+		assertTrue(
+			isVniDropInvitationDocument(
+				declaredType = "application/octet-stream",
+				uriPath = "/item/184725",
+				displayName = "holiday photos.vnd",
+			),
+		)
+	}
 }

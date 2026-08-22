@@ -73,7 +73,8 @@ class SendViewModel(
 						refreshReceiverStatuses(signal.transferId)
 					}
 					CoreSignal.PairingChanged,
-					CoreSignal.TargetedTransferChanged -> Unit
+					CoreSignal.TargetedTransferChanged,
+					CoreSignal.RuntimeObligationChanged -> Unit
 				}
 			}
 		}

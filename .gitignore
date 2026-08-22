@@ -19,6 +19,7 @@ captures
 node_modules/
 target/
 .junie
+.claude/settings.local.json
 config.override.mk
 bin/
 tmp/
@@ -32,3 +33,4 @@ docs/adr/
 .screenshots
 apple/RELEASE-MACOS.md
 apple/Generated/*.xcconfig
+.scratch/

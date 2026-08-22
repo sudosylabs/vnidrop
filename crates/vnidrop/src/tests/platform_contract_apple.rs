@@ -562,19 +562,27 @@ fn approve_one(
             .respond_to_targeted_offer(offer.transfer_id, true)
             .unwrap()
     });
-    let transfer = alice
-        .create_targeted_transfer(
-            bob_id,
-            vec![targeted_source(&source_path)],
-            Some(name.to_string()),
-        )
+    let preparation = alice.new_targeted_transfer_preparation(bob_id).unwrap();
+    let transfer = preparation
+        .send(vec![targeted_source(&source_path)], Some(name.to_string()))
         .unwrap();
     let response = accept.join().unwrap();
     assert!(matches!(
         response,
         crate::TargetedOfferResponse::Approved { .. }
     ));
-    transfer
+    let started = Instant::now();
+    loop {
+        let snapshot = alice
+            .get_targeted_transfer(transfer.id.clone())
+            .unwrap()
+            .unwrap();
+        if snapshot.state == TargetedTransferState::Approved {
+            break snapshot;
+        }
+        assert!(started.elapsed() < Duration::from_secs(20));
+        std::thread::sleep(Duration::from_millis(25));
+    }
 }
 
 fn recover_authoritative_state(
@@ -734,11 +742,7 @@ fn locked_identity_fails_closed_while_missing_relationship_secrets_keep_identity
         "identity must still serve tickets"
     );
 
-    let create_err = alice.core().create_targeted_transfer(
-        bob_id,
-        vec![targeted_source(&source_path)],
-        Some("still-works.txt".to_string()),
-    );
+    let create_err = alice.core().new_targeted_transfer_preparation(bob_id);
     assert!(
         create_err.is_err(),
         "saved-device transfer must fail without relationship secrets"
@@ -840,9 +844,6 @@ fn apple_public_bindings_omit_raw_secrets_and_generic_mutation() {
                 swift.display()
             );
         }
-        assert!(!source.contains("initializeWithExperimentalSavedDevices"));
-        assert!(!source.contains("ExperimentalSavedDeviceCapabilities"));
-        assert!(!source.contains("experimentalSavedDeviceCapabilities"));
         assert!(
             source.contains("initializeWithLimitsAndNetworkConfig"),
             "Swift bindings must expose standard protected initialization"
@@ -855,6 +856,11 @@ fn apple_public_bindings_omit_raw_secrets_and_generic_mutation() {
             source.contains("public struct SavedDeviceCapabilities")
                 && source.contains("public func savedDeviceCapabilities()"),
             "Swift bindings must expose production saved-device capabilities"
+        );
+        assert!(
+            source.contains("public var role: TargetedTransferRole")
+                && source.contains("public enum TargetedTransferRole"),
+            "Swift targeted-transfer snapshots must expose their persisted role"
         );
         assert!(
             source.contains("setSavedDeviceLabel"),
@@ -872,8 +878,6 @@ fn apple_public_bindings_omit_raw_secrets_and_generic_mutation() {
     )
     .expect("api.rs");
     for forbidden in [
-        "ExperimentalSavedDeviceCapabilities",
-        "experimental_saved_device_capabilities",
         "SecretMaterial",
         "SecretHandle",
         "SecureSecretStore",

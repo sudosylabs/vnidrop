@@ -30,6 +30,7 @@ CONFIG="Release-Direct"
 APP_NAME="VniDrop"
 VERSION_RESOLVER="$REPO_ROOT/packaging/version/resolve-version.sh"
 VERSION_CONFIG_GENERATOR="$REPO_ROOT/packaging/version/generate-apple-xcconfig.sh"
+APP_CONFIG_GENERATOR="$SCRIPT_DIR/generate-appconfig.sh"
 
 VERSION="$("$VERSION_RESOLVER" product)"
 export VNIDROP_BUILD_TIME_UTC="${VNIDROP_BUILD_TIME_UTC:-$(date -u +%Y%m%d%H%M%S)}"
@@ -61,6 +62,8 @@ echo "==> Building Rust core (release)"
 CARGO_PROFILE_RELEASE_LTO=false "$SCRIPT_DIR/build-core.sh" release
 echo "==> Regenerating Xcode project"
 "$VERSION_CONFIG_GENERATOR" all
+# AppConfig.swift is gitignored codegen — a clean CI checkout has none.
+"$APP_CONFIG_GENERATOR"
 ( cd "$APPLE_DIR" && xcodegen generate >/dev/null )
 
 rm -rf "$BUILD_DIR" && mkdir -p "$BUILD_DIR" "$DIST_DIR"

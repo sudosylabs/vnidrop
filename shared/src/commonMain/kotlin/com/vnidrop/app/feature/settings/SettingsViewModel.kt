@@ -42,7 +42,9 @@ import vnidrop.shared.generated.resources.bug_report_submit_failed
 import vnidrop.shared.generated.resources.bug_report_submitted
 import vnidrop.shared.generated.resources.button_open_settings
 import vnidrop.shared.generated.resources.notifications_enabled_message
+import vnidrop.shared.generated.resources.notifications_enable_action
 import vnidrop.shared.generated.resources.notifications_permission_denied
+import vnidrop.shared.generated.resources.notifications_sharing_prompt
 import vnidrop.shared.generated.resources.notifications_settings_open_failed
 import vnidrop.shared.generated.resources.notifications_unsupported
 import vnidrop.shared.generated.resources.relay_settings_applied
@@ -118,6 +120,10 @@ data class SettingsState(
 	val hasRelaySettingsChanges: Boolean
 		get() = relayMode != savedRelaySettings.mode ||
 			(relayMode.usesCustomRelayUrls && relayUrls != savedRelaySettings.relayUrls)
+
+	val shouldOfferNotificationEnable: Boolean
+		get() = notificationPermission != NotificationPermission.Unsupported &&
+			(!notificationsEnabled || notificationPermission != NotificationPermission.Granted)
 }
 
 sealed interface SettingsEffect {
@@ -501,6 +507,27 @@ class SettingsViewModel(
 					),
 				)
 			}
+		}
+	}
+
+	fun promptForBackgroundNotifications() {
+		if (!_state.value.shouldOfferNotificationEnable) return
+		messages.tryShow(
+			UiMessage(
+				text = UiText.Resource(Res.string.notifications_sharing_prompt),
+				tone = UiMessageTone.Info,
+				actionLabel = UiText.Resource(Res.string.notifications_enable_action),
+				onAction = ::enableNotificationsFromContext,
+			),
+		)
+	}
+
+	fun enableNotificationsFromContext() {
+		when (_state.value.notificationPermission) {
+			NotificationPermission.Denied -> openNotificationSettings()
+			NotificationPermission.Unsupported -> Unit
+			NotificationPermission.Granted,
+			NotificationPermission.NotDetermined -> setNotificationsEnabled(true)
 		}
 	}
 

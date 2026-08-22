@@ -31,8 +31,7 @@ class SavedDeviceGatewayFakeTest {
 			gateway.respondToTargetedOffer("transfer-1", accepted = true).getOrThrow(),
 		)
 		assertTrue(
-			gateway.createTargetedTransfer(
-				receiverEndpointId = "peer-1",
+			gateway.newTargetedTransferPreparation("peer-1").getOrThrow().send(
 				sources = listOf(
 					ShareSource(SourceKind.PATH, "/tmp/a.txt", "a.txt", false),
 				),

@@ -12,7 +12,8 @@ use crate::{
     secure_secret::{FaultInjectingSecretStore, ReferenceStoreFailure},
     CoreEvent, CoreEventSink, CoreNetworkConfig, CoreRelayMode, DeviceRelationshipState,
     PendingTargetedOffer, PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2,
-    ReceivedLocatorKind, ShareMetadataInput, ShareSource, SourceKind, TargetedTransferState,
+    ReceivedLocatorKind, ShareMetadataInput, ShareSource, SourceKind,
+    TargetedPreparationStopOutcome, TargetedTransferRole, TargetedTransferState,
     TransferAccessMode, VnidropCore, VnidropError,
 };
 
@@ -243,7 +244,373 @@ fn targeted_source(path: &Path) -> ShareSource {
 }
 
 #[test]
-fn create_targeted_transfer_is_immutable_and_saved_only() {
+fn targeted_preparation_returns_durable_identity_before_approval() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 10_000);
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("prompt.txt");
+    std::fs::write(&source_path, b"registered before approval").unwrap();
+
+    let preparation = alice
+        .core()
+        .new_targeted_transfer_preparation(bob.core().status().endpoint_id)
+        .unwrap();
+    let transfer = preparation
+        .send(
+            vec![targeted_source(&source_path)],
+            Some("prompt.txt".to_string()),
+        )
+        .unwrap();
+
+    assert_eq!(
+        alice
+            .core()
+            .get_targeted_transfer(transfer.id.clone())
+            .unwrap(),
+        Some(transfer.clone()),
+        "send must return only after the identity is durably queryable"
+    );
+    assert!(matches!(
+        transfer.state,
+        TargetedTransferState::Offering | TargetedTransferState::AwaitingApproval
+    ));
+    assert_eq!(
+        wait_for_pending_offer(&bob.core()).transfer_id,
+        transfer.id,
+        "negotiation continues after send returns"
+    );
+}
+
+#[test]
+fn targeted_preparation_stop_before_registration_leaves_no_history() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 10_002);
+    let preparation = alice
+        .core()
+        .new_targeted_transfer_preparation(bob.core().status().endpoint_id)
+        .unwrap();
+
+    assert_eq!(
+        preparation.stop().unwrap(),
+        TargetedPreparationStopOutcome::PreparationStopped
+    );
+    assert!(alice.core().list_targeted_transfers().unwrap().is_empty());
+}
+
+#[test]
+fn runtime_facts_cover_targeted_preparation_before_durable_registration() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 10_006);
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("preparing.txt");
+    std::fs::write(&source_path, b"preparation obligation").unwrap();
+    let preparation = alice
+        .core()
+        .new_targeted_transfer_preparation(bob.core().status().endpoint_id)
+        .unwrap();
+    let gate = alice
+        .core()
+        .targeted_faults_for_test()
+        .timing
+        .hold_preparation_before_registration();
+    let send_preparation = preparation.clone();
+    let send = std::thread::spawn(move || {
+        send_preparation.send(vec![targeted_source(&source_path)], None)
+    });
+
+    gate.wait_until_held();
+    let facts = alice.core().runtime_obligation_facts().unwrap();
+    assert_eq!(facts.targeted_preparations, 1);
+    assert_eq!(facts.targeted_provider_availability, 0);
+    assert_eq!(
+        alice
+            .sink
+            .events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|event| event.phase == "runtime_obligation" && event.kind == "changed")
+            .count(),
+        1,
+        "platforms must be woken when pre-registration retention begins"
+    );
+
+    gate.release();
+    let transfer = send.join().unwrap().unwrap();
+    assert_eq!(
+        alice
+            .sink
+            .events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|event| event.phase == "runtime_obligation" && event.kind == "changed")
+            .count(),
+        2,
+        "platforms must be woken when pre-registration retention ends"
+    );
+    assert_eq!(
+        alice
+            .core()
+            .runtime_obligation_facts()
+            .unwrap()
+            .targeted_preparations,
+        0
+    );
+    assert_eq!(
+        preparation.stop().unwrap(),
+        TargetedPreparationStopOutcome::TransferAbandoned
+    );
+    assert!(alice
+        .core()
+        .get_targeted_transfer(transfer.id)
+        .unwrap()
+        .is_none());
+}
+
+#[test]
+fn concurrent_stop_linearizes_with_durable_registration() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 10_007);
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("registration-race.txt");
+    std::fs::write(&source_path, b"registration race").unwrap();
+    let preparation = alice
+        .core()
+        .new_targeted_transfer_preparation(bob.core().status().endpoint_id)
+        .unwrap();
+    let gate = alice
+        .core()
+        .targeted_faults_for_test()
+        .timing
+        .hold_preparation_before_registration();
+    let send_preparation = preparation.clone();
+    let send = std::thread::spawn(move || {
+        send_preparation.send(vec![targeted_source(&source_path)], None)
+    });
+    gate.wait_until_held();
+    let stop_preparation = preparation.clone();
+    let stop = std::thread::spawn(move || stop_preparation.stop());
+
+    gate.release();
+    let transfer = send.join().unwrap().unwrap();
+    assert_eq!(
+        stop.join().unwrap().unwrap(),
+        TargetedPreparationStopOutcome::TransferAbandoned
+    );
+    assert!(alice
+        .core()
+        .get_targeted_transfer(transfer.id)
+        .unwrap()
+        .is_none());
+}
+
+#[test]
+fn targeted_preparation_stop_abandons_unapproved_history_and_provider_obligation() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 10_003);
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("abandon.txt");
+    std::fs::write(&source_path, b"abandon before approval").unwrap();
+    let preparation = alice
+        .core()
+        .new_targeted_transfer_preparation(bob.core().status().endpoint_id)
+        .unwrap();
+    let transfer = preparation
+        .send(vec![targeted_source(&source_path)], None)
+        .unwrap();
+
+    assert_eq!(
+        alice
+            .core()
+            .runtime_obligation_facts()
+            .unwrap()
+            .targeted_provider_availability,
+        1
+    );
+    assert_eq!(
+        preparation.stop().unwrap(),
+        TargetedPreparationStopOutcome::TransferAbandoned
+    );
+    assert!(alice
+        .core()
+        .get_targeted_transfer(transfer.id)
+        .unwrap()
+        .is_none());
+    assert_eq!(
+        alice
+            .core()
+            .runtime_obligation_facts()
+            .unwrap()
+            .targeted_provider_availability,
+        0
+    );
+}
+
+#[test]
+fn abandon_wins_over_late_approval() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 10_008);
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("late-approval.txt");
+    std::fs::write(&source_path, b"late approval").unwrap();
+    let preparation = alice
+        .core()
+        .new_targeted_transfer_preparation(bob.core().status().endpoint_id)
+        .unwrap();
+    let transfer = preparation
+        .send(vec![targeted_source(&source_path)], None)
+        .unwrap();
+    let offer = wait_for_pending_offer(&bob.core());
+
+    assert_eq!(
+        preparation.stop().unwrap(),
+        TargetedPreparationStopOutcome::TransferAbandoned
+    );
+    assert!(bob
+        .core()
+        .respond_to_targeted_offer(offer.transfer_id, true)
+        .is_err());
+    assert!(alice
+        .core()
+        .get_targeted_transfer(transfer.id)
+        .unwrap()
+        .is_none());
+}
+
+#[test]
+fn targeted_preparation_stop_cancels_when_approval_wins() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 10_004);
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("approved.txt");
+    std::fs::write(&source_path, b"approval wins").unwrap();
+    let preparation = alice
+        .core()
+        .new_targeted_transfer_preparation(bob.core().status().endpoint_id)
+        .unwrap();
+    let transfer = preparation
+        .send(vec![targeted_source(&source_path)], None)
+        .unwrap();
+    let offer = wait_for_pending_offer(&bob.core());
+    assert!(matches!(
+        bob.core()
+            .respond_to_targeted_offer(offer.transfer_id, true)
+            .unwrap(),
+        crate::TargetedOfferResponse::Approved { .. }
+    ));
+    assert_eq!(
+        bob.core()
+            .runtime_obligation_facts()
+            .unwrap()
+            .active_targeted_transfers,
+        1,
+        "approved receivers remain available before byte streaming starts"
+    );
+
+    assert_eq!(
+        preparation.stop().unwrap(),
+        TargetedPreparationStopOutcome::TransferCancelled
+    );
+    assert_eq!(
+        alice
+            .core()
+            .get_targeted_transfer(transfer.id)
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Cancelled
+    );
+}
+
+#[test]
+fn targeted_preparation_stop_reports_already_terminal() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 10_009);
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("declined.txt");
+    std::fs::write(&source_path, b"declined").unwrap();
+    let preparation = alice
+        .core()
+        .new_targeted_transfer_preparation(bob.core().status().endpoint_id)
+        .unwrap();
+    let transfer = preparation
+        .send(vec![targeted_source(&source_path)], None)
+        .unwrap();
+    let offer = wait_for_pending_offer(&bob.core());
+    assert_eq!(
+        bob.core()
+            .respond_to_targeted_offer(offer.transfer_id, false)
+            .unwrap(),
+        crate::TargetedOfferResponse::Declined
+    );
+    let started = Instant::now();
+    loop {
+        if alice
+            .core()
+            .get_targeted_transfer(transfer.id.clone())
+            .unwrap()
+            .is_some_and(|row| row.state == TargetedTransferState::Declined)
+        {
+            break;
+        }
+        assert!(started.elapsed() < Duration::from_secs(5));
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(
+        preparation.stop().unwrap(),
+        TargetedPreparationStopOutcome::AlreadyTerminal
+    );
+}
+
+#[test]
+fn restart_fails_registered_preapproval_without_provider_obligation() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 10_005);
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("restart.txt");
+    std::fs::write(&source_path, b"restart recovery").unwrap();
+    let preparation = alice
+        .core()
+        .new_targeted_transfer_preparation(bob.core().status().endpoint_id)
+        .unwrap();
+    let transfer = preparation
+        .send(vec![targeted_source(&source_path)], None)
+        .unwrap();
+    wait_for_pending_offer(&bob.core());
+    drop(preparation);
+
+    let alice = alice.restart();
+    assert_eq!(
+        alice
+            .core()
+            .get_targeted_transfer(transfer.id)
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Failed
+    );
+    assert_eq!(
+        alice
+            .core()
+            .runtime_obligation_facts()
+            .unwrap()
+            .targeted_provider_availability,
+        0
+    );
+}
+
+#[test]
+fn targeted_transfer_is_immutable_and_saved_only() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();
     let stranger = ProtectedNode::new();
@@ -264,7 +631,7 @@ fn create_targeted_transfer_is_immutable_and_saved_only() {
 
     let stranger_err = alice
         .core()
-        .create_targeted_transfer(
+        .run_targeted_transfer_for_test(
             stranger_id,
             vec![targeted_source(&source_path)],
             Some("payload.txt".to_string()),
@@ -282,7 +649,7 @@ fn create_targeted_transfer_is_immutable_and_saved_only() {
 
     let transfer = alice
         .core()
-        .create_targeted_transfer(
+        .run_targeted_transfer_for_test(
             bob_id.clone(),
             vec![targeted_source(&source_path)],
             Some("payload.txt".to_string()),
@@ -356,7 +723,7 @@ fn identity_reset_cancels_targeted_authorization_bound_to_the_lost_endpoint() {
     });
     let transfer = alice
         .core()
-        .create_targeted_transfer(
+        .run_targeted_transfer_for_test(
             bob_id,
             vec![targeted_source(&source_path)],
             Some("identity-bound.txt".to_string()),
@@ -381,6 +748,7 @@ fn identity_reset_cancels_targeted_authorization_bound_to_the_lost_endpoint() {
         .get_targeted_transfer(transfer.id.clone())
         .unwrap()
         .unwrap();
+    assert_eq!(snapshot.role, TargetedTransferRole::Sender);
     assert_eq!(snapshot.state, TargetedTransferState::Cancelled);
     assert!(recovered
         .targeted_blob_ticket_for_test(transfer.id)
@@ -418,7 +786,7 @@ fn preapproval_offer_is_authenticated_without_ordinary_share_ticket() {
 
     alice
         .core()
-        .create_targeted_transfer(
+        .run_targeted_transfer_for_test(
             bob_id,
             vec![targeted_source(&source_path)],
             Some("payload.txt".to_string()),
@@ -448,7 +816,7 @@ fn invalid_offer_never_becomes_observable_pending_approval() {
 
     let err = alice
         .core()
-        .create_targeted_transfer(
+        .run_targeted_transfer_for_test(
             bob_id,
             vec![targeted_source(&source_path)],
             Some("payload.txt".to_string()),
@@ -532,7 +900,11 @@ fn explicit_approval_gates_content_and_binds_authorization_to_receiver() {
     let alice_core = alice.core().clone();
     let source = targeted_source(&source_path);
     let create = std::thread::spawn(move || {
-        alice_core.create_targeted_transfer(bob_id, vec![source], Some("payload.txt".to_string()))
+        alice_core.run_targeted_transfer_for_test(
+            bob_id,
+            vec![source],
+            Some("payload.txt".to_string()),
+        )
     });
 
     let started = Instant::now();
@@ -681,7 +1053,7 @@ fn unrelated_endpoint_cannot_discover_or_approve_another_receivers_offer() {
     std::fs::write(&source_path, b"only Bob may approve").unwrap();
     let alice_core = alice.core().clone();
     let create = std::thread::spawn(move || {
-        alice_core.create_targeted_transfer(
+        alice_core.run_targeted_transfer_for_test(
             bob_id,
             vec![targeted_source(&source_path)],
             Some("private.txt".to_string()),
@@ -831,7 +1203,7 @@ fn approve_one(
     });
     let transfer = alice
         .core()
-        .create_targeted_transfer(
+        .run_targeted_transfer_for_test(
             bob_id,
             vec![targeted_source(&source_path)],
             Some(name.to_string()),
@@ -852,7 +1224,9 @@ fn approved_authorization_delivery_retries_after_sender_restart() {
     establish_saved(&alice, &bob, 11_000);
     alice
         .core()
-        .suppress_targeted_authorization_delivery_for_test(true);
+        .targeted_faults_for_test()
+        .negotiation
+        .suppress_authorization_delivery(true);
 
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join("payload.txt");
@@ -860,7 +1234,7 @@ fn approved_authorization_delivery_retries_after_sender_restart() {
     let bob_id = bob.core().status().endpoint_id.clone();
     let alice_core = alice.core();
     let create = std::thread::spawn(move || {
-        alice_core.create_targeted_transfer(
+        alice_core.run_targeted_transfer_for_test(
             bob_id,
             vec![targeted_source(&source_path)],
             Some("payload.txt".to_string()),
@@ -913,14 +1287,16 @@ fn accepted_intent_survives_receiver_and_sender_restart_until_delivery() {
     establish_saved(&alice, &bob, 110_000);
     alice
         .core()
-        .suppress_targeted_authorization_delivery_for_test(true);
+        .targeted_faults_for_test()
+        .negotiation
+        .suppress_authorization_delivery(true);
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join("payload.txt");
     std::fs::write(&source_path, b"restart consent").unwrap();
     let bob_id = bob.core().status().endpoint_id;
     let alice_core = alice.core();
     let create = std::thread::spawn(move || {
-        alice_core.create_targeted_transfer(
+        alice_core.run_targeted_transfer_for_test(
             bob_id,
             vec![targeted_source(&source_path)],
             Some("payload.txt".to_string()),
@@ -1098,14 +1474,16 @@ fn cancel_after_accepted_receiver_restart_revokes_durable_consent() {
     establish_saved(&alice, &bob, 110_003);
     alice
         .core()
-        .suppress_targeted_authorization_delivery_for_test(true);
+        .targeted_faults_for_test()
+        .negotiation
+        .suppress_authorization_delivery(true);
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join("payload.txt");
     std::fs::write(&source_path, b"revoked consent").unwrap();
     let bob_id = bob.core().status().endpoint_id;
     let alice_core = alice.core();
     let create = std::thread::spawn(move || {
-        alice_core.create_targeted_transfer(
+        alice_core.run_targeted_transfer_for_test(
             bob_id,
             vec![targeted_source(&source_path)],
             Some("payload.txt".to_string()),
@@ -1124,7 +1502,9 @@ fn cancel_after_accepted_receiver_restart_revokes_durable_consent() {
     let started = Instant::now();
     while alice
         .core()
-        .targeted_authorization_delivery_attempts_for_test()
+        .targeted_faults_for_test()
+        .negotiation
+        .authorization_delivery_attempts()
         == 0
     {
         assert!(started.elapsed() < Duration::from_secs(10));
@@ -1185,7 +1565,9 @@ fn corrupt_restored_target_does_not_strand_later_valid_target() {
     let valid = approve_one(&alice, &bob, b"valid", "valid.txt");
     alice
         .core()
-        .corrupt_targeted_content_hash_for_test(corrupt.id.clone())
+        .targeted_faults_for_test()
+        .store
+        .corrupt_content_hash(&corrupt.id)
         .unwrap();
 
     let alice = alice.restart();
@@ -1304,7 +1686,11 @@ fn unapproved_offers_vanish_on_cancel_and_core_restart() {
     let alice_core = alice.core().clone();
     let source = targeted_source(&source_path);
     let create = std::thread::spawn(move || {
-        alice_core.create_targeted_transfer(bob_id, vec![source], Some("payload.txt".to_string()))
+        alice_core.run_targeted_transfer_for_test(
+            bob_id,
+            vec![source],
+            Some("payload.txt".to_string()),
+        )
     });
 
     let transfer_id = loop {
@@ -1400,7 +1786,10 @@ fn completion_retries_after_receiver_restart_without_failing_published_receive()
     let bob = ProtectedNode::new();
     establish_saved(&alice, &bob, 11_025);
     let transfer = approve_one(&alice, &bob, b"eventual completion", "payload.txt");
-    bob.core().suppress_targeted_completion_for_test(true);
+    bob.core()
+        .targeted_faults_for_test()
+        .negotiation
+        .suppress_completion(true);
 
     let output = tempfile::tempdir().unwrap();
     bob.core()
@@ -1773,7 +2162,7 @@ fn complete_targeted_roundtrip(alice: &ProtectedNode, bob: &ProtectedNode, trans
 
     let transfer = alice
         .core()
-        .create_targeted_transfer(
+        .run_targeted_transfer_for_test(
             bob_id,
             vec![targeted_source(&source_path)],
             Some("payload.txt".to_string()),
@@ -1866,7 +2255,7 @@ fn mismatched_relay_profiles_are_typed_and_never_reinterpreted_as_ordinary_share
 
     let err = alice
         .core()
-        .create_targeted_transfer(
+        .run_targeted_transfer_for_test(
             bob_id,
             vec![targeted_source(&source_path)],
             Some("payload.txt".to_string()),
@@ -1882,10 +2271,47 @@ fn mismatched_relay_profiles_are_typed_and_never_reinterpreted_as_ordinary_share
         .list_targeted_transfers()
         .unwrap()
         .into_iter()
-        .find(|entry| matches!(entry.state, TargetedTransferState::Failed));
-    assert!(
-        failed.is_some(),
-        "failed targeted transfer must remain targeted, not an ordinary share"
+        .find(|entry| matches!(entry.state, TargetedTransferState::Failed))
+        .expect("failed targeted transfer must remain targeted, not an ordinary share");
+    let public_coordinates = (
+        failed.id.clone(),
+        failed.sender_endpoint_id.clone(),
+        failed.receiver_endpoint_id.clone(),
+        failed.manifest_id.clone(),
+    );
+    let content_hash = alice
+        .core()
+        .targeted_faults_for_test()
+        .store
+        .content_hash(&failed.id)
+        .unwrap();
+    assert!(!failed.manifest_id.is_empty());
+    assert!(!content_hash.is_empty());
+
+    let alice = alice.restart();
+    let restored = alice
+        .core()
+        .get_targeted_transfer(failed.id)
+        .unwrap()
+        .expect("failed targeted transfer survives restart");
+    assert_eq!(restored.state, TargetedTransferState::Failed);
+    assert_eq!(
+        (
+            restored.id.clone(),
+            restored.sender_endpoint_id.clone(),
+            restored.receiver_endpoint_id.clone(),
+            restored.manifest_id.clone(),
+        ),
+        public_coordinates
+    );
+    assert_eq!(
+        alice
+            .core()
+            .targeted_faults_for_test()
+            .store
+            .content_hash(&restored.id)
+            .unwrap(),
+        content_hash
     );
 }
 
@@ -1896,8 +2322,9 @@ fn protocol_floor_rejects_silent_downgrade_with_typed_error() {
     establish_saved(&alice, &bob, 12_040);
     let alice_id = alice.core().status().endpoint_id.clone();
     let bob_id = bob.core().status().endpoint_id.clone();
+    let unsupported_protocol = crate::saved_device_capabilities().relationship_protocol_version + 1;
     bob.core()
-        .force_relationship_protocol_floor_for_test(alice_id, 2)
+        .force_relationship_protocol_floor_for_test(alice_id, unsupported_protocol)
         .unwrap();
 
     let source_dir = tempfile::tempdir().unwrap();
@@ -1905,7 +2332,7 @@ fn protocol_floor_rejects_silent_downgrade_with_typed_error() {
     std::fs::write(&source_path, b"downgrade attempt").unwrap();
     let err = alice
         .core()
-        .create_targeted_transfer(
+        .run_targeted_transfer_for_test(
             bob_id,
             vec![targeted_source(&source_path)],
             Some("payload.txt".to_string()),
@@ -2322,7 +2749,11 @@ fn targeted_cancel_while_waiting_for_transfer_slot_never_publishes() {
     let bob = ProtectedNode::new();
     establish_saved(&alice, &bob, 11_077);
     let transfer = approve_one(&alice, &bob, b"slot-starved payload", "queued.txt");
-    let release_slots = bob.core().hold_all_transfer_slots_for_test();
+    let release_slots = bob
+        .core()
+        .targeted_faults_for_test()
+        .timing
+        .hold_all_transfer_slots();
     let output = tempfile::tempdir().unwrap();
     let output_path = output.path().to_string_lossy().into_owned();
     let bob_core = bob.core();
@@ -2483,7 +2914,7 @@ fn decline_returns_typed_declined_outcome() {
     });
     let create_err = alice
         .core()
-        .create_targeted_transfer(
+        .run_targeted_transfer_for_test(
             bob_id,
             vec![targeted_source(&source_path)],
             Some("payload.txt".to_string()),
@@ -2507,7 +2938,7 @@ fn approval_secret_failure_keeps_durable_consent_retryable() {
     let sender = alice.core();
     let receiver_id = bob.core().status().endpoint_id;
     let create = std::thread::spawn(move || {
-        sender.create_targeted_transfer(
+        sender.run_targeted_transfer_for_test(
             receiver_id,
             vec![targeted_source(&source_path)],
             Some("secret-failure.txt".to_string()),
@@ -2523,7 +2954,9 @@ fn approval_secret_failure_keeps_durable_consent_retryable() {
     let started = Instant::now();
     while alice
         .core()
-        .targeted_authorization_delivery_attempts_for_test()
+        .targeted_faults_for_test()
+        .negotiation
+        .authorization_delivery_attempts()
         == 0
     {
         assert!(started.elapsed() < Duration::from_secs(10));

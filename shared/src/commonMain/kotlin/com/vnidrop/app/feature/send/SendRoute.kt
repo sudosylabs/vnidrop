@@ -14,6 +14,7 @@ internal fun SendRoute(
 	draftViewModel: TransferDraftViewModel,
 	defaultSenderName: String,
 	windowClass: WindowClass,
+	onTransferCreated: (TransferDraftCreation) -> Unit,
 ) {
 	val state by viewModel.state.collectAsStateWithLifecycle()
 	val coreState by viewModel.coreState.collectAsStateWithLifecycle()
@@ -52,5 +53,8 @@ internal fun SendRoute(
 		onDismissDelete = viewModel::dismissDeleteTransfer,
 		onConfirmDelete = viewModel::confirmDeleteTransfer,
 	)
-	TransferDraftHost(draftViewModel, windowClass, viewModel::onDraftCreated)
+	TransferDraftHost(draftViewModel, windowClass) { creation ->
+		viewModel.onDraftCreated(creation)
+		onTransferCreated(creation)
+	}
 }

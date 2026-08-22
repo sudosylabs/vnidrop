@@ -21,6 +21,14 @@ class CoreEventSignalsTest {
 	}
 
 	@Test
+	fun runtimeObligationPhaseWakesWithoutTransferId() {
+		assertEquals(
+			listOf(CoreSignal.RuntimeObligationChanged),
+			signalsForCoreEvent("runtime_obligation", transferId = null),
+		)
+	}
+
+	@Test
 	fun invitationApprovalStillEmitsTransferScopedSignal() {
 		assertEquals(
 			listOf(CoreSignal.ApprovalChanged(42uL)),

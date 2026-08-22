@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.vnidrop.app.ui.components.PrimaryButton
+import com.vnidrop.app.ui.components.NotificationEnableCallout
 import com.vnidrop.app.ui.components.SecondaryButton
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
@@ -42,6 +43,8 @@ fun ApprovalModalHost(
 	state: ApprovalState,
 	onAccept: (String) -> Unit,
 	onRefuse: (String) -> Unit,
+	showNotificationPrompt: Boolean = false,
+	onEnableNotifications: () -> Unit = {},
 ) {
 	val request = state.current ?: return
 	val busy = request.id in state.respondingIds
@@ -94,6 +97,9 @@ fun ApprovalModalHost(
 						style = MaterialTheme.typography.bodySmall,
 						color = colors.foregroundLighter,
 					)
+				}
+				if (showNotificationPrompt) {
+					NotificationEnableCallout(onEnable = onEnableNotifications)
 				}
 				BoxWithConstraints(Modifier.fillMaxWidth()) {
 					if (maxWidth < 330.dp) {

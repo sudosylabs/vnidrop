@@ -21,8 +21,8 @@ pub struct SavedDeviceCapabilities {
 #[uniffi::export]
 pub fn saved_device_capabilities() -> SavedDeviceCapabilities {
     SavedDeviceCapabilities {
-        domain_contract_version: 1,
-        relationship_protocol_version: 1,
+        domain_contract_version: 2,
+        relationship_protocol_version: 2,
         targeted_transfer_protocol_version: 3,
     }
 }
@@ -88,10 +88,18 @@ pub enum TargetedTransferState {
     Deleted,
 }
 
+/// This installation's immutable role in a Targeted transfer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum TargetedTransferRole {
+    Sender,
+    Receiver,
+}
+
 /// Immutable recipient-bound transfer snapshot, separate from an ordinary share.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
 pub struct TargetedTransfer {
     pub id: String,
+    pub role: TargetedTransferRole,
     pub sender_endpoint_id: String,
     pub receiver_endpoint_id: String,
     pub manifest_id: String,
@@ -508,6 +516,24 @@ pub struct RuntimeStatus {
     pub addr: String,
     pub active_transfers: u64,
     pub active_shares: u64,
+}
+
+/// Neutral core facts used by platform lifecycle policy.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct RuntimeObligationFacts {
+    pub active_invitation_transfers: u64,
+    pub invitation_provider_availability: u64,
+    pub targeted_preparations: u64,
+    pub active_targeted_transfers: u64,
+    pub targeted_provider_availability: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum TargetedPreparationStopOutcome {
+    PreparationStopped,
+    TransferAbandoned,
+    TransferCancelled,
+    AlreadyTerminal,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Enum)]

@@ -65,11 +65,17 @@ Full signing, notarization, appcast, and cask flow: see
 
 Use `APPLE_PROFILE=release` to request a release Rust core, or set
 `APPLE_DESTINATION` to override the automatically selected iOS simulator.
-Code signing is disabled for the app and test targets; local and CI builds do
-not require an Apple Development team or provisioning profile. Make builds can
-opt in with `APPLE_CODE_SIGNING=YES`. For signed builds from Xcode, create the
-ignored `apple/Local.xcconfig` and override the signing settings there, including
-the development team.
+Code signing is disabled for compile-only build targets; local and CI builds do
+not require an Apple Development team or provisioning profile. To launch the
+macOS app, configure the ignored `apple/Local.xcconfig` and run
+`make open-apple APPLE_CODE_SIGNING=YES`; `open-apple` rejects unsigned builds
+because protected Keychain custody is unavailable without the app entitlements.
+`make check-apple` signs ad-hoc
+(`CODE_SIGN_IDENTITY=-`, override with `APPLE_TEST_CODE_SIGN_IDENTITY`) because
+the core keeps its endpoint identity in the protected keychain, which an
+unsigned simulator app cannot reach. Ad-hoc needs no certificate or team. For
+signed builds from Xcode, create the ignored `apple/Local.xcconfig` and override
+the signing settings there, including the development team.
 
 ## Typecheck & tests
 
@@ -80,6 +86,7 @@ tests import). Everything runs through `xcodebuild`:
 ```bash
 make check-apple         # iOS simulator unit tests
 make build-apple-macos   # unsigned macOS build (typecheck)
+make open-apple APPLE_CODE_SIGNING=YES  # signed local macOS run
 ```
 
 There is deliberately no SwiftPM manifest for the app. A second build definition

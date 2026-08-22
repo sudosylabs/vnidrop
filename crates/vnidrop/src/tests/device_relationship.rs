@@ -461,6 +461,107 @@ fn forget_saved_device_revokes_locally_and_hooks_targeted_cancel() {
 }
 
 #[test]
+fn forgotten_devices_can_pair_again_with_a_fresh_generation() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    let alice_id = alice.core.status().endpoint_id.clone();
+    let bob_id = bob.core.status().endpoint_id.clone();
+    reach_saved(&alice, &bob, 90_011);
+
+    alice.core.forget_saved_device(bob_id.clone()).unwrap();
+    assert!(alice.core.list_device_relationships().unwrap().is_empty());
+    assert!(bob.core.list_device_relationships().unwrap().is_empty());
+
+    complete_transfer(&alice, &bob, 90_012);
+    assert!(bob
+        .core
+        .request_saved_device_pairing(alice_id.clone())
+        .unwrap());
+    wait_for_relationship(
+        &alice.core,
+        &bob_id,
+        DeviceRelationshipState::PendingIncoming,
+    );
+    assert!(alice
+        .core
+        .respond_to_device_pairing(bob_id.clone(), true)
+        .unwrap());
+
+    let alice_relationship =
+        wait_for_relationship(&alice.core, &bob_id, DeviceRelationshipState::Saved);
+    let bob_relationship =
+        wait_for_relationship(&bob.core, &alice_id, DeviceRelationshipState::Saved);
+    assert_eq!(alice_relationship.generation, 2);
+    assert_eq!(bob_relationship.generation, 2);
+    assert!(alice
+        .core
+        .reject_relationship_generation_for_test(bob_id.clone(), 1, None)
+        .is_err());
+
+    bob.core.forget_saved_device(alice_id.clone()).unwrap();
+    complete_transfer(&bob, &alice, 90_013);
+    assert!(alice
+        .core
+        .request_saved_device_pairing(bob_id.clone())
+        .unwrap());
+    wait_for_relationship(
+        &bob.core,
+        &alice_id,
+        DeviceRelationshipState::PendingIncoming,
+    );
+    assert!(bob
+        .core
+        .respond_to_device_pairing(alice_id.clone(), true)
+        .unwrap());
+
+    let alice_relationship =
+        wait_for_relationship(&alice.core, &bob_id, DeviceRelationshipState::Saved);
+    let bob_relationship =
+        wait_for_relationship(&bob.core, &alice_id, DeviceRelationshipState::Saved);
+    assert_eq!(alice_relationship.generation, 3);
+    assert_eq!(bob_relationship.generation, 3);
+    assert!(bob
+        .core
+        .reject_relationship_generation_for_test(alice_id, 2, None)
+        .is_err());
+}
+
+#[test]
+fn pairing_negotiates_above_a_remote_only_tombstone() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    let alice_id = alice.core.status().endpoint_id.clone();
+    let bob_id = bob.core.status().endpoint_id.clone();
+    complete_transfer(&alice, &bob, 90_014);
+    alice
+        .core
+        .insert_relationship_tombstone_for_test(bob_id.clone(), 1)
+        .unwrap();
+
+    assert!(bob
+        .core
+        .request_saved_device_pairing(alice_id.clone())
+        .unwrap());
+    let incoming = wait_for_relationship(
+        &alice.core,
+        &bob_id,
+        DeviceRelationshipState::PendingIncoming,
+    );
+    assert_eq!(incoming.generation, 2);
+    assert!(alice
+        .core
+        .respond_to_device_pairing(bob_id.clone(), true)
+        .unwrap());
+
+    let alice_relationship =
+        wait_for_relationship(&alice.core, &bob_id, DeviceRelationshipState::Saved);
+    let bob_relationship =
+        wait_for_relationship(&bob.core, &alice_id, DeviceRelationshipState::Saved);
+    assert_eq!(alice_relationship.generation, 2);
+    assert_eq!(bob_relationship.generation, 2);
+}
+
+#[test]
 fn forget_does_not_cancel_active_invitation_transfer() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();

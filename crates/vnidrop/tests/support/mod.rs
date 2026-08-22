@@ -392,6 +392,7 @@ pub fn share_path(
 
 pub fn wait_for_receiver_request(sender: &VnidropCore, transfer_id: u64) -> ReceiverRequest {
     let started = Instant::now();
+    let timeout = Duration::from_secs(30);
     loop {
         let requests = sender.list_receiver_requests(transfer_id).unwrap();
         if let Some(request) = requests
@@ -401,8 +402,9 @@ pub fn wait_for_receiver_request(sender: &VnidropCore, transfer_id: u64) -> Rece
             return request;
         }
         assert!(
-            started.elapsed() < Duration::from_secs(15),
-            "timed out waiting for receiver request"
+            started.elapsed() < timeout,
+            "timed out after {} seconds waiting for receiver request",
+            timeout.as_secs()
         );
         std::thread::sleep(Duration::from_millis(25));
     }

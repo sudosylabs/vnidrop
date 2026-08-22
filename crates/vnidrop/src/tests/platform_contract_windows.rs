@@ -397,10 +397,12 @@ fn public_api_exercises_complete_windows_saved_device_contract() {
             .respond_to_targeted_offer(offer.transfer_id, true)
             .unwrap()
     });
-    let transfer = alice
+    let preparation = alice
         .core()
-        .create_targeted_transfer(
-            bob_id.clone(),
+        .new_targeted_transfer_preparation(bob_id.clone())
+        .unwrap();
+    let transfer = preparation
+        .send(
             vec![targeted_source(&source_path)],
             Some("payload.txt".to_string()),
         )
@@ -410,7 +412,19 @@ fn public_api_exercises_complete_windows_saved_device_contract() {
         response,
         crate::TargetedOfferResponse::Approved { .. }
     ));
-    assert_eq!(transfer.state, TargetedTransferState::Approved);
+    let started = Instant::now();
+    let transfer = loop {
+        let snapshot = alice
+            .core()
+            .get_targeted_transfer(transfer.id.clone())
+            .unwrap()
+            .unwrap();
+        if snapshot.state == TargetedTransferState::Approved {
+            break snapshot;
+        }
+        assert!(started.elapsed() < Duration::from_secs(20));
+        std::thread::sleep(Duration::from_millis(25));
+    };
 
     // Interrupt via receiver restart, then resume without re-approval.
     let bob_core = bob.restart();
@@ -550,28 +564,32 @@ fn unavailable_relationship_secrets_disable_only_saved_device_behavior() {
         b"invitation still works"
     );
 
-    let targeted = alice.core().create_targeted_transfer(
-        bob.core().status().endpoint_id,
-        vec![targeted_source(&source_path)],
-        Some("invite.txt".to_string()),
-    );
-    assert!(
-        targeted.is_err(),
-        "saved-device targeted transfer must fail closed when relationship secrets are unavailable"
-    );
-    let err = targeted.unwrap_err();
-    assert!(
-        matches!(
-            err,
-            VnidropError::SecureStorageUnavailable { .. }
-                | VnidropError::SecureStorageCorrupted { .. }
-                | VnidropError::SecureStorageMissing { .. }
-                | VnidropError::SecureStorageLocked { .. }
-                | VnidropError::Permission { .. }
-                | VnidropError::Network { .. }
-        ),
-        "unexpected targeted failure: {err:?}"
-    );
+    let targeted = alice
+        .core()
+        .new_targeted_transfer_preparation(bob.core().status().endpoint_id)
+        .unwrap()
+        .send(
+            vec![targeted_source(&source_path)],
+            Some("invite.txt".to_string()),
+        )
+        .unwrap();
+    let started = Instant::now();
+    loop {
+        let snapshot = alice
+            .core()
+            .get_targeted_transfer(targeted.id.clone())
+            .unwrap()
+            .unwrap();
+        if snapshot.state == TargetedTransferState::Failed {
+            break;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(20),
+            "targeted negotiation must fail without relationship secrets"
+        );
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    assert!(bob.core().list_pending_targeted_offers().is_empty());
 }
 
 #[test]

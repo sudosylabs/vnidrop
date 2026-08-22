@@ -14,6 +14,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -33,6 +35,7 @@ import vnidrop.shared.generated.resources.button_close
 fun AdaptiveDrawer(
 	windowClass: WindowClass,
 	onDismissRequest: () -> Unit,
+	dialogMaxWidth: Dp = 560.dp,
 	content: @Composable () -> Unit,
 ) {
 	val uiPlatform = LocalUiPlatform.current
@@ -50,7 +53,7 @@ fun AdaptiveDrawer(
 			properties = DialogProperties(usePlatformDefaultWidth = false),
 		) {
 			Surface(
-				modifier = Modifier.fillMaxWidth(0.86f).widthIn(max = 560.dp),
+				modifier = Modifier.widthIn(max = dialogMaxWidth).fillMaxWidth().testTag("adaptive-dialog-surface"),
 				shape = RoundedCornerShape(if (uiPlatform.isDesktop) 10.dp else 24.dp),
 				color = LocalVniDropColors.current.backgroundDialog,
 				shadowElevation = 12.dp,

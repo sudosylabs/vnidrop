@@ -47,6 +47,7 @@ import com.vnidrop.app.ui.components.FeatureEmptyState
 import com.vnidrop.app.ui.components.PrimaryButton
 import com.vnidrop.app.ui.components.ProgressRow
 import com.vnidrop.app.ui.components.PlatformContextMenu
+import com.vnidrop.app.ui.components.emphasizedValueText
 import com.vnidrop.app.ui.components.QuietButton
 import com.vnidrop.app.ui.components.SecondaryButton
 import com.vnidrop.app.ui.feedback.UiText
@@ -143,7 +144,7 @@ fun ReceiveScreen(
 		val transferName = (target as? ReceiveHistoryDeleteTarget.Transfer)?.let { selected ->
 			transfers.firstOrNull { it.transferId == selected.transferId }?.transferName
 		}
-		AdaptiveDrawer(windowClass, onDismissHistoryDelete) {
+		AdaptiveDrawer(windowClass, onDismissHistoryDelete, dialogMaxWidth = 440.dp) {
 			ReceiveHistoryDeletePanel(
 				clearAll = target == ReceiveHistoryDeleteTarget.All,
 				transferName = transferName,
@@ -355,11 +356,18 @@ private fun ReceiveHistoryDeletePanel(
 			style = MaterialTheme.typography.titleLarge,
 			fontWeight = FontWeight.Bold,
 		)
-		Text(
-			if (clearAll) stringResource(Res.string.receive_clear_history_description)
-			else stringResource(Res.string.receive_delete_history_description, transferName ?: stringResource(Res.string.receive_unknown_transfer)),
-			color = LocalVniDropColors.current.foregroundLighter,
-		)
+		if (clearAll) {
+			Text(
+				stringResource(Res.string.receive_clear_history_description),
+				color = LocalVniDropColors.current.foregroundLighter,
+			)
+		} else {
+			val name = transferName ?: stringResource(Res.string.receive_unknown_transfer)
+			Text(
+				emphasizedValueText(stringResource(Res.string.receive_delete_history_description, name), name),
+				color = LocalVniDropColors.current.foregroundLighter,
+			)
+		}
 		Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
 			QuietButton(stringResource(Res.string.button_cancel), onClick = onCancel, enabled = !isDeleting)
 			DestructiveQuietButton(

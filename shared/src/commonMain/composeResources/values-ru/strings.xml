@@ -162,7 +162,7 @@
     <string name="receive_clear_history_description">Все завершённые, неудачные и отменённые получения будут удалены из истории VniDrop. Загруженные файлы останутся на этом устройстве.</string>
     <string name="receive_clear_history_title">Очистить историю получения?</string>
     <string name="receive_completed">Передача получена.</string>
-    <string name="receive_delete_history_description">«%1$s» будет удалён из истории VniDrop. Загруженный файл останется на этом устройстве.</string>
+    <string name="receive_delete_history_description">%1$s будет удалён из истории VniDrop. Загруженный файл останется на этом устройстве.</string>
     <string name="receive_delete_history_item">Удалить из истории получения</string>
     <string name="receive_delete_history_title">Удалить из истории?</string>
     <string name="receive_empty_body">Откройте приглашение VniDrop, отсканируйте QR-код или поднесите NFC-метку.</string>
@@ -272,7 +272,7 @@
     <string name="targeted_offer_title">Входящая передача</string>
     <string name="transfer_activity_description">Просматривайте важные обновления этой передачи</string>
     <string name="transfer_activity_title">Активность</string>
-    <string name="transfer_delete_description">Общий доступ к «%1$s» будет остановлен, а история передачи будет удалена с этого устройства.</string>
+    <string name="transfer_delete_description">Общий доступ к %1$s будет остановлен, а история передачи будет удалена с этого устройства.</string>
     <string name="transfer_delete_title">Удалить передачу?</string>
     <string name="transfer_deleted">Передача удалена.</string>
     <string name="transfer_deleting">Удаление…</string>

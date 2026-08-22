@@ -163,7 +163,17 @@ private fun CatalogHeader(showAction: Boolean, onOpenComposer: () -> Unit) {
 		}
 		if (showAction) {
 			Spacer(Modifier.width(16.dp))
-			PrimaryButton(stringResource(Res.string.button_create_new_transfer), onClick = onOpenComposer)
+			PrimaryButton(
+				stringResource(Res.string.button_create_new_transfer),
+				onClick = onOpenComposer,
+				leadingIcon = {
+					PlatformIcon(
+						AppIcon.Add,
+						contentDescription = null,
+						modifier = Modifier.size(18.dp).testTag("send-header-action-icon"),
+					)
+				},
+			)
 		}
 	}
 }

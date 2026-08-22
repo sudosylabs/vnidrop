@@ -193,6 +193,7 @@ internal fun StorageSettings(
 		AdaptiveDrawer(
 			windowClass = windowClass,
 			onDismissRequest = { showClearCacheConfirmation = false },
+			dialogMaxWidth = 440.dp,
 		) {
 			ClearTransferCachePanel(
 				onCancel = { showClearCacheConfirmation = false },
@@ -207,6 +208,7 @@ internal fun StorageSettings(
 		AdaptiveDrawer(
 			windowClass = windowClass,
 			onDismissRequest = { showDeleteConfirmation = false },
+			dialogMaxWidth = 440.dp,
 		) {
 			DeleteAllTransfersPanel(
 				onCancel = { showDeleteConfirmation = false },

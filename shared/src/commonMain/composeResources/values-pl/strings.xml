@@ -162,7 +162,7 @@
     <string name="receive_clear_history_description">Wszystkie ukończone, nieudane i anulowane odbiory zostaną usunięte z historii VniDrop. Pobrane pliki pozostaną na tym urządzeniu.</string>
     <string name="receive_clear_history_title">Wyczyścić historię odbioru?</string>
     <string name="receive_completed">Transfer odebrany.</string>
-    <string name="receive_delete_history_description">„%1$s” zostanie usunięty z historii VniDrop. Pobrany plik pozostanie na tym urządzeniu.</string>
+    <string name="receive_delete_history_description">%1$s zostanie usunięty z historii VniDrop. Pobrany plik pozostanie na tym urządzeniu.</string>
     <string name="receive_delete_history_item">Usuń z historii odbioru</string>
     <string name="receive_delete_history_title">Usunąć z historii?</string>
     <string name="receive_empty_body">Otwórz zaproszenie VniDrop, zeskanuj kod QR lub zbliż tag NFC.</string>
@@ -272,7 +272,7 @@
     <string name="targeted_offer_title">Transfer przychodzący</string>
     <string name="transfer_activity_description">Zobacz ważne aktualizacje tego transferu</string>
     <string name="transfer_activity_title">Aktywność</string>
-    <string name="transfer_delete_description">„%1$s” przestanie być udostępniany, a jego historia transferu zostanie usunięta z tego urządzenia.</string>
+    <string name="transfer_delete_description">%1$s przestanie być udostępniany, a jego historia transferu zostanie usunięta z tego urządzenia.</string>
     <string name="transfer_delete_title">Usunąć transfer?</string>
     <string name="transfer_deleted">Transfer usunięty.</string>
     <string name="transfer_deleting">Usuwanie…</string>

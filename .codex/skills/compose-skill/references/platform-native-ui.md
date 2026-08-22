@@ -59,7 +59,7 @@ Keep a shared composable when only spacing or a token changes and the interactio
 
 ## Navigation and empty states
 
-- Android bottom navigation keeps label color and weight stable across selection. Emphasize the selected icon and its rounded indicator; use a restrained tonal or brand-derived gradient when VniDrop needs stronger selection contrast.
+- Android bottom navigation keeps label color and weight stable across selection. Emphasize the selected icon with a rounded, low-opacity solid brand indicator rather than a gradient.
 - Treat the Saved Devices empty state as VniDrop's density reference: a small muted decorative icon, `titleMedium` hierarchy, `bodyMedium` supporting copy, and accent reserved for the action.
 - Reuse one semantic empty-state primitive when icon scale, title, description, and spacing should match. Keep screen-specific layout and actions at the caller.
 - Empty-state creation and acquisition actions use a leading Add icon when they introduce a new transfer flow.

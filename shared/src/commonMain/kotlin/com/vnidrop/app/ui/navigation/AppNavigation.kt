@@ -27,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -200,7 +199,7 @@ fun AppBottomNavigation(
 							.then(
 								if (isSelected) {
 									Modifier.background(
-										brush = Brush.horizontalGradient(listOf(colors.brand200, colors.brand300)),
+										color = colors.brandDefault.copy(alpha = 0.14f),
 										shape = RoundedCornerShape(16.dp),
 									)
 								} else {

@@ -74,7 +74,13 @@ fun QuietButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
 }
 
 @Composable
-fun DestructiveQuietButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun DestructiveQuietButton(
+	text: String,
+	onClick: () -> Unit,
+	modifier: Modifier = Modifier,
+	enabled: Boolean = true,
+	leadingIcon: @Composable (() -> Unit)? = null,
+) {
 	val desktop = LocalUiPlatform.current.isDesktop
 	TextButton(
 		onClick = onClick,
@@ -82,6 +88,10 @@ fun DestructiveQuietButton(text: String, onClick: () -> Unit, modifier: Modifier
 		modifier = modifier.heightIn(min = if (desktop) 32.dp else 40.dp),
 		colors = ButtonDefaults.textButtonColors(contentColor = LocalVniDropColors.current.destructiveDefault),
 	) {
+		leadingIcon?.let {
+			it()
+			Spacer(Modifier.width(8.dp))
+		}
 		Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
 	}
 }

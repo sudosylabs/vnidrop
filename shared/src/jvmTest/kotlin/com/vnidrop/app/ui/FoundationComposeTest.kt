@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.runtime.CompositionLocalProvider
@@ -88,6 +89,7 @@ import vnidrop.shared.generated.resources.about_privacy_title
 import vnidrop.shared.generated.resources.about_tagline
 import vnidrop.shared.generated.resources.approval_endpoint_id
 import vnidrop.shared.generated.resources.button_approve
+import vnidrop.shared.generated.resources.button_cancel
 import vnidrop.shared.generated.resources.button_choose_files
 import vnidrop.shared.generated.resources.button_close
 import vnidrop.shared.generated.resources.button_create_new_transfer
@@ -109,6 +111,7 @@ import vnidrop.shared.generated.resources.receive_clear_history
 import vnidrop.shared.generated.resources.receive_clear_history_description
 import vnidrop.shared.generated.resources.receive_clear_history_title
 import vnidrop.shared.generated.resources.receive_delete_history_item
+import vnidrop.shared.generated.resources.receive_delete_history_description
 import vnidrop.shared.generated.resources.receive_empty_title
 import vnidrop.shared.generated.resources.receive_method_file
 import vnidrop.shared.generated.resources.receive_new_subtitle
@@ -137,6 +140,7 @@ import vnidrop.shared.generated.resources.storage_transfer_data
 import vnidrop.shared.generated.resources.transfer_qr_unavailable
 import vnidrop.shared.generated.resources.transfer_scan_qr
 import vnidrop.shared.generated.resources.transfer_share_title
+import vnidrop.shared.generated.resources.transfer_delete_description
 
 @OptIn(ExperimentalTestApi::class)
 class FoundationComposeTest {
@@ -608,6 +612,10 @@ class FoundationComposeTest {
 			}
 		}
 		assertFalse(selectedIndicator[2, selectedIndicator.height / 2].toArgb() == unselectedIndicator[2, unselectedIndicator.height / 2].toArgb())
+		assertEquals(
+			selectedIndicator[8, selectedIndicator.height / 2].toArgb(),
+			selectedIndicator[selectedIndicator.width - 9, selectedIndicator.height / 2].toArgb(),
+		)
 	}
 
 	@Test
@@ -823,22 +831,25 @@ class FoundationComposeTest {
 	fun transferCatalogOpensSelectedTransfer() = runComposeUiTest {
 		var selectedId: ULong? = null
 		setContent {
-			VniDropTheme(isDarkTheme = false) {
-				SendScreen(
-					coreState = CoreState(isInitialized = true, transfers = listOf(outgoingTransfer())),
-					state = SendState(),
-					windowClass = WindowClass.Phone,
-					onOpenComposer = {},
-					onTransferSelected = { selectedId = it },
-					onCloseTransferDetails = {},
-					onCopyTicket = {},
-				)
+			CompositionLocalProvider(LocalUiPlatform provides UiPlatform.Windows) {
+				VniDropTheme(isDarkTheme = false) {
+					SendScreen(
+						coreState = CoreState(isInitialized = true, transfers = listOf(outgoingTransfer())),
+						state = SendState(),
+						windowClass = WindowClass.Desktop,
+						onOpenComposer = {},
+						onTransferSelected = { selectedId = it },
+						onCloseTransferDetails = {},
+						onCopyTicket = {},
+					)
+				}
 			}
 		}
 
 		val titleBounds = onNodeWithText("Photos").getUnclippedBoundsInRoot()
 		val statusBounds = onNodeWithText(Res.string.status_available.value).getUnclippedBoundsInRoot()
 		assertTrue(statusBounds.left - titleBounds.right <= 12.dp)
+		onNodeWithTag("send-header-action-icon", useUnmergedTree = true).assertIsDisplayed()
 		onNodeWithText("Photos").performClick()
 		runOnIdle { assertEquals(9UL, selectedId) }
 	}
@@ -848,7 +859,7 @@ class FoundationComposeTest {
 		var sharedTransfer = false
 		setContent {
 			CompositionLocalProvider(LocalUiPlatform provides UiPlatform.Windows) {
-				VniDropTheme(isDarkTheme = false) {
+				VniDropTheme(isDarkTheme = true) {
 					TransferCatalog(
 						transfers = listOf(outgoingTransfer()),
 						transferThumbnails = emptyMap(),
@@ -863,15 +874,58 @@ class FoundationComposeTest {
 
 		onAllNodesWithContentDescription(Res.string.button_more_actions.value).assertCountEquals(0)
 		onNodeWithText("Photos").performMouseInput { rightClick() }
-		onNodeWithText(Res.string.transfer_share_title.value).assertIsDisplayed().performClick()
+		val menuItem = onNodeWithText(Res.string.transfer_share_title.value).assertIsDisplayed()
+		val menuImage = menuItem.captureToImage().toPixelMap()
+		val brightPixels = (0 until menuImage.width).sumOf { x ->
+			(0 until menuImage.height).count { y ->
+				val pixel = menuImage[x, y]
+				pixel.red > 0.95f && pixel.green > 0.95f && pixel.blue > 0.95f
+			}
+		}
+		assertTrue(brightPixels < menuImage.width * menuImage.height / 2)
+		menuItem.performClick()
 		runOnIdle { assertTrue(sharedTransfer) }
+	}
+
+	@Test
+	fun desktopDeleteConfirmationIsNarrowAndEmphasizesTheTransferName() = runComposeUiTest {
+		setContent {
+			CompositionLocalProvider(LocalUiPlatform provides UiPlatform.Windows) {
+				VniDropTheme(isDarkTheme = false) {
+					Box(Modifier.size(width = 1200.dp, height = 800.dp)) {
+						SendScreen(
+							coreState = CoreState(isInitialized = true, transfers = listOf(outgoingTransfer())),
+							state = SendState(isDeleteConfirmationOpen = true, deleteTargetTransferId = 9UL),
+							windowClass = WindowClass.Desktop,
+							onOpenComposer = {},
+							onTransferSelected = {},
+							onCloseTransferDetails = {},
+							onCopyTicket = {},
+						)
+					}
+				}
+			}
+		}
+
+		val description = Res.string.transfer_delete_description.value("Photos")
+		assertFalse(description.contains('“') || description.contains('”'))
+		val dialogBounds = onNodeWithTag("adaptive-dialog-surface").getUnclippedBoundsInRoot()
+		val dialogWidth = dialogBounds.right - dialogBounds.left
+		assertTrue(dialogWidth <= 440.dp)
+		val annotatedText = onNodeWithText(description).fetchSemanticsNode().config[SemanticsProperties.Text].single()
+		assertTrue(annotatedText.spanStyles.any { range ->
+			range.item.fontWeight == androidx.compose.ui.text.font.FontWeight.Bold &&
+				annotatedText.substring(range.start, range.end) == "Photos"
+		})
 	}
 
 	@Test
 	fun transferDetailsRevealSharingOnlyAfterSelection() = runComposeUiTest {
 		val state = mutableStateOf(SendState(selectedTransferId = 9UL))
+		var destructiveColor = Color.Unspecified
 		setContent {
 			VniDropTheme(isDarkTheme = false) {
+				destructiveColor = LocalVniDropColors.current.destructiveDefault
 				SendScreen(
 					coreState = CoreState(isInitialized = true, transfers = listOf(outgoingTransfer())),
 					state = state.value,
@@ -883,6 +937,10 @@ class FoundationComposeTest {
 		}
 
 		onNodeWithContentDescription(Res.string.transfer_share_title.value).assertIsDisplayed()
+		listOf("transfer-stop-sharing-action", "transfer-delete-action").forEach { tag ->
+			val pixels = onNodeWithTag(tag).captureToImage().toPixelMap()
+			assertFalse(pixels[8, pixels.height / 2].toArgb() == destructiveColor.toArgb())
+		}
 		onAllNodesWithText(Res.string.transfer_scan_qr.value).assertCountEquals(0)
 		onNodeWithContentDescription(Res.string.transfer_share_title.value).performClick()
 		runOnIdle { assertEquals(com.vnidrop.app.feature.send.TransferDetailPanel.Share, state.value.detailPanel) }
@@ -1013,6 +1071,14 @@ class FoundationComposeTest {
 		}
 
 		onNodeWithContentDescription(Res.string.receive_delete_history_item.value).assertIsDisplayed()
+		onNodeWithContentDescription(Res.string.receive_delete_history_item.value).performClick()
+		val itemDescription = Res.string.receive_delete_history_description.value("Holiday photos")
+		val itemText = onNodeWithText(itemDescription).fetchSemanticsNode().config[SemanticsProperties.Text].single()
+		assertTrue(itemText.spanStyles.any { range ->
+			range.item.fontWeight == androidx.compose.ui.text.font.FontWeight.Bold &&
+				itemText.substring(range.start, range.end) == "Holiday photos"
+		})
+		onNodeWithText(Res.string.button_cancel.value).performClick()
 		onNodeWithText(Res.string.receive_clear_history.value).performClick()
 		onNodeWithText(Res.string.receive_clear_history_title.value).assertIsDisplayed()
 		onNodeWithText(Res.string.receive_clear_history_description.value).assertIsDisplayed()

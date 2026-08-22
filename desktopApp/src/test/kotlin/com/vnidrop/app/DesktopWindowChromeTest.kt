@@ -10,6 +10,14 @@ import org.jetbrains.skiko.GraphicsApi
 
 class DesktopWindowChromeTest {
 	@Test
+	fun desktopWindowIconLoadsFromPackagedResources() {
+		val icon = loadDesktopAppIcon()
+
+		assertEquals(1_024, icon.width)
+		assertEquals(1_024, icon.height)
+	}
+
+	@Test
 	fun maximizeControlTogglesBetweenFloatingAndMaximized() {
 		assertEquals(WindowPlacement.Maximized, toggledWindowPlacement(WindowPlacement.Floating))
 		assertEquals(WindowPlacement.Floating, toggledWindowPlacement(WindowPlacement.Maximized))

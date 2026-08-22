@@ -72,9 +72,16 @@ mapfile -d '' -t desktop_entries < <(find "$extract_root" -type f -name '*.deskt
 (( ${#desktop_entries[@]} == 1 )) || fail "expected exactly one desktop entry"
 grep -Eiq '^Exec=.*/VniDrop([[:space:]]|$)' "${desktop_entries[0]}" || fail "desktop entry does not launch VniDrop"
 grep -Eq '^MimeType=.*application/vnd\.vnidrop\.transfer(;|$)' "${desktop_entries[0]}" || fail "desktop entry does not register VniDrop invitations"
+desktop_icon=$(sed -n 's/^Icon=//p' "${desktop_entries[0]}")
+[[ $desktop_icon == /* ]] || fail "desktop entry does not use an absolute icon path"
+[[ -f "$extract_root$desktop_icon" ]] || fail "desktop entry icon is missing from the package"
 
 mapfile -d '' -t bundled_jvms < <(find "$extract_root" -type f -path '*/lib/runtime/lib/server/libjvm.so' -print0)
 (( ${#bundled_jvms[@]} == 1 )) || fail "expected exactly one bundled JVM"
+mapfile -d '' -t runtime_releases < <(find "$extract_root" -type f -path '*/lib/runtime/release' -print0)
+(( ${#runtime_releases[@]} == 1 )) || fail "expected exactly one bundled JVM release descriptor"
+grep -Eq '^MODULES="([^" ]+ )*jdk\.unsupported( [^" ]+)*"$' "${runtime_releases[0]}" ||
+	fail "bundled JVM does not contain jdk.unsupported"
 
 mapfile -d '' -t debug_rust_jars < <(find "$extract_root" -type f -name 'shared-linux-x86-64-debug-*.jar' -print0)
 (( ${#debug_rust_jars[@]} == 0 )) || fail "package contains a debug Rust runtime JAR"
@@ -92,5 +99,9 @@ mapfile -d '' -t shared_jars < <(find "$extract_root" -type f -name 'shared-jvm-
 (( ${#shared_jars[@]} == 1 )) || fail "expected exactly one shared JVM JAR"
 unzip -p "${shared_jars[0]}" META-INF/MANIFEST.MF | tr -d '\r' |
 	grep -Fxq "Implementation-Version: $version" || fail "packaged app version does not match $version"
+
+mapfile -d '' -t desktop_jars < <(find "$extract_root" -type f -name 'desktopApp-*.jar' -print0)
+(( ${#desktop_jars[@]} == 1 )) || fail "expected exactly one desktop application JAR"
+unzip -Z1 "${desktop_jars[0]}" | grep -Fxq 'app-icon.png' || fail "desktop application JAR does not contain app-icon.png"
 
 printf 'Verified %s package: %s\n' "$format" "$package_path"

@@ -29,10 +29,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.awtEventOrNull
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
@@ -60,6 +62,8 @@ import java.awt.Desktop
 import java.awt.event.WindowEvent
 import java.awt.event.WindowFocusListener
 import java.io.File
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import org.jetbrains.skia.Image
 
 fun main(args: Array<String>) {
 	FileKit.init(appId = "vnidrop")
@@ -73,10 +77,12 @@ fun main(args: Array<String>) {
 		.forEach { externalInvitations.openFile(it) }
 	application {
 		val windowState = rememberWindowState()
+		val windowIcon = remember { BitmapPainter(loadDesktopAppIcon()) }
 		Window(
 			onCloseRequest = ::exitApplication,
 			state = windowState,
 			title = "VniDrop",
+			icon = windowIcon,
 			// Compose keeps edge resizers active for this client-decorated Linux window.
 			undecorated = linux,
 		) {
@@ -133,6 +139,18 @@ fun main(args: Array<String>) {
 		}
 	}
 }
+
+internal fun loadDesktopAppIcon(
+	classLoader: ClassLoader = Thread.currentThread().contextClassLoader ?: DesktopAppIconClassLoader,
+): ImageBitmap {
+	val bytes = requireNotNull(classLoader.getResourceAsStream(DesktopAppIconResource)) {
+		"Missing desktop app icon resource: $DesktopAppIconResource"
+	}.use { it.readBytes() }
+	return Image.makeFromEncoded(bytes).toComposeImageBitmap()
+}
+
+private const val DesktopAppIconResource = "app-icon.png"
+private val DesktopAppIconClassLoader = object {}.javaClass.classLoader
 
 private fun configureInvitationOpenHandler(controller: ExternalInvitationController) {
 	if (!Desktop.isDesktopSupported()) return

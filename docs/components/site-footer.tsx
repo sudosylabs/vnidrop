@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { githubRepoUrl } from "@/lib/release";
+import styles from "./site-footer.module.css";
 
 export function SiteFooter() {
   return (
-    <footer className="site-footer">
-      <div className="footer-inner page-shell">
-        <p className="footer-identity">
+    <footer className={styles.siteFooter}>
+      <div className={`${styles.inner} page-shell`}>
+        <p className={styles.identity}>
           <strong>VniDrop</strong>
           <span>© 2026 contributors · Open source · Early development</span>
         </p>
-        <nav className="footer-links" aria-label="Footer">
+        <nav className={styles.links} aria-label="Footer">
           <Link href="/download/">Download</Link>
           <Link href="/privacy/">Privacy</Link>
           <a href={githubRepoUrl} target="_blank" rel="noreferrer">

@@ -11,6 +11,12 @@ make run-docs
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Structure
+
+- `app/globals.css` owns design tokens, resets, accessibility helpers, and shared primitives.
+- Each route owns a colocated `page.module.css`; route styles are not imported by the root layout.
+- Shared modules under `components/` own matching `*.module.css` files.
+
 ## Checks
 
 ```bash

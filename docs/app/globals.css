@@ -178,43 +178,14 @@ code {
   color: #fff;
 }
 
-.copy-command {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 42rem;
-  padding: 6px 6px 6px 12px;
-  border: 1px solid var(--line);
-  background: var(--surface);
+@media (max-width: 720px) {
+  .page-shell {
+    width: min(calc(100% - 32px), var(--shell));
+  }
 }
 
-.copy-command code {
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-  color: var(--ink);
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.copy-command button {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 0;
-  background: transparent;
-  color: var(--ink-soft);
-}
-
-.copy-command button:hover,
-.copy-command button:focus-visible {
-  color: var(--ink);
-  background: var(--paper-warm);
-}
-
-.copy-command button:focus-visible {
-  outline-offset: 0;
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

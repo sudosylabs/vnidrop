@@ -2,13 +2,13 @@
   padding: 56px 0 8px;
 }
 
-.hero-copy {
+.heroCopy {
   max-width: 40rem;
   margin: 0 auto 36px;
   text-align: center;
 }
 
-.hero-kicker {
+.heroKicker {
   margin-bottom: 14px;
   color: var(--brand-ink);
   font-size: 13px;
@@ -22,13 +22,13 @@
   line-height: 1.06;
 }
 
-.hero-lead {
+.heroLead {
   margin: 0 auto 24px;
   color: var(--ink-soft);
   font-size: 1.08rem;
 }
 
-.hero-actions {
+.heroActions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -37,18 +37,18 @@
   margin-bottom: 16px;
 }
 
-.hero-platforms {
+.heroPlatforms {
   margin: 0;
   color: var(--ink-muted);
   font-size: 14px;
 }
 
-.hero-figure {
+.heroFigure {
   width: min(1024px, calc(100% - 24px));
   margin: 0 auto;
 }
 
-.hero-figure img {
+.heroFigure img {
   display: block;
   width: 100%;
   height: auto;
@@ -74,7 +74,7 @@
   letter-spacing: -0.03em;
 }
 
-.traits-grid {
+.traitsGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 28px 32px;
@@ -83,7 +83,7 @@
   list-style: none;
 }
 
-.trait-icon {
+.traitIcon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -96,22 +96,22 @@
   color: var(--brand-ink);
 }
 
-.trait-icon svg {
+.traitIcon svg {
   width: 20px;
   height: 20px;
 }
 
-.traits-grid h3,
-.how-copy h3 {
+.traitsGrid h3,
+.howCopy h3 {
   margin-bottom: 8px;
   font-size: 1.05rem;
   letter-spacing: -0.02em;
 }
 
-.traits-grid p,
-.how-copy p,
-.faq-list dd,
-.get-inner p {
+.traitsGrid p,
+.howCopy p,
+.faqList dd,
+.getInner p {
   margin: 0;
   color: var(--ink-soft);
   font-size: 0.95rem;
@@ -122,13 +122,13 @@
   border-top: 1px solid var(--line);
 }
 
-.section-lead {
+.sectionLead {
   max-width: 40rem;
   margin-bottom: 48px;
   color: var(--ink-soft);
 }
 
-.how-list {
+.howList {
   display: grid;
   gap: 72px;
   margin: 0;
@@ -137,7 +137,7 @@
   counter-reset: how;
 }
 
-.how-row {
+.howRow {
   display: grid;
   grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.15fr);
   gap: 40px 56px;
@@ -145,15 +145,15 @@
   counter-increment: how;
 }
 
-.how-row:nth-child(even) {
+.howRow:nth-child(even) {
   grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr);
 }
 
-.how-row:nth-child(even) .how-copy {
+.howRow:nth-child(even) .howCopy {
   order: 2;
 }
 
-.how-copy h3::before {
+.howCopy h3::before {
   display: block;
   margin-bottom: 10px;
   color: var(--brand-ink);
@@ -163,17 +163,17 @@
   content: counter(how, decimal-leading-zero);
 }
 
-.how-row figure {
+.howRow figure {
   margin: 0;
 }
 
-.how-row img {
+.howRow img {
   display: block;
   width: 100%;
   height: auto;
 }
 
-.shot-phone {
+.shotPhone {
   width: min(100%, 280px);
   justify-self: center;
 }
@@ -182,35 +182,35 @@
   border-top: 1px solid var(--line);
 }
 
-.faq-inner {
+.faqInner {
   display: grid;
   grid-template-columns: minmax(180px, 0.4fr) minmax(0, 1fr);
   gap: 32px 64px;
   align-items: start;
 }
 
-.faq-list {
+.faqList {
   margin: 0;
   padding: 0;
 }
 
-.faq-list > div {
+.faqList > div {
   padding: 22px 0;
   border-top: 1px solid var(--line);
 }
 
-.faq-list > div:last-child {
+.faqList > div:last-child {
   border-bottom: 1px solid var(--line);
 }
 
-.faq-list dt {
+.faqList dt {
   margin-bottom: 8px;
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 
-.faq-list dd {
+.faqList dd {
   max-width: 40rem;
 }
 
@@ -219,7 +219,7 @@
   padding-bottom: 96px;
 }
 
-.get-inner {
+.getInner {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
@@ -227,11 +227,11 @@
   gap: 28px 40px;
 }
 
-.get-inner p {
+.getInner p {
   max-width: 36rem;
 }
 
-.os-list {
+.osList {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 18px;
@@ -240,7 +240,7 @@
   list-style: none;
 }
 
-.os-list a {
+.osList a {
   color: var(--ink);
   font-size: 0.95rem;
   font-weight: 600;
@@ -248,13 +248,66 @@
   text-underline-offset: 3px;
 }
 
-.os-list a:hover {
+.osList a:hover {
   color: var(--brand-ink);
 }
 
-.get-actions {
+.getActions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px 18px;
+}
+
+@media (max-width: 960px) {
+  .traitsGrid,
+  .faqInner {
+    grid-template-columns: 1fr;
+  }
+
+  .howRow,
+  .howRow:nth-child(even) {
+    grid-template-columns: 1fr;
+  }
+
+  .howRow:nth-child(even) .howCopy {
+    order: 0;
+  }
+
+  .howCopy {
+    order: -1;
+  }
+
+  .shotPhone {
+    width: min(100%, 240px);
+  }
+}
+
+@media (max-width: 720px) {
+  .hero {
+    padding-top: 36px;
+  }
+
+  .heroCopy {
+    margin-bottom: 20px;
+  }
+
+  .heroFigure {
+    width: calc(100% - 8px);
+  }
+
+  .traits,
+  .how,
+  .faq,
+  .get {
+    padding: 56px 0;
+  }
+
+  .howList {
+    gap: 48px;
+  }
+
+  .get {
+    padding-bottom: 72px;
+  }
 }

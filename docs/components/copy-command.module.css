@@ -1,0 +1,40 @@
+.copyCommand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 42rem;
+  padding: 6px 6px 6px 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.copyCommand code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.copyCommand button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.copyCommand button:hover,
+.copyCommand button:focus-visible {
+  color: var(--ink);
+  background: var(--paper-warm);
+}
+
+.copyCommand button:focus-visible {
+  outline-offset: 0;
+}

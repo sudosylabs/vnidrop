@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import styles from "./copy-command.module.css";
 
 function CopyIcon() {
   return (
@@ -54,7 +55,7 @@ export function CopyCommand({ command }: { command: string }) {
   }
 
   return (
-    <div className="copy-command">
+    <div className={styles.copyCommand}>
       <code>{command}</code>
       <button
         type="button"

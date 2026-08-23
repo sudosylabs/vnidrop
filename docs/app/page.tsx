@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { githubRepoUrl } from "@/lib/release";
+import styles from "./page.module.css";
 
 const traits = [
   {
@@ -136,15 +137,15 @@ const platforms = [
 export default function HomePage() {
   return (
     <main id="main-content">
-      <section className="hero">
-        <div className="page-shell hero-copy">
-          <p className="hero-kicker">Open source file transfer</p>
+      <section className={styles.hero}>
+        <div className={`${styles.heroCopy} page-shell`}>
+          <p className={styles.heroKicker}>Open source file transfer</p>
           <h1>Send files from this device to that one.</h1>
-          <p className="hero-lead">
+          <p className={styles.heroLead}>
             No cloud folder. No signup. Meet with an invitation, then send to a Saved device. The
             receiver still confirms every time.
           </p>
-          <p className="hero-actions">
+          <p className={styles.heroActions}>
             <Link className="btn btn-primary" href="/download/">
               Download
             </Link>
@@ -152,9 +153,9 @@ export default function HomePage() {
               How a transfer works
             </a>
           </p>
-          <p className="hero-platforms">Android · iOS · macOS · Windows · Linux</p>
+          <p className={styles.heroPlatforms}>Android · iOS · macOS · Windows · Linux</p>
         </div>
-        <figure className="hero-figure">
+        <figure className={styles.heroFigure}>
           <Image
             src="/shots/hero.jpg"
             width={1024}
@@ -167,13 +168,13 @@ export default function HomePage() {
         </figure>
       </section>
 
-      <section className="traits" aria-labelledby="traits-heading">
+      <section className={styles.traits} aria-labelledby="traits-heading">
         <div className="page-shell">
           <h2 id="traits-heading">Built for a handoff, not a cloud.</h2>
-          <ul className="traits-grid">
+          <ul className={styles.traitsGrid}>
             {traits.map((trait) => (
               <li key={trait.title}>
-                <span className="trait-icon">{trait.icon}</span>
+                <span className={styles.traitIcon}>{trait.icon}</span>
                 <h3>{trait.title}</h3>
                 <p>{trait.text}</p>
               </li>
@@ -182,21 +183,21 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="how-it-works" className="how">
+      <section id="how-it-works" className={styles.how}>
         <div className="page-shell">
           <h2>How a transfer works</h2>
-          <p className="section-lead">
+          <p className={styles.sectionLead}>
             An invitation introduces devices that have never met. A Saved device is one you both
             chose to remember after a transfer.
           </p>
-          <ol className="how-list">
+          <ol className={styles.howList}>
             {steps.map((step) => (
-              <li key={step.title} className="how-row">
-                <div className="how-copy">
+              <li key={step.title} className={styles.howRow}>
+                <div className={styles.howCopy}>
                   <h3>{step.title}</h3>
                   <p>{step.text}</p>
                 </div>
-                <figure className="shot-phone">
+                <figure className={styles.shotPhone}>
                   <Image
                     src={step.src}
                     width={step.width}
@@ -212,10 +213,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="faq" aria-labelledby="faq-heading">
-        <div className="page-shell faq-inner">
+      <section className={styles.faq} aria-labelledby="faq-heading">
+        <div className={`${styles.faqInner} page-shell`}>
           <h2 id="faq-heading">Questions</h2>
-          <dl className="faq-list">
+          <dl className={styles.faqList}>
             {questions.map((item) => (
               <div key={item.q}>
                 <dt>{item.q}</dt>
@@ -226,15 +227,15 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="get">
-        <div className="page-shell get-inner">
+      <section className={styles.get}>
+        <div className={`${styles.getInner} page-shell`}>
           <div>
             <h2>Get VniDrop</h2>
             <p>
               Beta builds for macOS, Linux, and Android. Windows is on the Microsoft Store. iOS is
               not in a public store yet.
             </p>
-            <ul className="os-list">
+            <ul className={styles.osList}>
               {platforms.map((platform) => (
                 <li key={platform.label}>
                   <Link href={platform.href}>{platform.label}</Link>
@@ -242,7 +243,7 @@ export default function HomePage() {
               ))}
             </ul>
           </div>
-          <p className="get-actions">
+          <p className={styles.getActions}>
             <Link className="btn btn-primary" href="/download/">
               Download
             </Link>

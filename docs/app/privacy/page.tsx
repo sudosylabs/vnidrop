@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import styles from "./page.module.css";
 
 export const metadata: Metadata = {
   title: "Privacy policy",
@@ -23,21 +24,21 @@ const sections = [
 
 export default function PrivacyPage() {
   return (
-    <main id="main-content" className="privacy-page">
-      <section className="privacy-hero">
-        <div className="page-shell privacy-hero-inner">
+    <main id="main-content" className={styles.privacyPage}>
+      <section className={styles.privacyHero}>
+        <div className={`${styles.privacyHeroInner} page-shell`}>
           <h1>Privacy Policy</h1>
           <p>
             This policy explains what moves between devices, what stays local, and what is sent
             only when you choose to submit a bug report.
           </p>
-          <p className="privacy-meta">Effective August 23, 2026 · Version 1.3</p>
+          <p className={styles.privacyMeta}>Effective August 23, 2026 · Version 1.3</p>
         </div>
       </section>
 
-      <section className="privacy-document-section">
-        <div className="page-shell privacy-document-layout">
-          <aside className="privacy-toc">
+      <section className={styles.privacyDocumentSection}>
+        <div className={`${styles.privacyDocumentLayout} page-shell`}>
+          <aside className={styles.privacyToc}>
             <p>On this page</p>
             <nav aria-label="Privacy policy sections">
               <ol>
@@ -50,8 +51,8 @@ export default function PrivacyPage() {
             </nav>
           </aside>
 
-          <article className="privacy-document">
-            <div className="privacy-callout">
+          <article className={styles.privacyDocument}>
+            <div className={styles.privacyCallout}>
               <strong>The short version</strong>
               <p>
                 VniDrop has no user accounts and does not upload your transfer to a VniDrop file
@@ -60,7 +61,7 @@ export default function PrivacyPage() {
               </p>
             </div>
 
-            <section id="scope" className="policy-section">
+            <section id="scope" className={styles.policySection}>
               <h2>Scope and who “VniDrop” means</h2>
               <p>
                 This policy covers the official VniDrop website, the VniDrop applications for
@@ -77,7 +78,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="transfers" className="policy-section">
+            <section id="transfers" className={styles.policySection}>
               <h2>What happens during a transfer</h2>
               <h3>File contents</h3>
               <p>
@@ -103,7 +104,7 @@ export default function PrivacyPage() {
                 addresses, connection time, and the amount of relayed data, but cannot read the
                 encrypted transfer contents.
               </p>
-              <div className="policy-note">
+              <div className={styles.policyNote}>
                 <p>
                   Approval is required by default. If the sender selects “Anyone with this transfer,”
                   anyone holding the invitation may receive the files until sharing stops.
@@ -111,7 +112,7 @@ export default function PrivacyPage() {
               </div>
             </section>
 
-            <section id="local-data" className="policy-section">
+            <section id="local-data" className={styles.policySection}>
               <h2>Information kept on your device</h2>
               <p>VniDrop stores the information needed to operate the app locally, including:</p>
               <ul>
@@ -129,7 +130,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="bug-reports" className="policy-section">
+            <section id="bug-reports" className={styles.policySection}>
               <h2>Optional bug reports</h2>
               <p>
                 VniDrop has no automatic telemetry, usage analytics, or crash auto-reporting.
@@ -153,7 +154,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="website" className="policy-section">
+            <section id="website" className={styles.policySection}>
               <h2>The VniDrop website</h2>
               <p>
                 This website is a static product site. It does not provide an account, contact form,
@@ -169,9 +170,9 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="permissions" className="policy-section">
+            <section id="permissions" className={styles.policySection}>
               <h2>Device permissions</h2>
-              <dl className="permission-list">
+              <dl className={styles.permissionList}>
                 <div>
                   <dt>Files &amp; folders</dt>
                   <dd>Choose what to send and where received files are saved.</dd>
@@ -196,9 +197,9 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="providers" className="policy-section">
+            <section id="providers" className={styles.policySection}>
               <h2>Infrastructure and external services</h2>
-              <dl className="provider-list">
+              <dl className={styles.providerList}>
                 <div>
                   <dt>Iroh / public relay operators</dt>
                   <dd>
@@ -229,7 +230,7 @@ export default function PrivacyPage() {
                   </dd>
                 </div>
               </dl>
-              <p className="provider-links">
+              <p className={styles.providerLinks}>
                 Provider policies:{" "}
                 <a
                   href="https://services.iroh.computer/legal/privacy"
@@ -262,10 +263,10 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="retention" className="policy-section">
+            <section id="retention" className={styles.policySection}>
               <h2>Retention and deletion</h2>
-              <div className="retention-table-wrap">
-                <table className="retention-table">
+              <div className={styles.retentionTableWrap}>
+                <table className={styles.retentionTable}>
                   <caption className="sr-only">Data retention periods</caption>
                   <thead>
                     <tr>
@@ -297,7 +298,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="choices" className="policy-section">
+            <section id="choices" className={styles.policySection}>
               <h2>Your choices and rights</h2>
               <ul>
                 <li>
@@ -323,7 +324,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="security" className="policy-section">
+            <section id="security" className={styles.policySection}>
               <h2>Security</h2>
               <p>
                 VniDrop uses authenticated end-to-end encrypted connections, content verification,
@@ -345,7 +346,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="changes" className="policy-section">
+            <section id="changes" className={styles.policySection}>
               <h2>Changes to this policy</h2>
               <p>
                 VniDrop is in early development. Features and data practices may change. When this
@@ -355,14 +356,14 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="contact" className="policy-section policy-contact">
+            <section id="contact" className={`${styles.policySection} ${styles.policyContact}`}>
               <h2>Contact</h2>
               <p>
                 For a privacy question, rights request, or support request, email
                 support@sudosy.fr. Do not put an invitation, file content, credentials, or other
                 sensitive information in a public issue.
               </p>
-              <a className="privacy-contact-link" href="mailto:support@sudosy.fr">
+              <a className={styles.privacyContactLink} href="mailto:support@sudosy.fr">
                 Email support@sudosy.fr
               </a>
             </section>

@@ -1,4 +1,4 @@
-.site-header {
+.siteHeader {
   position: sticky;
   z-index: 20;
   top: 0;
@@ -6,7 +6,7 @@
   background: var(--paper);
 }
 
-.header-inner {
+.inner {
   display: flex;
   min-height: 56px;
   align-items: center;
@@ -14,58 +14,36 @@
   gap: 16px;
 }
 
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.brand-mark-image {
-  width: 26px;
-  height: 26px;
-  object-fit: contain;
-}
-
-.brand-name {
-  color: var(--ink);
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-
-.header-nav {
+.nav {
   display: flex;
   align-items: center;
   gap: 18px;
 }
 
-.header-nav a:not(.btn) {
+.link {
   color: var(--ink-soft);
   font-size: 15px;
 }
 
-.header-nav a:not(.btn):hover {
+.link:hover {
   color: var(--ink);
 }
 
-.header-nav .btn {
+.download {
   padding: 8px 14px;
   font-size: 14px;
 }
 
 @media (max-width: 520px) {
-  .header-nav {
+  .nav {
     gap: 12px;
   }
 
-  .header-nav a:not(.btn) {
+  .link {
     font-size: 14px;
   }
 
-  .header-how,
-  .brand-name {
+  .how {
     display: none;
   }
 }

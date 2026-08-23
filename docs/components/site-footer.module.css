@@ -1,8 +1,8 @@
-.site-footer {
+.siteFooter {
   border-top: 1px solid var(--line);
 }
 
-.footer-inner {
+.inner {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -10,7 +10,7 @@
   padding: 28px 0 40px;
 }
 
-.footer-identity {
+.identity {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -19,24 +19,31 @@
   font-size: 13px;
 }
 
-.footer-identity strong {
+.identity strong {
   color: var(--ink);
   font-size: 0.95rem;
   font-weight: 600;
 }
 
-.footer-links {
+.links {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 18px;
 }
 
-.footer-links a {
+.links a {
   color: var(--ink-soft);
   font-size: 13px;
 }
 
-.footer-links a:hover {
+.links a:hover {
   color: var(--ink);
+}
+
+@media (max-width: 720px) {
+  .inner {
+    flex-direction: column;
+    padding-bottom: 28px;
+  }
 }

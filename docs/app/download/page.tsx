@@ -9,7 +9,7 @@ import {
   windowsStoreUrl,
   type ReleaseAsset,
 } from "@/lib/release";
-import "./download.css";
+import styles from "./page.module.css";
 
 export const metadata: Metadata = {
   title: "Download",
@@ -21,7 +21,7 @@ function FileLink({ asset }: { asset: ReleaseAsset }) {
   return (
     <a className="file-link" href={asset.url} rel="noreferrer">
       {asset.name}
-      <span className="download-meta"> {formatBytes(asset.bytes)}</span>
+      <span className={styles.downloadMeta}> {formatBytes(asset.bytes)}</span>
     </a>
   );
 }
@@ -31,10 +31,10 @@ export default async function DownloadPage() {
   const channelLabel = release.channel === "beta" ? "Beta" : release.channel;
 
   return (
-    <main id="main-content" className="download-page">
-      <section className="download-hero">
-        <div className="page-shell download-hero-inner">
-          <p className="download-kicker">
+    <main id="main-content" className={styles.downloadPage}>
+      <section className={styles.downloadHero}>
+        <div className={`${styles.downloadHeroInner} page-shell`}>
+          <p className={styles.downloadKicker}>
             {channelLabel} · {release.tag}
           </p>
           <h1>Download</h1>
@@ -45,21 +45,23 @@ export default async function DownloadPage() {
         </div>
       </section>
 
-      <section className="download-list-section">
+      <section className={styles.downloadListSection}>
         <div className="page-shell">
-          <ul className="download-list">
+          <ul className={styles.downloadList}>
             <li id="macos">
               <h2>macOS</h2>
               <p>Notarized disk image. The app can update itself after install.</p>
-              <p className="download-actions">
+              <p className={styles.downloadActions}>
                 {release.dmg ? <FileLink asset={release.dmg} /> : <span>No disk image in this release.</span>}
               </p>
-              <CopyCommand command={homebrewInstall} />
+              <div className={styles.installCommand}>
+                <CopyCommand command={homebrewInstall} />
+              </div>
             </li>
             <li id="linux">
               <h2>Linux</h2>
               <p>64-bit packages for Debian/Ubuntu and Fedora/RHEL.</p>
-              <p className="download-actions">
+              <p className={styles.downloadActions}>
                 {release.deb ? <FileLink asset={release.deb} /> : null}
                 {release.rpm ? <FileLink asset={release.rpm} /> : null}
                 {!release.deb && !release.rpm ? <span>No Linux packages in this release.</span> : null}
@@ -68,14 +70,14 @@ export default async function DownloadPage() {
             <li id="android">
               <h2>Android</h2>
               <p>Play-signed APK for sideload. The Play listing is still in closed testing.</p>
-              <p className="download-actions">
+              <p className={styles.downloadActions}>
                 {release.apk ? <FileLink asset={release.apk} /> : <span>No Android APK in this release.</span>}
               </p>
             </li>
             <li id="windows">
               <h2>Windows</h2>
               <p>Install from the Microsoft Store. There is no public sideload package.</p>
-              <p className="download-actions">
+              <p className={styles.downloadActions}>
                 <a className="text-link" href={windowsStoreUrl} rel="noreferrer">
                   Microsoft Store
                 </a>
@@ -84,7 +86,7 @@ export default async function DownloadPage() {
             <li id="ios">
               <h2>iOS</h2>
               <p>Native app, not in a public store yet. Build from source if you need it today.</p>
-              <p className="download-actions">
+              <p className={styles.downloadActions}>
                 <a className="text-link" href={githubRepoUrl} target="_blank" rel="noreferrer">
                   Source on GitHub
                 </a>
@@ -92,7 +94,7 @@ export default async function DownloadPage() {
             </li>
           </ul>
 
-          <p className="download-checksums">
+          <p className={styles.downloadChecksums}>
             <a className="text-link" href={release.checksumsUrl} rel="noreferrer">
               SHA256 checksums
             </a>

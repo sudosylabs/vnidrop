@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import styles from "./brand.module.css";
 
 type BrandAssetProps = {
   className?: string;
@@ -22,9 +23,9 @@ export function BrandMark({ className, title }: BrandAssetProps) {
 
 export function Brand() {
   return (
-    <Link className="brand" href="/" aria-label="VniDrop home">
-      <BrandMark className="brand-mark-image" />
-      <span className="brand-name">VniDrop</span>
+    <Link className={styles.brand} href="/" aria-label="VniDrop home">
+      <BrandMark className={styles.mark} />
+      <span className={styles.name}>VniDrop</span>
     </Link>
   );
 }

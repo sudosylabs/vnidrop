@@ -2,13 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import "./base.css";
-import "../components/header.css";
-import "./home.css";
-import "./footer.css";
-import "./privacy/privacy-document.css";
-import "./responsive.css";
-import "./privacy/privacy-responsive.css";
+import "./globals.css";
 
 const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://vnidrop.sudosy.fr";
 

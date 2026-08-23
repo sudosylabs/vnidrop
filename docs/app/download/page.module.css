@@ -1,80 +1,90 @@
-.download-page {
+.downloadPage {
   padding-bottom: 24px;
 }
 
-.download-hero {
+.downloadHero {
   padding: 48px 0 8px;
 }
 
-.download-hero-inner {
+.downloadHeroInner {
   max-width: var(--measure);
 }
 
-.download-kicker {
+.downloadKicker {
   margin-bottom: 12px;
   color: var(--ink-muted);
   font-size: 13px;
 }
 
-.download-hero h1 {
+.downloadHero h1 {
   margin-bottom: 12px;
   font-size: clamp(2rem, 4vw, 2.5rem);
   letter-spacing: -0.03em;
   line-height: 1.1;
 }
 
-.download-hero p:not(.download-kicker) {
+.downloadHero p:not(.downloadKicker) {
   margin: 0;
   color: var(--ink-soft);
 }
 
-.download-list-section {
+.downloadListSection {
   padding: 32px 0 80px;
 }
 
-.download-list {
+.downloadList {
   margin: 0;
   padding: 0;
   list-style: none;
   border-top: 1px solid var(--line);
 }
 
-.download-list > li {
+.downloadList > li {
   scroll-margin-top: 72px;
   padding: 24px 0;
   border-bottom: 1px solid var(--line);
 }
 
-.download-list h2 {
+.downloadList h2 {
   margin: 0 0 6px;
   font-size: 1.05rem;
 }
 
-.download-list > li > p {
+.downloadList > li > p {
   margin: 0 0 10px;
   color: var(--ink-soft);
   font-size: 0.95rem;
 }
 
-.download-actions {
+.downloadActions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 20px;
   margin: 0;
 }
 
-.download-list .copy-command {
+.installCommand {
   margin-top: 12px;
 }
 
-.download-meta {
+.downloadMeta {
   color: var(--ink-muted);
   font-family: var(--font-sans);
   font-size: 0.85rem;
 }
 
-.download-checksums {
+.downloadChecksums {
   margin: 24px 0 0;
   color: var(--ink-muted);
   font-size: 14px;
+}
+
+@media (max-width: 720px) {
+  .downloadHero {
+    padding-top: 32px;
+  }
+
+  .downloadListSection {
+    padding-bottom: 64px;
+  }
 }

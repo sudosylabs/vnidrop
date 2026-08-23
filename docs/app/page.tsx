@@ -157,9 +157,9 @@ export default function HomePage() {
         </div>
         <figure className={styles.heroFigure}>
           <Image
-            src="/shots/hero.jpg"
-            width={1024}
-            height={819}
+            src="/shots/hero.png"
+            width={2400}
+            height={1920}
             sizes="(max-width: 1100px) calc(100vw - 32px), 1024px"
             alt="VniDrop on macOS reviewing a transfer, and on iPhone choosing how to connect: a .vnd file, a QR code, or NFC."
             priority

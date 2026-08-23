@@ -162,7 +162,7 @@
     <string name="receive_clear_history_description">Alle abgeschlossenen, fehlgeschlagenen und abgebrochenen Empfänge werden aus dem Verlauf von VniDrop entfernt. Heruntergeladene Dateien verbleiben auf diesem Gerät.</string>
     <string name="receive_clear_history_title">Empfangsverlauf löschen?</string>
     <string name="receive_completed">Übertragung empfangen.</string>
-    <string name="receive_delete_history_description">„%1$s“ wird aus dem Verlauf von VniDrop entfernt. Die heruntergeladene Datei verbleibt auf diesem Gerät.</string>
+    <string name="receive_delete_history_description">%1$s wird aus dem Verlauf von VniDrop entfernt. Die heruntergeladene Datei verbleibt auf diesem Gerät.</string>
     <string name="receive_delete_history_item">Aus Empfangsverlauf löschen</string>
     <string name="receive_delete_history_title">Aus dem Verlauf entfernen?</string>
     <string name="receive_empty_body">Öffnen Sie eine VniDrop-Einladung, scannen Sie einen QR-Code oder halten Sie das Gerät an ein NFC-Tag.</string>
@@ -272,7 +272,7 @@
     <string name="targeted_offer_title">Eingehende Übertragung</string>
     <string name="transfer_activity_description">Wichtige Aktualisierungen zu dieser Übertragung ansehen</string>
     <string name="transfer_activity_title">Aktivität</string>
-    <string name="transfer_delete_description">„%1$s“ wird nicht mehr geteilt und sein Übertragungsverlauf wird von diesem Gerät entfernt.</string>
+    <string name="transfer_delete_description">%1$s wird nicht mehr geteilt und sein Übertragungsverlauf wird von diesem Gerät entfernt.</string>
     <string name="transfer_delete_title">Übertragung löschen?</string>
     <string name="transfer_deleted">Übertragung gelöscht.</string>
     <string name="transfer_deleting">Wird gelöscht…</string>

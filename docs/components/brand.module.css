@@ -1,0 +1,26 @@
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mark {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+.name {
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+@media (max-width: 520px) {
+  .name {
+    display: none;
+  }
+}

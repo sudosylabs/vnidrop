@@ -1,0 +1,90 @@
+.downloadPage {
+  padding-bottom: 24px;
+}
+
+.downloadHero {
+  padding: 48px 0 8px;
+}
+
+.downloadHeroInner {
+  max-width: var(--measure);
+}
+
+.downloadKicker {
+  margin-bottom: 12px;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+.downloadHero h1 {
+  margin-bottom: 12px;
+  font-size: clamp(2rem, 4vw, 2.5rem);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.downloadHero p:not(.downloadKicker) {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.downloadListSection {
+  padding: 32px 0 80px;
+}
+
+.downloadList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.downloadList > li {
+  scroll-margin-top: 72px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.downloadList h2 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+
+.downloadList > li > p {
+  margin: 0 0 10px;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+.downloadActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 0;
+}
+
+.installCommand {
+  margin-top: 12px;
+}
+
+.downloadMeta {
+  color: var(--ink-muted);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+}
+
+.downloadChecksums {
+  margin: 24px 0 0;
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+@media (max-width: 720px) {
+  .downloadHero {
+    padding-top: 32px;
+  }
+
+  .downloadListSection {
+    padding-bottom: 64px;
+  }
+}

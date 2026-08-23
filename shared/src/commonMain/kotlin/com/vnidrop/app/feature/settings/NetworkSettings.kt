@@ -68,7 +68,7 @@ internal fun NetworkSettings(
 	showBack: Boolean,
 ) {
 	val colors = LocalVniDropColors.current
-	Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+	Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
 		SettingsTopBar(stringResource(Res.string.settings_network_title), onBack, showBack)
 		SettingsGroup {
 			RelayModeRow(
@@ -109,8 +109,8 @@ internal fun NetworkSettings(
 		}
 		Text(
 			stringResource(Res.string.relay_privacy_description),
-			color = colors.foregroundLighter,
-			style = MaterialTheme.typography.bodySmall,
+			color = colors.foregroundLight,
+			style = MaterialTheme.typography.bodyMedium,
 		)
 		state.endpointId?.takeIf(String::isNotBlank)?.let { endpointId ->
 			SelectionContainer {

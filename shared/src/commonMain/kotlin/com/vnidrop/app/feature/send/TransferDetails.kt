@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,8 +49,10 @@ import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.ui.components.AppCard
-import com.vnidrop.app.ui.components.DestructiveButton
+import com.vnidrop.app.ui.components.DestructiveQuietButton
+import com.vnidrop.app.ui.components.emphasizedValueText
 import com.vnidrop.app.ui.components.PrimaryButton
+import com.vnidrop.app.ui.components.QuietButton
 import com.vnidrop.app.ui.components.ProgressRow
 import com.vnidrop.app.ui.components.SecondaryButton
 import com.vnidrop.app.ui.icons.AppIcon
@@ -143,19 +146,19 @@ internal fun TransferDetails(
 		item {
 			Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
 				if (transfer.status == TransferStatus.Sharing) {
-					DestructiveButton(
+					SecondaryButton(
 						stringResource(Res.string.send_stop_sharing),
 						onClick = onStopSharing,
-						modifier = Modifier.fillMaxWidth(),
+						modifier = Modifier.fillMaxWidth().testTag("transfer-stop-sharing-action"),
 						leadingIcon = {
 							PlatformIcon(AppIcon.StopCircle, null, modifier = Modifier.size(18.dp))
 						},
 					)
 				}
-				DestructiveButton(
+				DestructiveQuietButton(
 					stringResource(Res.string.button_delete_transfer),
 					onClick = onDelete,
-					modifier = Modifier.fillMaxWidth(),
+					modifier = Modifier.fillMaxWidth().testTag("transfer-delete-action"),
 					leadingIcon = {
 						PlatformIcon(AppIcon.Delete, null, modifier = Modifier.size(18.dp))
 					},
@@ -381,14 +384,15 @@ internal fun DeleteTransferPanel(
 	onConfirm: () -> Unit,
 ) {
 	PanelContainer(stringResource(Res.string.transfer_delete_title)) {
+		val name = transferName ?: stringResource(Res.string.send_new_transfer_title)
 		Text(
-			stringResource(Res.string.transfer_delete_description, transferName ?: stringResource(Res.string.send_new_transfer_title)),
+			emphasizedValueText(stringResource(Res.string.transfer_delete_description, name), name),
 			color = LocalVniDropColors.current.foregroundLighter,
 			style = MaterialTheme.typography.bodyMedium,
 		)
 		Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
-			SecondaryButton(stringResource(Res.string.button_cancel), onClick = onCancel, enabled = !isDeleting)
-			DestructiveButton(
+			QuietButton(stringResource(Res.string.button_cancel), onClick = onCancel, enabled = !isDeleting)
+			DestructiveQuietButton(
 				if (isDeleting) stringResource(Res.string.transfer_deleting) else stringResource(Res.string.button_delete_transfer),
 				onClick = onConfirm,
 				enabled = !isDeleting,

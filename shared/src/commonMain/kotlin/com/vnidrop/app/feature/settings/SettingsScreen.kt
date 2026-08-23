@@ -49,7 +49,6 @@ fun SettingsScreen(
 				SettingsOverview(
 					state,
 					onSectionSelected,
-					largeTitle = false,
 				)
 			}
 			Column(Modifier.weight(1f)) {
@@ -90,7 +89,6 @@ fun SettingsScreen(
 			SettingsSection.Overview -> SettingsOverview(
 				state,
 				onSectionSelected,
-				largeTitle = true,
 			)
 			else -> SettingsSectionContent(
 				state = state,

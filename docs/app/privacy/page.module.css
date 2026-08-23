@@ -1,0 +1,372 @@
+.privacyPage {
+  background: var(--paper);
+}
+
+.privacyHero {
+  padding: 48px 0 36px;
+  border-bottom: 1px solid var(--line);
+}
+
+.privacyHeroInner {
+  max-width: var(--measure);
+}
+
+.privacyHero h1 {
+  margin-bottom: 16px;
+  font-size: clamp(2.15rem, 4vw, 2.75rem);
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+
+.privacyHeroInner > p:not(.privacyMeta) {
+  margin-bottom: 16px;
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+  line-height: 1.65;
+}
+
+.privacyMeta {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.privacyDocumentSection {
+  padding: 56px 0 96px;
+}
+
+.privacyDocumentLayout {
+  display: grid;
+  grid-template-areas: "article toc";
+  grid-template-columns: minmax(0, 720px) 220px;
+  justify-content: center;
+  gap: 92px;
+}
+
+.privacyDocument {
+  grid-area: article;
+  min-width: 0;
+}
+
+.privacyToc {
+  position: sticky;
+  top: 72px;
+  grid-area: toc;
+  align-self: start;
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+
+.privacyToc > p {
+  margin-bottom: 12px;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.privacyToc ol {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.privacyToc a {
+  display: block;
+  padding: 5px 0;
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.privacyToc a:hover {
+  color: var(--ink);
+}
+
+.privacyCallout {
+  margin-bottom: 64px;
+  padding: 0 0 40px 20px;
+  border-bottom: 1px solid var(--line);
+  border-left: 2px solid var(--ink);
+}
+
+.privacyCallout strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.privacyCallout p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.policySection {
+  scroll-margin-top: 80px;
+  padding-bottom: 56px;
+}
+
+.policySection + .policySection {
+  padding-top: 56px;
+  border-top: 1px solid var(--line);
+}
+
+.policySection h2 {
+  margin-bottom: 20px;
+  font-size: clamp(1.45rem, 2.4vw, 1.7rem);
+  letter-spacing: -0.025em;
+  line-height: 1.22;
+}
+
+.policySection h3 {
+  margin: 32px 0 10px;
+  font-size: 1.15rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+}
+
+.policySection p,
+.policySection li,
+.permissionList dd,
+.providerList dd {
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.policySection p {
+  margin-bottom: 18px;
+}
+
+.policySection ul {
+  display: grid;
+  gap: 7px;
+  margin: 18px 0 24px;
+  padding-left: 22px;
+}
+
+.policySection li::marker {
+  color: var(--ink-muted);
+}
+
+.policySection code {
+  padding: 2px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper-warm);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+
+.policySection a,
+.privacyContactLink {
+  color: var(--brand-ink);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--brand-ink) 35%, transparent);
+  text-underline-offset: 3px;
+}
+
+.policySection a:hover,
+.privacyContactLink:hover {
+  text-decoration-color: currentColor;
+}
+
+.policyNote {
+  margin-top: 28px;
+  padding: 18px 20px;
+  border-left: 2px solid var(--line-strong);
+  background: var(--paper-warm);
+}
+
+.policyNote p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.permissionList,
+.providerList {
+  margin: 28px 0;
+  border-top: 1px solid var(--line);
+}
+
+.permissionList > div,
+.providerList > div {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.42fr) 1fr;
+  gap: 24px;
+  padding: 17px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.permissionList dt,
+.providerList dt {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.permissionList dd,
+.providerList dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.providerLinks {
+  font-size: 14px !important;
+}
+
+.retentionTableWrap {
+  overflow-x: auto;
+  margin: 28px 0;
+  border-top: 1px solid var(--line);
+  -webkit-overflow-scrolling: touch;
+}
+
+.retentionTable {
+  width: 100%;
+  min-width: 600px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.retentionTable th,
+.retentionTable td {
+  padding: 15px 16px 15px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
+  vertical-align: top;
+}
+
+.retentionTable th:first-child {
+  width: 38%;
+}
+
+.retentionTable thead th {
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.retentionTable tbody th {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.policyContact {
+  padding-bottom: 0;
+}
+
+.policyContact p {
+  margin-bottom: 18px;
+}
+
+.privacyContactLink::after {
+  margin-left: 5px;
+  content: "↗";
+}
+
+@media (max-width: 940px) {
+  .privacyDocumentLayout {
+    grid-template-areas:
+      "toc"
+      "article";
+    grid-template-columns: minmax(0, 720px);
+    gap: 56px;
+  }
+
+  .privacyToc {
+    position: static;
+    padding: 0 0 28px;
+    border-bottom: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .privacyToc ol {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .privacyHero {
+    padding: 32px 0 28px;
+  }
+
+  .privacyHero h1 {
+    margin-bottom: 14px;
+  }
+
+  .privacyHeroInner > p:not(.privacyMeta) {
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .privacyMeta {
+    font-size: 12px;
+  }
+
+  .privacyDocumentSection {
+    padding: 56px 0 96px;
+  }
+
+  .privacyDocumentLayout {
+    gap: 0;
+  }
+
+  .privacyToc {
+    display: none;
+  }
+
+  .privacyCallout {
+    margin-bottom: 48px;
+    padding: 0 0 32px 16px;
+  }
+
+  .privacyCallout p,
+  .policySection p,
+  .policySection li,
+  .permissionList dd,
+  .providerList dd {
+    font-size: 14px;
+  }
+
+  .policySection {
+    padding-bottom: 44px;
+  }
+
+  .policySection + .policySection {
+    padding-top: 44px;
+  }
+
+  .policySection h2 {
+    font-size: 1.65rem;
+  }
+
+  .policySection h3 {
+    margin-top: 28px;
+    font-size: 17px;
+  }
+
+  .permissionList > div,
+  .providerList > div {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+}

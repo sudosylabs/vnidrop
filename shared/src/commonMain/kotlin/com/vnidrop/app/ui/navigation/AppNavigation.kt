@@ -1,6 +1,7 @@
 package com.vnidrop.app.ui.navigation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -87,7 +89,14 @@ private fun AndroidNavigationRail(
 				selected = item.destination == selected,
 				onClick = { onDestinationSelected(item.destination) },
 				icon = { PlatformIcon(item.icon, contentDescription = label) },
-				label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+				label = {
+					Text(
+						label,
+						color = colors.foregroundLight,
+						maxLines = 1,
+						overflow = TextOverflow.Ellipsis,
+					)
+				},
 				colors = NavigationRailItemDefaults.colors(
 					selectedIconColor = colors.brandLink,
 					selectedTextColor = colors.brandLink,
@@ -177,15 +186,36 @@ fun AppBottomNavigation(
 	) {
 		primaryNavigationItems.forEach { item ->
 			val label = stringResource(item.label)
+			val isSelected = item.destination == selected
 			NavigationBarItem(
-				selected = item.destination == selected,
+				selected = isSelected,
 				onClick = { onDestinationSelected(item.destination) },
-				icon = { PlatformIcon(item.icon, contentDescription = label, modifier = Modifier.size(24.dp)) },
+				icon = {
+					Box(
+						modifier = Modifier
+							.width(64.dp)
+							.height(32.dp)
+							.testTag("bottom-nav-indicator-${item.destination.name}")
+							.then(
+								if (isSelected) {
+									Modifier.background(
+										color = colors.brandDefault.copy(alpha = 0.14f),
+										shape = RoundedCornerShape(16.dp),
+									)
+								} else {
+									Modifier
+								},
+							),
+						contentAlignment = Alignment.Center,
+					) {
+						PlatformIcon(item.icon, contentDescription = label, modifier = Modifier.size(24.dp))
+					}
+				},
 				label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
 				colors = NavigationBarItemDefaults.colors(
 					selectedIconColor = colors.brandLink,
-					selectedTextColor = colors.brandLink,
-					indicatorColor = colors.backgroundSelection,
+					selectedTextColor = colors.foregroundLight,
+					indicatorColor = Color.Transparent,
 					unselectedIconColor = colors.foregroundLight,
 					unselectedTextColor = colors.foregroundLight,
 				),

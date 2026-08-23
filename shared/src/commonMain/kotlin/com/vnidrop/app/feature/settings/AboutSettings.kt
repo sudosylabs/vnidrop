@@ -18,8 +18,10 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.vnidrop.app.isDesktop
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
+import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import org.jetbrains.compose.resources.stringResource
 import vnidrop.shared.generated.resources.Res
@@ -62,21 +64,18 @@ internal fun AboutSettings(
 	val unavailable = stringResource(Res.string.value_unavailable)
 	val info = state.deviceInfo
 	val uriHandler = LocalUriHandler.current
-	Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+	Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
 		SettingsTopBar(stringResource(Res.string.about_title), onBack, showBack)
-		SettingsGroup {
+		Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
 			Text(
 				stringResource(Res.string.about_tagline),
-				modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-				style = MaterialTheme.typography.titleMedium,
+				style = MaterialTheme.typography.titleLarge,
 				fontWeight = FontWeight.SemiBold,
 			)
-			SettingsDivider(startPadding = 16.dp)
 			Text(
 				stringResource(Res.string.about_description),
-				modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-				color = colors.foregroundLighter,
-				style = MaterialTheme.typography.bodyMedium,
+				color = colors.foregroundLight,
+				style = MaterialTheme.typography.bodyLarge,
 			)
 		}
 
@@ -141,7 +140,7 @@ private fun AboutSection(
 	title: String,
 	points: List<Pair<AppIcon, String>>,
 ) {
-	Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+	Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
 		Text(
 			title,
 			color = LocalVniDropColors.current.foregroundLighter,
@@ -167,7 +166,7 @@ private fun AboutPoint(icon: AppIcon, text: String) {
 			.padding(horizontal = 16.dp, vertical = 12.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		PlatformIcon(icon, contentDescription = null, tint = colors.brandLink, modifier = Modifier.size(24.dp))
+		PlatformIcon(icon, contentDescription = null, tint = colors.foregroundLight, modifier = Modifier.size(24.dp))
 		Spacer(Modifier.width(16.dp))
 		Text(
 			text,
@@ -181,6 +180,7 @@ private fun AboutPoint(icon: AppIcon, text: String) {
 @Composable
 private fun AboutInfoItem(title: String, value: String) {
 	val colors = LocalVniDropColors.current
+	val desktop = LocalUiPlatform.current.isDesktop
 	Row(
 		modifier = Modifier
 			.fillMaxWidth()
@@ -188,14 +188,22 @@ private fun AboutInfoItem(title: String, value: String) {
 			.padding(horizontal = 16.dp, vertical = 12.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-		Spacer(Modifier.width(16.dp))
-		Text(
-			value,
-			color = colors.foregroundLighter,
-			style = MaterialTheme.typography.bodyLarge,
-			textAlign = TextAlign.End,
-		)
+		if (desktop) {
+			Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+			Spacer(Modifier.width(16.dp))
+			Text(
+				value,
+				modifier = Modifier.weight(0.7f),
+				color = colors.foregroundLighter,
+				style = MaterialTheme.typography.bodyLarge,
+				textAlign = TextAlign.End,
+			)
+		} else {
+			Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+				Text(title, style = MaterialTheme.typography.bodyLarge)
+				Text(value, color = colors.foregroundLighter, style = MaterialTheme.typography.bodyMedium)
+			}
+		}
 	}
 }
 

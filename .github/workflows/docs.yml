@@ -17,6 +17,8 @@ on:
       - "config.mk"
       - "make/**"
       - ".github/workflows/docs.yml"
+  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -29,6 +31,8 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,4 +45,35 @@ jobs:
           cache-dependency-path: docs/package-lock.json
 
       - name: Check documentation website
+        env:
+          NEXT_PUBLIC_SITE_URL: https://vnidrop.sudosy.fr
         run: make check-docs
+
+      - name: Upload GitHub Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/out
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

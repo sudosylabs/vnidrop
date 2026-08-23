@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.dp
 import com.vnidrop.app.core.CoreState
 import com.vnidrop.app.core.ReceiverDeliveryStatus
 import com.vnidrop.app.core.TransferDirection
@@ -104,7 +105,7 @@ fun SendScreen(
 	}
 
 	if (deleteTarget != null && state.isDeleteConfirmationOpen) {
-		AdaptiveDrawer(windowClass = windowClass, onDismissRequest = onDismissDelete) {
+		AdaptiveDrawer(windowClass = windowClass, onDismissRequest = onDismissDelete, dialogMaxWidth = 440.dp) {
 			DeleteTransferPanel(
 				transferName = deleteTarget.transferName,
 				isDeleting = state.isDeleting,

@@ -2,32 +2,25 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import "./base.css";
-import "../components/header.css";
-import "./home.css";
-import "./footer.css";
-import "./privacy/privacy-document.css";
-import "./responsive.css";
-import "./privacy/privacy-responsive.css";
+import "./globals.css";
 
-const configuredSiteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  process.env.VERCEL_PROJECT_PRODUCTION_URL ??
-  process.env.VERCEL_URL ??
-  "http://localhost:3000";
+const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://vnidrop.sudosy.fr";
 
 const metadataBase = new URL(
   configuredSiteUrl.startsWith("http") ? configuredSiteUrl : `https://${configuredSiteUrl}`,
 );
 
+const title = "VniDrop — Send files from this device to that one";
+const description =
+  "Direct file transfer across Android, iOS, macOS, Windows, and Linux. No account, no hosted copy. Meet with an invitation, or send to a Saved device. They still confirm.";
+
 export const metadata: Metadata = {
   metadataBase,
   title: {
-    default: "VniDrop — Direct file transfer, on your terms",
+    default: title,
     template: "%s · VniDrop",
   },
-  description:
-    "Send files and folders directly across Android, iOS, macOS, Windows, and Linux—with approval by default and no hosted transfer copy.",
+  description,
   applicationName: "VniDrop",
   manifest: "/site.webmanifest",
   keywords: [
@@ -39,27 +32,25 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "VniDrop",
-    title: "VniDrop — Direct file transfer, on your terms",
-    description:
-      "Move files from your device to theirs, with no account and no hosted transfer copy.",
+    title,
+    description,
     images: [
       {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "VniDrop — Your files, a straight line between devices.",
+        alt: "VniDrop — Send files from this device to that one.",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "VniDrop — Direct file transfer, on your terms",
-    description:
-      "Move files from your device to theirs, with no account and no hosted transfer copy.",
+    title,
+    description,
     images: [
       {
         url: "/og.png",
-        alt: "VniDrop — Your files, a straight line between devices.",
+        alt: "VniDrop — Send files from this device to that one.",
       },
     ],
   },
@@ -69,14 +60,14 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fbfafc" },
-    { media: "(prefers-color-scheme: dark)", color: "#17131a" },
+    { media: "(prefers-color-scheme: light)", color: "#000000" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <body>
         <a className="skip-link" href="#main-content">
           Skip to content

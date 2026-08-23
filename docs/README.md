@@ -11,14 +11,23 @@ make run-docs
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Structure
+
+- `app/globals.css` owns design tokens, resets, accessibility helpers, and shared primitives.
+- Each route owns a colocated `page.module.css`; route styles are not imported by the root layout.
+- Shared modules under `components/` own matching `*.module.css` files.
+
 ## Checks
 
 ```bash
 make check-docs
 ```
 
-The production build is written to `out/` and can be hosted by any static web server.
+The production build is written to `out/` and can be hosted by any static web server. The GitHub
+Pages workflow publishes that directory after relevant changes reach `master` and after a release
+is published. The release deployment runs after the GitHub Release exists so the download page can
+fetch `release-manifest.json` and render links for the latest public tag.
 
-Set `NEXT_PUBLIC_SITE_URL` to the canonical production origin when building for deployment so
-Open Graph and Twitter image URLs resolve to the public site. Vercel deployment URLs are detected
-automatically.
+The canonical production origin defaults to `https://vnidrop.sudosy.fr`. Set
+`NEXT_PUBLIC_SITE_URL` only when building for another origin so Open Graph and Twitter image URLs
+resolve to that site.

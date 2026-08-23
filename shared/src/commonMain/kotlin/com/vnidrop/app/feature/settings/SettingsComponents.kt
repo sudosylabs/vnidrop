@@ -1,6 +1,5 @@
 package com.vnidrop.app.feature.settings
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,8 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,11 +28,14 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.vnidrop.app.isDesktop
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
+import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import org.jetbrains.compose.resources.stringResource
 import vnidrop.shared.generated.resources.Res
@@ -65,15 +65,7 @@ internal fun SettingsTopBar(title: String, onBack: () -> Unit, showBack: Boolean
 
 @Composable
 internal fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
-	val colors = LocalVniDropColors.current
-	Card(
-		modifier = Modifier.fillMaxWidth(),
-		shape = RoundedCornerShape(16.dp),
-		colors = CardDefaults.cardColors(containerColor = colors.backgroundSurface200),
-		border = BorderStroke(1.dp, colors.borderDefault.copy(alpha = 0.72f)),
-	) {
-		Column(content = content)
-	}
+	Column(modifier = Modifier.fillMaxWidth(), content = content)
 }
 
 @Composable
@@ -83,22 +75,29 @@ internal fun SettingsRow(
 	value: String? = null,
 	subtitle: String? = null,
 	selected: Boolean = false,
-	iconTone: SettingsIconTone = SettingsIconTone.Brand,
+	iconTone: SettingsIconTone = SettingsIconTone.Neutral,
 	onClick: (() -> Unit)? = null,
 	showsDisclosure: Boolean = onClick != null,
 	trailing: @Composable (() -> Unit)? = null,
 ) {
 	val colors = LocalVniDropColors.current
+	val desktop = LocalUiPlatform.current.isDesktop
 	Row(
 		modifier = Modifier
 			.fillMaxWidth()
-			.heightIn(min = 64.dp)
-			.background(if (selected) colors.backgroundSelection else Color.Transparent)
+			.heightIn(min = if (desktop) 52.dp else 64.dp)
+			.then(
+				if (selected) {
+					Modifier.background(colors.backgroundSelection, RoundedCornerShape(8.dp))
+				} else {
+					Modifier
+				},
+			)
 			.then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick))
-			.padding(horizontal = 14.dp, vertical = 10.dp),
+			.padding(horizontal = 8.dp, vertical = 10.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		SettingsLeadingIcon(icon, iconTone)
+		SettingsLeadingIcon(icon, iconTone, selected)
 		Spacer(Modifier.width(12.dp))
 		Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
 			Text(
@@ -108,6 +107,17 @@ internal fun SettingsRow(
 				maxLines = 1,
 				overflow = TextOverflow.Ellipsis,
 			)
+			if (!desktop) {
+				value?.let {
+					Text(
+						it,
+						color = colors.foregroundLighter,
+						style = MaterialTheme.typography.bodySmall,
+						maxLines = 1,
+						overflow = TextOverflow.Ellipsis,
+					)
+				}
+			}
 			subtitle?.let {
 				Text(
 					it,
@@ -118,14 +128,15 @@ internal fun SettingsRow(
 				)
 			}
 		}
-		value?.let {
+		if (desktop) value?.let {
 			Text(
 				it,
-				modifier = Modifier.padding(start = 12.dp),
+				modifier = Modifier.weight(0.7f).padding(start = 12.dp),
 				color = colors.foregroundLighter,
 				style = MaterialTheme.typography.bodySmall,
 				maxLines = 1,
 				overflow = TextOverflow.Ellipsis,
+				textAlign = TextAlign.End,
 			)
 		}
 		when {
@@ -164,7 +175,7 @@ internal fun SettingsToggleRow(
 			.padding(horizontal = 14.dp, vertical = 12.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		SettingsLeadingIcon(icon, SettingsIconTone.Brand)
+		SettingsLeadingIcon(icon, SettingsIconTone.Neutral, selected = false)
 		Spacer(Modifier.width(12.dp))
 		Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
 			Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
@@ -184,7 +195,7 @@ internal fun SettingsToggleRow(
 }
 
 @Composable
-internal fun SettingsDivider(startPadding: Dp = 60.dp) {
+internal fun SettingsDivider(startPadding: Dp = 52.dp) {
 	HorizontalDivider(
 		modifier = Modifier.padding(start = startPadding),
 		color = LocalVniDropColors.current.borderDefault.copy(alpha = 0.72f),
@@ -203,14 +214,13 @@ internal fun InfoItem(title: String, value: String) {
 }
 
 @Composable
-private fun SettingsLeadingIcon(icon: AppIcon, tone: SettingsIconTone) {
+private fun SettingsLeadingIcon(icon: AppIcon, tone: SettingsIconTone, selected: Boolean) {
 	val colors = LocalVniDropColors.current
-	val foreground = if (tone == SettingsIconTone.Brand) colors.brandLink else colors.foregroundLight
-	val background = if (tone == SettingsIconTone.Brand) colors.brandLink.copy(alpha = 0.13f) else colors.backgroundSurface300
+	val foreground = if (selected || tone == SettingsIconTone.Brand) colors.brandLink else colors.foregroundLight
 	Box(
-		modifier = Modifier.size(34.dp).background(background, RoundedCornerShape(10.dp)),
+		modifier = Modifier.size(32.dp),
 		contentAlignment = Alignment.Center,
 	) {
-		PlatformIcon(icon, contentDescription = null, tint = foreground, modifier = Modifier.size(19.dp))
+		PlatformIcon(icon, contentDescription = null, tint = foreground, modifier = Modifier.size(21.dp))
 	}
 }

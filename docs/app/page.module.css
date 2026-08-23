@@ -1,0 +1,313 @@
+.hero {
+  padding: 56px 0 8px;
+}
+
+.heroCopy {
+  max-width: 40rem;
+  margin: 0 auto 36px;
+  text-align: center;
+}
+
+.heroKicker {
+  margin-bottom: 14px;
+  color: var(--brand-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hero h1 {
+  margin-bottom: 16px;
+  font-size: clamp(2.2rem, 4.6vw, 3.35rem);
+  letter-spacing: -0.045em;
+  line-height: 1.06;
+}
+
+.heroLead {
+  margin: 0 auto 24px;
+  color: var(--ink-soft);
+  font-size: 1.08rem;
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px 20px;
+  margin-bottom: 16px;
+}
+
+.heroPlatforms {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.heroFigure {
+  width: min(1024px, calc(100% - 24px));
+  margin: 0 auto;
+}
+
+.heroFigure img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.traits,
+.how,
+.faq,
+.get {
+  padding: 80px 0;
+}
+
+.traits {
+  border-top: 1px solid var(--line);
+}
+
+.traits h2,
+.how h2,
+.faq h2,
+.get h2 {
+  margin-bottom: 12px;
+  font-size: clamp(1.65rem, 2.8vw, 2.05rem);
+  letter-spacing: -0.03em;
+}
+
+.traitsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px 32px;
+  margin: 36px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.traitIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--brand-ink);
+}
+
+.traitIcon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.traitsGrid h3,
+.howCopy h3 {
+  margin-bottom: 8px;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.traitsGrid p,
+.howCopy p,
+.faqList dd,
+.getInner p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+.how {
+  scroll-margin-top: 72px;
+  border-top: 1px solid var(--line);
+}
+
+.sectionLead {
+  max-width: 40rem;
+  margin-bottom: 48px;
+  color: var(--ink-soft);
+}
+
+.howList {
+  display: grid;
+  gap: 72px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: how;
+}
+
+.howRow {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.15fr);
+  gap: 40px 56px;
+  align-items: center;
+  counter-increment: how;
+}
+
+.howRow:nth-child(even) {
+  grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr);
+}
+
+.howRow:nth-child(even) .howCopy {
+  order: 2;
+}
+
+.howCopy h3::before {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--brand-ink);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  content: counter(how, decimal-leading-zero);
+}
+
+.howRow figure {
+  margin: 0;
+}
+
+.howRow img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.shotPhone {
+  width: min(100%, 280px);
+  justify-self: center;
+}
+
+.faq {
+  border-top: 1px solid var(--line);
+}
+
+.faqInner {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.4fr) minmax(0, 1fr);
+  gap: 32px 64px;
+  align-items: start;
+}
+
+.faqList {
+  margin: 0;
+  padding: 0;
+}
+
+.faqList > div {
+  padding: 22px 0;
+  border-top: 1px solid var(--line);
+}
+
+.faqList > div:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.faqList dt {
+  margin-bottom: 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.faqList dd {
+  max-width: 40rem;
+}
+
+.get {
+  border-top: 1px solid var(--line);
+  padding-bottom: 96px;
+}
+
+.getInner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px 40px;
+}
+
+.getInner p {
+  max-width: 36rem;
+}
+
+.osList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.osList a {
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.osList a:hover {
+  color: var(--brand-ink);
+}
+
+.getActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
+@media (max-width: 960px) {
+  .traitsGrid,
+  .faqInner {
+    grid-template-columns: 1fr;
+  }
+
+  .howRow,
+  .howRow:nth-child(even) {
+    grid-template-columns: 1fr;
+  }
+
+  .howRow:nth-child(even) .howCopy {
+    order: 0;
+  }
+
+  .howCopy {
+    order: -1;
+  }
+
+  .shotPhone {
+    width: min(100%, 240px);
+  }
+}
+
+@media (max-width: 720px) {
+  .hero {
+    padding-top: 36px;
+  }
+
+  .heroCopy {
+    margin-bottom: 20px;
+  }
+
+  .heroFigure {
+    width: calc(100% - 8px);
+  }
+
+  .traits,
+  .how,
+  .faq,
+  .get {
+    padding: 56px 0;
+  }
+
+  .howList {
+    gap: 48px;
+  }
+
+  .get {
+    padding-bottom: 72px;
+  }
+}

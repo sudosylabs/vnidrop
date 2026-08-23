@@ -1,6 +1,6 @@
 ---
 name: compose-skill
-description: VniDrop-specific Compose Multiplatform UI, Kotlin presentation architecture, and rendered-app visual QA. Use when designing, implementing, refactoring, or reviewing code under shared/ for Android, Windows, or Linux: screens, ViewModels, routes, navigation, adaptive layouts, platform adapters, native icons, resources, accessibility, UI tests, simulator inspection, screenshots, and visual refinement.
+description: "VniDrop-specific Compose Multiplatform UI, Kotlin presentation architecture, and rendered-app visual QA. Use when designing, implementing, refactoring, or reviewing code under shared/ for Android, Windows, or Linux: screens, ViewModels, routes, navigation, adaptive layouts, platform adapters, native icons, resources, accessibility, UI tests, simulator inspection, screenshots, and visual refinement."
 ---
 
 # VniDrop KMP UI

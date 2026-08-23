@@ -162,7 +162,7 @@
     <string name="receive_clear_history_description">Alle voltooide, mislukte en geannuleerde ontvangsten worden uit de geschiedenis van VniDrop verwijderd. Gedownloade bestanden blijven op dit apparaat.</string>
     <string name="receive_clear_history_title">Ontvangstgeschiedenis wissen?</string>
     <string name="receive_completed">Overdracht ontvangen.</string>
-    <string name="receive_delete_history_description">‘%1$s’ wordt uit de geschiedenis van VniDrop verwijderd. Het gedownloade bestand blijft op dit apparaat.</string>
+    <string name="receive_delete_history_description">%1$s wordt uit de geschiedenis van VniDrop verwijderd. Het gedownloade bestand blijft op dit apparaat.</string>
     <string name="receive_delete_history_item">Uit ontvangstgeschiedenis verwijderen</string>
     <string name="receive_delete_history_title">Uit geschiedenis verwijderen?</string>
     <string name="receive_empty_body">Open een VniDrop-uitnodiging, scan een QR-code of houd het apparaat bij een NFC-tag.</string>
@@ -272,7 +272,7 @@
     <string name="targeted_offer_title">Inkomende overdracht</string>
     <string name="transfer_activity_description">Bekijk belangrijke updates voor deze overdracht</string>
     <string name="transfer_activity_title">Activiteit</string>
-    <string name="transfer_delete_description">‘%1$s’ wordt niet meer gedeeld en de overdrachtsgeschiedenis wordt van dit apparaat verwijderd.</string>
+    <string name="transfer_delete_description">%1$s wordt niet meer gedeeld en de overdrachtsgeschiedenis wordt van dit apparaat verwijderd.</string>
     <string name="transfer_delete_title">Overdracht verwijderen?</string>
     <string name="transfer_deleted">Overdracht verwijderd.</string>
     <string name="transfer_deleting">Verwijderen…</string>

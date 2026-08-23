@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vnidrop.app.core.CoreState
@@ -39,12 +37,18 @@ import com.vnidrop.app.core.FolderAccessStatus
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.TransferStatus
+import com.vnidrop.app.isDesktop
+import com.vnidrop.app.ui.components.AppContextMenuItem
 import com.vnidrop.app.ui.components.AdaptiveDrawer
 import com.vnidrop.app.ui.components.DestructiveButton
 import com.vnidrop.app.ui.components.DestructiveQuietButton
 import com.vnidrop.app.ui.components.Field
+import com.vnidrop.app.ui.components.FeatureEmptyState
 import com.vnidrop.app.ui.components.PrimaryButton
 import com.vnidrop.app.ui.components.ProgressRow
+import com.vnidrop.app.ui.components.PlatformContextMenu
+import com.vnidrop.app.ui.components.emphasizedValueText
+import com.vnidrop.app.ui.components.QuietButton
 import com.vnidrop.app.ui.components.SecondaryButton
 import com.vnidrop.app.ui.feedback.UiText
 import com.vnidrop.app.ui.icons.AppIcon
@@ -140,7 +144,7 @@ fun ReceiveScreen(
 		val transferName = (target as? ReceiveHistoryDeleteTarget.Transfer)?.let { selected ->
 			transfers.firstOrNull { it.transferId == selected.transferId }?.transferName
 		}
-		AdaptiveDrawer(windowClass, onDismissHistoryDelete) {
+		AdaptiveDrawer(windowClass, onDismissHistoryDelete, dialogMaxWidth = 440.dp) {
 			ReceiveHistoryDeletePanel(
 				clearAll = target == ReceiveHistoryDeleteTarget.All,
 				transferName = transferName,
@@ -156,7 +160,7 @@ fun ReceiveScreen(
 private fun ReceiveHeader(showAction: Boolean, onOpen: () -> Unit) {
 	Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
 		Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-			Text(stringResource(Res.string.receive_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+			Text(stringResource(Res.string.receive_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
 		}
 		if (showAction) {
 			Spacer(Modifier.width(16.dp))
@@ -167,28 +171,25 @@ private fun ReceiveHeader(showAction: Boolean, onOpen: () -> Unit) {
 
 @Composable
 private fun ReceiveEmptyState(onOpen: () -> Unit) {
-	val colors = LocalVniDropColors.current
-	Column(
-		Modifier.fillMaxWidth().heightIn(min = 430.dp).padding(horizontal = 20.dp),
-		horizontalAlignment = Alignment.CenterHorizontally,
-		verticalArrangement = Arrangement.Center,
-	) {
-		PlatformIcon(
+	Box(Modifier.fillMaxWidth().heightIn(min = 430.dp), contentAlignment = Alignment.Center) {
+		FeatureEmptyState(
 			icon = AppIcon.Download,
-			contentDescription = null,
-			tint = colors.brandLink,
-			modifier = Modifier
-				.size(88.dp)
-				.testTag("receive-empty-icon"),
-		)
-		Text(stringResource(Res.string.receive_empty_title), modifier = Modifier.padding(top = 12.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-		Text(
-			stringResource(Res.string.receive_empty_body),
-			modifier = Modifier.padding(top = 8.dp).widthIn(max = 480.dp),
-			color = colors.foregroundLighter,
-			textAlign = TextAlign.Center,
-		)
-		PrimaryButton(stringResource(Res.string.button_receive_files), onClick = onOpen, modifier = Modifier.padding(top = 22.dp))
+			title = stringResource(Res.string.receive_empty_title),
+			description = stringResource(Res.string.receive_empty_body),
+			iconTestTag = "receive-empty-icon",
+		) {
+			PrimaryButton(
+				stringResource(Res.string.button_receive_files),
+				onClick = onOpen,
+				leadingIcon = {
+					PlatformIcon(
+						AppIcon.Add,
+						contentDescription = null,
+						modifier = Modifier.size(18.dp).testTag("receive-empty-action-icon"),
+					)
+				},
+			)
+		}
 	}
 }
 
@@ -310,8 +311,16 @@ private fun ReceiveTransferRow(
 	progress: com.vnidrop.app.ui.state.TransferProgress?,
 	onDelete: () -> Unit,
 ) {
-	Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = LocalVniDropColors.current.backgroundSurface200) {
-		Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+	val terminal = transfer.status.isTerminalReceiveHistory()
+	val usesDesktopMenu = LocalUiPlatform.current.isDesktop
+	val contextMenuItems = if (usesDesktopMenu && terminal) {
+		listOf(AppContextMenuItem(stringResource(Res.string.receive_delete_history_item), onDelete))
+	} else {
+		emptyList()
+	}
+	PlatformContextMenu(contextMenuItems) {
+		Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = LocalVniDropColors.current.backgroundSurface200) {
+			Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
 			Box(Modifier.size(44.dp).background(LocalVniDropColors.current.backgroundSurface300, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
 				PlatformIcon(AppIcon.File, null, tint = LocalVniDropColors.current.foregroundLighter)
 			}
@@ -323,10 +332,11 @@ private fun ReceiveTransferRow(
 					ProgressRow(label = progress.label, progress = progress.progress, detail = progress.detail)
 				}
 			}
-			if (transfer.status.isTerminalReceiveHistory()) {
+			if (terminal && !usesDesktopMenu) {
 				IconButton(onClick = onDelete) {
 					PlatformIcon(AppIcon.Delete, stringResource(Res.string.receive_delete_history_item), tint = LocalVniDropColors.current.destructiveDefault)
 				}
+			}
 			}
 		}
 	}
@@ -346,14 +356,21 @@ private fun ReceiveHistoryDeletePanel(
 			style = MaterialTheme.typography.titleLarge,
 			fontWeight = FontWeight.Bold,
 		)
-		Text(
-			if (clearAll) stringResource(Res.string.receive_clear_history_description)
-			else stringResource(Res.string.receive_delete_history_description, transferName ?: stringResource(Res.string.receive_unknown_transfer)),
-			color = LocalVniDropColors.current.foregroundLighter,
-		)
+		if (clearAll) {
+			Text(
+				stringResource(Res.string.receive_clear_history_description),
+				color = LocalVniDropColors.current.foregroundLighter,
+			)
+		} else {
+			val name = transferName ?: stringResource(Res.string.receive_unknown_transfer)
+			Text(
+				emphasizedValueText(stringResource(Res.string.receive_delete_history_description, name), name),
+				color = LocalVniDropColors.current.foregroundLighter,
+			)
+		}
 		Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
-			SecondaryButton(stringResource(Res.string.button_cancel), onClick = onCancel, enabled = !isDeleting)
-			DestructiveButton(
+			QuietButton(stringResource(Res.string.button_cancel), onClick = onCancel, enabled = !isDeleting)
+			DestructiveQuietButton(
 				if (isDeleting) stringResource(Res.string.transfer_deleting)
 				else stringResource(if (clearAll) Res.string.receive_clear_history else Res.string.button_delete_transfer),
 				onClick = onConfirm,

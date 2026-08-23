@@ -1,21 +1,24 @@
 import Link from "next/link";
 import { Brand } from "@/components/brand";
-import { Icon } from "@/components/icons";
+import { githubRepoUrl } from "@/lib/release";
+import styles from "./site-header.module.css";
 
 export function SiteHeader() {
   return (
-    <header className="site-header">
-      <div className="header-inner page-shell">
+    <header className={styles.siteHeader}>
+      <div className={`${styles.inner} page-shell`}>
         <Brand />
-        <Link
-          className="header-github-button"
-          href="https://github.com/vnidrop/vnidrop"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <Icon name="github" />
-          View on GitHub
-        </Link>
+        <nav className={styles.nav} aria-label="Site">
+          <Link className={`${styles.link} ${styles.how}`} href="/#how-it-works">
+            How it works
+          </Link>
+          <Link className={`${styles.download} btn btn-primary`} href="/download/">
+            Download
+          </Link>
+          <a className={styles.link} href={githubRepoUrl} target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+        </nav>
       </div>
     </header>
   );

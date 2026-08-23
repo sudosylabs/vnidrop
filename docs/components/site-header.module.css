@@ -1,0 +1,49 @@
+.siteHeader {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.inner {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.link {
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+.link:hover {
+  color: var(--ink);
+}
+
+.download {
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+@media (max-width: 520px) {
+  .nav {
+    gap: 12px;
+  }
+
+  .link {
+    font-size: 14px;
+  }
+
+  .how {
+    display: none;
+  }
+}

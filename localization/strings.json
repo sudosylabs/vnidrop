@@ -2500,15 +2500,15 @@
         }
       ],
       "translations": {
-        "en": "“{transferName}” will be removed from VniDrop’s history. The downloaded file will remain on this device.",
-        "fr": "« {transferName} » sera retiré de l’historique de VniDrop. Le fichier téléchargé restera sur cet appareil.",
-        "es": "«{transferName}» se eliminará del historial de VniDrop. El archivo descargado permanecerá en este dispositivo.",
-        "it": "«{transferName}» verrà rimosso dalla cronologia di VniDrop. Il file scaricato rimarrà su questo dispositivo.",
-        "de": "„{transferName}“ wird aus dem Verlauf von VniDrop entfernt. Die heruntergeladene Datei verbleibt auf diesem Gerät.",
-        "pt": "«{transferName}» será removido do histórico do VniDrop. O ficheiro descarregado permanecerá neste dispositivo.",
-        "pl": "„{transferName}” zostanie usunięty z historii VniDrop. Pobrany plik pozostanie na tym urządzeniu.",
-        "nl": "‘{transferName}’ wordt uit de geschiedenis van VniDrop verwijderd. Het gedownloade bestand blijft op dit apparaat.",
-        "ru": "«{transferName}» будет удалён из истории VniDrop. Загруженный файл останется на этом устройстве."
+        "en": "{transferName} will be removed from VniDrop’s history. The downloaded file will remain on this device.",
+        "fr": "{transferName} sera retiré de l’historique de VniDrop. Le fichier téléchargé restera sur cet appareil.",
+        "es": "{transferName} se eliminará del historial de VniDrop. El archivo descargado permanecerá en este dispositivo.",
+        "it": "{transferName} verrà rimosso dalla cronologia di VniDrop. Il file scaricato rimarrà su questo dispositivo.",
+        "de": "{transferName} wird aus dem Verlauf von VniDrop entfernt. Die heruntergeladene Datei verbleibt auf diesem Gerät.",
+        "pt": "{transferName} será removido do histórico do VniDrop. O ficheiro descarregado permanecerá neste dispositivo.",
+        "pl": "{transferName} zostanie usunięty z historii VniDrop. Pobrany plik pozostanie na tym urządzeniu.",
+        "nl": "{transferName} wordt uit de geschiedenis van VniDrop verwijderd. Het gedownloade bestand blijft op dit apparaat.",
+        "ru": "{transferName} будет удалён из истории VniDrop. Загруженный файл останется на этом устройстве."
       }
     },
     "receive_delete_history_item": {
@@ -4138,15 +4138,15 @@
         }
       ],
       "translations": {
-        "en": "“{transferName}” will stop being shared and its transfer history will be removed from this device.",
-        "fr": "« {transferName} » cessera d’être partagé et son historique de transfert sera retiré de cet appareil.",
-        "es": "«{transferName}» dejará de compartirse y su historial de transferencia se eliminará de este dispositivo.",
-        "it": "«{transferName}» non verrà più condiviso e la sua cronologia di trasferimento verrà rimossa da questo dispositivo.",
-        "de": "„{transferName}“ wird nicht mehr geteilt und sein Übertragungsverlauf wird von diesem Gerät entfernt.",
-        "pt": "«{transferName}» deixará de ser partilhado e o seu histórico de transferência será removido deste dispositivo.",
-        "pl": "„{transferName}” przestanie być udostępniany, a jego historia transferu zostanie usunięta z tego urządzenia.",
-        "nl": "‘{transferName}’ wordt niet meer gedeeld en de overdrachtsgeschiedenis wordt van dit apparaat verwijderd.",
-        "ru": "Общий доступ к «{transferName}» будет остановлен, а история передачи будет удалена с этого устройства."
+        "en": "{transferName} will stop being shared and its transfer history will be removed from this device.",
+        "fr": "{transferName} cessera d’être partagé et son historique de transfert sera retiré de cet appareil.",
+        "es": "{transferName} dejará de compartirse y su historial de transferencia se eliminará de este dispositivo.",
+        "it": "{transferName} non verrà più condiviso e la sua cronologia di trasferimento verrà rimossa da questo dispositivo.",
+        "de": "{transferName} wird nicht mehr geteilt und sein Übertragungsverlauf wird von diesem Gerät entfernt.",
+        "pt": "{transferName} deixará de ser partilhado e o seu histórico de transferência será removido deste dispositivo.",
+        "pl": "{transferName} przestanie być udostępniany, a jego historia transferu zostanie usunięta z tego urządzenia.",
+        "nl": "{transferName} wordt niet meer gedeeld en de overdrachtsgeschiedenis wordt van dit apparaat verwijderd.",
+        "ru": "Общий доступ к {transferName} будет остановлен, а история передачи будет удалена с этого устройства."
       }
     },
     "transfer_delete_title": {

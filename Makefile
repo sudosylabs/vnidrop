@@ -199,6 +199,7 @@ localization-migrate: setup-localization ## Rebuild strings.json from platform r
 	cd $(ROOT)/localization && $(BUN) run migrate
 
 check-docs: setup-docs ## Lint, type-check, and build the documentation website.
+	cd $(ROOT)/docs && $(NPM) test
 	cd $(ROOT)/docs && $(NPM) run lint
 	cd $(ROOT)/docs && $(NPM) run typecheck
 	cd $(ROOT)/docs && $(NPM) run build

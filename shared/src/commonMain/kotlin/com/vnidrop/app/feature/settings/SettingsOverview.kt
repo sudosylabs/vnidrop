@@ -31,12 +31,11 @@ import vnidrop.shared.generated.resources.appearance_title
 internal fun SettingsOverview(
 	state: SettingsState,
 	onSectionSelected: (SettingsSection) -> Unit,
-	largeTitle: Boolean,
 ) {
-	Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+	Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
 		Text(
 			stringResource(Res.string.settings_title),
-			style = if (largeTitle) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.headlineMedium,
+			style = MaterialTheme.typography.headlineSmall,
 			fontWeight = FontWeight.Bold,
 		)
 		SettingsGroup {

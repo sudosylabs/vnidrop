@@ -162,7 +162,7 @@
     <string name="receive_clear_history_description">Todas as receções concluídas, falhadas e canceladas serão removidas do histórico do VniDrop. Os ficheiros descarregados permanecerão neste dispositivo.</string>
     <string name="receive_clear_history_title">Limpar o histórico de receção?</string>
     <string name="receive_completed">Transferência recebida.</string>
-    <string name="receive_delete_history_description">«%1$s» será removido do histórico do VniDrop. O ficheiro descarregado permanecerá neste dispositivo.</string>
+    <string name="receive_delete_history_description">%1$s será removido do histórico do VniDrop. O ficheiro descarregado permanecerá neste dispositivo.</string>
     <string name="receive_delete_history_item">Eliminar do histórico de receção</string>
     <string name="receive_delete_history_title">Remover do histórico?</string>
     <string name="receive_empty_body">Abra um convite do VniDrop, leia um código QR ou aproxime uma etiqueta NFC.</string>
@@ -272,7 +272,7 @@
     <string name="targeted_offer_title">Transferência a receber</string>
     <string name="transfer_activity_description">Ver as atualizações importantes desta transferência</string>
     <string name="transfer_activity_title">Atividade</string>
-    <string name="transfer_delete_description">«%1$s» deixará de ser partilhado e o seu histórico de transferência será removido deste dispositivo.</string>
+    <string name="transfer_delete_description">%1$s deixará de ser partilhado e o seu histórico de transferência será removido deste dispositivo.</string>
     <string name="transfer_delete_title">Eliminar a transferência?</string>
     <string name="transfer_deleted">Transferência eliminada.</string>
     <string name="transfer_deleting">A eliminar…</string>

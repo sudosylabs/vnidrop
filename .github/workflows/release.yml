@@ -406,6 +406,16 @@ jobs:
             --title "VniDrop ${{ needs.preflight.outputs.version }}" \
             --generate-notes
 
+  deploy-docs:
+    name: Deploy website with the published release
+    needs:
+      - publish-github
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/docs.yml
+
   update-homebrew:
     name: Update Homebrew cask
     needs:

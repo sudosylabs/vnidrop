@@ -31,7 +31,7 @@ export default function PrivacyPage() {
             This policy explains what moves between devices, what stays local, and what is sent
             only when you choose to submit a bug report.
           </p>
-          <p className="privacy-meta">Effective August 2, 2026 · Version 1.2</p>
+          <p className="privacy-meta">Effective August 23, 2026 · Version 1.3</p>
         </div>
       </section>
 
@@ -162,10 +162,10 @@ export default function PrivacyPage() {
                 nearby devices.
               </p>
               <p>
-                Vercel hosts the static site, while Cloudflare proxies requests and provides DNS and
-                security services for the domain. They may process routine request information—such
-                as IP address, time, requested page, referrer, and browser user agent—to deliver the
-                site, maintain reliability, and prevent abuse.
+                GitHub Pages hosts the static site, while Cloudflare proxies requests and provides
+                DNS and security services for the domain. They may process routine request
+                information—such as IP address, time, requested page, referrer, and browser user
+                agent—to deliver the site, maintain reliability, and prevent abuse.
               </p>
             </section>
 
@@ -207,13 +207,6 @@ export default function PrivacyPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt>Vercel</dt>
-                  <dd>
-                    Hosts and serves the static VniDrop website and processes routine request and
-                    delivery metadata.
-                  </dd>
-                </div>
-                <div>
                   <dt>Cloudflare</dt>
                   <dd>
                     Proxies website requests and provides DNS, security, and abuse controls. When
@@ -229,10 +222,10 @@ export default function PrivacyPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt>GitHub</dt>
+                  <dt>GitHub / GitHub Pages</dt>
                   <dd>
-                    Hosts the source repository, issue tracker, and external pages linked from this
-                    site. GitHub’s own privacy terms apply after you follow those links.
+                    Hosts the source repository, issue tracker, static VniDrop website, and external
+                    pages linked from this site.
                   </dd>
                 </div>
               </dl>
@@ -252,14 +245,6 @@ export default function PrivacyPage() {
                   rel="noreferrer"
                 >
                   Cloudflare
-                </a>
-                ,{" "}
-                <a
-                  href="https://vercel.com/legal/privacy-notice"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Vercel
                 </a>
                 ,{" "}
                 <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">

@@ -24,6 +24,9 @@ config.override.mk
 bin/
 tmp/
 
+# One-time local setup wizards
+scripts/migrate-github-pages.sh
+
 # Local design export scratch
 output/
 .scratch/

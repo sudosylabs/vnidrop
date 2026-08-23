@@ -81,11 +81,10 @@ const traits = [
 
 const steps = [
   {
-    src: "/shots/desktop-review.png",
-    width: 1920,
-    height: 1080,
-    kind: "wide" as const,
-    alt: "VniDrop on desktop, reviewing a transfer with ask-before-each-download selected.",
+    src: "/shots/choose-what-to-share.png",
+    width: 1320,
+    height: 2868,
+    alt: "Native iPhone new-transfer sheet with options to choose files or a folder.",
     title: "Choose what to send",
     text: "Files, a batch, or a folder. The original folder structure stays intact.",
   },
@@ -93,7 +92,6 @@ const steps = [
     src: "/shots/share-securely.png",
     width: 1320,
     height: 2868,
-    kind: "phone" as const,
     alt: "Native iPhone share sheet with a QR code for the transfer invitation.",
     title: "Introduce the devices",
     text: "Show a QR code, write an NFC tag, or save a .vnd invitation. The other device opens it in VniDrop.",
@@ -102,7 +100,6 @@ const steps = [
     src: "/shots/choose-receivers.png",
     width: 1320,
     height: 2868,
-    kind: "phone" as const,
     alt: "Receive request on iPhone, with Approve and Refuse actions.",
     title: "They still decide",
     text: "An invitation asks you to approve each receiver. A Saved device still has to accept. Nothing auto-receives.",
@@ -199,16 +196,12 @@ export default function HomePage() {
                   <h3>{step.title}</h3>
                   <p>{step.text}</p>
                 </div>
-                <figure className={step.kind === "phone" ? "shot-phone" : "shot-wide"}>
+                <figure className="shot-phone">
                   <Image
                     src={step.src}
                     width={step.width}
                     height={step.height}
-                    sizes={
-                      step.kind === "wide"
-                        ? "(max-width: 800px) calc(100vw - 32px), 520px"
-                        : "(max-width: 800px) 240px, 280px"
-                    }
+                    sizes="(max-width: 800px) 240px, 280px"
                     alt={step.alt}
                     unoptimized
                   />

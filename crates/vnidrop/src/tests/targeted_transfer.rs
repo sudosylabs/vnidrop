@@ -263,13 +263,25 @@ fn targeted_preparation_returns_durable_identity_before_approval() {
         )
         .unwrap();
 
+    let durable = alice
+        .core()
+        .get_targeted_transfer(transfer.id.clone())
+        .unwrap()
+        .expect("send must return only after the identity is durably queryable");
     assert_eq!(
-        alice
-            .core()
-            .get_targeted_transfer(transfer.id.clone())
-            .unwrap(),
-        Some(transfer.clone()),
-        "send must return only after the identity is durably queryable"
+        (
+            durable.id.as_str(),
+            durable.sender_endpoint_id.as_str(),
+            durable.receiver_endpoint_id.as_str(),
+            durable.manifest_id.as_str(),
+        ),
+        (
+            transfer.id.as_str(),
+            transfer.sender_endpoint_id.as_str(),
+            transfer.receiver_endpoint_id.as_str(),
+            transfer.manifest_id.as_str(),
+        ),
+        "the durable transfer must preserve the returned identity"
     );
     assert!(matches!(
         transfer.state,

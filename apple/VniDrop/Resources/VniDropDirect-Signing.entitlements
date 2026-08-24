@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Entitlements applied to the direct-download build by the codesign re-sign in
+     build-dmg.sh. This is NOT the target's CODE_SIGN_ENTITLEMENTS — that stays
+     empty in VniDropDirect.entitlements.
+
+     Why the split: the Rust core keeps secrets in the data-protection Keychain
+     (kSecUseDataProtectionKeychain, see secure_secret/apple.rs). That keychain
+     only answers to a process resolving to a keychain access group, so without
+     one every SecItem call returns errSecMissingEntitlement (-34018), which the
+     core surfaces as VnidropError::SecureStorageUnavailable and the app turns
+     into a startup failure. That is the 0.3.1 bug: the direct build shipped an
+     empty entitlements dict, so no secret could ever be written or read.
+
+     The group cannot simply be declared on the target, because naming
+     keychain-access-groups in CODE_SIGN_ENTITLEMENTS makes `xcodebuild archive`
+     fail with "VniDropDirect requires a provisioning profile", and Developer ID
+     distribution deliberately has no profile. Plain codesign enforces no such
+     requirement, and the re-sign is what produces the signature that actually
+     ships — so the group is applied there instead.
+
+     $(DEVELOPMENT_TEAM) and $(PRODUCT_BUNDLE_IDENTIFIER) are NOT expanded by
+     codesign; build-dmg.sh resolves them with sed and fails the build if any
+     placeholder survives. -->
+<dict>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(DEVELOPMENT_TEAM).$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	</array>
+</dict>
+</plist>

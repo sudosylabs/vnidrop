@@ -124,6 +124,22 @@ jobs:
             --issuer "$NOTARY_ISSUER"
           echo "NOTARY_PROFILE=vnidrop-notary" >> "$GITHUB_ENV"
 
+      - name: Write Developer ID provisioning profile
+        # The direct build claims a keychain-access-group so the Rust core can
+        # reach the data-protection Keychain. macOS refuses to launch a binary
+        # making that claim unless an embedded provisioning profile authorizes
+        # it, so this is required for a working DMG, not optional hardening.
+        # The profile must be bound to the SAME certificate as
+        # DEVELOPER_ID_CERT_P12 above; a mismatch still builds and notarizes,
+        # then dies at launch with "Launchd job spawn failed".
+        env:
+          DEVELOPER_ID_PROFILE_BASE64: ${{ secrets.DEVELOPER_ID_PROFILE }}
+        run: |
+          set -euo pipefail
+          profile="$RUNNER_TEMP/VniDropDirect.provisionprofile"
+          echo "$DEVELOPER_ID_PROFILE_BASE64" | base64 --decode > "$profile"
+          echo "DEVELOPER_ID_PROFILE=$profile" >> "$GITHUB_ENV"
+
       - name: Write Sparkle signing key
         env:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}

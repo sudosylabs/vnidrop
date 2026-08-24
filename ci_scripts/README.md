@@ -1,8 +1,8 @@
 # Xcode Cloud CI scripts
 
-Xcode Cloud runs the scripts in this directory around each build. Only
-`ci_post_clone.sh` is used today; add `ci_pre_xcodebuild.sh` /
-`ci_post_xcodebuild.sh` here if later steps are needed.
+Xcode Cloud runs the scripts in this directory around each build:
+`ci_post_clone.sh` prepares the project, and `ci_post_xcodebuild.sh` checks the
+archive. Add `ci_pre_xcodebuild.sh` here if a pre-build step is ever needed.
 
 ## What `ci_post_clone.sh` does
 
@@ -27,6 +27,25 @@ before an Xcode Cloud build for that version runs (see
 |----------|---------|---------|
 | `VNIDROP_CORE_REPO` | `sudosylabs/vnidrop` | Release repository to download the core from |
 | `VNIDROP_CORE_TAG`  | `v<product-version>` | Release tag holding the core asset |
+
+## What `ci_post_xcodebuild.sh` does
+
+Runs `apple/scripts/verify-keychain-access-group.sh` against the archived app and
+fails the build if it resolves to no keychain access group.
+
+The Rust core keeps the endpoint identity in the data-protection Keychain, which
+only answers to a process that belongs to such a group. Without one, every read
+and write returns `errSecMissingEntitlement` (-34018) and the app dies on the
+startup screen. Nothing else catches this: VniDrop 0.3.1 archived, signed,
+notarized and stapled cleanly while being completely unable to start.
+
+The App Store and iOS builds get their group implicitly, from the provisioning
+profile's `application-identifier` rather than an explicit entitlement, so a
+profile or capability regression would break them the same silent way. The check
+accepts either form.
+
+Archive actions only — for test and analyze actions there is no archive and the
+script exits cleanly.
 
 ## Workflow configuration (App Store Connect)
 

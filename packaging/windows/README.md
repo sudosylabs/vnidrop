@@ -64,8 +64,9 @@ already-live free product. For the first release:
    production signing key.
 4. Upload the msixupload file to the current Partner Center draft.
 5. Confirm that Partner Center parses the expected identity, version, x64
-   architecture, Windows.Desktop target, en-US language, and runFullTrust
-   capability.
+   architecture, Windows.Desktop target, declared UI languages (`en-US`,
+   `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `nl-NL`, `pl-PL`, `pt-PT`, and
+   `ru-RU`), and runFullTrust capability.
 6. Complete listing, screenshots, certification notes, and submit.
 
 Use this restricted-capability justification in Submission options:

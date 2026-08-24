@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import styles from "./copy-command.module.css";
 
 function CopyIcon() {
@@ -42,28 +42,42 @@ function CheckIcon() {
 }
 
 export function CopyCommand({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
+  const statusId = useId();
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(command);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
+      setCopyState("copied");
+      window.setTimeout(() => setCopyState("idle"), 1600);
     } catch {
-      setCopied(false);
+      setCopyState("error");
     }
   }
 
+  const status =
+    copyState === "copied"
+      ? "Install command copied."
+      : copyState === "error"
+        ? "Copy failed. Select the command and copy it manually."
+        : "";
+
   return (
-    <div className={styles.copyCommand}>
-      <code>{command}</code>
-      <button
-        type="button"
-        onClick={() => void copy()}
-        aria-label={copied ? "Copied" : "Copy install command"}
-      >
-        {copied ? <CheckIcon /> : <CopyIcon />}
-      </button>
+    <div className={styles.copyBlock}>
+      <div className={styles.copyCommand}>
+        <code>{command}</code>
+        <button
+          type="button"
+          onClick={() => void copy()}
+          aria-describedby={statusId}
+          aria-label={copyState === "copied" ? "Copied" : "Copy install command"}
+        >
+          {copyState === "copied" ? <CheckIcon /> : <CopyIcon />}
+        </button>
+      </div>
+      <p id={statusId} className={styles.copyStatus} aria-live="polite">
+        {status}
+      </p>
     </div>
   );
 }

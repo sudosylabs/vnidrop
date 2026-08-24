@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import styles from "./page.module.css";
+import { PrivacyToc } from "./privacy-toc";
 
 export const metadata: Metadata = {
   title: "Privacy policy",
@@ -20,14 +21,14 @@ const sections = [
   ["security", "Security"],
   ["changes", "Changes"],
   ["contact", "Contact"],
-];
+] as const;
 
 export default function PrivacyPage() {
   return (
     <main id="main-content" className={styles.privacyPage}>
       <section className={styles.privacyHero}>
         <div className={`${styles.privacyHeroInner} page-shell`}>
-          <h1>Privacy Policy</h1>
+          <h1>Privacy policy</h1>
           <p>
             This policy explains what moves between devices, what stays local, and what is sent
             only when you choose to submit a bug report.
@@ -38,18 +39,7 @@ export default function PrivacyPage() {
 
       <section className={styles.privacyDocumentSection}>
         <div className={`${styles.privacyDocumentLayout} page-shell`}>
-          <aside className={styles.privacyToc}>
-            <p>On this page</p>
-            <nav aria-label="Privacy policy sections">
-              <ol>
-                {sections.map(([id, label]) => (
-                  <li key={id}>
-                    <a href={`#${id}`}>{label}</a>
-                  </li>
-                ))}
-              </ol>
-            </nav>
-          </aside>
+          <PrivacyToc sections={sections} />
 
           <article className={styles.privacyDocument}>
             <div className={styles.privacyCallout}>
@@ -336,7 +326,7 @@ export default function PrivacyPage() {
               <p>
                 Please report a suspected vulnerability through the private process in the{" "}
                 <a
-                  href="https://github.com/vnidrop/vnidrop/blob/master/SECURITY.md"
+                  href="https://github.com/sudosylabs/vnidrop/blob/master/SECURITY.md"
                   target="_blank"
                   rel="noreferrer"
                 >

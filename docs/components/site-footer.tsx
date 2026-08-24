@@ -3,12 +3,14 @@ import { githubRepoUrl } from "@/lib/release";
 import styles from "./site-footer.module.css";
 
 export function SiteFooter() {
+  const year = new Date().getUTCFullYear();
+
   return (
     <footer className={styles.siteFooter}>
       <div className={`${styles.inner} page-shell`}>
         <p className={styles.identity}>
-          <strong>VniDrop</strong>
-          <span>© 2026 contributors · Open source · Early development</span>
+          <strong translate="no">VniDrop</strong>
+          <span>© {year} contributors · Open source · Early development</span>
         </p>
         <nav className={styles.links} aria-label="Footer">
           <Link href="/download/">Download</Link>

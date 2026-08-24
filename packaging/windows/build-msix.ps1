@@ -191,6 +191,9 @@ try {
 	Assert-Condition ($identity.GetAttribute("ProcessorArchitecture") -eq "x64") "The packed package architecture is not x64"
 	Assert-Condition ($manifest.SelectSingleNode("/f:Package/f:Properties/f:DisplayName", $namespaces).InnerText -eq "Vnidrop") "The packed display name does not match the reserved Store name"
 	Assert-Condition ($manifest.SelectSingleNode("/f:Package/f:Properties/f:PublisherDisplayName", $namespaces).InnerText -eq "Sudosy Labs") "The packed publisher display name is incorrect"
+	$expectedLanguages = @("en-US", "de-DE", "es-ES", "fr-FR", "it-IT", "nl-NL", "pl-PL", "pt-PT", "ru-RU")
+	$actualLanguages = @($manifest.SelectNodes("/f:Package/f:Resources/f:Resource", $namespaces) | ForEach-Object { $_.GetAttribute("Language") })
+	Assert-Condition (($actualLanguages -join ";") -eq ($expectedLanguages -join ";")) "The packed package language list is incorrect: $($actualLanguages -join ', ')"
 	$targetFamily = $manifest.SelectSingleNode("/f:Package/f:Dependencies/f:TargetDeviceFamily", $namespaces)
 	Assert-Condition ($null -ne $targetFamily) "The packed manifest has no target device family"
 	Assert-Condition ($targetFamily.GetAttribute("Name") -eq "Windows.Desktop") "The packed package does not target Windows.Desktop"

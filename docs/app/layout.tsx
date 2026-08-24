@@ -1,10 +1,20 @@
 import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
 const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://vnidrop.sudosy.fr";
+
+const sourceSans = localFont({
+  src: [
+    { path: "../og-fonts/source-sans-400.ttf", weight: "400", style: "normal" },
+    { path: "../og-fonts/source-sans-600.ttf", weight: "600", style: "normal" },
+  ],
+  display: "swap",
+  variable: "--font-source-sans",
+});
 
 const metadataBase = new URL(
   configuredSiteUrl.startsWith("http") ? configuredSiteUrl : `https://${configuredSiteUrl}`,
@@ -59,15 +69,13 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#000000" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
-  ],
+  colorScheme: "dark",
+  themeColor: "#050506",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" data-scroll-behavior="smooth">
+    <html lang="en" className={sourceSans.variable} data-scroll-behavior="smooth">
       <body>
         <a className="skip-link" href="#main-content">
           Skip to content

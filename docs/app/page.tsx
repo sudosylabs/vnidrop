@@ -6,77 +6,15 @@ import styles from "./page.module.css";
 const traits = [
   {
     title: "Every platform in the room",
-    text: "Android, iOS, macOS, Windows, and Linux. Native SwiftUI on Apple. Compose on the rest.",
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="2.5" y="4.5" width="12" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="10.5" y="10.5" width="11" height="9" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      </svg>
-    ),
+    text: "Android, iOS, macOS, Windows, and Linux can meet without joining the same ecosystem.",
   },
   {
-    title: "No account. No hosted copy.",
-    text: "No signup. Files move on an authenticated, encrypted connection. A relay is only a route when there is no direct path — it never stores the transfer.",
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          d="M7.5 16.5H7a4 4 0 1 1 .6-7.95A5 5 0 0 1 17.5 10H18a3.5 3.5 0 0 1 0 7h-.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <path d="M9 20.5 16.5 9.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
+    title: "No hosted copy",
+    text: "Files move over an authenticated, encrypted connection. A relay can route bytes but never stores the transfer.",
   },
   {
-    title: "You stay in control",
-    text: "Ask before each download, or open a transfer to anyone with the invitation. Cancel or stop sharing at any time. Existing files at the destination are not overwritten.",
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          d="M12 3.5 19.5 7v5.2c0 4.3-3.1 7.4-7.5 8.8C7.6 19.6 4.5 16.5 4.5 12.2V7L12 3.5Z"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-        />
-        <path d="M8.5 12.2 11 14.7l4.5-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  {
-    title: "Meet with an invitation",
-    text: "The first meeting is a QR code, an NFC tag, or a .vnd file. After that you can send to a Saved device.",
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M5 5h5v5H5zM14 5h5v5h-5zM5 14h5v5H5z" fill="none" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M14 14h2.5M18.5 14H21M14 17.5h7M14 21h3.5M19.5 21H21" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    title: "Then Saved devices",
-    text: "Both of you choose to remember the other after a transfer. A Saved device still has to accept the offer. Remembering a device never auto-receives.",
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="6.5" y="3.5" width="11" height="17" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M10 6.5h4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        <circle cx="12" cy="16.5" r="1" fill="currentColor" />
-      </svg>
-    ),
-  },
-  {
-    title: "Open source",
-    text: "Apache 2.0. The runtime, the apps, and this site are on GitHub. Early development — still a beta.",
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M12 3.5v17M3.5 12h17" fill="none" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M12 3.5c2.8 3.2 4.2 6.2 4.2 8.5S14.8 17.3 12 20.5C9.2 17.3 7.8 14.3 7.8 12S9.2 6.7 12 3.5Z" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      </svg>
-    ),
+    title: "Approval by default",
+    text: "The receiver confirms every request. You can cancel a transfer or stop sharing whenever you need to.",
   },
 ];
 
@@ -138,34 +76,40 @@ export default function HomePage() {
   return (
     <main id="main-content">
       <section className={styles.hero}>
-        <div className={`${styles.heroCopy} page-shell`}>
-          <p className={styles.heroKicker}>Open source file transfer</p>
-          <h1>Send files from this device to that one.</h1>
-          <p className={styles.heroLead}>
-            No cloud folder. No signup. Meet with an invitation, then send to a Saved device. The
-            receiver still confirms every time.
-          </p>
-          <p className={styles.heroActions}>
-            <Link className="btn btn-primary" href="/download/">
-              Download
-            </Link>
-            <a className="text-link" href="#how-it-works">
-              How a transfer works
-            </a>
-          </p>
-          <p className={styles.heroPlatforms}>Android · iOS · macOS · Windows · Linux</p>
+        <div className={`${styles.heroInner} page-shell`}>
+          <div className={styles.heroCopy}>
+            <p className={styles.heroRoute} aria-label="From this device to that one">
+              <span>This device</span>
+              <span className={styles.routeLine} aria-hidden="true" />
+              <span>That one</span>
+            </p>
+            <h1>Send files from this device to that one.</h1>
+            <p className={styles.heroLead}>
+              Move a file, a folder, or a whole batch across Android, iOS, macOS, Windows, and Linux.
+              No account. No hosted copy. The receiver approves it.
+            </p>
+            <p className={styles.heroActions}>
+              <Link className="btn btn-primary" href="/download/">
+                Choose your download
+              </Link>
+              <a className="text-link" href="#how-it-works">
+                See the handoff
+              </a>
+            </p>
+            <p className={styles.heroPlatforms}>Open source · Apache 2.0 · Early development</p>
+          </div>
+          <figure className={styles.heroFigure}>
+            <Image
+              src="/shots/hero.png"
+              width={2400}
+              height={1920}
+              sizes="(max-width: 800px) calc(100vw - 32px), (max-width: 1200px) 58vw, 650px"
+              alt="VniDrop on macOS reviewing a transfer, and on iPhone choosing how to connect: a .vnd file, a QR code, or NFC."
+              priority
+              unoptimized
+            />
+          </figure>
         </div>
-        <figure className={styles.heroFigure}>
-          <Image
-            src="/shots/hero.png"
-            width={2400}
-            height={1920}
-            sizes="(max-width: 1100px) calc(100vw - 32px), 1024px"
-            alt="VniDrop on macOS reviewing a transfer, and on iPhone choosing how to connect: a .vnd file, a QR code, or NFC."
-            priority
-            unoptimized
-          />
-        </figure>
       </section>
 
       <section className={styles.traits} aria-labelledby="traits-heading">
@@ -174,7 +118,6 @@ export default function HomePage() {
           <ul className={styles.traitsGrid}>
             {traits.map((trait) => (
               <li key={trait.title}>
-                <span className={styles.traitIcon}>{trait.icon}</span>
                 <h3>{trait.title}</h3>
                 <p>{trait.text}</p>
               </li>
@@ -185,11 +128,13 @@ export default function HomePage() {
 
       <section id="how-it-works" className={styles.how}>
         <div className="page-shell">
-          <h2>How a transfer works</h2>
-          <p className={styles.sectionLead}>
-            An invitation introduces devices that have never met. A Saved device is one you both
-            chose to remember after a transfer.
-          </p>
+          <div className={styles.howIntro}>
+            <h2>How a transfer works</h2>
+            <p className={styles.sectionLead}>
+              An invitation introduces devices that have never met. A Saved device is one you both
+              chose to remember after a transfer.
+            </p>
+          </div>
           <ol className={styles.howList}>
             {steps.map((step) => (
               <li key={step.title} className={styles.howRow}>
@@ -230,7 +175,7 @@ export default function HomePage() {
       <section className={styles.get}>
         <div className={`${styles.getInner} page-shell`}>
           <div>
-            <h2>Get VniDrop</h2>
+            <h2>Make the next handoff.</h2>
             <p>
               Beta builds for macOS, Linux, and Android. Windows is on the Microsoft Store. iOS is
               not in a public store yet.
@@ -245,7 +190,7 @@ export default function HomePage() {
           </div>
           <p className={styles.getActions}>
             <Link className="btn btn-primary" href="/download/">
-              Download
+              Choose a build
             </Link>
             <a className="text-link" href={githubRepoUrl} target="_blank" rel="noreferrer">
               Source on GitHub

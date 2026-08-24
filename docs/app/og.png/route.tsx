@@ -54,8 +54,8 @@ export async function GET() {
         flexDirection: "column",
         justifyContent: "space-between",
         padding: "72px 80px 64px",
-        background: "#000000",
-        color: "#f4f4f5",
+        background: "#050506",
+        color: "#f3f1f5",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -75,7 +75,7 @@ export async function GET() {
         </div>
         <div
           style={{
-            color: "#a1a1aa",
+            color: "#aaa6b0",
             fontFamily: "Source Sans 3",
             fontSize: 18,
             fontWeight: 400,
@@ -105,7 +105,7 @@ export async function GET() {
             fontWeight: 400,
             lineHeight: 1.25,
             letterSpacing: -0.5,
-            color: "#a1a1aa",
+            color: "#aaa6b0",
           }}
         >
           They ask. You decide.
@@ -115,7 +115,7 @@ export async function GET() {
       <div
         style={{
           display: "flex",
-          color: "#71717a",
+          color: "#7f7a85",
           fontFamily: "Source Sans 3",
           fontSize: 20,
         }}

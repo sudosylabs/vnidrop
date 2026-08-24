@@ -33,6 +33,10 @@
 }
 
 .links a {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
   color: var(--ink-soft);
   font-size: 13px;
 }

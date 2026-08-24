@@ -1,38 +1,79 @@
 .hero {
-  padding: 56px 0 8px;
+  padding: 72px 0 56px;
+}
+
+.heroInner {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.82fr) minmax(0, 1.18fr);
+  gap: 36px;
+  align-items: center;
 }
 
 .heroCopy {
-  max-width: 40rem;
-  margin: 0 auto 36px;
-  text-align: center;
+  position: relative;
+  z-index: 1;
+  max-width: 34rem;
 }
 
-.heroKicker {
-  margin-bottom: 14px;
+.heroRoute {
+  display: flex;
+  max-width: 19rem;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
   color: var(--brand-ink);
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.routeLine {
+  position: relative;
+  flex: 1;
+  height: 1px;
+  background: var(--brand);
+}
+
+.routeLine::before,
+.routeLine::after {
+  position: absolute;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--brand);
+  content: "";
+}
+
+.routeLine::before {
+  left: 0;
+}
+
+.routeLine::after {
+  right: 0;
 }
 
 .hero h1 {
-  margin-bottom: 16px;
-  font-size: clamp(2.2rem, 4.6vw, 3.35rem);
-  letter-spacing: -0.045em;
-  line-height: 1.06;
+  margin-bottom: 24px;
+  font-size: clamp(3.25rem, 5.4vw, 4.8rem);
+  letter-spacing: -0.055em;
+  line-height: 0.94;
 }
 
 .heroLead {
-  margin: 0 auto 24px;
+  max-width: 32rem;
+  margin: 0 0 26px;
   color: var(--ink-soft);
-  font-size: 1.08rem;
+  font-size: 1.03rem;
 }
 
 .heroActions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
   gap: 14px 20px;
   margin-bottom: 16px;
 }
@@ -44,8 +85,8 @@
 }
 
 .heroFigure {
-  width: min(1024px, calc(100% - 24px));
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
 }
 
 .heroFigure img {
@@ -77,28 +118,21 @@
 .traitsGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 28px 32px;
+  gap: 0;
   margin: 36px 0 0;
   padding: 0;
   list-style: none;
 }
 
-.traitIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  margin-bottom: 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--brand-ink);
+.traitsGrid li {
+  min-width: 0;
+  padding: 4px 30px;
+  border-left: 1px solid var(--line);
 }
 
-.traitIcon svg {
-  width: 20px;
-  height: 20px;
+.traitsGrid li:first-child {
+  padding-left: 0;
+  border-left: 0;
 }
 
 .traitsGrid h3,
@@ -119,18 +153,32 @@
 
 .how {
   scroll-margin-top: 72px;
-  border-top: 1px solid var(--line);
+  border-block: 1px solid var(--line-strong);
+  background: var(--surface);
+}
+
+.howIntro {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.2fr);
+  gap: 32px 64px;
+  align-items: start;
+  padding-bottom: 48px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.howIntro h2 {
+  margin: 0;
 }
 
 .sectionLead {
   max-width: 40rem;
-  margin-bottom: 48px;
+  margin: 0;
   color: var(--ink-soft);
 }
 
 .howList {
   display: grid;
-  gap: 72px;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -139,14 +187,21 @@
 
 .howRow {
   display: grid;
-  grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.15fr);
-  gap: 40px 56px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 48px 72px;
   align-items: center;
+  min-height: 650px;
+  padding: 72px 0;
+  border-bottom: 1px solid var(--line-strong);
   counter-increment: how;
 }
 
+.howRow:last-child {
+  border-bottom: 0;
+}
+
 .howRow:nth-child(even) {
-  grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .howRow:nth-child(even) .howCopy {
@@ -157,6 +212,7 @@
   display: block;
   margin-bottom: 10px;
   color: var(--brand-ink);
+  font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -174,8 +230,12 @@
 }
 
 .shotPhone {
-  width: min(100%, 280px);
+  width: min(100%, 310px);
   justify-self: center;
+}
+
+.shotPhone img {
+  filter: drop-shadow(0 24px 38px rgb(0 0 0 / 44%));
 }
 
 .faq {
@@ -216,6 +276,7 @@
 
 .get {
   border-top: 1px solid var(--line);
+  background: var(--paper-warm);
   padding-bottom: 96px;
 }
 
@@ -241,6 +302,9 @@
 }
 
 .osList a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
   color: var(--ink);
   font-size: 0.95rem;
   font-weight: 600;
@@ -260,9 +324,19 @@
 }
 
 @media (max-width: 960px) {
-  .traitsGrid,
+  .heroInner,
+  .howIntro,
   .faqInner {
     grid-template-columns: 1fr;
+  }
+
+  .heroCopy {
+    max-width: 42rem;
+  }
+
+  .heroFigure {
+    width: min(760px, 100%);
+    margin-inline: auto;
   }
 
   .howRow,
@@ -279,21 +353,29 @@
   }
 
   .shotPhone {
-    width: min(100%, 240px);
+    width: min(100%, 280px);
   }
 }
 
 @media (max-width: 720px) {
   .hero {
-    padding-top: 36px;
+    padding: 44px 0 36px;
   }
 
-  .heroCopy {
-    margin-bottom: 20px;
+  .heroInner {
+    gap: 28px;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.75rem, 14vw, 3.7rem);
+  }
+
+  .heroRoute {
+    margin-bottom: 18px;
   }
 
   .heroFigure {
-    width: calc(100% - 8px);
+    width: 100%;
   }
 
   .traits,
@@ -304,7 +386,32 @@
   }
 
   .howList {
-    gap: 48px;
+    gap: 0;
+  }
+
+  .traitsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .traitsGrid li,
+  .traitsGrid li:first-child {
+    padding: 24px 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .traitsGrid li:last-child {
+    padding-bottom: 0;
+  }
+
+  .howIntro {
+    gap: 12px;
+    padding-bottom: 36px;
+  }
+
+  .howRow {
+    min-height: 0;
+    padding: 52px 0;
   }
 
   .get {

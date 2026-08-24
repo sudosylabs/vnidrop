@@ -34,14 +34,20 @@ export default async function DownloadPage() {
     <main id="main-content" className={styles.downloadPage}>
       <section className={styles.downloadHero}>
         <div className={`${styles.downloadHeroInner} page-shell`}>
-          <p className={styles.downloadKicker}>
-            {channelLabel} · {release.tag}
-          </p>
-          <h1>Download</h1>
-          <p>
-            Public builds from GitHub Releases. Windows is on the Microsoft Store. iOS is not in a
-            store yet.
-          </p>
+          <div>
+            <p className={styles.downloadKicker}>Current public release</p>
+            <h1>Choose this device.</h1>
+          </div>
+          <div className={styles.releaseSummary}>
+            <p className={styles.releaseIdentity}>
+              <span>{channelLabel}</span>
+              <strong>{release.tag}</strong>
+            </p>
+            <p>
+              Public builds come from GitHub Releases. Windows installs through the Microsoft Store.
+              iOS is available from source for now.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -49,48 +55,73 @@ export default async function DownloadPage() {
         <div className="page-shell">
           <ul className={styles.downloadList}>
             <li id="macos">
-              <h2>macOS</h2>
-              <p>Notarized disk image. The app can update itself after install.</p>
-              <p className={styles.downloadActions}>
-                {release.dmg ? <FileLink asset={release.dmg} /> : <span>No disk image in this release.</span>}
-              </p>
-              <div className={styles.installCommand}>
-                <CopyCommand command={homebrewInstall} />
+              <div className={styles.platformName}>
+                <h2>macOS</h2>
+                <span>Download</span>
+              </div>
+              <div className={styles.platformDetails}>
+                <p>Notarized disk image. The app can update itself after install.</p>
+                <p className={styles.downloadActions}>
+                  {release.dmg ? <FileLink asset={release.dmg} /> : <span>No disk image in this release.</span>}
+                </p>
+                <div className={styles.installCommand}>
+                  <CopyCommand command={homebrewInstall} />
+                </div>
               </div>
             </li>
             <li id="linux">
-              <h2>Linux</h2>
-              <p>64-bit packages for Debian/Ubuntu and Fedora/RHEL.</p>
-              <p className={styles.downloadActions}>
-                {release.deb ? <FileLink asset={release.deb} /> : null}
-                {release.rpm ? <FileLink asset={release.rpm} /> : null}
-                {!release.deb && !release.rpm ? <span>No Linux packages in this release.</span> : null}
-              </p>
+              <div className={styles.platformName}>
+                <h2>Linux</h2>
+                <span>Packages</span>
+              </div>
+              <div className={styles.platformDetails}>
+                <p>64-bit packages for Debian/Ubuntu and Fedora/RHEL.</p>
+                <p className={styles.downloadActions}>
+                  {release.deb ? <FileLink asset={release.deb} /> : null}
+                  {release.rpm ? <FileLink asset={release.rpm} /> : null}
+                  {!release.deb && !release.rpm ? <span>No Linux packages in this release.</span> : null}
+                </p>
+              </div>
             </li>
             <li id="android">
-              <h2>Android</h2>
-              <p>Play-signed APK for sideload. The Play listing is still in closed testing.</p>
-              <p className={styles.downloadActions}>
-                {release.apk ? <FileLink asset={release.apk} /> : <span>No Android APK in this release.</span>}
-              </p>
+              <div className={styles.platformName}>
+                <h2>Android</h2>
+                <span>Sideload</span>
+              </div>
+              <div className={styles.platformDetails}>
+                <p>Play-signed APK for sideload. The Play listing is still in closed testing.</p>
+                <p className={styles.downloadActions}>
+                  {release.apk ? <FileLink asset={release.apk} /> : <span>No Android APK in this release.</span>}
+                </p>
+              </div>
             </li>
             <li id="windows">
-              <h2>Windows</h2>
-              <p>Install from the Microsoft Store. There is no public sideload package.</p>
-              <p className={styles.downloadActions}>
-                <a className="text-link" href={windowsStoreUrl} rel="noreferrer">
-                  Microsoft Store
-                </a>
-              </p>
+              <div className={styles.platformName}>
+                <h2>Windows</h2>
+                <span>Store</span>
+              </div>
+              <div className={styles.platformDetails}>
+                <p>Install from the Microsoft Store. There is no public sideload package.</p>
+                <p className={styles.downloadActions}>
+                  <a className="text-link" href={windowsStoreUrl} rel="noreferrer">
+                    Open Microsoft Store
+                  </a>
+                </p>
+              </div>
             </li>
             <li id="ios">
-              <h2>iOS</h2>
-              <p>Native app, not in a public store yet. Build from source if you need it today.</p>
-              <p className={styles.downloadActions}>
-                <a className="text-link" href={githubRepoUrl} target="_blank" rel="noreferrer">
-                  Source on GitHub
-                </a>
-              </p>
+              <div className={styles.platformName}>
+                <h2>iOS</h2>
+                <span>Source only</span>
+              </div>
+              <div className={styles.platformDetails}>
+                <p>Native app, not in a public store yet. Build from source if you need it today.</p>
+                <p className={styles.downloadActions}>
+                  <a className="text-link" href={githubRepoUrl} target="_blank" rel="noreferrer">
+                    View source on GitHub
+                  </a>
+                </p>
+              </div>
             </li>
           </ul>
 

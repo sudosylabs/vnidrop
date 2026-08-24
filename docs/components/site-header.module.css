@@ -4,6 +4,9 @@
   top: 0;
   border-bottom: 1px solid var(--line);
   background: var(--paper);
+  background: color-mix(in srgb, var(--paper) 94%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
 }
 
 .inner {
@@ -21,6 +24,9 @@
 }
 
 .link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
   color: var(--ink-soft);
   font-size: 15px;
 }
@@ -40,6 +46,7 @@
   }
 
   .link {
+    padding-inline: 4px;
     font-size: 14px;
   }
 

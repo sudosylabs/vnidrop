@@ -25,7 +25,9 @@ export function Brand() {
   return (
     <Link className={styles.brand} href="/" aria-label="VniDrop home">
       <BrandMark className={styles.mark} />
-      <span className={styles.name}>VniDrop</span>
+      <span className={styles.name} translate="no">
+        VniDrop
+      </span>
     </Link>
   );
 }

@@ -1,8 +1,11 @@
+.copyBlock {
+  max-width: 42rem;
+}
+
 .copyCommand {
   display: flex;
   align-items: center;
   gap: 8px;
-  max-width: 42rem;
   padding: 6px 6px 6px 12px;
   border: 1px solid var(--line);
   background: var(--surface);
@@ -22,8 +25,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border: 0;
   background: transparent;
   color: var(--ink-soft);
@@ -37,4 +40,11 @@
 
 .copyCommand button:focus-visible {
   outline-offset: 0;
+}
+
+.copyStatus {
+  min-height: 18px;
+  margin: 6px 0 0;
+  color: var(--ink-muted);
+  font-size: 12px;
 }

@@ -3,23 +3,27 @@
 }
 
 .privacyHero {
-  padding: 48px 0 36px;
+  padding: 72px 0 56px;
   border-bottom: 1px solid var(--line);
 }
 
 .privacyHeroInner {
-  max-width: var(--measure);
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
+  gap: 10px 80px;
+  align-items: end;
 }
 
 .privacyHero h1 {
-  margin-bottom: 16px;
-  font-size: clamp(2.15rem, 4vw, 2.75rem);
-  letter-spacing: -0.035em;
-  line-height: 1.1;
+  grid-row: 1 / span 2;
+  margin: 0;
+  font-size: clamp(3rem, 5.5vw, 4.5rem);
+  letter-spacing: -0.05em;
+  line-height: 0.98;
 }
 
 .privacyHeroInner > p:not(.privacyMeta) {
-  margin-bottom: 16px;
+  margin: 0;
   color: var(--ink-soft);
   font-size: 1.05rem;
   line-height: 1.65;
@@ -28,7 +32,9 @@
 .privacyMeta {
   margin: 0;
   color: var(--ink-muted);
+  font-family: var(--font-mono);
   font-size: 14px;
+  font-variant-numeric: tabular-nums;
 }
 
 .privacyDocumentSection {
@@ -75,8 +81,9 @@
 }
 
 .privacyToc a {
-  display: block;
-  padding: 5px 0;
+  display: flex;
+  min-height: 36px;
+  align-items: center;
   color: var(--ink-muted);
   font-size: 13px;
   line-height: 1.45;
@@ -86,11 +93,20 @@
   color: var(--ink);
 }
 
+.privacyToc a[aria-current="location"] {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--brand);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+
 .privacyCallout {
   margin-bottom: 64px;
   padding: 0 0 40px 20px;
   border-bottom: 1px solid var(--line);
-  border-left: 2px solid var(--ink);
+  border-left: 2px solid var(--brand);
 }
 
 .privacyCallout strong {
@@ -282,7 +298,22 @@
   content: "↗";
 }
 
+.privacyContactLink {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+}
+
 @media (max-width: 940px) {
+  .privacyHeroInner {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .privacyHero h1 {
+    grid-row: auto;
+  }
+
   .privacyDocumentLayout {
     grid-template-areas:
       "toc"
@@ -306,7 +337,7 @@
 
 @media (max-width: 640px) {
   .privacyHero {
-    padding: 32px 0 28px;
+    padding: 44px 0 40px;
   }
 
   .privacyHero h1 {
@@ -323,15 +354,32 @@
   }
 
   .privacyDocumentSection {
-    padding: 56px 0 96px;
+    padding: 40px 0 80px;
   }
 
   .privacyDocumentLayout {
-    gap: 0;
+    gap: 40px;
   }
 
   .privacyToc {
-    display: none;
+    display: block;
+    overflow: hidden;
+    padding-bottom: 20px;
+  }
+
+  .privacyToc ol {
+    display: flex;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 8px;
+    overscroll-behavior-inline: contain;
+  }
+
+  .privacyToc a {
+    min-height: 44px;
+    padding-inline: 12px;
+    border: 1px solid var(--line);
+    white-space: nowrap;
   }
 
   .privacyCallout {

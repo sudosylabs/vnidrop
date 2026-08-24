@@ -44,8 +44,12 @@ extension Error {
 				return .resource(L10n.Error.invalidInput)
 			case .InvalidTransition:
 				return .resource(L10n.Error.invalidInput)
-			case .SecureStorageLocked, .SecureStorageUnavailable:
+			case .SecureStorageLocked:
 				return .resource(L10n.Error.startingUp)
+			// Not `startingUp`: the store is unreachable, not busy, so telling the
+			// user to try again in a moment describes a wait that never ends.
+			case .SecureStorageUnavailable:
+				return .resource(L10n.App.secureStorageUnavailableMessage)
 			case .SecureStorageMissing, .SecureStorageCorrupted:
 				return .resource(L10n.Error.generic)
 			case .Initialization(let reason):
@@ -108,7 +112,10 @@ extension Error {
 		guard let vni = self as? VnidropError else { return true }
 		switch vni {
 		case .FilesystemPermission, .DestinationExists, .InvalidInput,
-			 .SecureStorageMissing, .SecureStorageCorrupted:
+			 .SecureStorageMissing, .SecureStorageCorrupted,
+			 // Retrying re-enters the same unreachable store; only reinstalling
+			 // changes the outcome, so never offer a retry affordance for it.
+			 .SecureStorageUnavailable:
 			return false
 		default: return true
 		}

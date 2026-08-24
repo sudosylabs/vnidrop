@@ -68,4 +68,46 @@ final class AppModelTests: XCTestCase {
 		XCTAssertNil(model.startupRecovery)
 		XCTAssertTrue(core.state.isInitialized)
 	}
+
+	/// An unreachable store is not a repairable identity: the reset writes to the
+	/// same store, so offering it (or a retry) would loop with no way out.
+	func testUnreachableSecureStorageIsReportedAsItsOwnRecoveryState() async {
+		let core = FakeCoreGateway()
+		core.initializeResult = .failure(
+			VnidropError.SecureStorageUnavailable(reason: "credential store is unavailable")
+		)
+		let model = makeModel(core, preferences: Fixtures.preferences())
+
+		await waitUntil { model.startupRecovery == .secureStorageUnavailable }
+		XCTAssertFalse(core.state.isInitialized)
+		// The overlay shows the recovery copy, so a competing generic error would
+		// be dead weight the user never sees.
+		XCTAssertNil(model.startupError)
+	}
+
+	func testUnreachableSecureStorageDoesNotOfferTheIdentityReset() async {
+		let core = FakeCoreGateway()
+		core.initializeResult = .failure(
+			VnidropError.SecureStorageUnavailable(reason: "credential store is unavailable")
+		)
+		let model = makeModel(core, preferences: Fixtures.preferences())
+		await waitUntil { model.startupRecovery == .secureStorageUnavailable }
+
+		await model.resetUnrecoverableIdentity()
+
+		XCTAssertEqual(core.resetUnrecoverableIdentityCount, 0)
+		XCTAssertEqual(model.startupRecovery, .secureStorageUnavailable)
+	}
+
+	/// A locked keychain does unlock, so it keeps the retryable path.
+	func testLockedSecureStorageStaysRetryable() async {
+		let core = FakeCoreGateway()
+		core.initializeResult = .failure(
+			VnidropError.SecureStorageLocked(reason: "credential store is locked")
+		)
+		let model = makeModel(core, preferences: Fixtures.preferences())
+
+		await waitUntil { model.startupError != nil }
+		XCTAssertNil(model.startupRecovery)
+	}
 }

@@ -337,6 +337,36 @@ private struct CoreStartingOverlay: View {
 					.disabled(isResettingIdentity)
 				}
 				.padding(32)
+			// An unreachable secret store looks like the generic error state but
+			// must not offer its retry: the store is gone, not busy, so retrying
+			// only re-runs the call that just failed. Reinstalling is the actual
+			// remedy, so say that instead of implying the user can wait it out.
+			} else if recovery == .secureStorageUnavailable {
+				VStack(spacing: 18) {
+					Image(systemSymbol: .lockSlashFill)
+						.font(.system(size: 44))
+						.foregroundStyle(.orange)
+					Text(String(localized: L10n.App.secureStorageUnavailableTitle))
+						.font(.title2.bold())
+					Text(String(localized: L10n.App.secureStorageUnavailableMessage))
+						.multilineTextAlignment(.center)
+						.foregroundStyle(.secondary)
+						.frame(maxWidth: 420)
+					if let detail {
+						ScrollView {
+							Text(detail)
+								.font(.caption.monospaced())
+								.foregroundStyle(.secondary)
+								.textSelection(.enabled)
+								.multilineTextAlignment(.leading)
+								.frame(maxWidth: .infinity, alignment: .leading)
+								.padding(10)
+						}
+						.frame(maxWidth: 420, maxHeight: 180)
+						.background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+					}
+				}
+				.padding(32)
 			} else if let error {
 				VStack(spacing: 16) {
 					Image(systemSymbol: .exclamationmarkTriangleFill)
@@ -396,11 +426,14 @@ private struct CoreStartingOverlay: View {
 		.accessibilityLabel(Text(accessibilityLabel))
 	}
 
-	/// Mirrors the three visual states, so VoiceOver never announces "Starting…"
+	/// Mirrors the four visual states, so VoiceOver never announces "Starting…"
 	/// over a screen that has actually stopped and is asking for a decision.
 	private var accessibilityLabel: String {
 		if recovery == .identityUnrecoverable {
 			return String(localized: L10n.App.identityResetTitle)
+		}
+		if recovery == .secureStorageUnavailable {
+			return String(localized: L10n.App.secureStorageUnavailableTitle)
 		}
 		return error?.resolved() ?? String(localized: L10n.App.starting)
 	}

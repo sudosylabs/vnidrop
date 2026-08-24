@@ -395,6 +395,36 @@
         "ru": "VniDrop не может восстановить защищённый идентификатор этого устройства. Сбросьте его, чтобы начать с новым идентификатором."
       }
     },
+    "app_secure_storage_unavailable_title": {
+      "context": "Startup failure: title when the system keychain cannot be reached at all, so no secret can be read or written.",
+      "targets": ["apple"],
+      "translations": {
+        "en": "Secure storage unavailable",
+        "fr": "Stockage sécurisé indisponible",
+        "es": "Almacenamiento seguro no disponible",
+        "it": "Archiviazione sicura non disponibile",
+        "de": "Sicherer Speicher nicht verfügbar",
+        "pt": "Armazenamento seguro indisponível",
+        "pl": "Bezpieczny magazyn jest niedostępny",
+        "nl": "Beveiligde opslag niet beschikbaar",
+        "ru": "Защищённое хранилище недоступно"
+      }
+    },
+    "app_secure_storage_unavailable_message": {
+      "context": "Startup failure: explanation when the keychain is unreachable. Retrying and resetting both use the same store, so neither can help; reinstalling is the only fix.",
+      "targets": ["apple"],
+      "translations": {
+        "en": "VniDrop can’t reach your device’s secure storage, so it can’t start. Reinstalling VniDrop usually fixes this.",
+        "fr": "VniDrop n’arrive pas à accéder au stockage sécurisé de votre appareil et ne peut donc pas démarrer. Réinstaller VniDrop résout généralement ce problème.",
+        "es": "VniDrop no puede acceder al almacenamiento seguro de su dispositivo, por lo que no puede iniciarse. Reinstalar VniDrop suele solucionarlo.",
+        "it": "VniDrop non riesce ad accedere all’archiviazione sicura del suo dispositivo e non può avviarsi. Reinstallare VniDrop di solito risolve il problema.",
+        "de": "VniDrop kann nicht auf den sicheren Speicher Ihres Geräts zugreifen und daher nicht starten. Eine Neuinstallation von VniDrop behebt dies meist.",
+        "pt": "O VniDrop não consegue aceder ao armazenamento seguro do seu dispositivo, pelo que não consegue iniciar. Reinstalar o VniDrop costuma resolver o problema.",
+        "pl": "VniDrop nie może uzyskać dostępu do bezpiecznego magazynu urządzenia, więc nie może się uruchomić. Ponowna instalacja VniDrop zwykle rozwiązuje ten problem.",
+        "nl": "VniDrop heeft geen toegang tot de beveiligde opslag van je apparaat en kan daardoor niet starten. VniDrop opnieuw installeren lost dit meestal op.",
+        "ru": "VniDrop не может получить доступ к защищённому хранилищу устройства и поэтому не запускается. Обычно помогает переустановка VniDrop."
+      }
+    },
     "appearance_auto_description": {
       "context": "Settings > Appearance: description for the System/auto option.",
       "translations": {

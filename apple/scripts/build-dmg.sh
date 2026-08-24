@@ -28,6 +28,14 @@ PROJECT="$APPLE_DIR/VniDrop.xcodeproj"
 SCHEME="VniDropDirect"
 CONFIG="Release-Direct"
 APP_NAME="VniDrop"
+# Read the bundle id from project.yml rather than restating it, so the signed
+# keychain access group can never drift from the app's actual identity.
+APP_BUNDLE_ID="$(sed -nE 's/^[[:space:]]*PRODUCT_BUNDLE_IDENTIFIER:[[:space:]]*(.+)$/\1/p' \
+	"$APPLE_DIR/project.yml" | head -1)"
+[ -n "$APP_BUNDLE_ID" ] || {
+	echo "error: could not read PRODUCT_BUNDLE_IDENTIFIER from project.yml" >&2
+	exit 1
+}
 VERSION_RESOLVER="$REPO_ROOT/packaging/version/resolve-version.sh"
 VERSION_CONFIG_GENERATOR="$REPO_ROOT/packaging/version/generate-apple-xcconfig.sh"
 APP_CONFIG_GENERATOR="$SCRIPT_DIR/generate-appconfig.sh"
@@ -108,11 +116,101 @@ ACTUAL_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' \
 	exit 1
 }
 
+# --- Embed the Developer ID provisioning profile ------------------------------
+# The app needs a keychain access group to reach the data-protection Keychain
+# (see VniDropDirect-Signing.entitlements). macOS will not *launch* a binary
+# claiming keychain-access-groups unless an embedded provisioning profile
+# authorizes it — codesign and the notary service both accept such a binary, but
+# launchd then kills it with "Launchd job spawn failed" (POSIX 163). The profile
+# is therefore mandatory, not optional.
+PROFILE="${DEVELOPER_ID_PROFILE:-$APPLE_DIR/VniDrop/Resources/VniDropDirect.provisionprofile}"
+[ -f "$PROFILE" ] || {
+	echo "error: Developer ID provisioning profile not found: $PROFILE" >&2
+	echo "       Create one (developer.apple.com ▸ Profiles ▸ Developer ID ▸ Application)" >&2
+	echo "       for $APP_BUNDLE_ID, or point DEVELOPER_ID_PROFILE at it." >&2
+	exit 1
+}
+echo "==> Embedding provisioning profile"
+cp "$PROFILE" "$APP/Contents/embedded.provisionprofile"
+
 echo "==> Enforcing hardened-runtime signature"
+# The shipped signature comes from this re-sign, not from the archive, so the
+# keychain access group is applied here (see VniDropDirect-Signing.entitlements
+# for why it cannot live on the target). codesign does not expand Xcode build
+# settings, so resolve the template the same way ExportOptions is resolved
+# above — otherwise the group would be signed in as the literal
+# "$(DEVELOPMENT_TEAM)…" and the data-protection Keychain would reject the app.
+RESOLVED_ENTITLEMENTS="$BUILD_DIR/VniDropDirect.resolved.entitlements"
+sed -e "s/\$(DEVELOPMENT_TEAM)/$DEVELOPMENT_TEAM/g" \
+	-e "s/\$(PRODUCT_BUNDLE_IDENTIFIER)/$APP_BUNDLE_ID/g" \
+	"$APPLE_DIR/VniDrop/Resources/VniDropDirect-Signing.entitlements" > "$RESOLVED_ENTITLEMENTS"
+if grep -q '\$(' "$RESOLVED_ENTITLEMENTS"; then
+	echo "error: unresolved build settings remain in $RESOLVED_ENTITLEMENTS:" >&2
+	grep -n '\$(' "$RESOLVED_ENTITLEMENTS" >&2
+	exit 1
+fi
+# An entitlements file Xcode cannot parse is silently treated as empty, which is
+# how the 0.3.1 build lost its entitlements without failing. Lint it explicitly.
+plutil -lint "$RESOLVED_ENTITLEMENTS" >/dev/null || {
+	echo "error: resolved entitlements are not a valid plist: $RESOLVED_ENTITLEMENTS" >&2
+	exit 1
+}
 "$SCRIPT_DIR/sign-exported-app.sh" \
 	"$APP" \
 	"$DEVELOPER_ID_APP" \
-	"$APPLE_DIR/VniDrop/Resources/VniDropDirect.entitlements"
+	"$RESOLVED_ENTITLEMENTS"
+
+# The 0.3.1 direct build shipped with an empty entitlements dict, which silently
+# broke every keychain read and write. Assert the group is really in the
+# signature so that failure mode can never ship again. Shared with the App Store
+# and iOS builds (ci_scripts/ci_post_xcodebuild.sh) so both channels are held to
+# the same contract.
+echo "==> Verifying keychain access group"
+EXPECTED_GROUP="$DEVELOPMENT_TEAM.$APP_BUNDLE_ID"
+"$SCRIPT_DIR/verify-keychain-access-group.sh" "$APP" "$APP_BUNDLE_ID"
+# A group without a surviving profile is the unlaunchable combination; codesign
+# drops unsealed files, so confirm the profile is still there after signing.
+[ -f "$APP/Contents/embedded.provisionprofile" ] || {
+	echo "error: embedded.provisionprofile missing after signing; the app would" >&2
+	echo "       claim $EXPECTED_GROUP without authorization and fail to launch." >&2
+	exit 1
+}
+# The profile authorizes the entitlement only for the certificates it embeds. A
+# profile built against a *different* Developer ID cert still archives, signs and
+# notarizes cleanly, then dies at launch with "Launchd job spawn failed" — the
+# 0.3.1 investigation lost a full cycle to exactly that. Compare the cert that
+# actually signed the app against the profile's cert list, since neither the
+# team id nor the certificate name distinguishes them.
+echo "==> Verifying signing certificate is authorized by the profile"
+rm -f "$BUILD_DIR"/signingcert*
+codesign -d --extract-certificates="$BUILD_DIR/signingcert" "$APP" 2>/dev/null
+SIGNING_SERIAL="$(openssl x509 -inform DER -in "$BUILD_DIR/signingcert0" -noout -serial \
+	| cut -d= -f2)"
+PROFILE_SERIALS="$(security cms -D -i "$PROFILE" 2>/dev/null | python3 -c '
+import plistlib, subprocess, sys
+profile = plistlib.loads(sys.stdin.buffer.read())
+for cert in profile.get("DeveloperCertificates", []):
+    result = subprocess.run(
+        ["openssl", "x509", "-inform", "DER", "-noout", "-serial"],
+        input=cert, capture_output=True,
+    )
+    print(result.stdout.decode().strip().split("=")[1])
+')"
+case " $PROFILE_SERIALS " in
+	*" $SIGNING_SERIAL "*) ;;
+	*)
+		echo "error: the signing certificate is not authorized by the profile." >&2
+		echo "       signed with:      $SIGNING_SERIAL" >&2
+		echo "       profile allows:   ${PROFILE_SERIALS:-<none>}" >&2
+		echo "       The app would notarize but fail to launch. Rebuild the" >&2
+		echo "       Developer ID profile against the signing certificate." >&2
+		exit 1
+		;;
+esac
+
+echo "    group:    $EXPECTED_GROUP"
+echo "    profile:  $PROFILE"
+echo "    cert:     $SIGNING_SERIAL (authorized)"
 
 # --- Build the DMG -----------------------------------------------------------
 DMG="$DIST_DIR/$APP_NAME-$VERSION.dmg"

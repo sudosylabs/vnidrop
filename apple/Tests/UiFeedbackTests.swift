@@ -67,5 +67,10 @@ final class UserFacingErrorTests: XCTestCase {
 		XCTAssertFalse(VnidropError.SecureStorageCorrupted(reason: "credential is corrupted").canRetryWithoutChangingInput)
 		XCTAssertTrue(VnidropError.Network(reason: "offline").canRetryWithoutChangingInput)
 		XCTAssertTrue(VnidropError.SecureStorageLocked(reason: "credential store is locked").canRetryWithoutChangingInput)
+		// Unreachable, not busy: retrying re-enters the call that just failed.
+		XCTAssertFalse(
+			VnidropError.SecureStorageUnavailable(reason: "credential store is unavailable")
+				.canRetryWithoutChangingInput
+		)
 	}
 }

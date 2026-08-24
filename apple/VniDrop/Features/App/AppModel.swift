@@ -4,6 +4,11 @@ import VnidropCore
 
 enum AppStartupRecovery: Equatable {
 	case identityUnrecoverable
+	/// The secret store itself is unreachable, so no secret can be read *or*
+	/// written. Distinct from `identityUnrecoverable`, whose repair writes a new
+	/// identity to a store that is working — that repair cannot help here, and
+	/// neither can a retry, because both re-enter the same failing call.
+	case secureStorageUnavailable
 }
 
 /// Top-level app state, ported from `feature/app/AppViewModel.kt`. Initializes the
@@ -73,6 +78,14 @@ final class AppModel: ObservableObject {
 				startupRecovery = .identityUnrecoverable
 				return
 			}
+			// An unreachable secret store is terminal: retrying re-runs the call
+			// that just failed, and the identity reset writes to the same store.
+			// Offering either would be a loop the user cannot get out of, so show
+			// the one thing that does help instead.
+			if error.hasUnreachableSecureStorage {
+				startupRecovery = .secureStorageUnavailable
+				return
+			}
 			startupError = error.toUiText()
 			#if DEBUG
 			startupErrorDetail = error.technicalDetail
@@ -116,6 +129,16 @@ private extension Error {
 		guard let error = self as? VnidropError else { return false }
 		switch error {
 		case .SecureStorageMissing, .SecureStorageCorrupted: return true
+		default: return false
+		}
+	}
+
+	/// The store could not be reached at all. `SecureStorageLocked` is excluded
+	/// on purpose: a locked keychain unlocks, so retrying there does succeed.
+	var hasUnreachableSecureStorage: Bool {
+		guard let error = self as? VnidropError else { return false }
+		switch error {
+		case .SecureStorageUnavailable: return true
 		default: return false
 		}
 	}

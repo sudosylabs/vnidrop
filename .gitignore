@@ -36,4 +36,9 @@ docs/adr/
 .screenshots
 apple/RELEASE-MACOS.md
 apple/Generated/*.xcconfig
+# Developer ID provisioning profile for the direct build. Contains no private
+# key, but it is an Apple-account artifact, so it is supplied per-machine or as
+# a CI secret rather than tracked. build-dmg.sh reads it from here or from
+# $DEVELOPER_ID_PROFILE.
+apple/VniDrop/Resources/*.provisionprofile
 .scratch/

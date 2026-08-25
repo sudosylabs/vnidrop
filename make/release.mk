@@ -14,6 +14,7 @@ package-deb: ## Build and verify a Debian x64 package.
 	output_name="vnidrop_$${version}-1_amd64.deb"; \
 	mkdir -p "$$output_directory"; \
 	cp "$${packages[0]}" "$$output_directory/$$output_name"; \
+	packaging/linux/patch-deb-desktop-entry.sh "$$output_directory/$$output_name"; \
 	packaging/linux/verify-package.sh deb "$$version" "$$output_directory/$$output_name"; \
 	( cd "$$output_directory" && sha256sum "$$output_name" > "$$output_name.sha256" ); \
 	printf 'Package: %s/%s\n' "$$output_directory" "$$output_name"

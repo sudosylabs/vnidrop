@@ -75,6 +75,11 @@ grep -Eq '^MimeType=.*application/vnd\.vnidrop\.transfer(;|$)' "${desktop_entrie
 desktop_icon=$(sed -n 's/^Icon=//p' "${desktop_entries[0]}")
 [[ $desktop_icon == /* ]] || fail "desktop entry does not use an absolute icon path"
 [[ -f "$extract_root$desktop_icon" ]] || fail "desktop entry icon is missing from the package"
+if [[ $format == deb ]]; then
+	script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	"$script_dir/ensure-desktop-identity.sh" --check "${desktop_entries[0]}" ||
+		fail "desktop entry does not match the VniDrop window class"
+fi
 
 mapfile -d '' -t bundled_jvms < <(find "$extract_root" -type f -path '*/lib/runtime/lib/server/libjvm.so' -print0)
 (( ${#bundled_jvms[@]} == 1 )) || fail "expected exactly one bundled JVM"

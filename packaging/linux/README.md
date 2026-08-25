@@ -71,4 +71,5 @@ make package-rpm
 
 The Make targets collect the Compose output under `build/release/linux/`, then
 validate package identity, version, architecture, dependencies, bundled JVM,
-and release Rust payload before generating a SHA-256 checksum.
+and release Rust payload before generating a SHA-256 checksum. The Debian
+target also validates the desktop-window association used by Linux docks.

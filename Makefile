@@ -71,11 +71,12 @@ check-version: ## Validate the canonical version and its platform mappings.
 	cd $(ROOT) && $(GRADLE) verifyVersion $(GRADLE_FLAGS)
 
 check-release: ## Validate coordinated release scripts and workflow YAML.
-	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh make/tests/test-open-apple.sh make/tests/test-with-secret-service.sh make/with-secret-service.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh
+	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh make/tests/test-open-apple.sh make/tests/test-with-secret-service.sh make/with-secret-service.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/linux/ensure-desktop-identity.sh packaging/linux/patch-deb-desktop-entry.sh packaging/linux/verify-package.sh packaging/linux/tests/test-ensure-desktop-identity.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh
 	cd $(ROOT) && apple/scripts/tests/test-notarize.sh
 	cd $(ROOT) && apple/scripts/tests/test-generate-appconfig.sh
 	cd $(ROOT) && apple/scripts/tests/test-sign-exported-app.sh
 	cd $(ROOT) && packaging/android/tests/test_verify_apk_signature.sh
+	cd $(ROOT) && packaging/linux/tests/test-ensure-desktop-identity.sh
 	cd $(ROOT) && packaging/release/test-assemble-release.sh
 	cd $(ROOT) && packaging/release/test-release-config.sh
 	cd $(ROOT) && make/tests/test-open-apple.sh

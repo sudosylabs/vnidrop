@@ -47,8 +47,6 @@ rules:
 
 - [Domain vocabulary](../../CONTEXT.md)
 - [Core transfer flow](../../crates/vnidrop/CORE_FLOW.md)
-- [Saved Devices design](../../DESIGN-DEVICE-HISTORY.md)
-- [Saved Devices platform handoff](../../DEVICE-HISTORY-UI-HANDOFF.md)
 - [Repository instructions](../../AGENTS.md)
 
 When this handbook and implementation disagree, first check whether the

@@ -29,9 +29,6 @@ Domain docs (reference, do not paste into PRs):
 
 - [`crates/vnidrop/CORE_FLOW.md`](crates/vnidrop/CORE_FLOW.md)
 - [`crates/vnidrop/tests/README.md`](crates/vnidrop/tests/README.md)
-- **Saved Devices platform UI:** read
-  [`DEVICE-HISTORY-UI-HANDOFF.md`](DEVICE-HISTORY-UI-HANDOFF.md) before changing
-  Saved Devices UI; it defines product behavior and completion gates.
 
 ---
 

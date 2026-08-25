@@ -49,7 +49,7 @@ export const metadata: Metadata = {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "VniDrop — Send files from this device to that one.",
+        alt: "VniDrop — Send files directly, with no account or hosted copy.",
       },
     ],
   },
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
     images: [
       {
         url: "/og.png",
-        alt: "VniDrop — Send files from this device to that one.",
+        alt: "VniDrop — Send files directly, with no account or hosted copy.",
       },
     ],
   },

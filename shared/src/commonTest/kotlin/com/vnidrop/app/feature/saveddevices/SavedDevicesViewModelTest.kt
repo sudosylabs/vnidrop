@@ -31,6 +31,7 @@ import uniffi.vnidrop.ReceiveOutputSinkV2
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -81,6 +82,49 @@ class SavedDevicesViewModelTest {
 		assertIs<PairingPrompt.IncomingRequest>(state.pairingPrompt.prompt)
 		assertEquals(false, state.isLoading)
 		assertEquals(false, state.loadFailed)
+	}
+
+	@Test
+	fun progressSignalsKeepContentStableAndConflateDurableRefreshes() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val core = initializedCore().apply {
+			savedDevices = listOf(device("peer", "Office PC", null))
+			targetedTransfers = listOf(
+				transfer(
+					"active-receive",
+					TargetedTransferRoleModel.Receiver,
+					"peer",
+					"local",
+					TargetedTransferStateModel.Transferring,
+				),
+			)
+		}
+		val viewModel = createViewModel(core)
+		runCurrent()
+		advanceUntilIdle()
+		assertFalse(viewModel.state.value.isLoading)
+		assertEquals(1, core.listTargetedTransfersCount)
+
+		val refreshStarted = CompletableDeferred<Unit>()
+		val releaseRefresh = CompletableDeferred<Unit>()
+		core.beforeListTargetedTransfers = {
+			refreshStarted.complete(Unit)
+			releaseRefresh.await()
+		}
+		core.mutableSignals.emit(com.vnidrop.app.core.CoreSignal.TargetedTransferChanged)
+		runCurrent()
+		assertTrue(refreshStarted.isCompleted)
+		assertFalse(viewModel.state.value.isLoading)
+
+		repeat(8) {
+			core.mutableSignals.emit(com.vnidrop.app.core.CoreSignal.TargetedTransferChanged)
+		}
+		runCurrent()
+		releaseRefresh.complete(Unit)
+		advanceUntilIdle()
+
+		assertEquals(3, core.listTargetedTransfersCount)
+		assertFalse(viewModel.state.value.isLoading)
 	}
 
 	@Test

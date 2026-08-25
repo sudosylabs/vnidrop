@@ -1,6 +1,9 @@
 package com.vnidrop.app.ui.navigation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.Interaction
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,6 +26,7 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +42,19 @@ import com.vnidrop.app.ui.platform.DesktopNavigationWidthDp
 import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import org.jetbrains.compose.resources.stringResource
+
+internal class PresslessInteractionSource(
+	private val delegate: MutableInteractionSource = MutableInteractionSource(),
+) : MutableInteractionSource {
+	override val interactions = delegate.interactions
+
+	override suspend fun emit(interaction: Interaction) {
+		if (interaction !is PressInteraction) delegate.emit(interaction)
+	}
+
+	override fun tryEmit(interaction: Interaction): Boolean =
+		interaction is PressInteraction || delegate.tryEmit(interaction)
+}
 
 enum class NavigationStyle {
 	AndroidBottomBar,
@@ -104,6 +121,7 @@ private fun AndroidNavigationRail(
 					unselectedIconColor = colors.foregroundLight,
 					unselectedTextColor = colors.foregroundLight,
 				),
+				interactionSource = remember { PresslessInteractionSource() },
 			)
 		}
 	}
@@ -219,6 +237,7 @@ fun AppBottomNavigation(
 					unselectedIconColor = colors.foregroundLight,
 					unselectedTextColor = colors.foregroundLight,
 				),
+				interactionSource = remember { PresslessInteractionSource() },
 			)
 		}
 	}

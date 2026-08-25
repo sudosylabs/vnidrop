@@ -20,7 +20,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -75,28 +77,24 @@ class SavedDevicesViewModel(
 				.distinctUntilChanged()
 				.collectLatest { (configuredFolder, initialized) ->
 					receiveFolder = fileSystemService.effectiveReceiveFolder(configuredFolder)
-					if (initialized) refresh()
+					if (initialized) refresh(showLoading = _state.value.isLoading)
 				}
 		}
 		viewModelScope.launch {
-			repository.signals.collect { signal ->
-				when (signal) {
-					CoreSignal.PairingChanged,
-					CoreSignal.TargetedTransferChanged -> {
-						if (repository.state.value.isInitialized) refresh()
-					}
-					is CoreSignal.ApprovalChanged,
-						is CoreSignal.ReceiverHistoryChanged,
-						is CoreSignal.TransfersChanged,
-						CoreSignal.RuntimeObligationChanged -> Unit
+			repository.signals
+				.filter { signal ->
+					signal == CoreSignal.PairingChanged || signal == CoreSignal.TargetedTransferChanged
 				}
-			}
+				.conflate()
+				.collect {
+					if (repository.state.value.isInitialized) refresh()
+				}
 		}
 	}
 
 	fun retry() {
 		if (!repository.state.value.isInitialized || _state.value.isLoading) return
-		viewModelScope.launch { refresh() }
+		viewModelScope.launch { refresh(showLoading = true) }
 	}
 
 	fun acceptPairingPrompt() {
@@ -286,9 +284,9 @@ class SavedDevicesViewModel(
 		}
 	}
 
-	private suspend fun refresh() {
+	private suspend fun refresh(showLoading: Boolean = false) {
 		refreshMutex.withLock {
-			_state.update { it.copy(isLoading = true, loadFailed = false) }
+			_state.update { it.copy(isLoading = showLoading, loadFailed = false) }
 			val eligibilities = repository.listPairingEligibilities().getOrElse {
 				refreshFailed(it)
 				return@withLock

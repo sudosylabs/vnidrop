@@ -117,6 +117,21 @@ class AppUiModelsTest {
 	}
 
 	@Test
+	fun terminalLifecycleEventRemovesStaleActiveProgress() {
+		val events = listOf(
+			event(id = "done", phase = "lifecycle", kind = "done", data = "{}"),
+			event(
+				id = "progress",
+				phase = "export",
+				kind = "progress",
+				data = """{"exported":100,"file_size":100}""",
+			),
+		)
+
+		assertEquals(null, progressForTransfer(events, 7UL))
+	}
+
+	@Test
 	fun progressForReceiverAggregatesMultiBlobSendByEndpoint() {
 		val events = listOf(
 			// newest first

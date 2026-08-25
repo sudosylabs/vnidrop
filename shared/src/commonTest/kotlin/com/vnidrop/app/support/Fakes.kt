@@ -217,6 +217,8 @@ class FakeCoreGateway : CoreGateway {
 	var listDeviceRelationshipsCount = 0
 	var listPendingTargetedOffersCount = 0
 	var listSavedDevicesCount = 0
+	var listTargetedTransfersCount = 0
+	var beforeListTargetedTransfers: suspend () -> Unit = {}
 	var respondTargetedResult: Result<TargetedOfferResponseModel> =
 		Result.success(TargetedOfferResponseModel.Declined)
 	var createTargetedResult: Result<TargetedTransferModel> =
@@ -323,7 +325,11 @@ class FakeCoreGateway : CoreGateway {
 	}
 	override suspend fun getTargetedTransfer(id: String) =
 		Result.success(targetedTransfers.firstOrNull { it.id == id })
-	override suspend fun listTargetedTransfers() = Result.success(targetedTransfers)
+	override suspend fun listTargetedTransfers(): Result<List<TargetedTransferModel>> {
+		listTargetedTransfersCount += 1
+		beforeListTargetedTransfers()
+		return Result.success(targetedTransfers)
+	}
 	override suspend fun receiveTargetedTransfer(transferId: String, outputDir: String): Result<Unit> {
 		receivedTargetedTransferIds += transferId
 		receivedTargetedPathDirs += transferId to outputDir

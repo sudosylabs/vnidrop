@@ -89,6 +89,7 @@ fun progressForTransfer(events: List<CoreEventModel>, transferId: ULong): Transf
 		event.transferId == transferId && event.phase in progressPhases && event.kind in progressKinds
 	}
 	val latest = relevant.firstOrNull() ?: return null
+	if (latest.endsVisibleProgress()) return null
 	val sizeHint = findKnownSize(events, transferId)
 	return TransferProgress(
 		transferId = transferId,
@@ -220,6 +221,14 @@ private val progressKinds = setOf(
 	"created", "progress", "completed", "aborted", "failed",
 	"connecting", "connected", "found-collection",
 	"cancelled", "share-stopped",
+)
+
+private fun CoreEventModel.endsVisibleProgress(): Boolean =
+	kind in terminalProgressKinds ||
+		(phase == "ticket" && kind == "created")
+
+private val terminalProgressKinds = setOf(
+	"done", "completed", "aborted", "failed", "cancelled", "share-stopped",
 )
 
 private val activeTransferStatuses = setOf(

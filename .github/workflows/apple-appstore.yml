@@ -1,0 +1,208 @@
+name: Apple App Store (iOS + macOS)
+
+# Archives the App Store targets and uploads them to App Store Connect, where
+# they become available to TestFlight and can be selected for a review
+# submission.
+#
+# This runs here rather than in Xcode Cloud for two reasons:
+#
+#  1. Xcode Cloud overrides CFBundleVersion with its own integer build-run
+#     number and cannot be told not to ("You can't use build numbers that are
+#     hash values, timestamps, or other strings" — Apple). Our build numbers are
+#     UTC timestamps from packaging/version/resolve-version.sh, shared with the
+#     direct-download channel. `manageAppVersionAndBuildNumber: false` is honored
+#     here, so the timestamp survives.
+#  2. Xcode Cloud's cloud-managed signing emits a designated requirement that
+#     encodes the certificate CN in Unicode NFD while the certificate itself uses
+#     NFC, so the signature fails its own requirement and App Store Connect
+#     rejects the upload with ITMS-90035. Signing with our own certificate here
+#     avoids that entirely.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or branch to build (defaults to the triggering ref)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-appstore-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  upload:
+    name: Archive & upload to App Store Connect
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Resolve version
+        id: version
+        run: |
+          set -euo pipefail
+          packaging/version/resolve-version.sh verify >/dev/null
+          echo "app=$(packaging/version/resolve-version.sh product)" >> "$GITHUB_OUTPUT"
+          echo "build=$(packaging/version/resolve-version.sh apple-store-build)" >> "$GITHUB_OUTPUT"
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # v1
+        with:
+          toolchain: stable
+          targets: aarch64-apple-darwin,aarch64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Cache Cargo
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: apple-appstore-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: apple-appstore-cargo-
+
+      - name: Install tooling
+        run: brew install xcodegen swiftlint
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+
+      - name: Generate the Xcode project
+        # APPLE_PROFILE=release: a debug core roughly doubles the binary and must
+        # never reach the App Store.
+        run: make apple-project APPLE_PROFILE=release
+
+      - name: Import signing certificates
+        env:
+          DIST_P12: ${{ secrets.APPLE_DISTRIBUTION_CERT_P12 }}
+          DIST_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERT_PASSWORD }}
+          INSTALLER_P12: ${{ secrets.MAC_INSTALLER_CERT_P12 }}
+          INSTALLER_PASSWORD: ${{ secrets.MAC_INSTALLER_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/appstore.keychain-db"
+          kpw="$(uuidgen)"
+          security create-keychain -p "$kpw" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$kpw" "$keychain"
+
+          # Apple Distribution signs the .app; Mac Installer Distribution signs
+          # the macOS .pkg that App Store Connect requires.
+          echo "$DIST_P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$keychain" -P "$DIST_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/productsign
+          echo "$INSTALLER_P12" | base64 --decode > "$RUNNER_TEMP/installer.p12"
+          security import "$RUNNER_TEMP/installer.p12" -k "$keychain" -P "$INSTALLER_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/productsign
+
+          security set-key-partition-list -S apple-tool:,apple:,codesign:,productsign: \
+            -s -k "$kpw" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" \
+            $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/dist.p12" "$RUNNER_TEMP/installer.p12"
+
+          security find-identity -v "$keychain"
+
+      - name: Write App Store Connect API key
+        env:
+          APPLE_ASC_KEY_P8: ${{ secrets.APPLE_ASC_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$APPLE_ASC_KEY_P8" > "$RUNNER_TEMP/asc.p8"
+          chmod 600 "$RUNNER_TEMP/asc.p8"
+
+      - name: Archive and upload
+        env:
+          TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+
+          # destination=upload sends the export straight to App Store Connect.
+          # manageAppVersionAndBuildNumber=false keeps our timestamp build number
+          # instead of letting Xcode renumber the build.
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          EOF
+
+          for platform in iOS macOS; do
+            echo "==> Archiving for $platform"
+            archive="$RUNNER_TEMP/VniDrop-$platform.xcarchive"
+
+            # CODE_SIGNING_ALLOWED/REQUIRED override apple/Signing.xcconfig, which
+            # pins them to NO so local and PR builds stay unsigned.
+            xcodebuild archive \
+              -project apple/VniDrop.xcodeproj \
+              -scheme VniDrop \
+              -destination "generic/platform=$platform" \
+              -archivePath "$archive" \
+              -allowProvisioningUpdates \
+              -authenticationKeyPath "$RUNNER_TEMP/asc.p8" \
+              -authenticationKeyID "$KEY_ID" \
+              -authenticationKeyIssuerID "$ISSUER_ID" \
+              CODE_SIGNING_ALLOWED=YES \
+              CODE_SIGNING_REQUIRED=YES \
+              CODE_SIGN_STYLE=Automatic \
+              DEVELOPMENT_TEAM="$TEAM_ID"
+
+            echo "==> Verifying keychain access group ($platform)"
+            app="$(find "$archive/Products/Applications" -maxdepth 1 -name '*.app' | head -1)"
+            apple/scripts/verify-keychain-access-group.sh "$app"
+
+            echo "==> Uploading $platform build to App Store Connect"
+            xcodebuild -exportArchive \
+              -archivePath "$archive" \
+              -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+              -exportPath "$RUNNER_TEMP/export-$platform" \
+              -allowProvisioningUpdates \
+              -authenticationKeyPath "$RUNNER_TEMP/asc.p8" \
+              -authenticationKeyID "$KEY_ID" \
+              -authenticationKeyIssuerID "$ISSUER_ID"
+          done
+
+      - name: Clean up credentials
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/asc.p8"
+          security delete-keychain "$RUNNER_TEMP/appstore.keychain-db" || true
+
+      - name: Summary
+        if: success()
+        run: |
+          {
+            echo "### Uploaded to App Store Connect"
+            echo
+            echo "- Version: \`${{ steps.version.outputs.app }}\`"
+            echo "- Build: \`${{ steps.version.outputs.build }}\`"
+            echo
+            echo "Processing takes a few minutes. Once complete the build appears"
+            echo "in TestFlight and can be selected for a review submission."
+          } >> "$GITHUB_STEP_SUMMARY"

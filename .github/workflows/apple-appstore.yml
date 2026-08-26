@@ -19,6 +19,10 @@ name: Apple App Store (iOS + macOS)
 #     avoids that entirely.
 
 on:
+  # TEMPORARY: lets this workflow be exercised before it reaches the default
+  # branch, since workflow_dispatch only works from there. Remove before merging.
+  push:
+    branches: [fix/ci-scripts-location]
   release:
     types: [published]
   workflow_dispatch:

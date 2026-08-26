@@ -17,7 +17,7 @@
 # Non-archive actions (build, test, analyze) keep the unsigned fast path.
 set -euo pipefail
 
-REPO_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(cd "$(dirname "$0")/.." && pwd)}"
+REPO_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$REPO_ROOT"
 
 if [ "${CI_XCODEBUILD_ACTION:-}" != "archive" ]; then
@@ -31,7 +31,7 @@ echo "==> Enabling code signing for the archive (apple/Local.xcconfig)"
 # DEVELOPMENT_TEAM and must survive. Last assignment wins either way.
 cat >> apple/Local.xcconfig <<'EOF'
 
-// Appended by ci_scripts/ci_pre_xcodebuild.sh — Xcode Cloud archive builds.
+// Appended by apple/ci_scripts/ci_pre_xcodebuild.sh — Xcode Cloud archive builds.
 // Overrides the unsigned defaults in Signing.xcconfig.
 CODE_SIGNING_ALLOWED = YES
 CODE_SIGNING_REQUIRED = YES

@@ -19,7 +19,7 @@
 # builds there is nothing to check and the script exits cleanly.
 set -euo pipefail
 
-REPO_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(cd "$(dirname "$0")/.." && pwd)}"
+REPO_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$REPO_ROOT"
 
 if [ -z "${CI_ARCHIVE_PATH:-}" ]; then

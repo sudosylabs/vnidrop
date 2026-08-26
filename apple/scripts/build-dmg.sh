@@ -163,7 +163,7 @@ plutil -lint "$RESOLVED_ENTITLEMENTS" >/dev/null || {
 # The 0.3.1 direct build shipped with an empty entitlements dict, which silently
 # broke every keychain read and write. Assert the group is really in the
 # signature so that failure mode can never ship again. Shared with the App Store
-# and iOS builds (ci_scripts/ci_post_xcodebuild.sh) so both channels are held to
+# and iOS builds (apple/ci_scripts/ci_post_xcodebuild.sh) so both channels are held to
 # the same contract.
 echo "==> Verifying keychain access group"
 EXPECTED_GROUP="$DEVELOPMENT_TEAM.$APP_BUNDLE_ID"

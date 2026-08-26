@@ -14,7 +14,7 @@
 # points at the checked-out repository root.
 set -euo pipefail
 
-REPO_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(cd "$(dirname "$0")/.." && pwd)}"
+REPO_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$REPO_ROOT"
 
 echo "==> Installing build tooling (Homebrew)"

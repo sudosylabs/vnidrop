@@ -1,5 +1,11 @@
 # Xcode Cloud CI scripts
 
+This directory must stay next to `VniDrop.xcodeproj` — Xcode Cloud looks for
+`ci_scripts` "in the same directory as your Xcode project or workspace", not at
+the repository root. At the root it is silently ignored: no script runs, and the
+build fails later with `'apple/VniDrop.xcodeproj' does not exist` because nothing
+generated the project.
+
 Xcode Cloud runs the scripts in this directory around each build:
 `ci_post_clone.sh` prepares the project, `ci_pre_xcodebuild.sh` enables code
 signing for archives, and `ci_post_xcodebuild.sh` checks the archive.

@@ -212,7 +212,7 @@ internal class WindowsNativeWindowController private constructor(
 	var usesCustomChrome by mutableStateOf(true)
 		private set
 
-	var usesSystemCaptionButtons by mutableStateOf(false)
+	var usesSystemCaptionButtonHandling by mutableStateOf(false)
 		private set
 
 	var hoveredCaptionButton by mutableStateOf<WindowsCaptionButton?>(null)
@@ -345,7 +345,7 @@ internal class WindowsNativeWindowController private constructor(
 			transparentSurfaceConfigured = true
 			installContentWindowProcedure()
 			refreshSystemCaptionButtonBounds()
-			publishUsesSystemCaptionButtons(systemCaptionButtonBoundsAvailable)
+			publishUsesSystemCaptionButtonHandling(systemCaptionButtonBoundsAvailable)
 			true
 		}.getOrElse {
 			runCatching { restoreContentPane() }
@@ -377,7 +377,7 @@ internal class WindowsNativeWindowController private constructor(
 				DwmAttributeValue.Enabled,
 			)
 			refreshSystemCaptionButtonBounds()
-			publishUsesSystemCaptionButtons(systemCaptionButtonBoundsAvailable)
+			publishUsesSystemCaptionButtonHandling(systemCaptionButtonBoundsAvailable)
 		} else {
 			resetDwmBackdrop()
 		}
@@ -395,7 +395,7 @@ internal class WindowsNativeWindowController private constructor(
 	private fun resetDwmBackdrop() {
 		systemFrameExtended = false
 		systemCaptionButtonBoundsAvailable = false
-		publishUsesSystemCaptionButtons(false)
+		publishUsesSystemCaptionButtonHandling(false)
 		dwm?.setIntAttribute(
 			windowHandle,
 			DwmWindowAttribute.RedirectionBitmapAlpha,
@@ -496,7 +496,7 @@ internal class WindowsNativeWindowController private constructor(
 				callPreviousOuter(hWnd, message, wParam, lParam)
 			}
 			WindowsMessage.NonClientHitTest ->
-				(if (usesSystemCaptionButtons) dwm?.defaultWindowProcedure(hWnd, message, wParam, lParam) else null)
+				(if (usesSystemCaptionButtonHandling) dwm?.defaultWindowProcedure(hWnd, message, wParam, lParam) else null)
 					?: runCatching {
 						pointInWindow(lParam)?.let { point -> LRESULT(hitTest(point.x, point.y).toLong()) }
 					}.getOrNull()
@@ -515,7 +515,7 @@ internal class WindowsNativeWindowController private constructor(
 				val button = wParam.toInt().captionButton()
 				if (button == null) {
 					callPreviousOuter(hWnd, message, wParam, lParam)
-				} else if (usesSystemCaptionButtons) {
+				} else if (usesSystemCaptionButtonHandling) {
 					callWindowsCaptionProcedure(hWnd, message, wParam, lParam)
 				} else {
 					beginCaptionButtonPress(button)
@@ -531,7 +531,7 @@ internal class WindowsNativeWindowController private constructor(
 			}
 			WindowsMessage.NonClientLeftButtonDoubleClick -> when {
 				wParam.toInt().captionButton() == null -> callPreviousOuter(hWnd, message, wParam, lParam)
-				usesSystemCaptionButtons -> callWindowsCaptionProcedure(hWnd, message, wParam, lParam)
+				usesSystemCaptionButtonHandling -> callWindowsCaptionProcedure(hWnd, message, wParam, lParam)
 				else -> LRESULT(0)
 			}
 			WindowsMessage.NonClientMouseLeave -> {
@@ -669,7 +669,7 @@ internal class WindowsNativeWindowController private constructor(
 			maximizeButton = nativeBounds.maximize,
 			closeButton = nativeBounds.close,
 		)
-		if (systemFrameExtended) publishUsesSystemCaptionButtons(true)
+		if (systemFrameExtended) publishUsesSystemCaptionButtonHandling(true)
 	}
 
 	private fun extendedFrameMargins(): WindowsWindowMargins {
@@ -723,13 +723,13 @@ internal class WindowsNativeWindowController private constructor(
 		}
 	}
 
-	private fun publishUsesSystemCaptionButtons(available: Boolean) {
-		if (available == usesSystemCaptionButtons) return
+	private fun publishUsesSystemCaptionButtonHandling(available: Boolean) {
+		if (available == usesSystemCaptionButtonHandling) return
 		if (EventQueue.isDispatchThread()) {
-			usesSystemCaptionButtons = available
+			usesSystemCaptionButtonHandling = available
 		} else {
 			EventQueue.invokeLater {
-				if (!closed) usesSystemCaptionButtons = available
+				if (!closed) usesSystemCaptionButtonHandling = available
 			}
 		}
 	}
@@ -881,7 +881,7 @@ internal class WindowsNativeWindowController private constructor(
 		runCatching { skiaLayer.transparency = false }
 		transparentSurfaceConfigured = false
 		usesNativeBackdrop = false
-		usesSystemCaptionButtons = false
+		usesSystemCaptionButtonHandling = false
 		usesCustomChrome = false
 		if (window.isDisplayable) runCatching { requestFrameRecalculation() }
 		releaseControllerIfDetached()

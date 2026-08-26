@@ -18,6 +18,7 @@ dependencies {
 
 	implementation(libs.compose.uiToolingPreview)
 	testImplementation(libs.kotlin.testJunit)
+	testImplementation(libs.compose.uiTest)
 }
 
 sourceSets {

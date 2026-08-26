@@ -1,13 +1,20 @@
 package com.vnidrop.app
 
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.window.WindowPlacement
+import com.vnidrop.app.ui.theme.VniDropTheme
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.jetbrains.skiko.GraphicsApi
 
+@OptIn(ExperimentalTestApi::class)
 class DesktopWindowChromeTest {
 	@Test
 	fun desktopWindowIconLoadsFromPackagedResources() {
@@ -169,6 +176,41 @@ class DesktopWindowChromeTest {
 			),
 		)
 		assertFalse(shouldActivateWindowsCaptionButton(WindowsCaptionButton.Close, null))
+	}
+
+	@Test
+	fun customWindowsTitleBarAlwaysShowsActionableCaptionControls() = runComposeUiTest {
+		val invoked = mutableListOf<WindowsCaptionButton>()
+		setContent {
+			VniDropTheme(isDarkTheme = true) {
+				WindowsTitleBar(
+					isMaximized = false,
+					isWindowActive = true,
+					hoveredCaptionButton = null,
+					pressedCaptionButton = null,
+					usesNativeBackdrop = true,
+					onCaptionBoundsChanged = {},
+					onCaptionButtonBoundsChanged = { _, _ -> },
+					onMinimize = { invoked += WindowsCaptionButton.Minimize },
+					onToggleMaximize = { invoked += WindowsCaptionButton.Maximize },
+					onClose = { invoked += WindowsCaptionButton.Close },
+				)
+			}
+		}
+
+		onNodeWithContentDescription("Minimize window").assertIsDisplayed().performClick()
+		onNodeWithContentDescription("Maximize window").assertIsDisplayed().performClick()
+		onNodeWithContentDescription("Close window").assertIsDisplayed().performClick()
+		runOnIdle {
+			assertEquals(
+				listOf(
+					WindowsCaptionButton.Minimize,
+					WindowsCaptionButton.Maximize,
+					WindowsCaptionButton.Close,
+				),
+				invoked,
+			)
+		}
 	}
 
 	private fun windowsGeometry() = WindowsHitTestGeometry(

@@ -1,8 +1,8 @@
 # Xcode Cloud CI scripts
 
 Xcode Cloud runs the scripts in this directory around each build:
-`ci_post_clone.sh` prepares the project, and `ci_post_xcodebuild.sh` checks the
-archive. Add `ci_pre_xcodebuild.sh` here if a pre-build step is ever needed.
+`ci_post_clone.sh` prepares the project, `ci_pre_xcodebuild.sh` enables code
+signing for archives, and `ci_post_xcodebuild.sh` checks the archive.
 
 ## What `ci_post_clone.sh` does
 
@@ -13,7 +13,9 @@ Since Xcode Cloud only checks out the repository, the post-clone script:
 1. installs `swiftlint`, `xcodegen`, and `bun`;
 2. **downloads the prebuilt core** (`vnidrop.xcframework` + `Vnidrop.swift`) from
    the matching GitHub Release asset `VnidropCore-<version>.zip` — Xcode Cloud
-   never builds Rust;
+   never builds Rust — verifying it against the release's aggregate `SHA256SUMS`
+   (the per-file `.sha256` that `package-core.sh` writes locally is *not* among
+   the published assets, so the checksum line is extracted from `SHA256SUMS`);
 3. runs localization + version/app config codegen and `xcodegen generate`
    (equivalent to `make apple-project` without the `apple-core` step).
 
@@ -27,6 +29,22 @@ before an Xcode Cloud build for that version runs (see
 |----------|---------|---------|
 | `VNIDROP_CORE_REPO` | `sudosylabs/vnidrop` | Release repository to download the core from |
 | `VNIDROP_CORE_TAG`  | `v<product-version>` | Release tag holding the core asset |
+
+## What `ci_pre_xcodebuild.sh` does
+
+Writes `apple/Local.xcconfig` (gitignored) with `CODE_SIGNING_ALLOWED = YES` /
+`CODE_SIGNING_REQUIRED = YES`, but only when `CI_XCODEBUILD_ACTION` is `archive`.
+
+`apple/Signing.xcconfig` — included by every target's config file — pins both to
+`NO`, because local and PR builds are deliberately unsigned. Left alone, an Xcode
+Cloud archive would come out unsigned and be unusable for TestFlight or the App
+Store. `Signing.xcconfig` ends with `#include? "Local.xcconfig"` and the last
+xcconfig assignment wins, so the pre-build script reopens the gate through that
+existing escape hatch instead of editing the committed file. Xcode Cloud still
+supplies `DEVELOPMENT_TEAM`, the certificate, and the profile via automatic
+signing.
+
+Build, test, and analyze actions keep the unsigned fast path.
 
 ## What `ci_post_xcodebuild.sh` does
 
@@ -57,3 +75,43 @@ Store Connect, not in the repository. Point it at:
 
 Archive actions use the release Rust profile via the published core asset; build
 and test actions reuse the same prebuilt core.
+
+### Enabling Xcode Cloud the first time
+
+The project file is generated and gitignored, so the workflow **must be created
+from Xcode**, not from the App Store Connect web UI — the web UI can only offer
+projects it finds in the checkout, and there is none there.
+
+1. Generate and open the project locally: `make open-apple-project`.
+2. **Product → Xcode Cloud → Create Workflow**, pick the `VniDrop` scheme, and
+   let Xcode connect the GitHub repository (it installs the Xcode Cloud GitHub
+   app; grant it access to `sudosylabs/vnidrop`).
+3. Set the workflow's **Xcode version** and **macOS version** explicitly rather
+   than "Latest Release" — the SwiftLint pre-build phase and Swift 6 strict
+   concurrency make silent toolchain bumps a build-breaking surprise.
+4. Add the actions you want. Suggested split:
+   - **Archive – iOS** and **Archive – macOS**, both on the `VniDrop` scheme,
+     deploying to TestFlight (Internal Testing).
+   - **Test – iOS Simulator** on the same scheme for pull requests.
+5. Leave **Automatically manage signing** on. Xcode Cloud issues the certificate
+   and provisioning profile; `ci_pre_xcodebuild.sh` unlocks signing on its side.
+
+Because Xcode Cloud regenerates the project in `ci_post_clone.sh` *before*
+resolving Swift packages, nothing about the generated project needs to be
+committed — but note that the workflow records the project's **path**
+(`apple/VniDrop.xcodeproj`), so that path must not change.
+
+### Prerequisites before the first build
+
+- The App Store Connect app record for `com.vnidrop.app` must exist, with the
+  iOS and macOS platforms and the capabilities matching
+  `apple/VniDrop/Resources/VniDrop.entitlements` (App Sandbox, NFC Tag Reading).
+  Automatic signing fails if the record's capabilities and the entitlements file
+  disagree — and a missing keychain access group is exactly what
+  `ci_post_xcodebuild.sh` exists to catch.
+- The release matching `version.properties`' `PRODUCT_VERSION` must already
+  carry the `VnidropCore-<version>.zip` asset (see the override table above to
+  point a build at an older tag while a version bump is in flight).
+
+The build number is a UTC timestamp (`packaging/version/generate-apple-xcconfig.sh`),
+so it increases on every build without Xcode Cloud's `CI_BUILD_NUMBER`.

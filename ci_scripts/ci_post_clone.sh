@@ -44,11 +44,15 @@ trap 'rm -rf "$DOWNLOAD_DIR"' EXIT
 
 echo "==> Downloading prebuilt core $CORE_ZIP from $CORE_REPO@$CORE_TAG"
 curl -fsSL "$CORE_BASE_URL/$CORE_ZIP" -o "$DOWNLOAD_DIR/$CORE_ZIP"
-curl -fsSL "$CORE_BASE_URL/$CORE_ZIP.sha256" -o "$DOWNLOAD_DIR/$CORE_ZIP.sha256"
+# The release publishes one aggregate SHA256SUMS covering every public asset —
+# packaging/release/assemble-release.sh does not upload the per-file .sha256 that
+# package-core.sh writes locally. Pull the core's line out of it.
+curl -fsSL "$CORE_BASE_URL/SHA256SUMS" -o "$DOWNLOAD_DIR/SHA256SUMS"
 
 echo "==> Verifying checksum"
 (
 	cd "$DOWNLOAD_DIR"
+	grep -F "  $CORE_ZIP" SHA256SUMS > "$CORE_ZIP.sha256"
 	if command -v sha256sum >/dev/null 2>&1; then
 		sha256sum --check "$CORE_ZIP.sha256"
 	else

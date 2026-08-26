@@ -7,8 +7,8 @@ build fails later with `'apple/VniDrop.xcodeproj' does not exist` because nothin
 generated the project.
 
 Xcode Cloud runs the scripts in this directory around each build:
-`ci_post_clone.sh` prepares the project, `ci_pre_xcodebuild.sh` enables code
-signing for archives, and `ci_post_xcodebuild.sh` checks the archive.
+`ci_post_clone.sh` prepares the project and `ci_post_xcodebuild.sh` checks the
+archive.
 
 ## What `ci_post_clone.sh` does
 
@@ -53,21 +53,17 @@ before an Xcode Cloud build for that version runs (see
 | `VNIDROP_CORE_REPO` | `sudosylabs/vnidrop` | Release repository to download the core from |
 | `VNIDROP_CORE_TAG`  | `v<product-version>` | Release tag holding the core asset |
 
-## What `ci_pre_xcodebuild.sh` does
+## Signing is Xcode Cloud's job, not ours
 
-Writes `apple/Local.xcconfig` (gitignored) with `CODE_SIGNING_ALLOWED = YES` /
-`CODE_SIGNING_REQUIRED = YES`, but only when `CI_XCODEBUILD_ACTION` is `archive`.
+`apple/Signing.xcconfig` pins `CODE_SIGNING_ALLOWED = NO` so local and PR builds
+stay unsigned, and that is deliberately left alone here. Xcode Cloud passes
+`CODE_SIGN_IDENTITY=- AD_HOC_CODE_SIGNING_ALLOWED=YES` on the `xcodebuild archive`
+command line — command-line settings beat any xcconfig — so the archive is always
+ad-hoc signed by design, and the real distribution signing happens in the export
+step using Xcode Cloud's cloud-managed certificate.
 
-`apple/Signing.xcconfig` — included by every target's config file — pins both to
-`NO`, because local and PR builds are deliberately unsigned. Left alone, an Xcode
-Cloud archive would come out unsigned and be unusable for TestFlight or the App
-Store. `Signing.xcconfig` ends with `#include? "Local.xcconfig"` and the last
-xcconfig assignment wins, so the pre-build script reopens the gate through that
-existing escape hatch instead of editing the committed file. Xcode Cloud still
-supplies `DEVELOPMENT_TEAM`, the certificate, and the profile via automatic
-signing.
-
-Build, test, and analyze actions keep the unsigned fast path.
+An earlier `ci_pre_xcodebuild.sh` tried to force `CODE_SIGNING_ALLOWED = YES` for
+archives. It could not work, and was removed.
 
 ## What `ci_post_xcodebuild.sh` does
 
@@ -106,7 +102,7 @@ from Xcode**, not from the App Store Connect web UI — the web UI can only offe
 projects it finds in the checkout, and there is none there.
 
 1. Generate and open the project locally: `make open-apple-project`.
-2. **Product → Xcode Cloud → Create Workflow**, pick the `VniDrop` scheme, and
+2. **Integrate → Create Workflow**, pick the `VniDrop` scheme, and
    let Xcode connect the GitHub repository (it installs the Xcode Cloud GitHub
    app; grant it access to `sudosylabs/vnidrop`).
 3. Set the workflow's **Xcode version** and **macOS version** explicitly rather
@@ -117,7 +113,7 @@ projects it finds in the checkout, and there is none there.
      deploying to TestFlight (Internal Testing).
    - **Test – iOS Simulator** on the same scheme for pull requests.
 5. Leave **Automatically manage signing** on. Xcode Cloud issues the certificate
-   and provisioning profile; `ci_pre_xcodebuild.sh` unlocks signing on its side.
+   and provisioning profile itself.
 
 Because Xcode Cloud regenerates the project in `ci_post_clone.sh` *before*
 resolving Swift packages, nothing about the generated project needs to be
@@ -136,5 +132,9 @@ committed — but note that the workflow records the project's **path**
   carry the `VnidropCore-<version>.zip` asset (see the override table above to
   point a build at an older tag while a version bump is in flight).
 
-The build number is a UTC timestamp (`packaging/version/generate-apple-xcconfig.sh`),
-so it increases on every build without Xcode Cloud's `CI_BUILD_NUMBER`.
+Note that Xcode Cloud stamps its **own** build number — the build run number —
+onto the archive, discarding the UTC timestamp that
+`packaging/version/generate-apple-xcconfig.sh` writes into
+`CURRENT_PROJECT_VERSION`. Build 5 uploaded as `0.3.2 (5)`, not `0.3.2
+(20260826.1214.38)`. Both are monotonic, but they are not the same scheme the
+direct-download channel uses.

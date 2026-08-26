@@ -162,6 +162,27 @@ class DesktopWindowChromeTest {
 	}
 
 	@Test
+	fun nativeBackdropRejectsMissingRedirectionBitmapAlphaSupport() {
+		val calls = mutableListOf<String>()
+		assertTrue(
+			configureWindowsNativeBackdrop(
+				extendFrame = { true },
+				applySystemBackdrop = { true },
+				enableRedirectionBitmapAlpha = { true },
+			),
+		)
+
+		val configured = configureWindowsNativeBackdrop(
+			extendFrame = { calls += "frame"; true },
+			applySystemBackdrop = { calls += "backdrop"; true },
+			enableRedirectionBitmapAlpha = { calls += "alpha"; false },
+		)
+
+		assertFalse(configured)
+		assertEquals(listOf("frame", "backdrop", "alpha"), calls)
+	}
+
+	@Test
 	fun captionActionRequiresReleaseOnTheOriginallyPressedButton() {
 		assertTrue(
 			shouldActivateWindowsCaptionButton(

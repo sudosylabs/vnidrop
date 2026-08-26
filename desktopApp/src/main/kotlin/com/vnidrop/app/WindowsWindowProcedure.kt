@@ -317,23 +317,12 @@ internal class WindowsNativeWindowController private constructor(
 
 	private fun enableNativeBackdrop(): Boolean {
 		if (!window.renderApi.supportsWindowsTransparentBackground()) return false
-		val frameExtended = dwm?.extendFrame(windowHandle, extendedFrameMargins()) == true
-		val backdropApplied = frameExtended && dwm.setIntAttribute(
-			windowHandle,
-			DwmWindowAttribute.SystemBackdropType,
-			DwmSystemBackdropType.MainWindow,
-		) == true
-		if (!backdropApplied) {
+		if (!applyNativeBackdropAttributes()) {
 			resetDwmBackdrop()
 			return false
 		}
 		applySystemFrameBorder()
 		systemFrameExtended = true
-		dwm.setIntAttribute(
-			windowHandle,
-			DwmWindowAttribute.RedirectionBitmapAlpha,
-			DwmAttributeValue.Enabled,
-		)
 		if (!detachContentWindowProcedure()) {
 			resetDwmBackdrop()
 			return false
@@ -360,28 +349,38 @@ internal class WindowsNativeWindowController private constructor(
 		}
 	}
 
+	private fun applyNativeBackdropAttributes(): Boolean {
+		val currentDwm = dwm ?: return false
+		return configureWindowsNativeBackdrop(
+			extendFrame = { currentDwm.extendFrame(windowHandle, extendedFrameMargins()) },
+			applySystemBackdrop = {
+				currentDwm.setIntAttribute(
+					windowHandle,
+					DwmWindowAttribute.SystemBackdropType,
+					DwmSystemBackdropType.MainWindow,
+				)
+			},
+			enableRedirectionBitmapAlpha = {
+				currentDwm.setIntAttribute(
+					windowHandle,
+					DwmWindowAttribute.RedirectionBitmapAlpha,
+					DwmAttributeValue.Enabled,
+				)
+			},
+		)
+	}
+
 	private fun reapplyNativeBackdrop() {
 		if (!transparentSurfaceConfigured) return
-		val frameExtended = dwm?.extendFrame(windowHandle, extendedFrameMargins()) == true
-		val backdropApplied = frameExtended && dwm.setIntAttribute(
-			windowHandle,
-			DwmWindowAttribute.SystemBackdropType,
-			DwmSystemBackdropType.MainWindow,
-		) == true
-		if (backdropApplied) {
-			applySystemFrameBorder()
-			systemFrameExtended = true
-			dwm.setIntAttribute(
-				windowHandle,
-				DwmWindowAttribute.RedirectionBitmapAlpha,
-				DwmAttributeValue.Enabled,
-			)
-			refreshSystemCaptionButtonBounds()
-			publishUsesSystemCaptionButtonHandling(systemCaptionButtonBoundsAvailable)
-		} else {
-			resetDwmBackdrop()
+		if (!applyNativeBackdropAttributes()) {
+			disableNativeBackdrop()
+			return
 		}
-		usesNativeBackdrop = backdropApplied
+		applySystemFrameBorder()
+		systemFrameExtended = true
+		refreshSystemCaptionButtonBounds()
+		publishUsesSystemCaptionButtonHandling(systemCaptionButtonBoundsAvailable)
+		usesNativeBackdrop = true
 	}
 
 	private fun disableNativeBackdrop() {
@@ -1169,6 +1168,13 @@ internal fun GraphicsApi.supportsWindowsTransparentBackground(): Boolean = when 
 	-> false
 	else -> true
 }
+
+// Older Windows builds can accept the Mica attribute while rejecting the alpha channel needed by Skia.
+internal fun configureWindowsNativeBackdrop(
+	extendFrame: () -> Boolean,
+	applySystemBackdrop: () -> Boolean,
+	enableRedirectionBitmapAlpha: () -> Boolean,
+): Boolean = extendFrame() && applySystemBackdrop() && enableRedirectionBitmapAlpha()
 
 internal fun shouldActivateWindowsCaptionButton(
 	pressed: WindowsCaptionButton?,

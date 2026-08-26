@@ -150,6 +150,11 @@ apple-app-config: ## Generate AppConfig.swift from the shared app.properties.
 apple-project: apple-core localization apple-version-config apple-app-config ## Generate the native Apple Xcode project.
 	cd $(ROOT)/apple && $(XCODEGEN) generate
 
+apple-package-resolved: ## Refresh apple/Package.resolved from the generated project (run after changing a package version).
+	cd $(ROOT) && cp \
+		apple/VniDrop.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved \
+		apple/Package.resolved
+
 open-apple-project: apple-project ## Generate and open the native Apple Xcode project.
 	cd $(ROOT)/apple && $(OPEN) VniDrop.xcodeproj
 

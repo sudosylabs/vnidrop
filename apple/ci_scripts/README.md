@@ -23,7 +23,24 @@ Since Xcode Cloud only checks out the repository, the post-clone script:
    (the per-file `.sha256` that `package-core.sh` writes locally is *not* among
    the published assets, so the checksum line is extracted from `SHA256SUMS`);
 3. runs localization + version/app config codegen and `xcodegen generate`
-   (equivalent to `make apple-project` without the `apple-core` step).
+   (equivalent to `make apple-project` without the `apple-core` step);
+4. installs `apple/Package.resolved` into the generated project bundle.
+
+### Why `apple/Package.resolved` is committed separately
+
+Xcode Cloud disables automatic SwiftPM resolution and requires a resolved file at
+`VniDrop.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+That path is inside the generated, gitignored project, so the canonical copy
+lives at `apple/Package.resolved` and the post-clone script copies it into place.
+Without it the build stops at `resolve_package_dependencies`.
+
+Note that resolution covers the whole project graph, not just the scheme being
+built — so Sparkle is pinned and cloned even for the App Store `VniDrop` scheme.
+It is still never linked there: SwiftPM links per target, and only `VniDropDirect`
+declares it.
+
+After changing any package version in `project.yml`, regenerate the project and
+run `make apple-package-resolved` to refresh the committed copy.
 
 The core asset for version `X.Y.Z` must be published on the `vX.Y.Z` release
 before an Xcode Cloud build for that version runs (see

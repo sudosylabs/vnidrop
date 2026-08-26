@@ -73,4 +73,17 @@ echo "==> Generating localization, version/app config, and the Xcode project"
 make localization apple-version-config apple-app-config
 (cd "$REPO_ROOT/apple" && xcodegen generate)
 
+# --- Pin SwiftPM dependencies -------------------------------------------------
+# Xcode Cloud disables automatic dependency resolution and requires a resolved
+# file inside the project bundle. That bundle is generated and gitignored, so the
+# canonical copy lives at apple/Package.resolved and is installed here. Without
+# it the build stops at resolve_package_dependencies:
+#   "a resolved file is required when automatic dependency resolution is disabled"
+# Refresh the canonical copy with `make apple-package-resolved` after changing any
+# package version in apple/project.yml.
+echo "==> Installing pinned SwiftPM dependencies (apple/Package.resolved)"
+SWIFTPM_DIR="$REPO_ROOT/apple/VniDrop.xcodeproj/project.xcworkspace/xcshareddata/swiftpm"
+mkdir -p "$SWIFTPM_DIR"
+cp "$REPO_ROOT/apple/Package.resolved" "$SWIFTPM_DIR/Package.resolved"
+
 echo "==> ci_post_clone complete"

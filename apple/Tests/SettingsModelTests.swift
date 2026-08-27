@@ -186,8 +186,15 @@ final class SettingsModelTests: XCTestCase {
 		)
 
 		model.purgeUnreachableTrash()
-		await waitUntil { !FileManager.default.fileExists(atPath: dataDir + "/.Trash") }
+		// Both roots are purged, so waiting on only one races the other: on a
+		// loaded machine the receive folder's trash can still be there when the
+		// data directory's has already gone.
+		await waitUntil {
+			!FileManager.default.fileExists(atPath: dataDir + "/.Trash")
+				&& !FileManager.default.fileExists(atPath: receiveDir + "/.Trash")
+		}
 
+		XCTAssertFalse(FileManager.default.fileExists(atPath: dataDir + "/.Trash"))
 		XCTAssertFalse(FileManager.default.fileExists(atPath: receiveDir + "/.Trash"))
 		try? FileManager.default.removeItem(atPath: dataDir)
 		try? FileManager.default.removeItem(atPath: receiveDir)

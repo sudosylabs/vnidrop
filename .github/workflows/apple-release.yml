@@ -112,16 +112,18 @@ jobs:
 
       - name: Store notarytool credentials
         env:
-          NOTARY_KEY_P8: ${{ secrets.NOTARY_API_KEY }}
-          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
-          NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER }}
+          # One App Store Connect API key serves notarization, provisioning, and
+          # App Store upload. Stored as the raw .p8 (PEM), not base64.
+          APPLE_ASC_KEY_P8: ${{ secrets.APPLE_ASC_KEY_P8 }}
+          APPLE_ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          APPLE_ASC_ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
         run: |
           set -euo pipefail
-          echo "$NOTARY_KEY_P8" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          printf '%s\n' "$APPLE_ASC_KEY_P8" > "$RUNNER_TEMP/asc.p8"
           xcrun notarytool store-credentials vnidrop-notary \
-            --key "$RUNNER_TEMP/notary.p8" \
-            --key-id "$NOTARY_KEY_ID" \
-            --issuer "$NOTARY_ISSUER"
+            --key "$RUNNER_TEMP/asc.p8" \
+            --key-id "$APPLE_ASC_KEY_ID" \
+            --issuer "$APPLE_ASC_ISSUER_ID"
           echo "NOTARY_PROFILE=vnidrop-notary" >> "$GITHUB_ENV"
 
       - name: Write Developer ID provisioning profile

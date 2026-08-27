@@ -22,7 +22,7 @@ on:
   # TEMPORARY: lets this workflow be exercised before it reaches the default
   # branch, since workflow_dispatch only works from there. Remove before merging.
   push:
-    branches: [fix/ci-scripts-location]
+    branches: [test/appstore-upload]
   release:
     types: [published]
   workflow_dispatch:

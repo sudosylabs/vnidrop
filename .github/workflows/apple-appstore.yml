@@ -1,41 +1,51 @@
 name: Apple App Store (iOS + macOS)
 
-# Archives the App Store targets and uploads them to App Store Connect, where
-# they become available to TestFlight and can be selected for a review
-# submission.
+# Archives the App Store targets and, when asked, uploads them to App Store
+# Connect where they reach TestFlight and can be attached to a review submission.
 #
-# This runs here rather than in Xcode Cloud for two reasons:
+# Deliberately separate from apple-release.yml (the DMG) so a build only reaches
+# App Store Connect once a release has actually been published — App Store
+# Connect builds cannot be deleted, only left to expire.
 #
-#  1. Xcode Cloud overrides CFBundleVersion with its own integer build-run
-#     number and cannot be told not to ("You can't use build numbers that are
-#     hash values, timestamps, or other strings" — Apple). Our build numbers are
-#     UTC timestamps from packaging/version/resolve-version.sh, shared with the
-#     direct-download channel. `manageAppVersionAndBuildNumber: false` is honored
-#     here, so the timestamp survives.
-#  2. Xcode Cloud's cloud-managed signing emits a designated requirement that
-#     encodes the certificate CN in Unicode NFD while the certificate itself uses
-#     NFC, so the signature fails its own requirement and App Store Connect
-#     rejects the upload with ITMS-90035. Signing with our own certificate here
-#     avoids that entirely.
+# Not Xcode Cloud, for two reasons found while trying it:
+#
+#  1. Xcode Cloud replaces CFBundleVersion with its own integer build-run number
+#     at export and documents no way to opt out ("You can't use build numbers
+#     that are hash values, timestamps, or other strings"). Our build numbers are
+#     UTC timestamps shared with the direct-download channel, and macOS requires
+#     build numbers to increase across versions, so an integer counter starting
+#     at 1 would sort below the existing 20260802.1040.54 history.
+#  2. Its cloud-managed signing emits a designated requirement encoding the
+#     certificate CN in Unicode NFD while the certificate carries NFC, so the
+#     signature cannot satisfy its own requirement and the upload is rejected
+#     with ITMS-90035.
 
 on:
-  # TEMPORARY: lets this workflow be exercised before it reaches the default
-  # branch, since workflow_dispatch only works from there. Remove before merging.
+  # TEMPORARY: workflow_dispatch only appears once this file is on the default
+  # branch, so this is how the workflow gets exercised before it merges.
+  # Remove before merging.
   push:
-    branches: [test/appstore-upload]
+    branches: [perf/apple-pipeline]
   release:
     types: [published]
   workflow_dispatch:
     inputs:
-      ref:
-        description: "Tag or branch to build (defaults to the triggering ref)"
-        required: false
-        type: string
+      platforms:
+        description: "Which platforms to build"
+        type: choice
+        default: both
+        options: [both, ios, macos]
+      upload:
+        description: "Upload to App Store Connect (otherwise archive and export only)"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
 concurrency:
+  # Keyed on the ref so a stuck run cannot block unrelated branches. Never
+  # cancel in progress: a half-finished upload is worse than a duplicate build.
   group: apple-appstore-${{ github.ref }}
   cancel-in-progress: false
 
@@ -44,15 +54,19 @@ defaults:
     shell: bash
 
 jobs:
-  upload:
-    name: Archive & upload to App Store Connect
+  core:
+    name: Rust core
     runs-on: macos-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.version.outputs.app }}
+      platforms: ${{ steps.plan.outputs.platforms }}
+      destination: ${{ steps.plan.outputs.destination }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
 
       - name: Resolve version
         id: version
@@ -60,26 +74,112 @@ jobs:
           set -euo pipefail
           packaging/version/resolve-version.sh verify >/dev/null
           echo "app=$(packaging/version/resolve-version.sh product)" >> "$GITHUB_OUTPUT"
-          echo "build=$(packaging/version/resolve-version.sh apple-store-build)" >> "$GITHUB_OUTPUT"
+
+      - name: Plan the run
+        id: plan
+        # A release always builds both platforms and uploads. A dispatch follows
+        # its inputs. Any other trigger (the temporary push above) gets the same
+        # defaults as a dispatch — inputs.* are empty outside workflow_dispatch,
+        # so they cannot be read directly without silently collapsing to nothing.
+        env:
+          PLATFORMS: ${{ inputs.platforms }}
+          UPLOAD: ${{ inputs.upload }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = release ]; then
+            platforms='["iOS","macOS"]'
+            destination=upload
+          else
+            case "${PLATFORMS:-both}" in
+              ios)   platforms='["iOS"]' ;;
+              macos) platforms='["macOS"]' ;;
+              *)     platforms='["iOS","macOS"]' ;;
+            esac
+            if [ "${UPLOAD:-true}" = false ]; then destination=export; else destination=upload; fi
+          fi
+          echo "platforms=$platforms" >> "$GITHUB_OUTPUT"
+          echo "destination=$destination" >> "$GITHUB_OUTPUT"
+          echo "platforms=$platforms destination=$destination"
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
 
+      # A published release already carries the prebuilt core as an asset, so
+      # download it instead of spending ~16 minutes rebuilding what the release
+      # pipeline just built. Branch dispatches have no release to draw from.
+      - name: Download prebuilt core from the release
+        id: prebuilt
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.app }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/core"
+          cd "$RUNNER_TEMP/core"
+          if ! gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --pattern "VnidropCore-$VERSION.zip" --pattern "SHA256SUMS"; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The release publishes one aggregate SHA256SUMS, not per-file digests.
+          grep -F "  VnidropCore-$VERSION.zip" SHA256SUMS > core.sha256
+          shasum -a 256 --check core.sha256
+          echo "found=true" >> "$GITHUB_OUTPUT"
+
       - name: Install Rust toolchain
+        if: steps.prebuilt.outputs.found != 'true'
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # v1
         with:
           toolchain: stable
-          targets: aarch64-apple-darwin,aarch64-apple-ios,aarch64-apple-ios-sim
+          targets: aarch64-apple-darwin,aarch64-apple-ios
 
       - name: Cache Cargo
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: steps.prebuilt.outputs.found != 'true'
+        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: apple-appstore-cargo-${{ hashFiles('Cargo.lock') }}
-          restore-keys: apple-appstore-cargo-
+          key: apple-core-release
+
+      - name: Build the core
+        if: steps.prebuilt.outputs.found != 'true'
+        # Release profile only: a debug core roughly doubles the binary. Release
+        # builds skip the simulator slices, which nothing shipped can use.
+        run: |
+          set -euo pipefail
+          make apple-core APPLE_PROFILE=release
+          make package-apple-core
+          mkdir -p "$RUNNER_TEMP/core"
+          cp apple/dist/VnidropCore-*.zip "$RUNNER_TEMP/core/"
+
+      - name: Share the core with the build jobs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vnidrop-core-${{ steps.version.outputs.app }}
+          path: ${{ runner.temp }}/core/VnidropCore-*.zip
+          if-no-files-found: error
+          retention-days: 1
+
+  appstore:
+    name: ${{ matrix.platform }}
+    needs: core
+    runs-on: macos-latest
+    timeout-minutes: 60
+    # Gates the signing certificates behind a required reviewer, so a run started
+    # by anyone else stops before it can touch them.
+    environment: apple-appstore
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(needs.core.outputs.platforms) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
 
       - name: Install tooling
         run: brew install xcodegen swiftlint
@@ -87,10 +187,24 @@ jobs:
       - name: Install Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
+      - name: Fetch the prebuilt core
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: vnidrop-core-${{ needs.core.outputs.version }}
+          path: ${{ runner.temp }}/core
+
+      - name: Install the core
+        run: |
+          set -euo pipefail
+          unzip -q -o "$RUNNER_TEMP/core"/VnidropCore-*.zip -d "$RUNNER_TEMP/core/x"
+          rm -rf apple/VnidropCore/vnidrop.xcframework
+          cp -R "$RUNNER_TEMP/core/x/vnidrop.xcframework" apple/VnidropCore/vnidrop.xcframework
+          mkdir -p apple/VnidropCore/Sources/VnidropCore
+          cp "$RUNNER_TEMP/core/x/Vnidrop.swift" apple/VnidropCore/Sources/VnidropCore/Vnidrop.swift
+
       - name: Generate the Xcode project
-        # APPLE_PROFILE=release: a debug core roughly doubles the binary and must
-        # never reach the App Store.
-        run: make apple-project APPLE_PROFILE=release
+        # Reuses the installed core rather than invoking apple-core.
+        run: make apple-project-prebuilt
 
       - name: Import signing certificates
         env:
@@ -106,8 +220,8 @@ jobs:
           security set-keychain-settings -lut 21600 "$keychain"
           security unlock-keychain -p "$kpw" "$keychain"
 
-          # Apple Distribution signs the .app; Mac Installer Distribution signs
-          # the macOS .pkg that App Store Connect requires.
+          # Apple Distribution signs the .app. Mac Installer Distribution signs
+          # the .pkg that macOS App Store submissions are wrapped in.
           echo "$DIST_P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
           security import "$RUNNER_TEMP/dist.p12" -k "$keychain" -P "$DIST_PASSWORD" \
             -T /usr/bin/codesign -T /usr/bin/productsign
@@ -120,7 +234,6 @@ jobs:
           security list-keychains -d user -s "$keychain" \
             $(security list-keychains -d user | tr -d '"')
           rm -f "$RUNNER_TEMP/dist.p12" "$RUNNER_TEMP/installer.p12"
-
           security find-identity -v "$keychain"
 
       - name: Write App Store Connect API key
@@ -131,24 +244,59 @@ jobs:
           printf '%s\n' "$APPLE_ASC_KEY_P8" > "$RUNNER_TEMP/asc.p8"
           chmod 600 "$RUNNER_TEMP/asc.p8"
 
-      - name: Archive and upload
+      - name: Archive
         env:
           TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
           ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+          PLATFORM: ${{ matrix.platform }}
         run: |
           set -euo pipefail
+          # CODE_SIGNING_ALLOWED/REQUIRED override apple/Signing.xcconfig, which
+          # pins them to NO so local and PR builds stay unsigned.
+          # -allowProvisioningUpdates lets xcodebuild create and refresh the App
+          # Store profiles itself, so none are stored as secrets.
+          xcodebuild archive \
+            -project apple/VniDrop.xcodeproj \
+            -scheme VniDrop \
+            -destination "generic/platform=$PLATFORM" \
+            -archivePath "$RUNNER_TEMP/VniDrop.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc.p8" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID" \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM="$TEAM_ID"
 
-          # destination=upload sends the export straight to App Store Connect.
-          # manageAppVersionAndBuildNumber=false keeps our timestamp build number
-          # instead of letting Xcode renumber the build.
+      - name: Verify keychain access group
+        # The Rust core keeps the endpoint identity in the data-protection
+        # Keychain; an app resolving to no access group gets -34018 on every read
+        # and dies on the startup screen. 0.3.1 shipped exactly that.
+        run: |
+          set -euo pipefail
+          app="$(find "$RUNNER_TEMP/VniDrop.xcarchive/Products/Applications" \
+            -maxdepth 1 -name '*.app' | head -1)"
+          apple/scripts/verify-keychain-access-group.sh "$app"
+
+      - name: Export (${{ needs.core.outputs.destination }})
+        env:
+          TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+          DESTINATION: ${{ needs.core.outputs.destination }}
+        run: |
+          set -euo pipefail
+          # manageAppVersionAndBuildNumber=false keeps our timestamp build number;
+          # left true, Xcode renumbers the build on the way out.
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
             <key>method</key><string>app-store-connect</string>
-            <key>destination</key><string>upload</string>
+            <key>destination</key><string>$DESTINATION</string>
             <key>manageAppVersionAndBuildNumber</key><false/>
             <key>signingStyle</key><string>automatic</string>
             <key>teamID</key><string>$TEAM_ID</string>
@@ -157,40 +305,23 @@ jobs:
           </plist>
           EOF
 
-          for platform in iOS macOS; do
-            echo "==> Archiving for $platform"
-            archive="$RUNNER_TEMP/VniDrop-$platform.xcarchive"
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/VniDrop.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc.p8" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID"
 
-            # CODE_SIGNING_ALLOWED/REQUIRED override apple/Signing.xcconfig, which
-            # pins them to NO so local and PR builds stay unsigned.
-            xcodebuild archive \
-              -project apple/VniDrop.xcodeproj \
-              -scheme VniDrop \
-              -destination "generic/platform=$platform" \
-              -archivePath "$archive" \
-              -allowProvisioningUpdates \
-              -authenticationKeyPath "$RUNNER_TEMP/asc.p8" \
-              -authenticationKeyID "$KEY_ID" \
-              -authenticationKeyIssuerID "$ISSUER_ID" \
-              CODE_SIGNING_ALLOWED=YES \
-              CODE_SIGNING_REQUIRED=YES \
-              CODE_SIGN_STYLE=Automatic \
-              DEVELOPMENT_TEAM="$TEAM_ID"
-
-            echo "==> Verifying keychain access group ($platform)"
-            app="$(find "$archive/Products/Applications" -maxdepth 1 -name '*.app' | head -1)"
-            apple/scripts/verify-keychain-access-group.sh "$app"
-
-            echo "==> Uploading $platform build to App Store Connect"
-            xcodebuild -exportArchive \
-              -archivePath "$archive" \
-              -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
-              -exportPath "$RUNNER_TEMP/export-$platform" \
-              -allowProvisioningUpdates \
-              -authenticationKeyPath "$RUNNER_TEMP/asc.p8" \
-              -authenticationKeyID "$KEY_ID" \
-              -authenticationKeyIssuerID "$ISSUER_ID"
-          done
+      - name: Upload the export for inspection
+        if: needs.core.outputs.destination == 'export' || failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vnidrop-${{ needs.core.outputs.version }}-${{ matrix.platform }}-appstore
+          path: ${{ runner.temp }}/export
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Clean up credentials
         if: always()
@@ -200,13 +331,18 @@ jobs:
 
       - name: Summary
         if: success()
+        env:
+          DESTINATION: ${{ needs.core.outputs.destination }}
         run: |
           {
-            echo "### Uploaded to App Store Connect"
+            echo "### ${{ matrix.platform }} — VniDrop ${{ needs.core.outputs.version }}"
             echo
-            echo "- Version: \`${{ steps.version.outputs.app }}\`"
-            echo "- Build: \`${{ steps.version.outputs.build }}\`"
-            echo
-            echo "Processing takes a few minutes. Once complete the build appears"
-            echo "in TestFlight and can be selected for a review submission."
+            if [ "$DESTINATION" = upload ]; then
+              echo "Uploaded to App Store Connect. Processing takes a few minutes;"
+              echo "the build then appears in TestFlight and can be attached to a"
+              echo "version for review."
+            else
+              echo "Archived and exported without uploading. The signed export is"
+              echo "attached to this run as an artifact."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"

@@ -73,11 +73,17 @@ TARGETS=("$IOS_TARGET" "$MAC_TARGET")
 
 echo "==> Building vnidrop staticlib ($PROFILE) for Apple targets"
 [ "$WITH_SIMULATOR" = "1" ] || echo "    (simulator slices skipped)"
+CARGO_TARGET_FLAGS=()
 for t in "${TARGETS[@]}"; do
 	echo "    - $t"
 	rustup target add "$t" >/dev/null 2>&1 || true
-	( cd "$REPO_ROOT" && cargo build -p vnidrop --target "$t" $CARGO_PROFILE_FLAG )
+	CARGO_TARGET_FLAGS+=(--target "$t")
 done
+# One invocation for every target rather than one per target. Cargo locks the
+# build directory, so separate invocations would serialize on that lock anyway;
+# passing all targets at once lets its scheduler overlap them, filling the gaps
+# where a single target is stuck on one long-poled crate.
+( cd "$REPO_ROOT" && cargo build -p vnidrop "${CARGO_TARGET_FLAGS[@]}" $CARGO_PROFILE_FLAG )
 
 LIB_SUBDIR="$PROFILE"
 [ "$PROFILE" = "debug" ] && LIB_SUBDIR="debug"

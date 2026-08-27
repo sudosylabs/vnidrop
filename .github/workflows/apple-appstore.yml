@@ -89,6 +89,12 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" = release ]; then
             platforms='["iOS","macOS"]'
             destination=upload
+          elif [ "$GITHUB_EVENT_NAME" = push ]; then
+            # TEMPORARY, with the push trigger above: iOS is already proven end
+            # to end, so branch pushes exercise macOS only. Remove with the
+            # trigger.
+            platforms='["macOS"]'
+            destination=upload
           else
             case "${PLATFORMS:-both}" in
               ios)   platforms='["iOS"]' ;;
@@ -222,14 +228,19 @@ jobs:
 
           # Apple Distribution signs the .app. Mac Installer Distribution signs
           # the .pkg that macOS App Store submissions are wrapped in.
+          # Every tool that touches these keys must be on the ACL, or it blocks
+          # on a keychain prompt that a headless runner can never answer.
+          # productbuild is the one that matters for macOS: xcodebuild invokes it
+          # to build and sign the .pkg during export, and omitting it hung the
+          # export for 9 minutes until the job was cancelled.
+          tools=(-T /usr/bin/codesign -T /usr/bin/productbuild -T /usr/bin/productsign -T /usr/bin/security)
           echo "$DIST_P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
-          security import "$RUNNER_TEMP/dist.p12" -k "$keychain" -P "$DIST_PASSWORD" \
-            -T /usr/bin/codesign -T /usr/bin/productsign
+          security import "$RUNNER_TEMP/dist.p12" -k "$keychain" -P "$DIST_PASSWORD" "${tools[@]}"
           echo "$INSTALLER_P12" | base64 --decode > "$RUNNER_TEMP/installer.p12"
-          security import "$RUNNER_TEMP/installer.p12" -k "$keychain" -P "$INSTALLER_PASSWORD" \
-            -T /usr/bin/codesign -T /usr/bin/productsign
+          security import "$RUNNER_TEMP/installer.p12" -k "$keychain" -P "$INSTALLER_PASSWORD" "${tools[@]}"
 
-          security set-key-partition-list -S apple-tool:,apple:,codesign:,productsign: \
+          # Only apple:, apple-tool: and codesign: are real partition IDs.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$kpw" "$keychain" >/dev/null
           security list-keychains -d user -s "$keychain" \
             $(security list-keychains -d user | tr -d '"')
@@ -280,12 +291,16 @@ jobs:
             -maxdepth 1 -name '*.app' | head -1)"
           apple/scripts/verify-keychain-access-group.sh "$app"
 
-      - name: Export (${{ needs.core.outputs.destination }})
+      - name: Export
+        # Always exports to disk, never uploads. Splitting export from upload
+        # isolates signing failures from transport failures: a macOS upload run
+        # through `destination: upload` hung indefinitely with no way to tell
+        # which half was stuck.
+        timeout-minutes: 20
         env:
           TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
           ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
-          DESTINATION: ${{ needs.core.outputs.destination }}
         run: |
           set -euo pipefail
           # manageAppVersionAndBuildNumber=false keeps our timestamp build number;
@@ -296,7 +311,7 @@ jobs:
           <plist version="1.0">
           <dict>
             <key>method</key><string>app-store-connect</string>
-            <key>destination</key><string>$DESTINATION</string>
+            <key>destination</key><string>export</string>
             <key>manageAppVersionAndBuildNumber</key><false/>
             <key>signingStyle</key><string>automatic</string>
             <key>teamID</key><string>$TEAM_ID</string>
@@ -314,8 +329,39 @@ jobs:
             -authenticationKeyID "$KEY_ID" \
             -authenticationKeyIssuerID "$ISSUER_ID"
 
+          ls -lh "$RUNNER_TEMP/export"
+
+      - name: Upload to App Store Connect
+        if: needs.core.outputs.destination == 'upload'
+        # altool rather than `destination: upload`, because it reports progress
+        # and honours a timeout. timeout-minutes fails the step loudly instead of
+        # letting a stuck transport burn the whole job.
+        timeout-minutes: 30
+        env:
+          KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          # altool looks for the key by id in these well-known directories.
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          cp "$RUNNER_TEMP/asc.p8" "$HOME/.appstoreconnect/private_keys/AuthKey_$KEY_ID.p8"
+
+          if [ "$PLATFORM" = iOS ]; then
+            type=ios
+            file="$(find "$RUNNER_TEMP/export" -maxdepth 1 -name '*.ipa' | head -1)"
+          else
+            type=macos
+            file="$(find "$RUNNER_TEMP/export" -maxdepth 1 -name '*.pkg' | head -1)"
+          fi
+          [ -n "$file" ] || { echo "error: no upload payload found in the export" >&2; ls -R "$RUNNER_TEMP/export" >&2; exit 1; }
+          echo "==> Uploading $(basename "$file") ($type)"
+
+          xcrun altool --upload-app --type "$type" --file "$file" \
+            --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID" --verbose
+
       - name: Upload the export for inspection
-        if: needs.core.outputs.destination == 'export' || failure()
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: vnidrop-${{ needs.core.outputs.version }}-${{ matrix.platform }}-appstore

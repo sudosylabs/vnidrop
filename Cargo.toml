@@ -9,3 +9,10 @@ strip = "debuginfo"
 [profile.release]
 lto = "thin"
 codegen-units = 1
+
+# Dependencies build with the default 16 codegen units so LLVM can parallelize
+# them; only our own crates keep codegen-units = 1 above, where whole-crate
+# inlining is worth the serialization. Dependencies dominate a cold build, so
+# this is most of the wall-clock win and none of the code-quality cost.
+[profile.release.package."*"]
+codegen-units = 16

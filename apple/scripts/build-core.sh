@@ -56,8 +56,24 @@ SIM_ARM_TARGET="aarch64-apple-ios-sim"
 SIM_X64_TARGET="x86_64-apple-ios"
 MAC_TARGET="aarch64-apple-darwin"
 
+# Simulator slices are development-only: neither the App Store archives nor the
+# notarized DMG can use them, and they are half of the four targets. Release
+# builds skip them by default, which roughly halves the Rust build. Set
+# VNIDROP_APPLE_SIMULATOR=1 to force them back in (e.g. to publish a core bundle
+# someone will open in Xcode).
+case "${VNIDROP_APPLE_SIMULATOR:-auto}" in
+	1) WITH_SIMULATOR=1 ;;
+	0) WITH_SIMULATOR=0 ;;
+	auto) [ "$PROFILE" = "release" ] && WITH_SIMULATOR=0 || WITH_SIMULATOR=1 ;;
+	*) echo "VNIDROP_APPLE_SIMULATOR must be 0, 1, or auto" >&2; exit 1 ;;
+esac
+
+TARGETS=("$IOS_TARGET" "$MAC_TARGET")
+[ "$WITH_SIMULATOR" = "1" ] && TARGETS+=("$SIM_ARM_TARGET" "$SIM_X64_TARGET")
+
 echo "==> Building vnidrop staticlib ($PROFILE) for Apple targets"
-for t in "$IOS_TARGET" "$SIM_ARM_TARGET" "$SIM_X64_TARGET" "$MAC_TARGET"; do
+[ "$WITH_SIMULATOR" = "1" ] || echo "    (simulator slices skipped)"
+for t in "${TARGETS[@]}"; do
 	echo "    - $t"
 	rustup target add "$t" >/dev/null 2>&1 || true
 	( cd "$REPO_ROOT" && cargo build -p vnidrop --target "$t" $CARGO_PROFILE_FLAG )
@@ -75,11 +91,13 @@ mkdir -p "$BUILD_DIR"
 
 # Combine the two simulator architectures into one universal static library so
 # the xcframework works on both Apple Silicon and Intel simulators.
-SIM_LIB="$BUILD_DIR/libvnidrop-sim.a"
-lipo -create \
-	"$TARGET_DIR/$SIM_ARM_TARGET/$LIB_SUBDIR/libvnidrop.a" \
-	"$TARGET_DIR/$SIM_X64_TARGET/$LIB_SUBDIR/libvnidrop.a" \
-	-output "$SIM_LIB"
+if [ "$WITH_SIMULATOR" = "1" ]; then
+	SIM_LIB="$BUILD_DIR/libvnidrop-sim.a"
+	lipo -create \
+		"$TARGET_DIR/$SIM_ARM_TARGET/$LIB_SUBDIR/libvnidrop.a" \
+		"$TARGET_DIR/$SIM_X64_TARGET/$LIB_SUBDIR/libvnidrop.a" \
+		-output "$SIM_LIB"
+fi
 
 echo "==> Generating Swift bindings (library mode)"
 ( cd "$REPO_ROOT" && cargo run -p uniffi-bindgen -- generate \
@@ -101,11 +119,10 @@ cp "$BUILD_DIR/vnidropFFI.modulemap" "$HEADERS_DIR/module.modulemap"
 echo "==> Assembling xcframework"
 XCFRAMEWORK="$PKG_DIR/vnidrop.xcframework"
 rm -rf "$XCFRAMEWORK"
-xcodebuild -create-xcframework \
-	-library "$IOS_LIB" -headers "$HEADERS_DIR" \
-	-library "$SIM_LIB" -headers "$HEADERS_DIR" \
-	-library "$MAC_LIB" -headers "$HEADERS_DIR" \
-	-output "$XCFRAMEWORK"
+XCF_ARGS=(-library "$IOS_LIB" -headers "$HEADERS_DIR")
+[ "$WITH_SIMULATOR" = "1" ] && XCF_ARGS+=(-library "$SIM_LIB" -headers "$HEADERS_DIR")
+XCF_ARGS+=(-library "$MAC_LIB" -headers "$HEADERS_DIR")
+xcodebuild -create-xcframework "${XCF_ARGS[@]}" -output "$XCFRAMEWORK"
 
 echo "==> Done."
 echo "    xcframework: $XCFRAMEWORK"

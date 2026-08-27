@@ -115,11 +115,14 @@ jobs:
       # pipeline just built. Branch dispatches have no release to draw from.
       - name: Download prebuilt core from the release
         id: prebuilt
-        if: github.event_name == 'release'
+        # TEMPORARY: push is included, falling back to v0.3.2, so the download
+        # path can be exercised before a real release runs it. Remove with the
+        # push trigger — a release provides its own tag.
+        if: github.event_name == 'release' || github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.app }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || 'v0.3.2' }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/core"

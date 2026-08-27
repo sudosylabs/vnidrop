@@ -21,11 +21,6 @@ name: Apple App Store (iOS + macOS)
 #     with ITMS-90035.
 
 on:
-  # TEMPORARY: workflow_dispatch only appears once this file is on the default
-  # branch, so this is how the workflow gets exercised before it merges.
-  # Remove before merging.
-  push:
-    branches: [perf/apple-pipeline]
   release:
     types: [published]
   workflow_dispatch:
@@ -89,12 +84,6 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" = release ]; then
             platforms='["iOS","macOS"]'
             destination=upload
-          elif [ "$GITHUB_EVENT_NAME" = push ]; then
-            # TEMPORARY, with the push trigger above: iOS is already proven end
-            # to end, so branch pushes exercise macOS only. Remove with the
-            # trigger.
-            platforms='["macOS"]'
-            destination=upload
           else
             case "${PLATFORMS:-both}" in
               ios)   platforms='["iOS"]' ;;
@@ -115,14 +104,11 @@ jobs:
       # pipeline just built. Branch dispatches have no release to draw from.
       - name: Download prebuilt core from the release
         id: prebuilt
-        # TEMPORARY: push is included, falling back to v0.3.2, so the download
-        # path can be exercised before a real release runs it. Remove with the
-        # push trigger — a release provides its own tag.
-        if: github.event_name == 'release' || github.event_name == 'push'
+        if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.app }}
-          TAG: ${{ github.event.release.tag_name || 'v0.3.2' }}
+          TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/core"

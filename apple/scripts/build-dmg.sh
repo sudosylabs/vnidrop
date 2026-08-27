@@ -66,24 +66,11 @@ echo "    team:     ${DEVELOPMENT_TEAM:-<unknown>}"
 
 # --- Build core + regenerate project ----------------------------------------
 # Release core needs LTO disabled (workspace thin-LTO miscompiles proc-macros).
-# VNIDROP_APPLE_CORE_PREBUILT=1 reuses an already-installed core instead, so CI
-# can build it once and share it with the App Store job rather than paying for
-# the same Rust build twice.
-CORE_PKG_DIR="$APPLE_DIR/VnidropCore"
-if [ "${VNIDROP_APPLE_CORE_PREBUILT:-0}" = "1" ]; then
-	echo "==> Reusing prebuilt Rust core"
-	[ -d "$CORE_PKG_DIR/vnidrop.xcframework" ] || {
-		echo "error: VNIDROP_APPLE_CORE_PREBUILT=1 but $CORE_PKG_DIR/vnidrop.xcframework is missing" >&2
-		exit 1
-	}
-	[ -f "$CORE_PKG_DIR/Sources/VnidropCore/Vnidrop.swift" ] || {
-		echo "error: VNIDROP_APPLE_CORE_PREBUILT=1 but the generated bindings are missing" >&2
-		exit 1
-	}
-else
-	echo "==> Building Rust core (release)"
-	CARGO_PROFILE_RELEASE_LTO=false "$SCRIPT_DIR/build-core.sh" release
-fi
+# This is the only Rust build in the release: the core it produces is published
+# as VnidropCore-<version>.zip, and the App Store workflow downloads that asset
+# rather than building its own.
+echo "==> Building Rust core (release)"
+CARGO_PROFILE_RELEASE_LTO=false "$SCRIPT_DIR/build-core.sh" release
 echo "==> Regenerating Xcode project"
 "$VERSION_CONFIG_GENERATOR" all
 # AppConfig.swift is gitignored codegen — a clean CI checkout has none.

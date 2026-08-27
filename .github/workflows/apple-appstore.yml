@@ -360,8 +360,11 @@ jobs:
           xcrun altool --upload-app --type "$type" --file "$file" \
             --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID" --verbose
 
-      - name: Upload the export for inspection
-        if: always()
+      - name: Keep the export for inspection
+        # Only when it is not already in App Store Connect: on an export-only run
+        # the artifact is the deliverable, and on a failure it is the evidence.
+        # After a successful upload it would just be a duplicate.
+        if: needs.core.outputs.destination == 'export' || failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: vnidrop-${{ needs.core.outputs.version }}-${{ matrix.platform }}-appstore
@@ -372,7 +375,11 @@ jobs:
       - name: Clean up credentials
         if: always()
         run: |
+          # The upload step copies the key into altool's search path, so remove
+          # both. Hosted runners are destroyed after the job, but a self-hosted
+          # one would keep $HOME.
           rm -f "$RUNNER_TEMP/asc.p8"
+          rm -rf "$HOME/.appstoreconnect/private_keys"
           security delete-keychain "$RUNNER_TEMP/appstore.keychain-db" || true
 
       - name: Summary

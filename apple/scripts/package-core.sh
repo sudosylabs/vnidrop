@@ -6,7 +6,10 @@
 # (apple/scripts/build-core.sh, or `make apple-core` / `make build-apple-dmg`).
 #
 # The bundle carries both build outputs of build-core.sh:
-#   - vnidrop.xcframework   (static libs for device/sim/macOS + the FFI module)
+#   - vnidrop.xcframework   (static libs + the FFI module. Release builds carry
+#                            device and macOS only — no simulator slice, which
+#                            nothing shipped can use. VNIDROP_APPLE_SIMULATOR=1
+#                            adds it back.)
 #   - Vnidrop.swift         (generated UniFFI bindings — a plain source file, not
 #                            part of the xcframework, so it must ship alongside)
 #

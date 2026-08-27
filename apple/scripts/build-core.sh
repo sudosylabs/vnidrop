@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # Builds the VniDrop Rust core for Apple platforms and produces:
-#   - apple/VnidropCore/vnidrop.xcframework   (static libs for device/sim/macOS)
+#   - apple/VnidropCore/vnidrop.xcframework   (static libs: device + macOS, plus
+#                                              the simulator in debug builds)
 #   - apple/VnidropCore/Sources/VnidropCore/Vnidrop.swift  (generated bindings)
 #
 # The Rust crate (crates/vnidrop) is NOT modified. Bindings are generated in

@@ -44,8 +44,8 @@ export default async function DownloadPage() {
               <strong>{release.tag}</strong>
             </p>
             <p>
-              Public builds come from GitHub Releases. Windows installs through the Microsoft Store.
-              iOS is available from source for now.
+              Public builds come from GitHub Releases. Windows is available through the Microsoft
+              Store or as an unsigned direct installer. iOS is available from source for now.
             </p>
           </div>
         </div>
@@ -98,15 +98,27 @@ export default async function DownloadPage() {
             <li id="windows">
               <div className={styles.platformName}>
                 <h2>Windows</h2>
-                <span>Store</span>
+                <span>Store or direct</span>
               </div>
               <div className={styles.platformDetails}>
-                <p>Install from the Microsoft Store. There is no public sideload package.</p>
+                <p>Choose the signed Microsoft Store build or download the unsigned 64-bit installer.</p>
                 <p className={styles.downloadActions}>
                   <a className="text-link" href={windowsStoreUrl} rel="noreferrer">
                     Open Microsoft Store
                   </a>
+                  {release.windowsExe ? (
+                    <FileLink asset={release.windowsExe} />
+                  ) : (
+                    <span>No direct installer in this release.</span>
+                  )}
                 </p>
+                {release.windowsExe ? (
+                  <p className={styles.downloadWarning}>
+                    The direct installer is intentionally unsigned. Windows SmartScreen will warn
+                    that the publisher is unknown or the app might be dangerous. Verify the file
+                    against the SHA256 checksums below before running it.
+                  </p>
+                ) : null}
               </div>
             </li>
             <li id="ios">

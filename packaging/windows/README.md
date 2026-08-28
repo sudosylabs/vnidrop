@@ -1,9 +1,10 @@
-# Windows Microsoft Store packaging
+# Windows packaging
 
 This directory turns the Compose Desktop Windows app image into the unsigned
 MSIX artifacts accepted by Partner Center. Microsoft signs the package after
 certification, so this build does not use a PFX, certificate, HSM, or signing
-secret.
+secret. The same workflow also produces an intentionally unsigned `.exe` for
+people who prefer to install VniDrop directly from the GitHub Release.
 
 ## Product identity
 
@@ -31,13 +32,14 @@ package version adds `WINDOWS_VERSION_EPOCH` to the product major. With epoch
 
 ## GitHub Actions
 
-The Windows Store package workflow runs automatically for relevant pull
+The Windows package workflow runs automatically for relevant pull
 requests and by manual dispatch. The coordinated release workflow also calls
 it for a canonical `vMAJOR.MINOR.PATCH` tag. Pull requests build and validate
 without retaining an artifact. Manual and coordinated-release runs retain:
 
 - VniDrop_VERSION_x64.msix
 - VniDrop_VERSION_x64.msixupload
+- VniDrop_VERSION_x64.exe
 - build metadata
 - SHA-256 checksums
 
@@ -46,10 +48,16 @@ envelope containing the x64 MSIX. The MSIX is intentionally unsigned and is not
 a public sideloading artifact. Do not attach it to a public GitHub Release
 unless an independent production-signing path is added.
 
+The `.exe` is the public direct installer. It is intentionally unsigned, so
+Windows SmartScreen is expected to show an unknown-publisher or potentially
+dangerous-app warning. Users should download it only from the official GitHub
+Release and compare it with the published `SHA256SUMS` before running it.
+
 The workflow explicitly selects Gobley's release Rust variant and rejects a
-package containing the debug native JAR. It also verifies the bundled JVM,
-vnidrop.dll, app version, manifest identity, architecture, and launcher after
-MakeAppx unpacks the finished package.
+package containing the debug native JAR. It verifies that the direct installer
+is unsigned, and also verifies the bundled JVM, vnidrop.dll, app version,
+manifest identity, architecture, and launcher after MakeAppx unpacks the
+finished package.
 
 ## First Store release
 
@@ -59,9 +67,10 @@ already-live free product. For the first release:
 1. Push a canonical release tag to run the coordinated workflow, or run the
    Windows package workflow manually.
 2. Download the retained artifact.
-3. Test that exact build on an interactive Windows VM. Local installation needs
-   an ephemeral development signature trusted only by that VM; this is not a
-   production signing key.
+3. Test those exact builds on an interactive Windows VM. Local MSIX installation
+   needs an ephemeral development signature trusted only by that VM; this is
+   not a production signing key. The direct `.exe` should display the expected
+   SmartScreen warning and install for the current user.
 4. Upload the msixupload file to the current Partner Center draft.
 5. Confirm that Partner Center parses the expected identity, version, x64
    architecture, Windows.Desktop target, declared UI languages (`en-US`,
@@ -96,9 +105,11 @@ pricing, and availability are preserved.
 From the repository root:
 
 ~~~powershell
-.\gradlew.bat :shared:jvmTest :desktopApp:createReleaseDistributable -Pvnidrop.desktop.rustVariant=release -Pvnidrop.diagnostics.included=false --no-daemon --no-configuration-cache --stacktrace
+.\gradlew.bat :shared:jvmTest :desktopApp:createReleaseDistributable :desktopApp:packageReleaseExe -Pvnidrop.desktop.rustVariant=release -Pvnidrop.diagnostics.included=false --no-daemon --no-configuration-cache --stacktrace
 
-.\packaging\windows\build-msix.ps1 -AppImage .\desktopApp\build\compose\binaries\main-release\app\VniDrop -OutputDirectory .\build\release\windows
+$directInstaller = Get-ChildItem .\desktopApp\build\compose\binaries\main-release\exe\*.exe
+if (@($directInstaller).Count -ne 1) { throw "Expected exactly one direct installer" }
+.\packaging\windows\build-msix.ps1 -AppImage .\desktopApp\build\compose\binaries\main-release\app\VniDrop -DirectInstaller $directInstaller.FullName -OutputDirectory .\build\release\windows
 ~~~
 
 The packaging script requires Windows SDK 10.0.26100.0. It uses MakePri to

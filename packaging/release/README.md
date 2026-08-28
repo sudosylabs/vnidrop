@@ -21,7 +21,8 @@ passes, the release pipeline:
 7. updates the Homebrew cask.
 
 Public GitHub Release assets are the DEB, RPM, notarized DMG, Sparkle appcast,
-Play-signed universal APK, checksum file, and release manifest.
+Play-signed universal APK, unsigned Windows direct installer, checksum file,
+and release manifest.
 
 The unsigned Microsoft `.msixupload` and upload-signed Android AAB remain
 private workflow artifacts. The protected `microsoft-store` GitHub Environment
@@ -30,6 +31,11 @@ Windows package. Microsoft publishes the update after certification; the job
 does not change Store listings, pricing, or availability. The Play release
 remains a draft on a closed-testing track; this pipeline cannot publish it to
 production.
+
+The public Windows `.exe` is intentionally unsigned. Windows SmartScreen is
+expected to warn that the publisher is unknown or that the app might be
+dangerous. Release users should verify the installer against `SHA256SUMS`; the
+Microsoft Store remains the signed installation path.
 
 To release, prepare and merge the new product version. Android, Microsoft Store,
 and Apple build/package versions are derived automatically:

@@ -63,6 +63,7 @@ play_apk="$(find_single "$input_dir/play" '*-play-universal.apk' 'Play-signed AP
 play_metadata="$(find_single "$input_dir/play" 'play-release.json' 'Play release metadata')"
 msix="$(find_single "$input_dir/windows" '*.msix' 'Windows MSIX')"
 msixupload="$(find_single "$input_dir/windows" '*.msixupload' 'Windows MSIX upload')"
+windows_installer="$(find_single "$input_dir/windows" '*.exe' 'Windows direct installer')"
 windows_metadata="$(find_single "$input_dir/windows" '*.build-info.json' 'Windows build metadata')"
 
 [[ $(basename "$deb") == "vnidrop_${version}-1_amd64.deb" ]]
@@ -72,6 +73,7 @@ windows_metadata="$(find_single "$input_dir/windows" '*.build-info.json' 'Window
 [[ $(basename "$play_apk") == "VniDrop-${version}-${android_code}-play-universal.apk" ]]
 [[ $(basename "$msix") == "VniDrop_${version}_x64.msix" ]]
 [[ $(basename "$msixupload") == "VniDrop_${version}_x64.msixupload" ]]
+[[ $(basename "$windows_installer") == "VniDrop_${version}_x64.exe" ]]
 [[ $(jq -r '.productVersion' "$apple_metadata") == "$version" ]]
 [[ $(jq -r '.distribution' "$apple_metadata") == direct ]]
 [[ $(jq -r '.artifact' "$apple_metadata") == "$(basename "$dmg")" ]]
@@ -100,6 +102,9 @@ normalized_play_track="$(printf '%s' "$play_track" | tr '[:upper:]' '[:lower:]')
 [[ $normalized_play_track != production && $normalized_play_track != *:production ]]
 [[ $(jq -r '.appVersion' "$windows_metadata") == "$version" ]]
 [[ $(jq -r '.packageVersion' "$windows_metadata") == "$windows_package" ]]
+[[ $(jq -r '.directInstaller.artifact' "$windows_metadata") == "$(basename "$windows_installer")" ]]
+[[ $(jq -r '.directInstaller.unsigned' "$windows_metadata") == true ]]
+[[ $(jq -r '.directInstaller.smartScreenWarningExpected' "$windows_metadata") == true ]]
 grep -F "VniDrop-${version}.dmg" "$appcast" >/dev/null
 
 mkdir -p "$output_dir"
@@ -107,7 +112,7 @@ mkdir -p "$output_dir"
 	printf 'Release output directory must be empty: %s\n' "$output_dir" >&2
 	exit 1
 }
-cp "$deb" "$rpm" "$dmg" "$appcast" "$play_apk" "$apple_core" "$output_dir/"
+cp "$deb" "$rpm" "$dmg" "$appcast" "$play_apk" "$apple_core" "$windows_installer" "$output_dir/"
 
 payloads=(
 	"$output_dir/$(basename "$deb")"
@@ -116,6 +121,7 @@ payloads=(
 	"$output_dir/$(basename "$appcast")"
 	"$output_dir/$(basename "$play_apk")"
 	"$output_dir/$(basename "$apple_core")"
+	"$output_dir/$(basename "$windows_installer")"
 )
 files_json="$(
 	for file in "${payloads[@]}"; do
@@ -137,6 +143,8 @@ jq -n \
 	--arg windowsPackageVersion "$windows_package" \
 	--arg windowsMsixUpload "$(basename "$msixupload")" \
 	--arg windowsMsixUploadSha256 "$(sha256sum "$msixupload" | awk '{print $1}')" \
+	--arg windowsDirectInstaller "$(basename "$windows_installer")" \
+	--arg windowsDirectInstallerSha256 "$(sha256sum "$windows_installer" | awk '{print $1}')" \
 	--arg playTrack "$play_track" \
 	--arg playBundleSha256 "$(jq -r '.bundleSha256' "$play_metadata")" \
 	--arg playCertificateSha256 "$(jq -r '.appSigningCertificateSha256' "$play_metadata")" \
@@ -162,6 +170,13 @@ jq -n \
 			msixUpload: $windowsMsixUpload,
 			sha256: $windowsMsixUploadSha256
 		},
+		windowsDirect: {
+			publicReleaseAsset: true,
+			installer: $windowsDirectInstaller,
+			sha256: $windowsDirectInstallerSha256,
+			unsigned: true,
+			smartScreenWarningExpected: true
+		},
 		files: $files
 	}' > "$output_dir/release-manifest.json"
 
@@ -174,6 +189,7 @@ jq -n \
 		"$(basename "$appcast")" \
 		"$(basename "$play_apk")" \
 		"$(basename "$apple_core")" \
+		"$(basename "$windows_installer")" \
 		release-manifest.json \
 		> SHA256SUMS
 )
@@ -181,3 +197,5 @@ jq -n \
 printf 'Assembled public release assets in %s\n' "$output_dir"
 printf 'Windows Store submission retained as workflow artifact: %s\n' \
 	"$(basename "$msixupload")"
+printf 'Unsigned Windows direct installer included as a public asset: %s\n' \
+	"$(basename "$windows_installer")"

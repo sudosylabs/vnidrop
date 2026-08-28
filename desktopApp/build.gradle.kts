@@ -36,7 +36,7 @@ compose.desktop {
 		buildTypes.release.proguard.isEnabled.set(false)
 
 		nativeDistributions {
-			targetFormats(TargetFormat.Deb, TargetFormat.Rpm)
+			targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Exe)
 			packageName = "VniDrop"
 			packageVersion = appVersion
 			description = "Send files directly across your devices"
@@ -44,6 +44,10 @@ compose.desktop {
 			licenseFile.set(project.file("../LICENSE"))
 			windows {
 				iconFile.set(project.file("../assets/windows/app-icon.ico"))
+				perUserInstall = true
+				shortcut = true
+				menu = true
+				upgradeUuid = "E08E256E-2F07-479E-8AA9-4898D424F6C5"
 			}
 			linux {
 				packageName = "vnidrop"

@@ -63,7 +63,7 @@ jobs:
     uses: ./.github/workflows/linux-packages.yml
 
   windows:
-    name: Windows Store package
+    name: Windows packages
     needs: preflight
     uses: ./.github/workflows/windows-store.yml
 
@@ -245,7 +245,7 @@ jobs:
       - name: Download Windows Store package
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
-          name: vnidrop-${{ needs.preflight.outputs.version }}-windows-store-x64
+          name: vnidrop-${{ needs.preflight.outputs.version }}-windows-x64
           path: build/release/windows
 
       - name: Validate Microsoft Store configuration
@@ -375,10 +375,10 @@ jobs:
           name: vnidrop-${{ needs.preflight.outputs.version }}-macos-dmg
           path: build/release/downloads/macos
 
-      - name: Download Windows Store package
+      - name: Download Windows packages
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
-          name: vnidrop-${{ needs.preflight.outputs.version }}-windows-store-x64
+          name: vnidrop-${{ needs.preflight.outputs.version }}-windows-x64
           path: build/release/downloads/windows
 
       - name: Download Play-signed APK

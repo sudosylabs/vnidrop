@@ -37,6 +37,7 @@ export type LatestRelease = {
   deb?: ReleaseAsset;
   rpm?: ReleaseAsset;
   apk?: ReleaseAsset;
+  windowsExe?: ReleaseAsset;
 };
 
 export function assetDownloadUrl(tag: string, name: string): string {
@@ -96,5 +97,6 @@ export async function loadLatestRelease(): Promise<LatestRelease> {
     deb: findFile(tag, files, /\.deb$/),
     rpm: findFile(tag, files, /\.rpm$/),
     apk: findFile(tag, files, /play-universal\.apk$/),
+    windowsExe: findFile(tag, files, /^VniDrop_.+_x64\.exe$/),
   };
 }

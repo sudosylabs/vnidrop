@@ -1,13 +1,27 @@
 package com.vnidrop.app
 
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.window.WindowPlacement
+import com.sun.jna.platform.win32.BaseTSD.ULONG_PTRByReference
+import com.sun.jna.platform.win32.WinDef.HWND
+import com.sun.jna.platform.win32.WinDef.LPARAM
+import com.sun.jna.platform.win32.WinDef.RECT
+import com.sun.jna.platform.win32.WinDef.WPARAM
+import com.sun.jna.platform.win32.WinNT.HRESULT
+import com.sun.jna.ptr.IntByReference
+import com.vnidrop.app.ui.theme.VniDropTheme
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.jetbrains.skiko.GraphicsApi
 
+@OptIn(ExperimentalTestApi::class)
 class DesktopWindowChromeTest {
 	@Test
 	fun desktopWindowIconLoadsFromPackagedResources() {
@@ -155,6 +169,19 @@ class DesktopWindowChromeTest {
 	}
 
 	@Test
+	fun nativeBackdropRejectsMissingRedirectionBitmapAlphaSupport() {
+		val dwm = RecordingWindowsDwmApi(0, 0, -1)
+		val configured = configureWindowsNativeBackdrop(
+			dwm = dwm,
+			handle = HWND(),
+			margins = WindowsWindowMargins(top = 48),
+		)
+
+		assertFalse(configured)
+		assertEquals(listOf("frame", "attribute", "attribute"), dwm.calls)
+	}
+
+	@Test
 	fun captionActionRequiresReleaseOnTheOriginallyPressedButton() {
 		assertTrue(
 			shouldActivateWindowsCaptionButton(
@@ -171,6 +198,41 @@ class DesktopWindowChromeTest {
 		assertFalse(shouldActivateWindowsCaptionButton(WindowsCaptionButton.Close, null))
 	}
 
+	@Test
+	fun customWindowsTitleBarAlwaysShowsActionableCaptionControls() = runComposeUiTest {
+		val invoked = mutableListOf<WindowsCaptionButton>()
+		setContent {
+			VniDropTheme(isDarkTheme = true) {
+				WindowsTitleBar(
+					isMaximized = false,
+					isWindowActive = true,
+					hoveredCaptionButton = null,
+					pressedCaptionButton = null,
+					usesNativeBackdrop = true,
+					onCaptionBoundsChanged = {},
+					onCaptionButtonBoundsChanged = { _, _ -> },
+					onMinimize = { invoked += WindowsCaptionButton.Minimize },
+					onToggleMaximize = { invoked += WindowsCaptionButton.Maximize },
+					onClose = { invoked += WindowsCaptionButton.Close },
+				)
+			}
+		}
+
+		onNodeWithContentDescription("Minimize window").assertIsDisplayed().performClick()
+		onNodeWithContentDescription("Maximize window").assertIsDisplayed().performClick()
+		onNodeWithContentDescription("Close window").assertIsDisplayed().performClick()
+		runOnIdle {
+			assertEquals(
+				listOf(
+					WindowsCaptionButton.Minimize,
+					WindowsCaptionButton.Maximize,
+					WindowsCaptionButton.Close,
+				),
+				invoked,
+			)
+		}
+	}
+
 	private fun windowsGeometry() = WindowsHitTestGeometry(
 		width = 1_200,
 		height = 800,
@@ -182,4 +244,33 @@ class DesktopWindowChromeTest {
 		maximizeButton = Rect(1_108f, 8f, 1_154f, 40f),
 		closeButton = Rect(1_154f, 8f, 1_200f, 40f),
 	)
+}
+
+private class RecordingWindowsDwmApi(vararg results: Int) : WindowsDwmApi {
+	private val remainingResults = ArrayDeque(results.toList())
+	val calls = mutableListOf<String>()
+
+	override fun DwmDefWindowProc(
+		hWnd: HWND,
+		message: Int,
+		wParam: WPARAM,
+		lParam: LPARAM,
+		result: ULONG_PTRByReference,
+	): Boolean = false
+
+	override fun DwmExtendFrameIntoClientArea(hWnd: HWND, margins: WindowsWindowMargins): HRESULT = result("frame")
+
+	override fun DwmGetWindowAttribute(hWnd: HWND, attribute: Int, value: RECT, valueSize: Int): HRESULT = HRESULT(0)
+
+	override fun DwmSetWindowAttribute(
+		hWnd: HWND,
+		attribute: Int,
+		value: IntByReference,
+		valueSize: Int,
+	): HRESULT = result("attribute")
+
+	private fun result(call: String): HRESULT {
+		calls += call
+		return HRESULT(remainingResults.removeFirst())
+	}
 }

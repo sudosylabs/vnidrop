@@ -16,6 +16,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.PathFillType
@@ -86,8 +87,22 @@ internal fun WindowScope.WindowsWindowFrame(
 				onDarkThemeChanged = controller::setDarkTheme,
 				chrome = {
 					WindowsTitleBar(
-						controller = controller,
 						isMaximized = windowState.placement == WindowPlacement.Maximized,
+						isWindowActive = controller.isWindowActive,
+						hoveredCaptionButton = controller.hoveredCaptionButton,
+						pressedCaptionButton = controller.pressedCaptionButton,
+						usesNativeBackdrop = controller.usesNativeBackdrop,
+						onCaptionBoundsChanged = controller::updateCaptionBounds,
+						onCaptionButtonBoundsChanged = { button, bounds ->
+							when (button) {
+								WindowsCaptionButton.Minimize -> controller.updateMinimizeButtonBounds(bounds)
+								WindowsCaptionButton.Maximize -> controller.updateMaximizeButtonBounds(bounds)
+								WindowsCaptionButton.Close -> controller.updateCloseButtonBounds(bounds)
+							}
+						},
+						onMinimize = controller::minimize,
+						onToggleMaximize = controller::toggleMaximize,
+						onClose = controller::postCloseRequest,
 					)
 				},
 			),
@@ -96,18 +111,26 @@ internal fun WindowScope.WindowsWindowFrame(
 }
 
 @Composable
-private fun WindowsTitleBar(
-	controller: WindowsNativeWindowController,
+internal fun WindowsTitleBar(
 	isMaximized: Boolean,
+	isWindowActive: Boolean,
+	hoveredCaptionButton: WindowsCaptionButton?,
+	pressedCaptionButton: WindowsCaptionButton?,
+	usesNativeBackdrop: Boolean,
+	onCaptionBoundsChanged: (Rect) -> Unit,
+	onCaptionButtonBoundsChanged: (WindowsCaptionButton, Rect) -> Unit,
+	onMinimize: () -> Unit,
+	onToggleMaximize: () -> Unit,
+	onClose: () -> Unit,
 ) {
 	val colors = LocalVniDropColors.current
-	val foreground = colors.foregroundDefault.copy(alpha = if (controller.isWindowActive) 1f else 0.55f)
+	val foreground = colors.foregroundDefault.copy(alpha = if (isWindowActive) 1f else 0.55f)
 	Box(
 		modifier = Modifier
 			.fillMaxWidth()
 			.height(WindowsTitleBarHeight)
-			.background(if (controller.usesNativeBackdrop) Color.Transparent else colors.backgroundSurface200)
-			.onGloballyPositioned { controller.updateCaptionBounds(it.boundsInWindow()) },
+			.background(if (usesNativeBackdrop) Color.Transparent else colors.backgroundSurface200)
+			.onGloballyPositioned { onCaptionBoundsChanged(it.boundsInWindow()) },
 	) {
 		BasicText(
 			text = "VniDrop",
@@ -118,30 +141,37 @@ private fun WindowsTitleBar(
 				fontWeight = FontWeight.SemiBold,
 			),
 		)
-		if (!controller.usesSystemCaptionButtons) {
-			Row(modifier = Modifier.align(Alignment.TopEnd)) {
-				WindowsCaptionButton(
-					button = WindowsCaptionButton.Minimize,
-					icon = WindowsMinimizeIcon,
-					contentDescription = "Minimize window",
-					controller = controller,
-					onClick = controller::minimize,
-				)
-				WindowsCaptionButton(
-					button = WindowsCaptionButton.Maximize,
-					icon = if (isMaximized) WindowsRestoreIcon else WindowsMaximizeIcon,
-					contentDescription = if (isMaximized) "Restore window" else "Maximize window",
-					controller = controller,
-					onClick = controller::toggleMaximize,
-				)
-				WindowsCaptionButton(
-					button = WindowsCaptionButton.Close,
-					icon = WindowsCloseIcon,
-					contentDescription = "Close window",
-					controller = controller,
-					onClick = { controller.postCloseRequest() },
-				)
-			}
+		Row(modifier = Modifier.align(Alignment.TopEnd)) {
+			WindowsCaptionButton(
+				button = WindowsCaptionButton.Minimize,
+				icon = WindowsMinimizeIcon,
+				contentDescription = "Minimize window",
+				isWindowActive = isWindowActive,
+				isHovered = hoveredCaptionButton == WindowsCaptionButton.Minimize,
+				isPressed = pressedCaptionButton == WindowsCaptionButton.Minimize,
+				onBoundsChanged = onCaptionButtonBoundsChanged,
+				onClick = onMinimize,
+			)
+			WindowsCaptionButton(
+				button = WindowsCaptionButton.Maximize,
+				icon = if (isMaximized) WindowsRestoreIcon else WindowsMaximizeIcon,
+				contentDescription = if (isMaximized) "Restore window" else "Maximize window",
+				isWindowActive = isWindowActive,
+				isHovered = hoveredCaptionButton == WindowsCaptionButton.Maximize,
+				isPressed = pressedCaptionButton == WindowsCaptionButton.Maximize,
+				onBoundsChanged = onCaptionButtonBoundsChanged,
+				onClick = onToggleMaximize,
+			)
+			WindowsCaptionButton(
+				button = WindowsCaptionButton.Close,
+				icon = WindowsCloseIcon,
+				contentDescription = "Close window",
+				isWindowActive = isWindowActive,
+				isHovered = hoveredCaptionButton == WindowsCaptionButton.Close,
+				isPressed = pressedCaptionButton == WindowsCaptionButton.Close,
+				onBoundsChanged = onCaptionButtonBoundsChanged,
+				onClick = onClose,
+			)
 		}
 	}
 }
@@ -151,22 +181,23 @@ private fun WindowsCaptionButton(
 	button: WindowsCaptionButton,
 	icon: ImageVector,
 	contentDescription: String,
-	controller: WindowsNativeWindowController,
+	isWindowActive: Boolean,
+	isHovered: Boolean,
+	isPressed: Boolean,
+	onBoundsChanged: (WindowsCaptionButton, Rect) -> Unit,
 	onClick: () -> Unit,
 ) {
 	val colors = LocalVniDropColors.current
-	val hovered = controller.hoveredCaptionButton == button
-	val pressed = controller.pressedCaptionButton == button
-	val destructive = button == WindowsCaptionButton.Close && (hovered || pressed)
+	val destructive = button == WindowsCaptionButton.Close && (isHovered || isPressed)
 	val background = when {
 		destructive -> colors.destructiveDefault
-		pressed -> colors.backgroundOverlayHover
-		hovered -> colors.backgroundOverlayHover
+		isPressed -> colors.backgroundOverlayHover
+		isHovered -> colors.backgroundOverlayHover
 		else -> Color.Transparent
 	}
 	val foreground = when {
 		destructive -> Color.White
-		controller.isWindowActive -> colors.foregroundDefault
+		isWindowActive -> colors.foregroundDefault
 		else -> colors.foregroundDefault.copy(alpha = 0.55f)
 	}
 	Box(
@@ -174,13 +205,7 @@ private fun WindowsCaptionButton(
 			.size(width = WindowsCaptionButtonWidth, height = WindowsCaptionButtonHeight)
 			.background(background)
 			.clickable(role = Role.Button, onClick = onClick)
-			.onGloballyPositioned { coordinates ->
-				when (button) {
-					WindowsCaptionButton.Minimize -> controller.updateMinimizeButtonBounds(coordinates.boundsInWindow())
-					WindowsCaptionButton.Maximize -> controller.updateMaximizeButtonBounds(coordinates.boundsInWindow())
-					WindowsCaptionButton.Close -> controller.updateCloseButtonBounds(coordinates.boundsInWindow())
-				}
-			},
+			.onGloballyPositioned { coordinates -> onBoundsChanged(button, coordinates.boundsInWindow()) },
 		contentAlignment = Alignment.Center,
 	) {
 		Image(

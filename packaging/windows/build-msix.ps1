@@ -4,6 +4,9 @@ param(
 	[string] $AppImage,
 
 	[Parameter(Mandatory)]
+	[string] $DirectInstaller,
+
+	[Parameter(Mandatory)]
 	[string] $OutputDirectory,
 
 	[string] $WindowsSdkVersion = "10.0.26100.0"
@@ -95,6 +98,13 @@ Assert-Condition (Test-Path -LiteralPath $appImagePath -PathType Container) "App
 Assert-Condition (Test-Path -LiteralPath (Join-Path $appImagePath "VniDrop.exe") -PathType Leaf) "The app image does not contain VniDrop.exe"
 Assert-Condition (Test-Path -LiteralPath (Join-Path $appImagePath "runtime\bin\server\jvm.dll") -PathType Leaf) "The app image does not contain its bundled JVM"
 
+$directInstallerSourcePath = (Resolve-Path -LiteralPath $DirectInstaller).Path
+Assert-Condition (Test-Path -LiteralPath $directInstallerSourcePath -PathType Leaf) "Direct installer not found: $DirectInstaller"
+Assert-Condition ([System.IO.Path]::GetExtension($directInstallerSourcePath) -eq ".exe") "The direct installer must be an EXE"
+Assert-Condition ((Get-Item -LiteralPath $directInstallerSourcePath).Length -gt 0) "The direct installer is empty"
+$directInstallerSignature = Get-AuthenticodeSignature -LiteralPath $directInstallerSourcePath
+Assert-Condition ($directInstallerSignature.Status -eq [System.Management.Automation.SignatureStatus]::NotSigned) "The direct installer must be unsigned"
+
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $appFiles = @(Get-ChildItem -LiteralPath $appImagePath -Recurse -File)
 $debugRustJars = @($appFiles | Where-Object { $_.Name -match "^shared-win32-x86-64-debug-.+\.jar$" })
@@ -120,11 +130,13 @@ $outputPath = [System.IO.Path]::GetFullPath($OutputDirectory)
 $artifactBaseName = "VniDrop_" + $Version + "_x64"
 $msixPath = Join-Path $outputPath "$artifactBaseName.msix"
 $uploadPath = Join-Path $outputPath "$artifactBaseName.msixupload"
+$directInstallerPath = Join-Path $outputPath "$artifactBaseName.exe"
 $buildInfoPath = Join-Path $outputPath "$artifactBaseName.build-info.json"
 $checksumsPath = Join-Path $outputPath "SHA256SUMS"
-@($msixPath, $uploadPath, $buildInfoPath, $checksumsPath) |
+@($msixPath, $uploadPath, $directInstallerPath, $buildInfoPath, $checksumsPath) |
 	Where-Object { Test-Path -LiteralPath $_ } |
 	ForEach-Object { Remove-Item -LiteralPath $_ -Force }
+Copy-Item -LiteralPath $directInstallerSourcePath -Destination $directInstallerPath
 
 $stageRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("vnidrop-msix-" + [System.Guid]::NewGuid().ToString("N"))
 $packageRoot = Join-Path $stageRoot "package"
@@ -254,6 +266,11 @@ $buildInfo = [ordered] @{
 	makeAppxVersion = (Get-Item -LiteralPath $makeAppxPath).VersionInfo.FileVersion
 	makePriVersion = (Get-Item -LiteralPath $makePriPath).VersionInfo.FileVersion
 	unsignedForMicrosoftStore = $true
+	directInstaller = [ordered] @{
+		artifact = [System.IO.Path]::GetFileName($directInstallerPath)
+		unsigned = $true
+		smartScreenWarningExpected = $true
+	}
 	builtAtUtc = [System.DateTimeOffset]::UtcNow.ToString("O")
 }
 [System.IO.File]::WriteAllText(
@@ -262,14 +279,15 @@ $buildInfo = [ordered] @{
 	[System.Text.UTF8Encoding]::new($false)
 )
 
-$checksumTargets = @($msixPath, $uploadPath, $buildInfoPath)
+$checksumTargets = @($msixPath, $uploadPath, $directInstallerPath, $buildInfoPath)
 [string[]] $checksumLines = $checksumTargets | ForEach-Object {
 	$hash = Get-FileHash -LiteralPath $_ -Algorithm SHA256
 	$hash.Hash.ToLowerInvariant() + "  " + [System.IO.Path]::GetFileName($_)
 }
 [System.IO.File]::WriteAllLines($checksumsPath, $checksumLines, [System.Text.Encoding]::ASCII)
 
-Write-Host "Created unsigned Microsoft Store artifacts:"
+Write-Host "Created Windows release artifacts:"
 Write-Host "  $msixPath"
 Write-Host "  $uploadPath"
+Write-Host "  $directInstallerPath (unsigned; SmartScreen warning expected)"
 Write-Host "  $checksumsPath"

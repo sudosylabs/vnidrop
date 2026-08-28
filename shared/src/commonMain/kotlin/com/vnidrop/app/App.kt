@@ -1,16 +1,23 @@
 package com.vnidrop.app
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,9 +25,14 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -30,6 +42,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vnidrop.app.core.TransferDirection
+import com.vnidrop.app.core.rememberPickedShareSourceAdapter
 import com.vnidrop.app.feature.app.AppViewModel
 import com.vnidrop.app.feature.app.AppGraphViewModel
 import com.vnidrop.app.feature.approvals.ApprovalModalHost
@@ -50,17 +64,19 @@ import com.vnidrop.app.feature.settings.SettingsRoute
 import com.vnidrop.app.feature.settings.SettingsViewModel
 import com.vnidrop.app.platform.PlatformSystemAppearance
 import com.vnidrop.app.ui.feedback.VniDropSnackbarHost
+import com.vnidrop.app.ui.icons.AppIcon
+import com.vnidrop.app.ui.icons.PlatformIcon
 import com.vnidrop.app.ui.navigation.AppDestination
 import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.platform.contentWindowClassFor
 import com.vnidrop.app.ui.platform.usesMobilePresentation
 import com.vnidrop.app.ui.shell.AppShell
 import com.vnidrop.app.ui.shell.ScreenScrollContainer
-import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import com.vnidrop.app.ui.theme.VniDropTheme
 import com.vnidrop.app.ui.theme.rememberResolvedDarkTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -68,7 +84,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.stringResource
 import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.app_starting
-import com.vnidrop.app.core.rememberPickedShareSourceAdapter
 
 @Composable
 fun App(
@@ -305,33 +320,101 @@ fun App(
 						if (creation.awaitsRemoteApproval) settingsViewModel.promptForBackgroundNotifications()
 					}
 				}
-				windowChrome?.invoke()
-				val startingLabel = stringResource(Res.string.app_starting)
-				AnimatedVisibility(
-					visible = !sendCoreState.isInitialized && !appState.startupSettled,
-					enter = fadeIn(),
-					exit = fadeOut(),
-				) {
-					Box(
-						modifier = Modifier
-							.fillMaxSize()
-							.background(LocalVniDropColors.current.backgroundSurface100)
-							.semantics { contentDescription = startingLabel },
-						contentAlignment = Alignment.Center,
-					) {
-						Column(
-							horizontalAlignment = Alignment.CenterHorizontally,
-							verticalArrangement = Arrangement.spacedBy(16.dp),
-						) {
-							CircularProgressIndicator()
-							Text(
-								startingLabel,
-								style = MaterialTheme.typography.titleMedium,
-								color = LocalVniDropColors.current.foregroundLighter,
-							)
-						}
+				StartupLayer(
+					label = stringResource(Res.string.app_starting),
+					showOverlay = !sendCoreState.isInitialized && !appState.startupSettled,
+					windowChrome = windowChrome,
+				)
+			}
+		}
+	}
+}
+
+internal const val StartupDetailsDelayMillis = 300L
+internal const val StartupLabelFadeDurationMillis = 180
+private const val StartupOverlayFadeDurationMillis = 180
+private const val StartupIconBreathDurationMillis = 1_200
+internal const val StartupIconTestTag = "startup-icon"
+internal const val StartupLabelTestTag = "startup-label"
+private val StartupIconSize = 44.dp
+
+@Composable
+internal fun StartupLayer(
+	label: String,
+	showOverlay: Boolean,
+	windowChrome: (@Composable () -> Unit)?,
+) {
+	AnimatedVisibility(
+		visible = showOverlay,
+		enter = EnterTransition.None,
+		exit = fadeOut(tween(StartupOverlayFadeDurationMillis)),
+	) {
+		StartupOverlay(label)
+	}
+	windowChrome?.invoke()
+}
+
+@Composable
+internal fun StartupOverlay(
+	label: String,
+	modifier: Modifier = Modifier,
+) {
+	var showDetails by remember { mutableStateOf(false) }
+	LaunchedEffect(Unit) {
+		delay(StartupDetailsDelayMillis)
+		showDetails = true
+	}
+	val iconScale = if (showDetails) {
+		val transition = rememberInfiniteTransition(label = "startup-icon-breath")
+		val scale by transition.animateFloat(
+			initialValue = 1f,
+			targetValue = 1.05f,
+			animationSpec = infiniteRepeatable(
+				animation = tween(StartupIconBreathDurationMillis, easing = FastOutSlowInEasing),
+				repeatMode = RepeatMode.Reverse,
+			),
+			label = "startup-icon-scale",
+		)
+		scale
+	} else {
+		1f
+	}
+	val colors = LocalVniDropColors.current
+
+	Box(
+		modifier = modifier
+			.fillMaxSize()
+			.background(colors.backgroundSurface100)
+			.semantics { contentDescription = label },
+		contentAlignment = Alignment.Center,
+	) {
+		Column(
+			horizontalAlignment = Alignment.CenterHorizontally,
+			verticalArrangement = Arrangement.spacedBy(12.dp),
+		) {
+			PlatformIcon(
+				icon = AppIcon.Send,
+				contentDescription = null,
+				modifier = Modifier
+					.size(StartupIconSize)
+					.graphicsLayer {
+						scaleX = iconScale
+						scaleY = iconScale
 					}
-				}
+					.testTag(StartupIconTestTag),
+				tint = colors.brandDefault,
+			)
+			AnimatedVisibility(
+				visible = showDetails,
+				enter = fadeIn(tween(StartupLabelFadeDurationMillis)),
+				exit = fadeOut(tween(StartupLabelFadeDurationMillis)),
+			) {
+				Text(
+					text = label,
+					modifier = Modifier.testTag(StartupLabelTestTag),
+					style = MaterialTheme.typography.bodyMedium,
+					color = colors.foregroundLighter,
+				)
 			}
 		}
 	}

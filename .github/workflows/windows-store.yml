@@ -1,4 +1,4 @@
-name: Windows Store package
+name: Windows packages
 
 on:
   pull_request:
@@ -26,12 +26,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: windows-store-${{ github.event.pull_request.number || github.ref }}
+  group: windows-packages-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-msix:
-    name: Build unsigned Store MSIX (x64)
+    name: Build Store MSIX and direct EXE (x64)
     runs-on: windows-2025
     timeout-minutes: 90
     env:
@@ -79,12 +79,13 @@ jobs:
           "app=$($version.productVersion)" >> $env:GITHUB_OUTPUT
           "package=$($version.windowsPackageVersion)" >> $env:GITHUB_OUTPUT
 
-      - name: Test and build release app image
+      - name: Test and build Windows packages
         shell: pwsh
         run: |
           $arguments = @(
             ":shared:jvmTest"
             ":desktopApp:createReleaseDistributable"
+            ":desktopApp:packageReleaseExe"
             "-Pvnidrop.desktop.rustVariant=release"
             "-Pvnidrop.diagnostics.included=false"
             "--no-daemon"
@@ -96,30 +97,36 @@ jobs:
             throw "Gradle release build failed with exit code $LASTEXITCODE"
           }
 
-      - name: Create and validate Store package
+      - name: Create and validate release artifacts
         shell: pwsh
         run: |
+          $directInstallers = @(Get-ChildItem -LiteralPath ".\desktopApp\build\compose\binaries\main-release\exe" -Filter "*.exe" -File)
+          if ($directInstallers.Count -ne 1) {
+            throw "Expected exactly one direct Windows installer, found $($directInstallers.Count)"
+          }
           $arguments = @{
             AppImage = ".\desktopApp\build\compose\binaries\main-release\app\VniDrop"
+            DirectInstaller = $directInstallers[0].FullName
             OutputDirectory = ".\build\release\windows"
           }
           & .\packaging\windows\build-msix.ps1 @arguments
 
-      - name: Upload Store artifacts
+      - name: Upload Windows artifacts
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: vnidrop-${{ steps.version.outputs.app }}-windows-store-x64
+          name: vnidrop-${{ steps.version.outputs.app }}-windows-x64
           path: build/release/windows/
           if-no-files-found: error
           retention-days: 90
           compression-level: 0
 
-      - name: Summarize package
+      - name: Summarize packages
         shell: pwsh
         run: |
-          "### Windows Store package" >> $env:GITHUB_STEP_SUMMARY
+          "### Windows packages" >> $env:GITHUB_STEP_SUMMARY
           "- App version: ${{ steps.version.outputs.app }}" >> $env:GITHUB_STEP_SUMMARY
           "- MSIX version: ${{ steps.version.outputs.package }}" >> $env:GITHUB_STEP_SUMMARY
           "- Architecture: x64" >> $env:GITHUB_STEP_SUMMARY
-          "- Signing: unsigned Store submission; Microsoft signs after certification" >> $env:GITHUB_STEP_SUMMARY
+          "- Store signing: unsigned submission; Microsoft signs after certification" >> $env:GITHUB_STEP_SUMMARY
+          "- Direct installer signing: unsigned; Windows SmartScreen warning expected" >> $env:GITHUB_STEP_SUMMARY

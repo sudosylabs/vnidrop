@@ -29,6 +29,7 @@ printf 'core\n' > "$input_dir/macos/VnidropCore-${version}.zip"
 printf 'apk\n' > "$input_dir/play/VniDrop-${version}-${android_code}-play-universal.apk"
 printf 'msix\n' > "$input_dir/windows/VniDrop_${version}_x64.msix"
 printf 'msixupload\n' > "$input_dir/windows/VniDrop_${version}_x64.msixupload"
+printf 'exe\n' > "$input_dir/windows/VniDrop_${version}_x64.exe"
 
 jq -n \
 	--arg productVersion "$version" \
@@ -56,7 +57,16 @@ jq -n \
 jq -n \
 	--arg appVersion "$version" \
 	--arg packageVersion "$windows_package" \
-	'{appVersion: $appVersion, packageVersion: $packageVersion}' \
+	--arg directInstaller "VniDrop_${version}_x64.exe" \
+	'{
+		appVersion: $appVersion,
+		packageVersion: $packageVersion,
+		directInstaller: {
+			artifact: $directInstaller,
+			unsigned: true,
+			smartScreenWarningExpected: true
+		}
+	}' \
 	> "$input_dir/windows/VniDrop_${version}_x64.build-info.json"
 
 (
@@ -86,6 +96,7 @@ jq -n \
 	sha256sum \
 		"VniDrop_${version}_x64.msix" \
 		"VniDrop_${version}_x64.msixupload" \
+		"VniDrop_${version}_x64.exe" \
 		"VniDrop_${version}_x64.build-info.json" \
 		> SHA256SUMS
 )
@@ -100,6 +111,7 @@ expected_public_files=(
 	"SHA256SUMS"
 	"VniDrop-${version}-${android_code}-play-universal.apk"
 	"VniDrop-${version}.dmg"
+	"VniDrop_${version}_x64.exe"
 	"VnidropCore-${version}.zip"
 	"appcast.xml"
 	"release-manifest.json"
@@ -117,6 +129,15 @@ done < <(find "$output_dir" -maxdepth 1 -type f -print | sort)
 	"$output_dir/release-manifest.json") == "$apple_direct_build" ]]
 [[ $(jq -r '.play.status' "$output_dir/release-manifest.json") == draft ]]
 [[ $(jq -r '.windowsStore.publicReleaseAsset' "$output_dir/release-manifest.json") == false ]]
+[[ $(jq -r '.windowsDirect.publicReleaseAsset' "$output_dir/release-manifest.json") == true ]]
+[[ $(jq -r '.windowsDirect.installer' "$output_dir/release-manifest.json") == "VniDrop_${version}_x64.exe" ]]
+[[ $(jq -r '.windowsDirect.unsigned' "$output_dir/release-manifest.json") == true ]]
+[[ $(jq -r '.windowsDirect.smartScreenWarningExpected' "$output_dir/release-manifest.json") == true ]]
+[[ $(jq -r '.windowsDirect.sha256' "$output_dir/release-manifest.json") == \
+	"$(sha256sum "$output_dir/VniDrop_${version}_x64.exe" | awk '{print $1}')" ]]
+[[ $(jq --arg name "VniDrop_${version}_x64.exe" \
+	'[.files[] | select(.name == $name)] | length' \
+	"$output_dir/release-manifest.json") == 1 ]]
 (
 	cd "$output_dir"
 	sha256sum --check SHA256SUMS >/dev/null

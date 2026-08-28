@@ -406,6 +406,19 @@ jobs:
             --title "VniDrop ${{ needs.preflight.outputs.version }}" \
             --generate-notes
 
+  apple-appstore:
+    name: Apple App Store (iOS + macOS)
+    # Runs after the release exists so it can download the prebuilt core asset
+    # instead of rebuilding it. Gated on the apple-appstore environment, so it
+    # waits for a reviewer before anything reaches App Store Connect — uploads
+    # there cannot be undone.
+    needs:
+      - publish-github
+    uses: ./.github/workflows/apple-appstore.yml
+    with:
+      release_tag: ${{ github.ref_name }}
+    secrets: inherit
+
   deploy-docs:
     name: Deploy website with the published release
     needs:

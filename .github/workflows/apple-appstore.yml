@@ -21,10 +21,22 @@ name: Apple App Store (iOS + macOS)
 #     with ITMS-90035.
 
 on:
-  release:
-    types: [published]
+  # Called by release.yml once the GitHub Release exists. Not `release:
+  # published` — that release is created by the release pipeline using
+  # GITHUB_TOKEN, and events raised by GITHUB_TOKEN never start a workflow run,
+  # so the trigger silently did nothing for v0.3.3.
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "Tag of the published release to build from"
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
+      release_tag:
+        description: "Published release to reuse the prebuilt core from (blank: build it)"
+        type: string
+        default: ""
       platforms:
         description: "Which platforms to build"
         type: choice
@@ -57,6 +69,7 @@ jobs:
       version: ${{ steps.version.outputs.app }}
       platforms: ${{ steps.plan.outputs.platforms }}
       destination: ${{ steps.plan.outputs.destination }}
+      release_tag: ${{ steps.plan.outputs.release_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -72,26 +85,25 @@ jobs:
 
       - name: Plan the run
         id: plan
-        # A release always builds both platforms and uploads. A dispatch follows
-        # its inputs. Any other trigger (the temporary push above) gets the same
-        # defaults as a dispatch — inputs.* are empty outside workflow_dispatch,
-        # so they cannot be read directly without silently collapsing to nothing.
+        # A dispatch follows its inputs. release.yml defines only release_tag, so
+        # platforms/upload arrive empty there and fall through to the defaults
+        # below — both platforms, uploaded — which is exactly what a release
+        # wants. That is why there is no separate release branch here: the event
+        # name cannot be used to detect one anyway, since under workflow_call it
+        # reports the caller's tag push.
         env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
           PLATFORMS: ${{ inputs.platforms }}
           UPLOAD: ${{ inputs.upload }}
         run: |
           set -euo pipefail
-          if [ "$GITHUB_EVENT_NAME" = release ]; then
-            platforms='["iOS","macOS"]'
-            destination=upload
-          else
-            case "${PLATFORMS:-both}" in
-              ios)   platforms='["iOS"]' ;;
-              macos) platforms='["macOS"]' ;;
-              *)     platforms='["iOS","macOS"]' ;;
-            esac
-            if [ "${UPLOAD:-true}" = false ]; then destination=export; else destination=upload; fi
-          fi
+          echo "release_tag=${RELEASE_TAG:-}" >> "$GITHUB_OUTPUT"
+          case "${PLATFORMS:-both}" in
+            ios)   platforms='["iOS"]' ;;
+            macos) platforms='["macOS"]' ;;
+            *)     platforms='["iOS","macOS"]' ;;
+          esac
+          if [ "${UPLOAD:-true}" = false ]; then destination=export; else destination=upload; fi
           echo "platforms=$platforms" >> "$GITHUB_OUTPUT"
           echo "destination=$destination" >> "$GITHUB_OUTPUT"
           echo "platforms=$platforms destination=$destination"
@@ -104,11 +116,11 @@ jobs:
       # pipeline just built. Branch dispatches have no release to draw from.
       - name: Download prebuilt core from the release
         id: prebuilt
-        if: github.event_name == 'release'
+        if: steps.plan.outputs.release_tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.app }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ steps.plan.outputs.release_tag }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/core"

@@ -317,7 +317,8 @@ internal class WindowsNativeWindowController private constructor(
 
 	private fun enableNativeBackdrop(): Boolean {
 		if (!window.renderApi.supportsWindowsTransparentBackground()) return false
-		if (!applyNativeBackdropAttributes()) {
+		val currentDwm = dwm ?: return false
+		if (!configureWindowsNativeBackdrop(currentDwm, windowHandle, extendedFrameMargins())) {
 			resetDwmBackdrop()
 			return false
 		}
@@ -349,30 +350,10 @@ internal class WindowsNativeWindowController private constructor(
 		}
 	}
 
-	private fun applyNativeBackdropAttributes(): Boolean {
-		val currentDwm = dwm ?: return false
-		return configureWindowsNativeBackdrop(
-			extendFrame = { currentDwm.extendFrame(windowHandle, extendedFrameMargins()) },
-			applySystemBackdrop = {
-				currentDwm.setIntAttribute(
-					windowHandle,
-					DwmWindowAttribute.SystemBackdropType,
-					DwmSystemBackdropType.MainWindow,
-				)
-			},
-			enableRedirectionBitmapAlpha = {
-				currentDwm.setIntAttribute(
-					windowHandle,
-					DwmWindowAttribute.RedirectionBitmapAlpha,
-					DwmAttributeValue.Enabled,
-				)
-			},
-		)
-	}
-
 	private fun reapplyNativeBackdrop() {
 		if (!transparentSurfaceConfigured) return
-		if (!applyNativeBackdropAttributes()) {
+		val currentDwm = dwm
+		if (currentDwm == null || !configureWindowsNativeBackdrop(currentDwm, windowHandle, extendedFrameMargins())) {
 			disableNativeBackdrop()
 			return
 		}
@@ -1117,7 +1098,7 @@ internal class WindowsWindowMargins(
 ) : Structure()
 
 @Suppress("FunctionName")
-private interface WindowsDwmApi : StdCallLibrary {
+internal interface WindowsDwmApi : StdCallLibrary {
 	fun DwmDefWindowProc(
 		hWnd: HWND,
 		message: Int,
@@ -1169,12 +1150,22 @@ internal fun GraphicsApi.supportsWindowsTransparentBackground(): Boolean = when 
 	else -> true
 }
 
-// Older Windows builds can accept the Mica attribute while rejecting the alpha channel needed by Skia.
 internal fun configureWindowsNativeBackdrop(
-	extendFrame: () -> Boolean,
-	applySystemBackdrop: () -> Boolean,
-	enableRedirectionBitmapAlpha: () -> Boolean,
-): Boolean = extendFrame() && applySystemBackdrop() && enableRedirectionBitmapAlpha()
+	dwm: WindowsDwmApi,
+	handle: HWND,
+	margins: WindowsWindowMargins,
+): Boolean =
+	dwm.extendFrame(handle, margins) &&
+		dwm.setIntAttribute(
+			handle,
+			DwmWindowAttribute.SystemBackdropType,
+			DwmSystemBackdropType.MainWindow,
+		) &&
+		dwm.setIntAttribute(
+			handle,
+			DwmWindowAttribute.RedirectionBitmapAlpha,
+			DwmAttributeValue.Enabled,
+		)
 
 internal fun shouldActivateWindowsCaptionButton(
 	pressed: WindowsCaptionButton?,

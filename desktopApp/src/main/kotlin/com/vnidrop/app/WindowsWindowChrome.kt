@@ -92,6 +92,7 @@ internal fun WindowScope.WindowsWindowFrame(
 						hoveredCaptionButton = controller.hoveredCaptionButton,
 						pressedCaptionButton = controller.pressedCaptionButton,
 						usesNativeBackdrop = controller.usesNativeBackdrop,
+						usesSystemCaptionButtonHandling = controller.usesSystemCaptionButtonHandling,
 						onCaptionBoundsChanged = controller::updateCaptionBounds,
 						onCaptionButtonBoundsChanged = { button, bounds ->
 							when (button) {
@@ -117,6 +118,7 @@ internal fun WindowsTitleBar(
 	hoveredCaptionButton: WindowsCaptionButton?,
 	pressedCaptionButton: WindowsCaptionButton?,
 	usesNativeBackdrop: Boolean,
+	usesSystemCaptionButtonHandling: Boolean,
 	onCaptionBoundsChanged: (Rect) -> Unit,
 	onCaptionButtonBoundsChanged: (WindowsCaptionButton, Rect) -> Unit,
 	onMinimize: () -> Unit,
@@ -141,37 +143,39 @@ internal fun WindowsTitleBar(
 				fontWeight = FontWeight.SemiBold,
 			),
 		)
-		Row(modifier = Modifier.align(Alignment.TopEnd)) {
-			WindowsCaptionButton(
-				button = WindowsCaptionButton.Minimize,
-				icon = WindowsMinimizeIcon,
-				contentDescription = "Minimize window",
-				isWindowActive = isWindowActive,
-				isHovered = hoveredCaptionButton == WindowsCaptionButton.Minimize,
-				isPressed = pressedCaptionButton == WindowsCaptionButton.Minimize,
-				onBoundsChanged = onCaptionButtonBoundsChanged,
-				onClick = onMinimize,
-			)
-			WindowsCaptionButton(
-				button = WindowsCaptionButton.Maximize,
-				icon = if (isMaximized) WindowsRestoreIcon else WindowsMaximizeIcon,
-				contentDescription = if (isMaximized) "Restore window" else "Maximize window",
-				isWindowActive = isWindowActive,
-				isHovered = hoveredCaptionButton == WindowsCaptionButton.Maximize,
-				isPressed = pressedCaptionButton == WindowsCaptionButton.Maximize,
-				onBoundsChanged = onCaptionButtonBoundsChanged,
-				onClick = onToggleMaximize,
-			)
-			WindowsCaptionButton(
-				button = WindowsCaptionButton.Close,
-				icon = WindowsCloseIcon,
-				contentDescription = "Close window",
-				isWindowActive = isWindowActive,
-				isHovered = hoveredCaptionButton == WindowsCaptionButton.Close,
-				isPressed = pressedCaptionButton == WindowsCaptionButton.Close,
-				onBoundsChanged = onCaptionButtonBoundsChanged,
-				onClick = onClose,
-			)
+		if (!usesSystemCaptionButtonHandling) {
+			Row(modifier = Modifier.align(Alignment.TopEnd)) {
+				WindowsCaptionButton(
+					button = WindowsCaptionButton.Minimize,
+					icon = WindowsMinimizeIcon,
+					contentDescription = "Minimize window",
+					isWindowActive = isWindowActive,
+					isHovered = hoveredCaptionButton == WindowsCaptionButton.Minimize,
+					isPressed = pressedCaptionButton == WindowsCaptionButton.Minimize,
+					onBoundsChanged = onCaptionButtonBoundsChanged,
+					onClick = onMinimize,
+				)
+				WindowsCaptionButton(
+					button = WindowsCaptionButton.Maximize,
+					icon = if (isMaximized) WindowsRestoreIcon else WindowsMaximizeIcon,
+					contentDescription = if (isMaximized) "Restore window" else "Maximize window",
+					isWindowActive = isWindowActive,
+					isHovered = hoveredCaptionButton == WindowsCaptionButton.Maximize,
+					isPressed = pressedCaptionButton == WindowsCaptionButton.Maximize,
+					onBoundsChanged = onCaptionButtonBoundsChanged,
+					onClick = onToggleMaximize,
+				)
+				WindowsCaptionButton(
+					button = WindowsCaptionButton.Close,
+					icon = WindowsCloseIcon,
+					contentDescription = "Close window",
+					isWindowActive = isWindowActive,
+					isHovered = hoveredCaptionButton == WindowsCaptionButton.Close,
+					isPressed = pressedCaptionButton == WindowsCaptionButton.Close,
+					onBoundsChanged = onCaptionButtonBoundsChanged,
+					onClick = onClose,
+				)
+			}
 		}
 	}
 }

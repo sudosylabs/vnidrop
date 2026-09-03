@@ -44,6 +44,10 @@ uploading them to a file-hosting service. Choose what to send, decide who may
 receive it, and share a small invitation. The receiving device uses that
 invitation to find the sender and request the files.
 
+The native C# / WinUI 3 Windows app is under development in [`windows/`](windows/README.md).
+Its build instructions and migration status are separate from the current Compose
+Windows release packages.
+
 There is no account to create and no cloud copy of the transfer waiting after
 you are done. The sender remains in control and can stop sharing at any time.
 

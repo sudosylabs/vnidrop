@@ -1,0 +1,28 @@
+<Page x:Class="VniDrop.Views.DevicesPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:p="using:VniDrop.Platform">
+  <ScrollViewer Style="{StaticResource PageScroll}">
+    <StackPanel x:Name="ContentStack" Spacing="16" HorizontalAlignment="Left" MaxWidth="980">
+      <TextBlock Text="{x:Bind p:Strings.Get('nav_saved_devices')}" Style="{StaticResource PageTitle}" />
+      <StackPanel x:Name="PendingSection" Spacing="8">
+        <TextBlock Text="{x:Bind p:Strings.Get('saved_devices_attention_title')}" Style="{StaticResource SectionTitle}" />
+        <StackPanel x:Name="Pending" Spacing="12" />
+      </StackPanel>
+      <StackPanel x:Name="EligibleSection" Spacing="8">
+        <TextBlock Text="{x:Bind p:Strings.Get('saved_devices_eligibility_title')}" Style="{StaticResource SectionTitle}" />
+        <StackPanel x:Name="Eligible" Spacing="12" />
+      </StackPanel>
+      <TextBlock Text="{x:Bind p:Strings.Get('saved_devices_list_title')}" Style="{StaticResource SectionTitle}" />
+      <StackPanel x:Name="Empty" Spacing="10" HorizontalAlignment="Center" MaxWidth="420" Margin="16,28">
+        <FontIcon Glyph="&#xE772;" FontSize="32" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <TextBlock Text="{x:Bind p:Strings.Get('saved_devices_empty')}" TextWrapping="Wrap" TextAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+      <StackPanel x:Name="Devices" Spacing="12" />
+      <TextBlock Text="{x:Bind p:Strings.Get('saved_devices_transfers_title')}" Style="{StaticResource SectionTitle}" />
+      <TextBlock x:Name="NoTransfers" Text="{x:Bind p:Strings.Get('saved_devices_transfer_empty')}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+      <StackPanel x:Name="Transfers" Spacing="16" />
+      <Expander x:Name="BlockedSection" Header="{x:Bind p:Strings.Get('windows_blocked_devices')}" HorizontalAlignment="Stretch">
+        <StackPanel x:Name="Blocked" Spacing="12" />
+      </Expander>
+    </StackPanel>
+  </ScrollViewer>
+</Page>

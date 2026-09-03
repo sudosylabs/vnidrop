@@ -1,0 +1,80 @@
+<Page x:Class="VniDrop.Views.TransfersPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:VniDrop.ViewModels" xmlns:p="using:VniDrop.Platform">
+  <Grid RowSpacing="24" MaxWidth="1120" HorizontalAlignment="Left">
+    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+    <Grid x:Name="Header" ColumnSpacing="16" RowSpacing="12">
+      <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+      <TextBlock Text="{x:Bind Heading}" Style="{StaticResource PageTitle}" VerticalAlignment="Center" />
+      <Button x:Name="CreateTransfer" Grid.Column="1" Style="{StaticResource AccentButtonStyle}" Click="Create">
+        <StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE710;" FontSize="16" /><TextBlock Text="{x:Bind PrimaryLabel}" /></StackPanel>
+      </Button>
+    </Grid>
+    <Grid x:Name="ListHeader" Grid.Row="1">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+      <TextBlock Text="{x:Bind ListHeading}" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
+      <CommandBar x:Name="HistoryActions" Grid.Column="1" DefaultLabelPosition="Right" Background="Transparent">
+        <AppBarButton x:Name="OpenFolderButton" Label="{x:Bind p:Strings.Get('windows_open_folder')}" Icon="OpenLocal" Click="OpenFolder" />
+        <CommandBar.SecondaryCommands><AppBarButton x:Name="ClearHistoryButton" Icon="Delete" Label="{x:Bind p:Strings.Get('receive_clear_history')}" Click="ClearHistory" /></CommandBar.SecondaryCommands>
+      </CommandBar>
+    </Grid>
+    <Grid Grid.Row="2" AllowDrop="True" DragOver="DragOverFiles" Drop="DropFiles">
+      <ListView x:Name="Transfers" ItemsSource="{x:Bind Items}" IsItemClickEnabled="True" ItemClick="OpenTransfer" SelectionMode="None" HorizontalContentAlignment="Stretch" ContainerContentChanging="RowChanged">
+        <ListView.ItemContainerStyle>
+          <Style TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+            <Setter Property="ContextFlyout">
+              <Setter.Value>
+                <MenuFlyout>
+                  <MenuFlyoutItem Text="{x:Bind p:Strings.Get('transfer_share_title')}" Icon="Share" Tag="{Binding}" Visibility="{Binding ShareVisibility}" Click="ShareTransfer" />
+                  <MenuFlyoutItem Text="{x:Bind p:Strings.Get('send_stop_sharing')}" Icon="Stop" Tag="{Binding}" Visibility="{Binding StopVisibility}" Click="StopTransfer" />
+                  <MenuFlyoutItem Text="{x:Bind p:Strings.Get('button_delete_transfer')}" Icon="Delete" Tag="{Binding}" Click="DeleteTransfer">
+                    <MenuFlyoutItem.Resources>
+                      <StaticResource x:Key="MenuFlyoutItemBackgroundPointerOver" ResourceKey="VniDropDangerBackgroundPointerOver" />
+                      <StaticResource x:Key="MenuFlyoutItemForegroundPointerOver" ResourceKey="VniDropDangerForeground" />
+                      <StaticResource x:Key="MenuFlyoutItemBackgroundPressed" ResourceKey="VniDropDangerBackgroundPressed" />
+                      <StaticResource x:Key="MenuFlyoutItemForegroundPressed" ResourceKey="VniDropDangerForeground" />
+                    </MenuFlyoutItem.Resources>
+                  </MenuFlyoutItem>
+                </MenuFlyout>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </ListView.ItemContainerStyle>
+        <ListView.ItemTemplate><DataTemplate x:DataType="vm:TransferItem">
+          <Border Padding="14" CornerRadius="{StaticResource VniDropSurfaceCornerRadius}" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" AutomationProperties.Name="{x:Bind AutomationName, Mode=OneWay}">
+            <Grid ColumnSpacing="12">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="44" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+              <Border Width="44" Height="44" CornerRadius="12" Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                <FontIcon Glyph="&#xE8A5;" FontSize="24" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <StackPanel Grid.Column="1" Spacing="5" VerticalAlignment="Center">
+                <Grid ColumnSpacing="8">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                  <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  <Border Grid.Column="1" CornerRadius="12" BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="1" Padding="9,3">
+                    <TextBlock Text="{x:Bind Status, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                  </Border>
+                </Grid>
+                <TextBlock Text="{x:Bind CatalogDetail, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+              <StackPanel Visibility="{x:Bind ShowProgress, Mode=OneWay}" Spacing="6"><ProgressBar Value="{x:Bind Progress, Mode=OneWay}" IsIndeterminate="{x:Bind IsIndeterminate, Mode=OneWay}" /><TextBlock Text="{x:Bind ProgressText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" TextTrimming="CharacterEllipsis" /></StackPanel>
+              </StackPanel>
+            </Grid>
+          </Border>
+        </DataTemplate></ListView.ItemTemplate>
+      </ListView>
+      <StackPanel x:Name="Empty" Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="400" Margin="16,0">
+        <FontIcon Glyph="{x:Bind EmptyGlyph}" FontSize="32" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" />
+        <TextBlock Text="{x:Bind EmptyTitle}" FontSize="20" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" />
+        <TextBlock Text="{x:Bind EmptyBody}" TextWrapping="Wrap" TextAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <Button x:Name="EmptyCreateTransfer" Style="{StaticResource AccentButtonStyle}" Click="Create" HorizontalAlignment="Center" Margin="0,8,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE710;" FontSize="16" /><TextBlock Text="{x:Bind PrimaryLabel}" /></StackPanel>
+        </Button>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Page>

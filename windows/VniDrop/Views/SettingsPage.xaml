@@ -1,0 +1,84 @@
+<Page x:Class="VniDrop.Views.SettingsPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:p="using:VniDrop.Platform">
+  <Grid RowSpacing="20">
+    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+    <TextBlock Text="{x:Bind p:Strings.Get('settings_title')}" Style="{StaticResource PageTitle}" />
+    <Grid Grid.Row="1" ColumnSpacing="24"><Grid.ColumnDefinitions><ColumnDefinition x:Name="NavColumn" Width="240" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+      <ListView x:Name="Sections" SelectionMode="Single" SelectionChanged="SectionChanged">
+        <ListViewItem Tag="Preferences"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE77B;" /><TextBlock Text="{x:Bind p:Strings.Get('preferences_title')}" /></StackPanel></ListViewItem>
+        <ListViewItem Tag="Appearance"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE706;" /><TextBlock Text="{x:Bind p:Strings.Get('appearance_title')}" /></StackPanel></ListViewItem>
+        <ListViewItem Tag="Notifications"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xEA8F;" /><TextBlock Text="{x:Bind p:Strings.Get('notifications_title')}" /></StackPanel></ListViewItem>
+        <ListViewItem Tag="Storage"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xEDA2;" /><TextBlock Text="{x:Bind p:Strings.Get('storage_title')}" /></StackPanel></ListViewItem>
+        <ListViewItem Tag="Network"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE968;" /><TextBlock Text="{x:Bind p:Strings.Get('settings_network_title')}" /></StackPanel></ListViewItem>
+        <ListViewItem Tag="About"><StackPanel Orientation="Horizontal" Spacing="12"><FontIcon Glyph="&#xE946;" /><TextBlock Text="{x:Bind p:Strings.Get('about_title')}" /></StackPanel></ListViewItem>
+      </ListView>
+      <ScrollViewer x:Name="ContentScroll" Grid.Column="1" Style="{StaticResource PageScroll}">
+        <Grid x:Name="ContentGrid" MaxWidth="720" HorizontalAlignment="Left">
+          <StackPanel x:Name="PreferencesSection" Spacing="18">
+            <TextBlock Text="{x:Bind p:Strings.Get('preferences_title')}" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <TextBox x:Name="Username" Header="{x:Bind p:Strings.Get('field_username')}" MaxLength="100" />
+            <StackPanel Spacing="8"><TextBlock Text="{x:Bind p:Strings.Get('preferences_receive_folder_title')}" Style="{StaticResource BodyStrongTextBlockStyle}" /><TextBlock x:Name="ReceiveFolder" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><StackPanel Orientation="Horizontal" Spacing="8"><Button Click="ChooseFolder"><StackPanel Orientation="Horizontal" Spacing="8"><SymbolIcon Symbol="Folder" /><TextBlock Text="{x:Bind p:Strings.Get('button_choose_folder')}" /></StackPanel></Button><Button Content="{x:Bind p:Strings.Get('button_reset_default')}" Click="ResetFolder" /></StackPanel></StackPanel>
+            <Button x:Name="SavePreferencesButton" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" Content="{x:Bind p:Strings.Get('windows_save_preferences')}" Click="SavePreferences" />
+          </StackPanel>
+          <StackPanel x:Name="AppearanceSection" Spacing="18" Visibility="Collapsed">
+            <TextBlock Text="{x:Bind p:Strings.Get('appearance_title')}" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <RadioButton x:Name="SystemTheme" Tag="System" GroupName="Theme" Checked="ThemeChanged" Content="{x:Bind p:Strings.Get('appearance_system_mode')}" />
+            <RadioButton x:Name="LightTheme" Tag="Light" GroupName="Theme" Checked="ThemeChanged" Content="{x:Bind p:Strings.Get('appearance_light_mode')}" />
+            <RadioButton x:Name="DarkTheme" Tag="Dark" GroupName="Theme" Checked="ThemeChanged" Content="{x:Bind p:Strings.Get('appearance_dark_mode')}" />
+          </StackPanel>
+          <StackPanel x:Name="NotificationsSection" Spacing="18" Visibility="Collapsed">
+            <TextBlock Text="{x:Bind p:Strings.Get('notifications_title')}" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <TextBlock Text="{x:Bind p:Strings.Get('notifications_description')}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <ToggleSwitch x:Name="Notifications" Header="{x:Bind p:Strings.Get('notifications_title')}" OnContent="{x:Bind p:Strings.Get('windows_on')}" OffContent="{x:Bind p:Strings.Get('windows_off')}" Toggled="NotificationsChanged" />
+            <InfoBar x:Name="NotificationUnavailable" Severity="Warning" IsOpen="False" IsClosable="False" Message="{x:Bind p:Strings.Get('notifications_unsupported')}" />
+          </StackPanel>
+          <StackPanel x:Name="StorageSection" Spacing="18" Visibility="Collapsed">
+            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Text="{x:Bind p:Strings.Get('storage_title')}" Style="{StaticResource SubtitleTextBlockStyle}" /><Button Grid.Column="1" Style="{StaticResource IconButton}" Click="RefreshStorage" AutomationProperties.Name="{x:Bind p:Strings.Get('storage_refresh')}" ToolTipService.ToolTip="{x:Bind p:Strings.Get('storage_refresh')}"><FontIcon Glyph="&#xE895;" FontSize="16" /></Button></Grid>
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16"><Grid RowSpacing="14" ColumnSpacing="16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+              <TextBlock Text="{x:Bind p:Strings.Get('storage_received_files')}" /><TextBlock x:Name="ReceivedUsage" Grid.Column="1" />
+              <TextBlock Grid.Row="1" Text="{x:Bind p:Strings.Get('storage_transfer_data')}" /><TextBlock x:Name="TransferUsage" Grid.Row="1" Grid.Column="1" />
+              <TextBlock Grid.Row="2" Text="{x:Bind p:Strings.Get('storage_app_data')}" /><TextBlock x:Name="AppUsage" Grid.Row="2" Grid.Column="1" />
+              <TextBlock Grid.Row="3" Text="{x:Bind p:Strings.Get('storage_temporary')}" /><TextBlock x:Name="TemporaryUsage" Grid.Row="3" Grid.Column="1" />
+              <TextBlock Grid.Row="4" Text="{x:Bind p:Strings.Get('storage_total')}" FontWeight="SemiBold" /><TextBlock x:Name="TotalUsage" Grid.Row="4" Grid.Column="1" FontWeight="SemiBold" />
+            </Grid></Border>
+            <Button HorizontalAlignment="Stretch" Click="FreeSpace"><StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE74D;" FontSize="16" /><TextBlock Text="{x:Bind p:Strings.Get('storage_free_up_space')}" /></StackPanel></Button>
+            <TextBlock Text="{x:Bind p:Strings.Get('storage_free_up_space_caption')}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Button x:Name="ClearCacheButton" HorizontalAlignment="Stretch" Click="ClearCache"><StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xEDA2;" FontSize="16" /><TextBlock Text="{x:Bind p:Strings.Get('storage_clear_transfer_cache')}" /></StackPanel></Button>
+            <Button x:Name="DeleteAllButton" HorizontalAlignment="Stretch" Click="DeleteAll"><StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE74D;" FontSize="16" /><TextBlock Text="{x:Bind p:Strings.Get('storage_delete_transfers')}" /></StackPanel></Button>
+            <TextBlock Text="{x:Bind p:Strings.Get('storage_delete_transfers_caption')}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <TextBlock Text="{x:Bind p:Strings.Get('storage_footer')}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+          </StackPanel>
+          <StackPanel x:Name="NetworkSection" Spacing="18" Visibility="Collapsed">
+            <TextBlock Text="{x:Bind p:Strings.Get('settings_network_title')}" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <ComboBox x:Name="Relay" Header="{x:Bind p:Strings.Get('settings_network_title')}" HorizontalAlignment="Stretch" SelectionChanged="RelayChanged" />
+            <StackPanel x:Name="RelayUrls" Spacing="8"><TextBox x:Name="Urls" Header="{x:Bind p:Strings.Get('relay_custom_urls_label')}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="100" /><TextBlock Text="{x:Bind p:Strings.Get('relay_custom_urls_help')}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></StackPanel>
+            <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Message="{x:Bind p:Strings.Get('relay_apply_restart_description')}" />
+            <Button x:Name="ApplyNetwork" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" Content="{x:Bind p:Strings.Get('relay_apply')}" Click="SaveNetwork" />
+          </StackPanel>
+          <StackPanel x:Name="AboutSection" Spacing="18" Visibility="Collapsed">
+            <TextBlock Text="{x:Bind p:Strings.Get('about_title')}" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <TextBlock Text="{x:Bind p:Strings.Get('about_tagline')}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+            <TextBlock Text="{x:Bind p:Strings.Get('about_description')}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <TextBlock Text="{x:Bind p:Strings.Get('about_is_title')}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+            <StackPanel Spacing="12"><TextBlock Text="{x:Bind p:Strings.Get('about_is_direct')}" TextWrapping="Wrap" /><TextBlock Text="{x:Bind p:Strings.Get('about_is_no_account')}" TextWrapping="Wrap" /><TextBlock Text="{x:Bind p:Strings.Get('about_is_in_control')}" TextWrapping="Wrap" /><TextBlock Text="{x:Bind p:Strings.Get('about_is_encrypted')}" TextWrapping="Wrap" /><TextBlock Text="{x:Bind p:Strings.Get('about_is_open')}" TextWrapping="Wrap" /></StackPanel>
+            <TextBlock Text="{x:Bind p:Strings.Get('about_isnt_title')}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+            <StackPanel Spacing="12"><TextBlock Text="{x:Bind p:Strings.Get('about_isnt_cloud')}" TextWrapping="Wrap" /><TextBlock Text="{x:Bind p:Strings.Get('about_isnt_sync')}" TextWrapping="Wrap" /><TextBlock Text="{x:Bind p:Strings.Get('about_isnt_public')}" TextWrapping="Wrap" /></StackPanel>
+            <Grid RowSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions><TextBlock Text="{x:Bind p:Strings.Get('version_title')}" /><TextBlock x:Name="VersionValue" Grid.Column="1" /><TextBlock Text="{x:Bind p:Strings.Get('os_version_title')}" Grid.Row="1" /><TextBlock x:Name="OsValue" Grid.Row="1" Grid.Column="1" /><TextBlock Text="{x:Bind p:Strings.Get('about_license_label')}" Grid.Row="2" /><TextBlock Text="Apache 2.0" Grid.Row="2" Grid.Column="1" /></Grid>
+            <HyperlinkButton NavigateUri="https://vnidrop.sudosy.fr/privacy/" Content="{x:Bind p:Strings.Get('about_privacy_policy_label')}" Padding="0" />
+            <Button HorizontalAlignment="Left" Click="OpenBugReport"><StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE730;" FontSize="16" /><TextBlock Text="{x:Bind p:Strings.Get('about_bug_report')}" /></StackPanel></Button>
+          </StackPanel>
+          <StackPanel x:Name="BugReportSection" Spacing="16" Visibility="Collapsed">
+            <Grid ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Button Style="{StaticResource IconButton}" Click="BackToAbout" AutomationProperties.Name="{x:Bind p:Strings.Get('button_back')}"><FontIcon Glyph="&#xE72B;" FontSize="16"/></Button><TextBlock Grid.Column="1" Text="{x:Bind p:Strings.Get('about_bug_report')}" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/></Grid>
+            <TextBlock Text="{x:Bind p:Strings.Get('bug_report_description')}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <TextBox x:Name="BugWhat" Header="{x:Bind p:Strings.Get('bug_report_what_label')}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90"/>
+            <TextBox x:Name="BugExpected" Header="{x:Bind p:Strings.Get('bug_report_expected_label')}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70"/>
+            <TextBox x:Name="BugSteps" Header="{x:Bind p:Strings.Get('bug_report_steps_label')}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70"/>
+            <TextBox x:Name="BugContact" Header="{x:Bind p:Strings.Get('bug_report_contact_label')}"/>
+            <ToggleSwitch x:Name="BugLogs" Header="{x:Bind p:Strings.Get('bug_report_include_logs')}" OnContent="{x:Bind p:Strings.Get('windows_on')}" OffContent="{x:Bind p:Strings.Get('windows_off')}"/>
+            <Button Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" Content="{x:Bind p:Strings.Get('bug_report_submit')}" Click="SubmitBugReport"/>
+          </StackPanel>
+        </Grid>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</Page>

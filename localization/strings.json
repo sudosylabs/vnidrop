@@ -337,7 +337,7 @@
     },
     "app_identity_reset_action": {
       "context": "Startup recovery: destructive action that replaces an unrecoverable device identity.",
-      "targets": ["apple"],
+      "targets": ["apple", "windows"],
       "translations": {
         "en": "Reset device identity",
         "fr": "Réinitialiser l’identité de l’appareil",
@@ -352,7 +352,7 @@
     },
     "app_identity_reset_confirmation": {
       "context": "Startup recovery: confirmation explaining the effects of replacing an unrecoverable identity.",
-      "targets": ["apple"],
+      "targets": ["apple", "windows"],
       "translations": {
         "en": "Your transfer history and received files stay on this device. Saved devices will be removed and must be paired again.",
         "fr": "L’historique des transferts et les fichiers reçus restent sur cet appareil. Les appareils enregistrés seront supprimés et devront être associés à nouveau.",
@@ -367,7 +367,7 @@
     },
     "app_identity_reset_title": {
       "context": "Startup recovery: title when the protected endpoint identity is permanently unavailable.",
-      "targets": ["apple"],
+      "targets": ["apple", "windows"],
       "translations": {
         "en": "Device identity unavailable",
         "fr": "Identité de l’appareil indisponible",
@@ -382,7 +382,7 @@
     },
     "app_identity_reset_message": {
       "context": "Startup recovery: explanation when the protected endpoint identity cannot be recovered.",
-      "targets": ["apple"],
+      "targets": ["apple", "windows"],
       "translations": {
         "en": "VniDrop can’t recover this device’s secure identity. Reset it to start again with a new identity.",
         "fr": "VniDrop ne peut pas récupérer l’identité sécurisée de cet appareil. Réinitialisez-la pour recommencer avec une nouvelle identité.",
@@ -412,7 +412,7 @@
     },
     "app_secure_storage_unavailable_message": {
       "context": "Startup failure: explanation when the keychain is unreachable. Retrying and resetting both use the same store, so neither can help; reinstalling is the only fix.",
-      "targets": ["apple"],
+      "targets": ["apple", "windows"],
       "translations": {
         "en": "VniDrop can’t reach your device’s secure storage, so it can’t start. Reinstalling VniDrop usually fixes this.",
         "fr": "VniDrop n’arrive pas à accéder au stockage sécurisé de votre appareil et ne peut donc pas démarrer. Réinstaller VniDrop résout généralement ce problème.",
@@ -603,9 +603,7 @@
     },
     "battery_level_value": {
       "context": "Device information: battery charge formatted as a percentage. {level} = integer percent value.",
-      "targets": [
-        "apple"
-      ],
+      "targets": ["apple"],
       "args": [
         {
           "name": "level",
@@ -1662,9 +1660,7 @@
     },
     "format_separated_pair": {
       "context": "Composes two already-localized values with a middot separator (e.g. size · status). {first} and {second} are the two values.",
-      "targets": [
-        "apple"
-      ],
+      "targets": ["apple"],
       "args": [
         {
           "name": "first",
@@ -1689,9 +1685,7 @@
     },
     "format_separated_triple": {
       "context": "Composes three already-localized values, the first two space-joined then a middot before the third (e.g. count files · size). {first}, {second}, {third} are the values.",
-      "targets": [
-        "apple"
-      ],
+      "targets": ["apple"],
       "args": [
         {
           "name": "first",
@@ -1846,7 +1840,7 @@
     },
     "notifications_enable_action": {
       "context": "Action label for a contextual prompt that enables transfer notifications.",
-      "targets": ["kmp"],
+      "targets": ["kmp", "windows"],
       "translations": {
         "en": "Enable",
         "fr": "Activer",
@@ -1875,7 +1869,7 @@
     },
     "notifications_request_prompt": {
       "context": "Approval and targeted-offer prompts: explains why notifications should be enabled.",
-      "targets": ["kmp"],
+      "targets": ["kmp", "windows"],
       "translations": {
         "en": "Notifications are off. Enable them to be notified about future requests.",
         "fr": "Les notifications sont désactivées. Activez-les pour être averti des prochaines demandes.",
@@ -1890,7 +1884,7 @@
     },
     "notifications_sharing_prompt": {
       "context": "Snackbar after starting an approval-based share while notifications are disabled.",
-      "targets": ["kmp"],
+      "targets": ["kmp", "windows"],
       "translations": {
         "en": "Enable notifications so you don’t miss requests while VniDrop is in the background.",
         "fr": "Activez les notifications pour ne pas manquer de demandes lorsque VniDrop est en arrière-plan.",
@@ -3410,9 +3404,7 @@
         "nl": "{count} bestanden",
         "ru": "Файлов: {count}"
       },
-      "targets": [
-        "kmp"
-      ]
+      "targets": ["kmp", "windows"]
     },
     "send_selected_files_count": {
       "context": "Send flow: count of files chosen. {count} = selected files. NOTE: singular case reads '1 files' — should become a plural.",
@@ -3548,9 +3540,7 @@
     },
     "settings_ios_background_notice_body": {
       "context": "Settings overview: explains iOS/iPadOS background limits so users don't think the app is broken. Apple platforms only.",
-      "targets": [
-        "apple"
-      ],
+      "targets": ["apple"],
       "translations": {
         "en": "iPhone and iPad limit what apps may do in the background. VniDrop keeps a transfer that's already running alive long enough to finish and notify you after you leave the app, but it can't keep serving or receiving on its own once it's been in the background for a while. For long transfers, keep VniDrop open. On Mac, transfers continue in the background normally.",
         "fr": "L’iPhone et l’iPad limitent ce que les apps peuvent faire en arrière-plan. VniDrop maintient un transfert déjà en cours assez longtemps pour le terminer et vous avertir après avoir quitté l’app, mais il ne peut pas continuer à envoyer ou recevoir seul une fois resté en arrière-plan un certain temps. Pour les transferts longs, gardez VniDrop ouvert. Sur Mac, les transferts se poursuivent normalement en arrière-plan.",
@@ -3565,9 +3555,7 @@
     },
     "settings_ios_background_notice_title": {
       "context": "Settings overview: title of the iOS/iPadOS background-limits notice. Apple platforms only.",
-      "targets": [
-        "apple"
-      ],
+      "targets": ["apple"],
       "translations": {
         "en": "Background limits on iPhone & iPad",
         "fr": "Limites en arrière-plan sur iPhone et iPad",
@@ -3798,9 +3786,7 @@
     },
     "storage_clear_transfer_cache": {
       "context": "Settings > Storage: button that clears cached transfer content (KMP).",
-      "targets": [
-        "kmp"
-      ],
+      "targets": ["kmp", "windows"],
       "translations": {
         "en": "Clear transfer cache",
         "fr": "Vider le cache des transferts",
@@ -3815,9 +3801,7 @@
     },
     "storage_clear_transfer_cache_description": {
       "context": "Settings > Storage: description under the clear-transfer-cache button (KMP).",
-      "targets": [
-        "kmp"
-      ],
+      "targets": ["kmp", "windows"],
       "translations": {
         "en": "Removes cached transfer content after briefly restarting VniDrop. Finish ongoing transfers and stop active shares first. Received files and transfer history are not deleted.",
         "fr": "Supprime le contenu de transfert en cache qui n’est pas utilisé par une réception en cours ou un partage actif. Les fichiers reçus et l’historique ne sont pas supprimés.",
@@ -3832,9 +3816,7 @@
     },
     "storage_clearing_transfer_cache": {
       "context": "Settings > Storage: clear-transfer-cache button while clearing is in progress (KMP).",
-      "targets": [
-        "kmp"
-      ],
+      "targets": ["kmp", "windows"],
       "translations": {
         "en": "Clearing cache…",
         "fr": "Vidage du cache…",
@@ -3891,9 +3873,7 @@
     },
     "storage_transfer_cache_cleared": {
       "context": "Settings > Storage: confirmation that the transfer cache was cleared (KMP).",
-      "targets": [
-        "kmp"
-      ],
+      "targets": ["kmp", "windows"],
       "translations": {
         "en": "Transfer cache cleared",
         "fr": "Cache des transferts vidé",
@@ -4104,7 +4084,16 @@
     },
     "targeted_offer_body": {
       "context": "Targeted transfer offer prompt: body. {device} is the sending saved device, {transferName} is the transfer name.",
-      "args": [{"name": "device", "type": "string"}, {"name": "transferName", "type": "string"}],
+      "args": [
+        {
+          "name": "device",
+          "type": "string"
+        },
+        {
+          "name": "transferName",
+          "type": "string"
+        }
+      ],
       "translations": {
         "en": "{device} wants to send you “{transferName}”.",
         "fr": "{device} veut vous envoyer « {transferName} ».",
@@ -4776,9 +4765,7 @@
     },
     "updates_check": {
       "context": "macOS app menu item that checks for a new version via Sparkle. Direct-download (.dmg) build only; never shown in the App Store build.",
-      "targets": [
-        "apple"
-      ],
+      "targets": ["apple"],
       "translations": {
         "en": "Check for Updates…",
         "fr": "Rechercher les mises à jour…",
@@ -5033,7 +5020,12 @@
     },
     "saved_devices_transfer_direction_incoming": {
       "context": "Targeted transfer card: incoming direction followed by the saved-device display name.",
-      "args": [{"name": "device", "type": "string"}],
+      "args": [
+        {
+          "name": "device",
+          "type": "string"
+        }
+      ],
       "translations": {
         "en": "From {device}",
         "fr": "De {device}",
@@ -5048,7 +5040,12 @@
     },
     "saved_devices_transfer_direction_outgoing": {
       "context": "Targeted transfer card: outgoing direction followed by the saved-device display name.",
-      "args": [{"name": "device", "type": "string"}],
+      "args": [
+        {
+          "name": "device",
+          "type": "string"
+        }
+      ],
       "translations": {
         "en": "To {device}",
         "fr": "Vers {device}",
@@ -5063,7 +5060,16 @@
     },
     "saved_devices_transfer_files": {
       "context": "Targeted transfer card metadata. First placeholder is file count, second is formatted total size.",
-      "args": [{"name": "count", "type": "string"}, {"name": "size", "type": "string"}],
+      "args": [
+        {
+          "name": "count",
+          "type": "string"
+        },
+        {
+          "name": "size",
+          "type": "string"
+        }
+      ],
       "translations": {
         "en": "{count} files · {size}",
         "fr": "{count} fichiers · {size}",
@@ -5078,7 +5084,16 @@
     },
     "saved_devices_transfer_progress": {
       "context": "Targeted transfer card progress. First placeholder is verified bytes, second is total size.",
-      "args": [{"name": "verified", "type": "string"}, {"name": "total", "type": "string"}],
+      "args": [
+        {
+          "name": "verified",
+          "type": "string"
+        },
+        {
+          "name": "total",
+          "type": "string"
+        }
+      ],
       "translations": {
         "en": "{verified} of {total}",
         "fr": "{verified} sur {total}",
@@ -5093,51 +5108,166 @@
     },
     "saved_devices_transfer_receive": {
       "context": "Targeted transfer history action: receive an approved transfer.",
-      "translations": {"en": "Receive", "fr": "Recevoir", "es": "Recibir", "it": "Ricevi", "de": "Empfangen", "pt": "Receber", "pl": "Odbierz", "nl": "Ontvangen", "ru": "Получить"}
+      "translations": {
+        "en": "Receive",
+        "fr": "Recevoir",
+        "es": "Recibir",
+        "it": "Ricevi",
+        "de": "Empfangen",
+        "pt": "Receber",
+        "pl": "Odbierz",
+        "nl": "Ontvangen",
+        "ru": "Получить"
+      }
     },
     "saved_devices_transfer_resume": {
       "context": "Targeted transfer history action: resume an interrupted transfer.",
-      "translations": {"en": "Resume", "fr": "Reprendre", "es": "Reanudar", "it": "Riprendi", "de": "Fortsetzen", "pt": "Retomar", "pl": "Wznów", "nl": "Hervatten", "ru": "Продолжить"}
+      "translations": {
+        "en": "Resume",
+        "fr": "Reprendre",
+        "es": "Reanudar",
+        "it": "Riprendi",
+        "de": "Fortsetzen",
+        "pt": "Retomar",
+        "pl": "Wznów",
+        "nl": "Hervatten",
+        "ru": "Продолжить"
+      }
     },
     "saved_devices_transfer_cancel": {
       "context": "Targeted transfer history action: cancel an active transfer.",
-      "translations": {"en": "Cancel", "fr": "Annuler", "es": "Cancelar", "it": "Annulla", "de": "Abbrechen", "pt": "Cancelar", "pl": "Anuluj", "nl": "Annuleren", "ru": "Отменить"}
+      "translations": {
+        "en": "Cancel",
+        "fr": "Annuler",
+        "es": "Cancelar",
+        "it": "Annulla",
+        "de": "Abbrechen",
+        "pt": "Cancelar",
+        "pl": "Anuluj",
+        "nl": "Annuleren",
+        "ru": "Отменить"
+      }
     },
     "saved_devices_transfer_delete": {
       "context": "Targeted transfer history action: delete a terminal transfer record.",
-      "translations": {"en": "Delete", "fr": "Supprimer", "es": "Eliminar", "it": "Elimina", "de": "Löschen", "pt": "Eliminar", "pl": "Usuń", "nl": "Verwijderen", "ru": "Удалить"}
+      "translations": {
+        "en": "Delete",
+        "fr": "Supprimer",
+        "es": "Eliminar",
+        "it": "Elimina",
+        "de": "Löschen",
+        "pt": "Eliminar",
+        "pl": "Usuń",
+        "nl": "Verwijderen",
+        "ru": "Удалить"
+      }
     },
     "status_offering": {
       "context": "Targeted transfer status: offering to the saved device.",
-      "translations": {"en": "Offering", "fr": "Proposition", "es": "Ofreciendo", "it": "Proposta", "de": "Wird angeboten", "pt": "A propor", "pl": "Oferowanie", "nl": "Aanbieden", "ru": "Предложение"}
+      "translations": {
+        "en": "Offering",
+        "fr": "Proposition",
+        "es": "Ofreciendo",
+        "it": "Proposta",
+        "de": "Wird angeboten",
+        "pt": "A propor",
+        "pl": "Oferowanie",
+        "nl": "Aanbieden",
+        "ru": "Предложение"
+      }
     },
     "status_awaiting_approval": {
       "context": "Targeted transfer status: waiting for the saved device to approve.",
-      "translations": {"en": "Waiting for approval", "fr": "En attente d’approbation", "es": "Esperando aprobación", "it": "In attesa di approvazione", "de": "Wartet auf Genehmigung", "pt": "A aguardar aprovação", "pl": "Oczekiwanie na zgodę", "nl": "Wachten op goedkeuring", "ru": "Ожидание подтверждения"}
+      "translations": {
+        "en": "Waiting for approval",
+        "fr": "En attente d’approbation",
+        "es": "Esperando aprobación",
+        "it": "In attesa di approvazione",
+        "de": "Wartet auf Genehmigung",
+        "pt": "A aguardar aprovação",
+        "pl": "Oczekiwanie na zgodę",
+        "nl": "Wachten op goedkeuring",
+        "ru": "Ожидание подтверждения"
+      }
     },
     "status_approved": {
-	  "context": "Targeted transfer status: approved by the receiving saved device.",
-	  "translations": {"en": "Approved", "fr": "Approuvé", "es": "Aprobado", "it": "Approvato", "de": "Genehmigt", "pt": "Aprovado", "pl": "Zatwierdzony", "nl": "Goedgekeurd", "ru": "Подтверждено"}
+      "context": "Targeted transfer status: approved by the receiving saved device.",
+      "translations": {
+        "en": "Approved",
+        "fr": "Approuvé",
+        "es": "Aprobado",
+        "it": "Approvato",
+        "de": "Genehmigt",
+        "pt": "Aprovado",
+        "pl": "Zatwierdzony",
+        "nl": "Goedgekeurd",
+        "ru": "Подтверждено"
+      }
     },
     "status_connecting": {
       "context": "Targeted transfer status: connecting to the saved device.",
-      "translations": {"en": "Connecting", "fr": "Connexion", "es": "Conectando", "it": "Connessione", "de": "Verbindung wird hergestellt", "pt": "A ligar", "pl": "Łączenie", "nl": "Verbinden", "ru": "Подключение"}
+      "translations": {
+        "en": "Connecting",
+        "fr": "Connexion",
+        "es": "Conectando",
+        "it": "Connessione",
+        "de": "Verbindung wird hergestellt",
+        "pt": "A ligar",
+        "pl": "Łączenie",
+        "nl": "Verbinden",
+        "ru": "Подключение"
+      }
     },
     "status_interrupted": {
       "context": "Targeted transfer status: interrupted and resumable.",
-      "translations": {"en": "Interrupted", "fr": "Interrompu", "es": "Interrumpido", "it": "Interrotto", "de": "Unterbrochen", "pt": "Interrompido", "pl": "Przerwany", "nl": "Onderbroken", "ru": "Прервано"}
+      "translations": {
+        "en": "Interrupted",
+        "fr": "Interrompu",
+        "es": "Interrumpido",
+        "it": "Interrotto",
+        "de": "Unterbrochen",
+        "pt": "Interrompido",
+        "pl": "Przerwany",
+        "nl": "Onderbroken",
+        "ru": "Прервано"
+      }
     },
     "status_transferring": {
       "context": "Targeted transfer status: authenticated content transfer is active.",
-      "translations": {"en": "Transferring", "fr": "Transfert", "es": "Transfiriendo", "it": "Trasferimento", "de": "Übertragung läuft", "pt": "A transferir", "pl": "Przesyłanie", "nl": "Overdragen", "ru": "Передача"}
+      "translations": {
+        "en": "Transferring",
+        "fr": "Transfert",
+        "es": "Transfiriendo",
+        "it": "Trasferimento",
+        "de": "Übertragung läuft",
+        "pt": "A transferir",
+        "pl": "Przesyłanie",
+        "nl": "Overdragen",
+        "ru": "Передача"
+      }
     },
     "status_declined": {
       "context": "Targeted transfer status: declined by the saved device.",
-      "translations": {"en": "Declined", "fr": "Refusé", "es": "Rechazado", "it": "Rifiutato", "de": "Abgelehnt", "pt": "Recusado", "pl": "Odrzucony", "nl": "Geweigerd", "ru": "Отклонено"}
+      "translations": {
+        "en": "Declined",
+        "fr": "Refusé",
+        "es": "Rechazado",
+        "it": "Rifiutato",
+        "de": "Abgelehnt",
+        "pt": "Recusado",
+        "pl": "Odrzucony",
+        "nl": "Geweigerd",
+        "ru": "Отклонено"
+      }
     },
     "saved_devices_authenticated_name": {
       "context": "Saved-device card: authenticated name shared by the remote app when a local label is also shown.",
-      "args": [{"name": "name", "type": "string"}],
+      "args": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
       "translations": {
         "en": "Remote name: {name}",
         "fr": "Nom distant : {name}",
@@ -5152,7 +5282,12 @@
     },
     "saved_devices_block_confirm_body": {
       "context": "Confirmation message before blocking a saved device. Placeholder is the display name.",
-      "args": [{"name": "device", "type": "string"}],
+      "args": [
+        {
+          "name": "device",
+          "type": "string"
+        }
+      ],
       "translations": {
         "en": "Block {device} and reject future saved-device transfers?",
         "fr": "Bloquer {device} et refuser les futurs transferts d’appareil enregistré ?",
@@ -5181,7 +5316,12 @@
     },
     "saved_devices_endpoint": {
       "context": "Saved-device screen: secondary diagnostic endpoint identity. Placeholder is a shortened endpoint ID.",
-      "args": [{"name": "deviceId", "type": "string"}],
+      "args": [
+        {
+          "name": "deviceId",
+          "type": "string"
+        }
+      ],
       "translations": {
         "en": "Device ID: {deviceId}",
         "fr": "ID de l’appareil : {deviceId}",
@@ -5195,36 +5335,41 @@
       }
     },
     "saved_devices_empty": {
-	  "context": "Saved devices screen: guidance shown when no device has been saved.",
+      "context": "Saved devices screen: guidance shown when no device has been saved.",
       "translations": {
-		"en": "Finish a transfer, then choose to remember the other device.",
-		"fr": "Terminez un transfert, puis choisissez de mémoriser l’autre appareil.",
-		"es": "Finaliza una transferencia y elige recordar el otro dispositivo.",
-		"it": "Completa un trasferimento, quindi scegli di ricordare l’altro dispositivo.",
-		"de": "Schließe eine Übertragung ab und speichere anschließend das andere Gerät.",
-		"pt": "Conclua uma transferência e escolha guardar o outro dispositivo.",
-		"pl": "Ukończ transfer, a następnie zapisz drugie urządzenie.",
-		"nl": "Voltooi een overdracht en kies daarna om het andere apparaat te onthouden.",
-		"ru": "Завершите передачу, затем сохраните другое устройство."
+        "en": "Finish a transfer, then choose to remember the other device.",
+        "fr": "Terminez un transfert, puis choisissez de mémoriser l’autre appareil.",
+        "es": "Finaliza una transferencia y elige recordar el otro dispositivo.",
+        "it": "Completa un trasferimento, quindi scegli di ricordare l’altro dispositivo.",
+        "de": "Schließe eine Übertragung ab und speichere anschließend das andere Gerät.",
+        "pt": "Conclua uma transferência e escolha guardar o outro dispositivo.",
+        "pl": "Ukończ transfer, a następnie zapisz drugie urządzenie.",
+        "nl": "Voltooi een overdracht en kies daarna om het andere apparaat te onthouden.",
+        "ru": "Завершите передачу, затем сохраните другое устройство."
       }
     },
-	"saved_devices_empty_title": {
-	  "context": "Saved devices screen: title for the empty state.",
-	  "translations": {
-		"en": "No saved devices",
-		"fr": "Aucun appareil enregistré",
-		"es": "No hay dispositivos guardados",
-		"it": "Nessun dispositivo salvato",
-		"de": "Keine gespeicherten Geräte",
-		"pt": "Nenhum dispositivo guardado",
-		"pl": "Brak zapisanych urządzeń",
-		"nl": "Geen opgeslagen apparaten",
-		"ru": "Нет сохранённых устройств"
-	  }
-	},
+    "saved_devices_empty_title": {
+      "context": "Saved devices screen: title for the empty state.",
+      "translations": {
+        "en": "No saved devices",
+        "fr": "Aucun appareil enregistré",
+        "es": "No hay dispositivos guardados",
+        "it": "Nessun dispositivo salvato",
+        "de": "Keine gespeicherten Geräte",
+        "pt": "Nenhum dispositivo guardado",
+        "pl": "Brak zapisanych urządzeń",
+        "nl": "Geen opgeslagen apparaten",
+        "ru": "Нет сохранённых устройств"
+      }
+    },
     "saved_devices_forget_confirm_body": {
       "context": "Confirmation message before forgetting a saved device. Placeholder is the display name.",
-      "args": [{"name": "device", "type": "string"}],
+      "args": [
+        {
+          "name": "device",
+          "type": "string"
+        }
+      ],
       "translations": {
         "en": "Forget {device}? You will both need to approve saving again before another direct transfer.",
         "fr": "Oublier {device} ? Vous devrez tous les deux approuver à nouveau l’enregistrement avant un autre transfert direct.",
@@ -5280,7 +5425,7 @@
       }
     },
     "saved_devices_list_title": {
-	  "context": "Saved devices screen title and saved-device list heading.",
+      "context": "Saved devices screen title and saved-device list heading.",
       "translations": {
         "en": "Saved devices",
         "fr": "Appareils enregistrés",
@@ -5323,7 +5468,12 @@
     },
     "saved_devices_more_actions": {
       "context": "Accessibility label for the saved-device overflow menu. Placeholder is the display name.",
-      "args": [{"name": "device", "type": "string"}],
+      "args": [
+        {
+          "name": "device",
+          "type": "string"
+        }
+      ],
       "translations": {
         "en": "More actions for {device}",
         "fr": "Plus d’actions pour {device}",
@@ -5615,6 +5765,336 @@
         "pl": "Zaktualizowano etykietę",
         "nl": "Label bijgewerkt",
         "ru": "Метка обновлена"
+      }
+    },
+    "windows_review_requests": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Review requests",
+        "fr": "Examiner les demandes",
+        "es": "Revisar solicitudes",
+        "it": "Esamina richieste",
+        "de": "Anfragen prüfen",
+        "pt": "Rever pedidos",
+        "pl": "Przejrzyj prośby",
+        "nl": "Verzoeken bekijken",
+        "ru": "Просмотреть запросы"
+      }
+    },
+    "windows_open_folder": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Open folder",
+        "fr": "Ouvrir le dossier",
+        "es": "Abrir carpeta",
+        "it": "Apri cartella",
+        "de": "Ordner öffnen",
+        "pt": "Abrir pasta",
+        "pl": "Otwórz folder",
+        "nl": "Map openen",
+        "ru": "Открыть папку"
+      }
+    },
+    "windows_receive_empty": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Open or drop a .vnd invitation to receive files from another device.",
+        "fr": "Ouvrez ou déposez une invitation .vnd pour recevoir des fichiers d’un autre appareil.",
+        "es": "Abra o arrastre una invitación .vnd para recibir archivos de otro dispositivo.",
+        "it": "Apri o trascina un invito .vnd per ricevere file da un altro dispositivo.",
+        "de": "Öffnen Sie eine .vnd-Einladung oder ziehen Sie sie hierher, um Dateien von einem anderen Gerät zu empfangen.",
+        "pt": "Abra ou arraste um convite .vnd para receber ficheiros de outro dispositivo.",
+        "pl": "Otwórz lub upuść zaproszenie .vnd, aby odebrać pliki z innego urządzenia.",
+        "nl": "Open een .vnd-uitnodiging of sleep deze hierheen om bestanden van een ander apparaat te ontvangen.",
+        "ru": "Откройте или перетащите приглашение .vnd, чтобы получить файлы с другого устройства."
+      }
+    },
+    "windows_send_empty": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Choose files or a folder, then share an invitation with the receiving device. You can also drop files here.",
+        "fr": "Choisissez des fichiers ou un dossier, puis partagez une invitation avec l’appareil destinataire. Vous pouvez aussi déposer des fichiers ici.",
+        "es": "Elija archivos o una carpeta y comparta una invitación con el dispositivo receptor. También puede arrastrar archivos aquí.",
+        "it": "Scegli file o una cartella, poi condividi un invito con il dispositivo destinatario. Puoi anche trascinare i file qui.",
+        "de": "Wählen Sie Dateien oder einen Ordner und teilen Sie eine Einladung mit dem empfangenden Gerät. Sie können Dateien auch hierher ziehen.",
+        "pt": "Escolha ficheiros ou uma pasta e partilhe um convite com o dispositivo destinatário. Também pode arrastar ficheiros para aqui.",
+        "pl": "Wybierz pliki lub folder, a następnie udostępnij zaproszenie urządzeniu odbiorcy. Możesz też upuścić pliki tutaj.",
+        "nl": "Kies bestanden of een map en deel een uitnodiging met het ontvangende apparaat. Je kunt hier ook bestanden neerzetten.",
+        "ru": "Выберите файлы или папку и отправьте приглашение принимающему устройству. Также можно перетащить файлы сюда."
+      }
+    },
+    "windows_scan_invitation": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Scan to receive",
+        "fr": "Scanner pour recevoir",
+        "es": "Escanear para recibir",
+        "it": "Scansiona per ricevere",
+        "de": "Zum Empfangen scannen",
+        "pt": "Ler para receber",
+        "pl": "Zeskanuj, aby odebrać",
+        "nl": "Scannen om te ontvangen",
+        "ru": "Сканируйте для получения"
+      }
+    },
+    "windows_keep_open": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Keep VniDrop open while others receive this transfer.",
+        "fr": "Gardez VniDrop ouvert pendant que les destinataires reçoivent ce transfert.",
+        "es": "Mantenga VniDrop abierto mientras otros reciben esta transferencia.",
+        "it": "Tieni aperto VniDrop mentre gli altri ricevono questo trasferimento.",
+        "de": "Lassen Sie VniDrop geöffnet, während andere diese Übertragung empfangen.",
+        "pt": "Mantenha o VniDrop aberto enquanto os destinatários recebem esta transferência.",
+        "pl": "Nie zamykaj VniDrop, gdy inni odbierają ten transfer.",
+        "nl": "Houd VniDrop open terwijl anderen deze overdracht ontvangen.",
+        "ru": "Не закрывайте VniDrop, пока другие получают эту передачу."
+      }
+    },
+    "windows_receivers": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Receivers",
+        "fr": "Destinataires",
+        "es": "Destinatarios",
+        "it": "Destinatari",
+        "de": "Empfänger",
+        "pt": "Destinatários",
+        "pl": "Odbiorcy",
+        "nl": "Ontvangers",
+        "ru": "Получатели"
+      }
+    },
+    "windows_close_title": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Close VniDrop?",
+        "fr": "Fermer VniDrop ?",
+        "es": "¿Cerrar VniDrop?",
+        "it": "Chiudere VniDrop?",
+        "de": "VniDrop schließen?",
+        "pt": "Fechar o VniDrop?",
+        "pl": "Zamknąć VniDrop?",
+        "nl": "VniDrop sluiten?",
+        "ru": "Закрыть VniDrop?"
+      }
+    },
+    "windows_close_body": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Transfers and sharing will stop when VniDrop closes.",
+        "fr": "Les transferts et le partage s’arrêteront à la fermeture de VniDrop.",
+        "es": "Las transferencias y el uso compartido se detendrán al cerrar VniDrop.",
+        "it": "I trasferimenti e la condivisione si interromperanno alla chiusura di VniDrop.",
+        "de": "Beim Schließen von VniDrop werden Übertragungen und Freigaben beendet.",
+        "pt": "As transferências e a partilha serão interrompidas ao fechar o VniDrop.",
+        "pl": "Zamknięcie VniDrop zatrzyma transfery i udostępnianie.",
+        "nl": "Overdrachten en delen stoppen wanneer VniDrop sluit.",
+        "ru": "При закрытии VniDrop передача и раздача файлов остановятся."
+      }
+    },
+    "windows_delete_body": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Remove this transfer from history? Received files will stay on this device.",
+        "fr": "Supprimer ce transfert de l’historique ? Les fichiers reçus resteront sur cet appareil.",
+        "es": "¿Eliminar esta transferencia del historial? Los archivos recibidos permanecerán en este dispositivo.",
+        "it": "Rimuovere questo trasferimento dalla cronologia? I file ricevuti resteranno su questo dispositivo.",
+        "de": "Diese Übertragung aus dem Verlauf entfernen? Empfangene Dateien bleiben auf diesem Gerät.",
+        "pt": "Remover esta transferência do histórico? Os ficheiros recebidos permanecerão neste dispositivo.",
+        "pl": "Usunąć ten transfer z historii? Odebrane pliki pozostaną na tym urządzeniu.",
+        "nl": "Deze overdracht uit de geschiedenis verwijderen? Ontvangen bestanden blijven op dit apparaat staan.",
+        "ru": "Удалить эту передачу из истории? Полученные файлы останутся на устройстве."
+      }
+    },
+    "windows_save_preferences": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Save preferences",
+        "fr": "Enregistrer les préférences",
+        "es": "Guardar preferencias",
+        "it": "Salva preferenze",
+        "de": "Einstellungen speichern",
+        "pt": "Guardar preferências",
+        "pl": "Zapisz preferencje",
+        "nl": "Voorkeuren opslaan",
+        "ru": "Сохранить настройки"
+      }
+    },
+    "windows_blocked_devices": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Blocked devices",
+        "fr": "Appareils bloqués",
+        "es": "Dispositivos bloqueados",
+        "it": "Dispositivi bloccati",
+        "de": "Blockierte Geräte",
+        "pt": "Dispositivos bloqueados",
+        "pl": "Zablokowane urządzenia",
+        "nl": "Geblokkeerde apparaten",
+        "ru": "Заблокированные устройства"
+      }
+    },
+    "windows_unblock": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Unblock",
+        "fr": "Débloquer",
+        "es": "Desbloquear",
+        "it": "Sblocca",
+        "de": "Entsperren",
+        "pt": "Desbloquear",
+        "pl": "Odblokuj",
+        "nl": "Deblokkeren",
+        "ru": "Разблокировать"
+      }
+    },
+    "windows_selection_invalid": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Choose multiple files or one folder.",
+        "fr": "Choisissez plusieurs fichiers ou un seul dossier.",
+        "es": "Elija varios archivos o una carpeta.",
+        "it": "Scegli più file o una sola cartella.",
+        "de": "Wählen Sie mehrere Dateien oder einen Ordner.",
+        "pt": "Escolha vários ficheiros ou uma pasta.",
+        "pl": "Wybierz wiele plików lub jeden folder.",
+        "nl": "Kies meerdere bestanden of één map.",
+        "ru": "Выберите несколько файлов или одну папку."
+      }
+    },
+    "windows_selection_required": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Choose files and enter a transfer name.",
+        "fr": "Choisissez des fichiers et saisissez un nom de transfert.",
+        "es": "Elija archivos e introduzca un nombre para la transferencia.",
+        "it": "Scegli i file e inserisci un nome per il trasferimento.",
+        "de": "Wählen Sie Dateien und geben Sie einen Namen für die Übertragung ein.",
+        "pt": "Escolha ficheiros e introduza um nome para a transferência.",
+        "pl": "Wybierz pliki i wpisz nazwę transferu.",
+        "nl": "Kies bestanden en voer een naam voor de overdracht in.",
+        "ru": "Выберите файлы и введите название передачи."
+      }
+    },
+    "windows_preferences_invalid": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Your saved preferences could not be read. VniDrop has kept them unchanged. Restore the preferences file before starting again.",
+        "fr": "Vos préférences n’ont pas pu être lues. VniDrop les a conservées. Restaurez le fichier de préférences avant de redémarrer.",
+        "es": "No se pudieron leer las preferencias guardadas. VniDrop las ha conservado sin cambios. Restaure el archivo de preferencias antes de volver a iniciar.",
+        "it": "Impossibile leggere le preferenze salvate. VniDrop le ha conservate inalterate. Ripristina il file delle preferenze prima di riavviare.",
+        "de": "Die gespeicherten Einstellungen konnten nicht gelesen werden. VniDrop hat sie unverändert gelassen. Stellen Sie die Einstellungsdatei vor dem Neustart wieder her.",
+        "pt": "Não foi possível ler as preferências guardadas. O VniDrop manteve-as inalteradas. Restaure o ficheiro de preferências antes de reiniciar.",
+        "pl": "Nie udało się odczytać zapisanych preferencji. VniDrop pozostawił je bez zmian. Przywróć plik preferencji przed ponownym uruchomieniem.",
+        "nl": "De opgeslagen voorkeuren konden niet worden gelezen. VniDrop heeft ze ongewijzigd bewaard. Herstel het voorkeurenbestand voordat je opnieuw start.",
+        "ru": "Не удалось прочитать сохранённые настройки. VniDrop сохранил их без изменений. Восстановите файл настроек перед повторным запуском."
+      }
+    },
+    "windows_name_required": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Enter a display name.",
+        "fr": "Saisissez un nom d’affichage.",
+        "es": "Introduzca un nombre para mostrar.",
+        "it": "Inserisci un nome da visualizzare.",
+        "de": "Geben Sie einen Anzeigenamen ein.",
+        "pt": "Introduza um nome de apresentação.",
+        "pl": "Wpisz nazwę wyświetlaną.",
+        "nl": "Voer een weergavenaam in.",
+        "ru": "Введите отображаемое имя."
+      }
+    },
+    "windows_network_busy": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Finish active transfers and stop sharing before changing the network or clearing the cache.",
+        "fr": "Terminez les transferts actifs et arrêtez le partage avant de modifier le réseau ou de vider le cache.",
+        "es": "Finalice las transferencias activas y deje de compartir antes de cambiar la red o vaciar la caché.",
+        "it": "Completa i trasferimenti attivi e interrompi la condivisione prima di cambiare rete o svuotare la cache.",
+        "de": "Beenden Sie aktive Übertragungen und Freigaben, bevor Sie das Netzwerk ändern oder den Cache leeren.",
+        "pt": "Conclua as transferências ativas e pare a partilha antes de alterar a rede ou limpar a cache.",
+        "pl": "Zakończ aktywne transfery i zatrzymaj udostępnianie przed zmianą sieci lub wyczyszczeniem pamięci podręcznej.",
+        "nl": "Voltooi actieve overdrachten en stop met delen voordat je het netwerk wijzigt of de cache wist.",
+        "ru": "Завершите активные передачи и остановите раздачу, прежде чем менять сеть или очищать кэш."
+      }
+    },
+    "windows_relay_invalid": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Enter between 1 and 8 distinct HTTPS relay URLs, without credentials or fragments.",
+        "fr": "Saisissez entre 1 et 8 URL HTTPS de relais distinctes, sans identifiants ni fragments.",
+        "es": "Introduzca entre 1 y 8 URL HTTPS de retransmisión distintas, sin credenciales ni fragmentos.",
+        "it": "Inserisci da 1 a 8 URL HTTPS di relay distinti, senza credenziali né frammenti.",
+        "de": "Geben Sie 1 bis 8 verschiedene HTTPS-Relay-URLs ohne Zugangsdaten oder Fragmente ein.",
+        "pt": "Introduza entre 1 e 8 URLs HTTPS de retransmissão distintos, sem credenciais nem fragmentos.",
+        "pl": "Wpisz od 1 do 8 różnych adresów HTTPS serwerów pośredniczących, bez danych logowania i fragmentów.",
+        "nl": "Voer 1 tot 8 verschillende HTTPS-relay-URL’s in, zonder inloggegevens of fragmenten.",
+        "ru": "Введите от 1 до 8 разных HTTPS-адресов ретрансляторов без учётных данных и фрагментов."
+      }
+    },
+    "windows_operation_failed": {
+      "context": "Native Windows app",
+      "targets": ["windows"],
+      "translations": {
+        "en": "This action could not be completed. Please try again.",
+        "fr": "Cette action n’a pas pu être effectuée. Veuillez réessayer.",
+        "es": "No se pudo completar esta acción. Inténtelo de nuevo.",
+        "it": "Impossibile completare questa azione. Riprova.",
+        "de": "Diese Aktion konnte nicht abgeschlossen werden. Versuchen Sie es erneut.",
+        "pt": "Não foi possível concluir esta ação. Tente novamente.",
+        "pl": "Nie udało się wykonać tej czynności. Spróbuj ponownie.",
+        "nl": "Deze actie kon niet worden voltooid. Probeer het opnieuw.",
+        "ru": "Не удалось выполнить действие. Повторите попытку."
+      }
+    },
+    "windows_on": {
+      "context": "Windows notifications toggle: enabled",
+      "targets": ["windows"],
+      "translations": {
+        "en": "On",
+        "fr": "Activées",
+        "es": "Activadas",
+        "it": "Attive",
+        "de": "Ein",
+        "pt": "Ativadas",
+        "pl": "Włączone",
+        "nl": "Aan",
+        "ru": "Включены"
+      }
+    },
+    "windows_off": {
+      "context": "Windows notifications toggle: disabled",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Off",
+        "fr": "Désactivées",
+        "es": "Desactivadas",
+        "it": "Disattive",
+        "de": "Aus",
+        "pt": "Desativadas",
+        "pl": "Wyłączone",
+        "nl": "Uit",
+        "ru": "Выключены"
       }
     }
   }

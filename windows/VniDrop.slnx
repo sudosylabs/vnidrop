@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="VniDrop.Core/VniDrop.Core.csproj" />
+  <Project Path="VniDrop/VniDrop.csproj" />
+  <Project Path="VniDrop.Tests/VniDrop.Tests.csproj" />
+</Solution>

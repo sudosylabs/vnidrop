@@ -1,0 +1,76 @@
+<Page
+    x:Class="VniDrop.Views.Settings.StoragePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="using:VniDrop.Controls"
+    xmlns:p="using:VniDrop.Platform"
+    xmlns:settings="using:VniDrop.Views.Settings">
+  <settings:SettingsPageLayout Title="{x:Bind p:Strings.Get('storage_title')}" BackRequested="Back">
+    <settings:SettingsPageLayout.HeaderActions>
+      <Button
+          x:Name="RefreshButton"
+          Style="{StaticResource VniDropIconButtonStyle}"
+          Click="RefreshStorage"
+          AutomationProperties.Name="{x:Bind p:Strings.Get('storage_refresh')}"
+          ToolTipService.ToolTip="{x:Bind p:Strings.Get('storage_refresh')}">
+        <FontIcon Glyph="&#xE895;" FontSize="16" />
+      </Button>
+    </settings:SettingsPageLayout.HeaderActions>
+    <settings:SettingsPageLayout.PageContent>
+      <StackPanel Spacing="24">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{x:Bind p:Strings.Get('storage_usage_header')}" Style="{StaticResource VniDropSectionTitleStyle}" />
+          <Border Style="{StaticResource VniDropCardStyle}">
+            <StackPanel>
+              <settings:SettingsValueRow x:Name="ReceivedUsage" Label="{x:Bind p:Strings.Get('storage_received_files')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:SettingsValueRow x:Name="TransferUsage" Label="{x:Bind p:Strings.Get('storage_transfer_data')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:SettingsValueRow x:Name="AppUsage" Label="{x:Bind p:Strings.Get('storage_app_data')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:SettingsValueRow x:Name="TemporaryUsage" Label="{x:Bind p:Strings.Get('storage_temporary')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:SettingsValueRow x:Name="TotalUsage" Label="{x:Bind p:Strings.Get('storage_total')}" />
+            </StackPanel>
+          </Border>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <ProgressRing x:Name="StorageLoading" Width="18" Height="18" IsActive="False" Visibility="Collapsed" />
+            <TextBlock x:Name="StorageStatus" Style="{StaticResource VniDropCaptionTextStyle}" VerticalAlignment="Center" />
+          </StackPanel>
+          <TextBlock Text="{x:Bind p:Strings.Get('storage_footer')}" Style="{StaticResource VniDropCaptionTextStyle}" />
+        </StackPanel>
+
+        <Border Style="{StaticResource VniDropCardStyle}">
+          <StackPanel>
+            <c:SettingsRow
+                x:Name="FreeSpaceRow"
+                AutomationProperties.AutomationId="FreeSpaceRow"
+                Glyph="&#xE74D;"
+                Title="{x:Bind p:Strings.Get('storage_free_up_space')}"
+                Description="{x:Bind p:Strings.Get('storage_free_up_space_caption')}"
+                Click="FreeSpace" />
+            <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <c:SettingsRow
+                x:Name="ClearCacheRow"
+                AutomationProperties.AutomationId="ClearCacheRow"
+                Glyph="&#xEDA2;"
+                Title="{x:Bind p:Strings.Get('storage_clear_transfer_cache')}"
+                Description="{x:Bind p:Strings.Get('storage_clear_transfer_cache_description')}"
+                Click="ClearCache" />
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource VniDropCardStyle}">
+          <c:SettingsRow
+              x:Name="DeleteAllRow"
+              AutomationProperties.AutomationId="DeleteAllRow"
+              Glyph="&#xE74D;"
+              Title="{x:Bind p:Strings.Get('storage_delete_transfers')}"
+              Description="{x:Bind p:Strings.Get('storage_delete_transfers_caption')}"
+              IsCritical="True"
+              Click="DeleteAll" />
+        </Border>
+      </StackPanel>
+    </settings:SettingsPageLayout.PageContent>
+  </settings:SettingsPageLayout>
+</Page>

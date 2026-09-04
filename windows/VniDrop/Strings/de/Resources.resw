@@ -388,6 +388,11 @@
   <data name="value_unavailable" xml:space="preserve"><value>Nicht verfügbar</value></data>
   <data name="version_title" xml:space="preserve"><value>App-Version</value></data>
   <data name="windows_blocked_devices" xml:space="preserve"><value>Blockierte Geräte</value></data>
+  <data name="windows_bug_report_description" xml:space="preserve"><value>Beschreiben Sie das Problem und wählen Sie dann im Windows-Freigabefenster ein Ziel aus. Geräteinformationen und optional geschwärzte aktuelle Protokolle werden in den Bericht aufgenommen.</value></data>
+  <data name="windows_bug_report_include_logs_description" xml:space="preserve"><value>Fügt dem Bericht aktuelle Kernprotokolle hinzu. Sensible Werte werden geschwärzt, bevor das Windows-Freigabefenster geöffnet wird.</value></data>
+  <data name="windows_bug_report_preparing" xml:space="preserve"><value>Bericht wird vorbereitet…</value></data>
+  <data name="windows_bug_report_share" xml:space="preserve"><value>Bericht teilen</value></data>
+  <data name="windows_bug_report_share_failed" xml:space="preserve"><value>Das Windows-Freigabefenster konnte nicht geöffnet werden. Ihr Bericht ist weiterhin hier.</value></data>
   <data name="windows_close_body" xml:space="preserve"><value>Beim Schließen von VniDrop werden Übertragungen und Freigaben beendet.</value></data>
   <data name="windows_close_title" xml:space="preserve"><value>VniDrop schließen?</value></data>
   <data name="windows_delete_body" xml:space="preserve"><value>Diese Übertragung aus dem Verlauf entfernen? Empfangene Dateien bleiben auf diesem Gerät.</value></data>
@@ -408,5 +413,6 @@
   <data name="windows_selection_invalid" xml:space="preserve"><value>Wählen Sie mehrere Dateien oder einen Ordner.</value></data>
   <data name="windows_selection_required" xml:space="preserve"><value>Wählen Sie Dateien und geben Sie einen Namen für die Übertragung ein.</value></data>
   <data name="windows_send_empty" xml:space="preserve"><value>Wählen Sie Dateien oder einen Ordner und teilen Sie eine Einladung mit dem empfangenden Gerät. Sie können Dateien auch hierher ziehen.</value></data>
+  <data name="windows_share_busy" xml:space="preserve"><value>Schließen Sie die aktuelle Windows-Freigabe ab oder schließen Sie sie, bevor Sie erneut teilen.</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Entsperren</value></data>
 </root>

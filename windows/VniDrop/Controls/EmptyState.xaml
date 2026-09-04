@@ -1,0 +1,51 @@
+<UserControl
+    x:Class="VniDrop.Controls.EmptyState"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel
+      HorizontalAlignment="Center"
+      VerticalAlignment="Center"
+      MaxWidth="460"
+      Padding="24"
+      Spacing="12">
+    <FontIcon
+        x:Name="StateIcon"
+        FontSize="44"
+        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+        HorizontalAlignment="Center"
+        Margin="0,0,0,8" />
+    <TextBlock
+        x:Name="TitleText"
+        Style="{StaticResource SubtitleTextBlockStyle}"
+        FontSize="24"
+        TextAlignment="Center"
+        TextWrapping="Wrap" />
+    <TextBlock
+        x:Name="DescriptionText"
+        Style="{StaticResource VniDropSecondaryTextStyle}"
+        TextAlignment="Center"
+        HorizontalAlignment="Center" />
+    <StackPanel
+        Orientation="Horizontal"
+        HorizontalAlignment="Center"
+        Spacing="8"
+        Margin="0,8,0,0">
+      <Button
+          x:Name="PrimaryButton"
+          AutomationProperties.AutomationId="EmptyCreateTransfer"
+          Style="{StaticResource VniDropPrimaryButtonStyle}"
+          Click="PrimaryClicked">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <FontIcon x:Name="PrimaryIcon" FontSize="16" />
+          <TextBlock x:Name="PrimaryText" />
+        </StackPanel>
+      </Button>
+      <Button
+          x:Name="SecondaryButton"
+          Style="{StaticResource VniDropSecondaryButtonStyle}"
+          Click="SecondaryClicked">
+        <TextBlock x:Name="SecondaryText" />
+      </Button>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

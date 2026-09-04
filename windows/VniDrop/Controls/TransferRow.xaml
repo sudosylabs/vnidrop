@@ -1,0 +1,96 @@
+<UserControl
+    x:Class="VniDrop.Controls.TransferRow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:VniDrop.Controls"
+    xmlns:p="using:VniDrop.Platform">
+  <UserControl.Resources>
+    <MenuFlyout x:Key="TransferActionsFlyout">
+      <MenuFlyoutItem
+          x:Name="ShareMenuItem"
+          Text="{x:Bind p:Strings.Get('transfer_share_title')}"
+          Icon="Share"
+          Click="ShareClicked" />
+      <MenuFlyoutSeparator x:Name="DestructiveSeparator" />
+      <MenuFlyoutItem
+          x:Name="StopMenuItem"
+          Text="{x:Bind p:Strings.Get('send_stop_sharing')}"
+          Icon="Stop"
+          Click="StopClicked">
+        <MenuFlyoutItem.Resources>
+          <StaticResource x:Key="MenuFlyoutItemForeground" ResourceKey="VniDropCriticalTextBrush" />
+          <StaticResource x:Key="MenuFlyoutItemBackgroundPointerOver" ResourceKey="VniDropCriticalSubtlePointerOverBrush" />
+          <StaticResource x:Key="MenuFlyoutItemForegroundPointerOver" ResourceKey="VniDropCriticalInteractiveForegroundBrush" />
+          <StaticResource x:Key="MenuFlyoutItemBackgroundPressed" ResourceKey="VniDropCriticalSubtlePressedBrush" />
+          <StaticResource x:Key="MenuFlyoutItemForegroundPressed" ResourceKey="VniDropCriticalInteractiveForegroundBrush" />
+        </MenuFlyoutItem.Resources>
+      </MenuFlyoutItem>
+      <MenuFlyoutItem
+          x:Name="DeleteMenuItem"
+          Text="{x:Bind p:Strings.Get('button_delete_transfer')}"
+          Icon="Delete"
+          Click="DeleteClicked">
+        <MenuFlyoutItem.Resources>
+          <StaticResource x:Key="MenuFlyoutItemForeground" ResourceKey="VniDropCriticalTextBrush" />
+          <StaticResource x:Key="MenuFlyoutItemBackgroundPointerOver" ResourceKey="VniDropCriticalSubtlePointerOverBrush" />
+          <StaticResource x:Key="MenuFlyoutItemForegroundPointerOver" ResourceKey="VniDropCriticalInteractiveForegroundBrush" />
+          <StaticResource x:Key="MenuFlyoutItemBackgroundPressed" ResourceKey="VniDropCriticalSubtlePressedBrush" />
+          <StaticResource x:Key="MenuFlyoutItemForegroundPressed" ResourceKey="VniDropCriticalInteractiveForegroundBrush" />
+        </MenuFlyoutItem.Resources>
+      </MenuFlyoutItem>
+    </MenuFlyout>
+  </UserControl.Resources>
+  <Grid
+      x:Name="RootGrid"
+      Padding="14"
+      ColumnSpacing="12"
+      ContextFlyout="{StaticResource TransferActionsFlyout}">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="44" />
+      <ColumnDefinition Width="*" />
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="Auto" />
+    </Grid.ColumnDefinitions>
+    <Border
+        Width="44"
+        Height="44"
+        CornerRadius="8"
+        Background="{ThemeResource ControlFillColorSecondaryBrush}">
+      <FontIcon
+          Glyph="&#xE8A5;"
+          FontSize="22"
+          Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center" />
+    </Border>
+    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+      <TextBlock
+          x:Name="NameText"
+          Style="{StaticResource BodyStrongTextBlockStyle}"
+          TextTrimming="CharacterEllipsis" />
+      <TextBlock
+          x:Name="DetailText"
+          Style="{StaticResource VniDropCaptionTextStyle}"
+          TextTrimming="CharacterEllipsis" />
+      <StackPanel x:Name="ProgressPanel" Spacing="5">
+        <ProgressBar x:Name="Progress" />
+        <TextBlock
+            x:Name="ProgressText"
+            Style="{StaticResource VniDropCaptionTextStyle}"
+            TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+    </StackPanel>
+    <controls:StatusBadge
+        x:Name="Badge"
+        Grid.Column="2"
+        VerticalAlignment="Center" />
+    <Button
+        x:Name="MoreButton"
+        Grid.Column="3"
+        Style="{StaticResource VniDropIconButtonStyle}"
+        Click="ShowActions"
+        VerticalAlignment="Center">
+      <FontIcon Glyph="&#xE712;" FontSize="16" />
+    </Button>
+  </Grid>
+</UserControl>

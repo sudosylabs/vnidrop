@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using VniDrop.Core;
 using VniDrop.Native;
 using VniDrop.Platform;
@@ -36,12 +37,31 @@ public sealed partial class DraftPage : ContentDialog
         SelectionSummary.Visibility = draft.Sources.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
         ChooseStep.Visibility = review ? Visibility.Collapsed : Visibility.Visible;
         ReviewStep.Visibility = BackButton.Visibility = review ? Visibility.Visible : Visibility.Collapsed;
-        ReviewStep.IsHitTestVisible = ChooseStep.IsHitTestVisible = BackButton.IsEnabled = !draft.IsSubmitting && !picking;
-        ReviewStep.Opacity = ChooseStep.Opacity = draft.IsSubmitting || picking ? .6 : 1;
+        var interactive = !draft.IsSubmitting && !picking;
+        ReviewStep.IsHitTestVisible = ChooseStep.IsHitTestVisible = interactive;
+        SetControlsEnabled(ReviewStep, interactive);
+        SetControlsEnabled(ChooseStep, interactive);
+        ChooseFilesButton.IsEnabled = ChooseFolderButton.IsEnabled = BackButton.IsEnabled = interactive;
+        CloseButtonText = interactive ? Strings.Get("button_cancel") : "";
         PrimaryButtonText = review ? Strings.Get(draft.Receiver is null ? "button_share_file" : "saved_devices_send_action") : "";
         IsPrimaryButtonEnabled = review && !draft.IsSubmitting && !picking && !string.IsNullOrWhiteSpace(draft.Name);
+        DefaultButton = review ? ContentDialogButton.Primary : ContentDialogButton.None;
         Preparation.Visibility = draft.IsSubmitting ? Visibility.Visible : Visibility.Collapsed;
+        PreparationProgress.IsTabStop = draft.IsSubmitting;
+        if (draft.IsSubmitting)
+            DispatcherQueue.TryEnqueue(() => PreparationProgress.Focus(FocusState.Programmatic));
         rendering = false;
+    }
+
+    private static void SetControlsEnabled(DependencyObject root, bool enabled)
+    {
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var index = 0; index < count; index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is Control control) control.IsEnabled = enabled;
+            SetControlsEnabled(child, enabled);
+        }
     }
     private void NameChanged(object sender, TextChangedEventArgs e)
     {

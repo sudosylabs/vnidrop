@@ -388,6 +388,11 @@
   <data name="value_unavailable" xml:space="preserve"><value>Недоступно</value></data>
   <data name="version_title" xml:space="preserve"><value>Версия приложения</value></data>
   <data name="windows_blocked_devices" xml:space="preserve"><value>Заблокированные устройства</value></data>
+  <data name="windows_bug_report_description" xml:space="preserve"><value>Опишите проблему, затем выберите получателя на панели «Поделиться» Windows. В отчёт включаются сведения об устройстве и, по желанию, недавние журналы со скрытыми конфиденциальными значениями.</value></data>
+  <data name="windows_bug_report_include_logs_description" xml:space="preserve"><value>Добавляет в отчёт недавние журналы ядра. Конфиденциальные значения скрываются до открытия панели «Поделиться» Windows.</value></data>
+  <data name="windows_bug_report_preparing" xml:space="preserve"><value>Подготовка отчёта…</value></data>
+  <data name="windows_bug_report_share" xml:space="preserve"><value>Поделиться отчётом</value></data>
+  <data name="windows_bug_report_share_failed" xml:space="preserve"><value>Не удалось открыть панель «Поделиться» Windows. Отчёт остался на этой странице.</value></data>
   <data name="windows_close_body" xml:space="preserve"><value>При закрытии VniDrop передача и раздача файлов остановятся.</value></data>
   <data name="windows_close_title" xml:space="preserve"><value>Закрыть VniDrop?</value></data>
   <data name="windows_delete_body" xml:space="preserve"><value>Удалить эту передачу из истории? Полученные файлы останутся на устройстве.</value></data>
@@ -408,5 +413,6 @@
   <data name="windows_selection_invalid" xml:space="preserve"><value>Выберите несколько файлов или одну папку.</value></data>
   <data name="windows_selection_required" xml:space="preserve"><value>Выберите файлы и введите название передачи.</value></data>
   <data name="windows_send_empty" xml:space="preserve"><value>Выберите файлы или папку и отправьте приглашение принимающему устройству. Также можно перетащить файлы сюда.</value></data>
+  <data name="windows_share_busy" xml:space="preserve"><value>Завершите или закройте текущее окно общего доступа Windows, прежде чем делиться снова.</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Разблокировать</value></data>
 </root>

@@ -388,6 +388,11 @@
   <data name="value_unavailable" xml:space="preserve"><value>Non disponible</value></data>
   <data name="version_title" xml:space="preserve"><value>Version de l’app</value></data>
   <data name="windows_blocked_devices" xml:space="preserve"><value>Appareils bloqués</value></data>
+  <data name="windows_bug_report_description" xml:space="preserve"><value>Décrivez le problème, puis choisissez une destination dans le volet de partage Windows. Les informations sur l’appareil et, si vous le souhaitez, les journaux masqués sont inclus dans le rapport.</value></data>
+  <data name="windows_bug_report_include_logs_description" xml:space="preserve"><value>Ajoute les journaux récents du moteur au rapport. Les valeurs sensibles sont masquées avant l’ouverture du volet de partage Windows.</value></data>
+  <data name="windows_bug_report_preparing" xml:space="preserve"><value>Préparation du rapport…</value></data>
+  <data name="windows_bug_report_share" xml:space="preserve"><value>Partager le rapport</value></data>
+  <data name="windows_bug_report_share_failed" xml:space="preserve"><value>Impossible d’ouvrir le volet de partage Windows. Votre rapport est toujours ici.</value></data>
   <data name="windows_close_body" xml:space="preserve"><value>Les transferts et le partage s’arrêteront à la fermeture de VniDrop.</value></data>
   <data name="windows_close_title" xml:space="preserve"><value>Fermer VniDrop ?</value></data>
   <data name="windows_delete_body" xml:space="preserve"><value>Supprimer ce transfert de l’historique ? Les fichiers reçus resteront sur cet appareil.</value></data>
@@ -408,5 +413,6 @@
   <data name="windows_selection_invalid" xml:space="preserve"><value>Choisissez plusieurs fichiers ou un seul dossier.</value></data>
   <data name="windows_selection_required" xml:space="preserve"><value>Choisissez des fichiers et saisissez un nom de transfert.</value></data>
   <data name="windows_send_empty" xml:space="preserve"><value>Choisissez des fichiers ou un dossier, puis partagez une invitation avec l’appareil destinataire. Vous pouvez aussi déposer des fichiers ici.</value></data>
+  <data name="windows_share_busy" xml:space="preserve"><value>Terminez ou fermez le partage Windows en cours avant de partager à nouveau.</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Débloquer</value></data>
 </root>

@@ -388,6 +388,11 @@
   <data name="value_unavailable" xml:space="preserve"><value>Non disponibile</value></data>
   <data name="version_title" xml:space="preserve"><value>Versione dell’app</value></data>
   <data name="windows_blocked_devices" xml:space="preserve"><value>Dispositivi bloccati</value></data>
+  <data name="windows_bug_report_description" xml:space="preserve"><value>Descrivi il problema, quindi scegli una destinazione nel pannello Condividi di Windows. Il report include informazioni sul dispositivo e, facoltativamente, log con i dati sensibili oscurati.</value></data>
+  <data name="windows_bug_report_include_logs_description" xml:space="preserve"><value>Aggiunge al report i log recenti del core. I valori sensibili vengono oscurati prima dell’apertura del pannello Condividi di Windows.</value></data>
+  <data name="windows_bug_report_preparing" xml:space="preserve"><value>Preparazione del report…</value></data>
+  <data name="windows_bug_report_share" xml:space="preserve"><value>Condividi report</value></data>
+  <data name="windows_bug_report_share_failed" xml:space="preserve"><value>Impossibile aprire il pannello Condividi di Windows. Il report è ancora qui.</value></data>
   <data name="windows_close_body" xml:space="preserve"><value>I trasferimenti e la condivisione si interromperanno alla chiusura di VniDrop.</value></data>
   <data name="windows_close_title" xml:space="preserve"><value>Chiudere VniDrop?</value></data>
   <data name="windows_delete_body" xml:space="preserve"><value>Rimuovere questo trasferimento dalla cronologia? I file ricevuti resteranno su questo dispositivo.</value></data>
@@ -408,5 +413,6 @@
   <data name="windows_selection_invalid" xml:space="preserve"><value>Scegli più file o una sola cartella.</value></data>
   <data name="windows_selection_required" xml:space="preserve"><value>Scegli i file e inserisci un nome per il trasferimento.</value></data>
   <data name="windows_send_empty" xml:space="preserve"><value>Scegli file o una cartella, poi condividi un invito con il dispositivo destinatario. Puoi anche trascinare i file qui.</value></data>
+  <data name="windows_share_busy" xml:space="preserve"><value>Completa o chiudi la condivisione Windows in corso prima di condividere di nuovo.</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Sblocca</value></data>
 </root>

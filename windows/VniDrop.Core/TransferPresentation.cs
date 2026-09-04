@@ -7,6 +7,21 @@ public sealed record TransferProgress(double? Fraction, string LabelKey, string?
 
 public static class TransferPresentation
 {
+    public static ulong[] DeletableHistoryIds(IEnumerable<StoredTransfer> transfers) => transfers
+        .Where(transfer => transfer.status is "done" or "cancelled" or "stopped" or "failed")
+        .Select(transfer => transfer.transferId)
+        .Distinct()
+        .ToArray();
+
+    public static string[] DeletableTargetedHistoryIds(IEnumerable<TargetedTransfer> transfers) => transfers
+        .Where(transfer => transfer.state is TargetedTransferState.Completed
+            or TargetedTransferState.Declined
+            or TargetedTransferState.Cancelled
+            or TargetedTransferState.Failed)
+        .Select(transfer => transfer.id)
+        .Distinct(StringComparer.Ordinal)
+        .ToArray();
+
     public static TransferProgress? Progress(IReadOnlyList<CoreEvent> events, ulong id, string direction, ulong size)
     {
         var latest = events.LastOrDefault(e => e.transferId == id && e.direction == direction && e.phase is "import" or "network" or "handshake" or "download" or "export" or "lifecycle");

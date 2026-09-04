@@ -1,0 +1,27 @@
+<Page
+    x:Class="VniDrop.Views.Settings.NotificationsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:p="using:VniDrop.Platform"
+    xmlns:settings="using:VniDrop.Views.Settings">
+  <settings:SettingsPageLayout
+      Title="{x:Bind p:Strings.Get('notifications_title')}"
+      Subtitle="{x:Bind p:Strings.Get('notifications_description')}"
+      BackRequested="Back">
+    <settings:SettingsPageLayout.PageContent>
+      <StackPanel Spacing="16">
+        <Border Style="{StaticResource VniDropCardStyle}" Padding="16">
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <StackPanel Spacing="4" VerticalAlignment="Center">
+              <TextBlock Text="{x:Bind p:Strings.Get('notifications_local_title')}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+              <TextBlock Text="{x:Bind p:Strings.Get('notifications_description')}" Style="{StaticResource VniDropCaptionTextStyle}" />
+            </StackPanel>
+            <ToggleSwitch x:Name="Notifications" Grid.Column="1" OnContent="{x:Bind p:Strings.Get('windows_on')}" OffContent="{x:Bind p:Strings.Get('windows_off')}" Toggled="NotificationsChanged" />
+          </Grid>
+        </Border>
+        <InfoBar x:Name="NotificationUnavailable" Severity="Warning" IsOpen="False" IsClosable="False" Message="{x:Bind p:Strings.Get('notifications_unsupported')}" />
+      </StackPanel>
+    </settings:SettingsPageLayout.PageContent>
+  </settings:SettingsPageLayout>
+</Page>

@@ -1,0 +1,89 @@
+<Page
+    x:Class="VniDrop.Views.Settings.NetworkPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:p="using:VniDrop.Platform"
+    xmlns:settings="using:VniDrop.Views.Settings">
+  <settings:SettingsPageLayout Title="{x:Bind p:Strings.Get('settings_network_title')}" BackRequested="Back">
+    <settings:SettingsPageLayout.PageContent>
+      <StackPanel Spacing="20">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{x:Bind p:Strings.Get('settings_network_title')}" Style="{StaticResource VniDropSectionTitleStyle}" />
+          <Border Style="{StaticResource VniDropCardStyle}">
+            <StackPanel x:Name="ModeChoices">
+              <RadioButton x:Name="Automatic" Tag="Automatic" GroupName="RelayMode" Style="{StaticResource VniDropPolicyOptionStyle}" Content="{x:Bind p:Strings.Get('relay_mode_automatic')}" Checked="ModeChanged" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <RadioButton x:Name="StrictCustom" Tag="StrictCustom" GroupName="RelayMode" Style="{StaticResource VniDropPolicyOptionStyle}" Content="{x:Bind p:Strings.Get('relay_mode_custom')}" Checked="ModeChanged" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <RadioButton x:Name="CustomWithDirectFallback" Tag="CustomWithDirectFallback" GroupName="RelayMode" Style="{StaticResource VniDropPolicyOptionStyle}" Content="{x:Bind p:Strings.Get('relay_mode_custom_direct_fallback')}" Checked="ModeChanged" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <RadioButton x:Name="LocalOnly" Tag="LocalOnly" GroupName="RelayMode" Style="{StaticResource VniDropPolicyOptionStyle}" Content="{x:Bind p:Strings.Get('relay_mode_local_only')}" Checked="ModeChanged" />
+            </StackPanel>
+          </Border>
+          <TextBlock x:Name="ModeDescription" Style="{StaticResource VniDropSecondaryTextStyle}" />
+        </StackPanel>
+
+        <InfoBar Severity="Informational" IsOpen="True" IsClosable="False" Message="{x:Bind p:Strings.Get('relay_privacy_description')}" />
+
+        <Border Style="{StaticResource VniDropCardStyle}" Padding="16">
+          <TextBlock
+              x:Name="DeviceId"
+              FontFamily="Consolas"
+              TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel x:Name="RelayUrls" Spacing="10">
+          <TextBlock Text="{x:Bind p:Strings.Get('relay_custom_urls_label')}" Style="{StaticResource VniDropSectionTitleStyle}" />
+          <Border Style="{StaticResource VniDropCardStyle}" Padding="16">
+            <StackPanel Spacing="10">
+              <ItemsControl x:Name="UrlList">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="settings:RelayUrlEntry">
+                    <Grid ColumnSpacing="8" Margin="0,0,0,8">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
+                      <TextBox
+                          Text="{x:Bind Url}"
+                          Tag="{x:Bind}"
+                          TextChanged="UrlChanged"
+                          HorizontalAlignment="Stretch" />
+                      <Button
+                          Grid.Column="1"
+                          Style="{StaticResource VniDropIconButtonStyle}"
+                          Tag="{x:Bind}"
+                          Click="RemoveUrl"
+                          AutomationProperties.Name="{x:Bind p:Strings.Get('relay_remove_url')}"
+                          ToolTipService.ToolTip="{x:Bind p:Strings.Get('relay_remove_url')}">
+                        <FontIcon Glyph="&#xE738;" FontSize="16" />
+                      </Button>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button
+                  x:Name="AddRelay"
+                  Style="{StaticResource VniDropSecondaryButtonStyle}"
+                  HorizontalAlignment="Left"
+                  Click="AddUrl">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <FontIcon Glyph="&#xE710;" FontSize="16" />
+                  <TextBlock Text="{x:Bind p:Strings.Get('relay_add_url')}" />
+                </StackPanel>
+              </Button>
+              <TextBlock Text="{x:Bind p:Strings.Get('relay_custom_urls_help')}" Style="{StaticResource VniDropCaptionTextStyle}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <InfoBar x:Name="StrictWarning" Severity="Warning" IsOpen="False" IsClosable="False" Message="{x:Bind p:Strings.Get('relay_strict_warning')}" />
+        <TextBlock Text="{x:Bind p:Strings.Get('relay_apply_restart_description')}" Style="{StaticResource VniDropSecondaryTextStyle}" />
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <Button x:Name="ApplyNetwork" Style="{StaticResource VniDropPrimaryButtonStyle}" Content="{x:Bind p:Strings.Get('relay_apply')}" Click="SaveNetwork" />
+          <ProgressRing x:Name="Applying" Width="24" Height="24" IsActive="False" Visibility="Collapsed" />
+        </StackPanel>
+      </StackPanel>
+    </settings:SettingsPageLayout.PageContent>
+  </settings:SettingsPageLayout>
+</Page>

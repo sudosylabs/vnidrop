@@ -388,6 +388,11 @@
   <data name="value_unavailable" xml:space="preserve"><value>Indisponível</value></data>
   <data name="version_title" xml:space="preserve"><value>Versão da app</value></data>
   <data name="windows_blocked_devices" xml:space="preserve"><value>Dispositivos bloqueados</value></data>
+  <data name="windows_bug_report_description" xml:space="preserve"><value>Descreva o problema e, em seguida, escolha um destino no painel de partilha do Windows. O relatório inclui informações do dispositivo e, opcionalmente, registos com valores sensíveis ocultados.</value></data>
+  <data name="windows_bug_report_include_logs_description" xml:space="preserve"><value>Adiciona registos recentes do núcleo ao relatório. Os valores sensíveis são ocultados antes de abrir o painel de partilha do Windows.</value></data>
+  <data name="windows_bug_report_preparing" xml:space="preserve"><value>A preparar o relatório…</value></data>
+  <data name="windows_bug_report_share" xml:space="preserve"><value>Partilhar relatório</value></data>
+  <data name="windows_bug_report_share_failed" xml:space="preserve"><value>Não foi possível abrir o painel de partilha do Windows. O relatório continua aqui.</value></data>
   <data name="windows_close_body" xml:space="preserve"><value>As transferências e a partilha serão interrompidas ao fechar o VniDrop.</value></data>
   <data name="windows_close_title" xml:space="preserve"><value>Fechar o VniDrop?</value></data>
   <data name="windows_delete_body" xml:space="preserve"><value>Remover esta transferência do histórico? Os ficheiros recebidos permanecerão neste dispositivo.</value></data>
@@ -408,5 +413,6 @@
   <data name="windows_selection_invalid" xml:space="preserve"><value>Escolha vários ficheiros ou uma pasta.</value></data>
   <data name="windows_selection_required" xml:space="preserve"><value>Escolha ficheiros e introduza um nome para a transferência.</value></data>
   <data name="windows_send_empty" xml:space="preserve"><value>Escolha ficheiros ou uma pasta e partilhe um convite com o dispositivo destinatário. Também pode arrastar ficheiros para aqui.</value></data>
+  <data name="windows_share_busy" xml:space="preserve"><value>Conclua ou feche a partilha atual do Windows antes de partilhar novamente.</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Desbloquear</value></data>
 </root>

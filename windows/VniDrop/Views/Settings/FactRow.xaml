@@ -1,0 +1,10 @@
+<UserControl
+    x:Class="VniDrop.Views.Settings.FactRow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid MinHeight="48" Padding="16,11" ColumnSpacing="12">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+    <FontIcon x:Name="FactIcon" FontSize="17" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Top" Margin="0,2,0,0" />
+    <TextBlock x:Name="FactText" Grid.Column="1" TextWrapping="Wrap" />
+  </Grid>
+</UserControl>

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using VniDrop.Core;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 
@@ -16,87 +17,129 @@ internal interface IDataTransferManagerInterop
 public sealed class NativeShare : IDisposable
 {
     private static readonly Guid DataTransferManagerId = new(0xa5caee9b, 0x8708, 0x49d1, 0x8d, 0x36, 0x67, 0xd2, 0x5a, 0x8d, 0xa0, 0x0c);
-    private static readonly string ShareDirectory = Path.Combine(Path.GetTempPath(), "VniDrop", "Share");
     private readonly IntPtr windowHandle;
     private readonly IDataTransferManagerInterop interop;
     private readonly DataTransferManager manager;
-    private StorageFile? invitationFile;
-    private string? invitationTitle;
-    private string? invitationPath;
+    private readonly ShareRequestGate requestGate = new();
+    private readonly ShareStagingStore staging;
+    private SharePayload? pending;
 
     public NativeShare(Microsoft.UI.Xaml.Window window)
     {
-        DeleteStaleFiles();
-        windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(window);
-        interop = DataTransferManager.As<IDataTransferManagerInterop>();
-        var dataTransferManagerId = DataTransferManagerId;
-        manager = WinRT.MarshalInterface<DataTransferManager>.FromAbi(interop.GetForWindow(windowHandle, ref dataTransferManagerId));
-        manager.DataRequested += OnDataRequested;
+        staging = new(Path.Combine(Path.GetTempPath(), "VniDrop", "Share"), Environment.ProcessId);
+        try
+        {
+            windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(window);
+            interop = DataTransferManager.As<IDataTransferManagerInterop>();
+            var dataTransferManagerId = DataTransferManagerId;
+            manager = WinRT.MarshalInterface<DataTransferManager>.FromAbi(interop.GetForWindow(windowHandle, ref dataTransferManagerId));
+            manager.DataRequested += OnDataRequested;
+        }
+        catch
+        {
+            staging.Dispose();
+            throw;
+        }
     }
 
     public async Task ShowInvitationAsync(string ticket, string transferName)
     {
-        DeletePendingFile();
-        var directory = Path.Combine(ShareDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        invitationPath = Path.Combine(directory, Core.InvitationDocument.FileName(transferName));
-        await File.WriteAllTextAsync(invitationPath, ticket);
-        invitationFile = await StorageFile.GetFileFromPathAsync(invitationPath);
-        invitationTitle = transferName;
-        interop.ShowShareUIForWindow(windowHandle);
+        var lease = requestGate.Enter();
+        var path = "";
+        SharePayload? payload = null;
+        try
+        {
+            path = staging.CreatePayloadPath(Core.InvitationDocument.FileName(transferName));
+            await File.WriteAllTextAsync(path, ticket);
+            var file = await StorageFile.GetFileFromPathAsync(path);
+            var descriptor = SharePayloadDescriptor.ForFile(transferName, Strings.Get("transfer_share_title"), path);
+            payload = new(Guid.NewGuid(), descriptor, file, lease, new(TaskCreationOptions.RunContinuationsAsynchronously));
+            pending = payload;
+            interop.ShowShareUIForWindow(windowHandle);
+            await payload.Completion.Task;
+        }
+        catch
+        {
+            if (payload is null)
+            {
+                staging.DeletePayload(path);
+                lease.Dispose();
+            }
+            else Abort(payload);
+            throw;
+        }
+    }
+
+    public async Task ShowTextAsync(string title, string description, string text)
+    {
+        var lease = requestGate.Enter();
+        SharePayload? payload = null;
+        try
+        {
+            payload = new(
+                Guid.NewGuid(),
+                SharePayloadDescriptor.ForText(title, description, text),
+                null,
+                lease,
+                new(TaskCreationOptions.RunContinuationsAsynchronously));
+            pending = payload;
+            interop.ShowShareUIForWindow(windowHandle);
+            await payload.Completion.Task;
+        }
+        catch
+        {
+            if (payload is null) lease.Dispose();
+            else Abort(payload);
+            throw;
+        }
     }
 
     private void OnDataRequested(DataTransferManager sender, DataRequestedEventArgs args)
     {
-        if (invitationFile is null || invitationPath is null || invitationTitle is null) return;
-        var path = invitationPath;
+        if (pending is not { } payload) return;
         var package = args.Request.Data;
-        package.Properties.Title = invitationTitle;
-        package.Properties.Description = Strings.Get("transfer_share_title");
-        package.SetStorageItems([invitationFile]);
-        package.ShareCompleted += (_, _) => DeleteFile(path);
-        package.ShareCanceled += (_, _) => DeleteFile(path);
+        package.Properties.Title = payload.Descriptor.Title;
+        package.Properties.Description = payload.Descriptor.Description;
+        switch (payload.Descriptor.Kind)
+        {
+            case SharePayloadContentKind.Text:
+                package.SetText(payload.Descriptor.Text!);
+                break;
+            case SharePayloadContentKind.File:
+                package.SetStorageItems([payload.File!]);
+                break;
+        }
+        package.ShareCompleted += (_, _) => Complete(payload);
+        package.ShareCanceled += (_, _) => Complete(payload);
     }
 
     public void Dispose()
     {
         manager.DataRequested -= OnDataRequested;
-        DeletePendingFile();
+        if (pending is { } payload) Abort(payload);
+        staging.Dispose();
     }
 
-    private void DeletePendingFile()
+    private void Complete(SharePayload payload)
     {
-        if (invitationPath is { } path) DeleteFile(path);
-        invitationFile = null;
-        invitationTitle = null;
-        invitationPath = null;
+        if (payload.Descriptor.FilePath is { } path) staging.DeletePayload(path);
+        if (pending?.Id == payload.Id) pending = null;
+        payload.Lease.Dispose();
+        payload.Completion.TrySetResult();
     }
 
-    private static void DeleteFile(string path)
+    private void Abort(SharePayload payload)
     {
-        try
-        {
-            File.Delete(path);
-            var directory = Path.GetDirectoryName(path);
-            if (directory is not null) Directory.Delete(directory, false);
-        }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
+        if (payload.Descriptor.FilePath is { } path) staging.DeletePayload(path);
+        if (pending?.Id == payload.Id) pending = null;
+        payload.Lease.Dispose();
+        payload.Completion.TrySetResult();
     }
 
-    private static void DeleteStaleFiles()
-    {
-        if (!Directory.Exists(ShareDirectory)) return;
-        foreach (var directory in Directory.EnumerateDirectories(ShareDirectory))
-        {
-            if (!Guid.TryParseExact(Path.GetFileName(directory), "N", out _)) continue;
-            try
-            {
-                foreach (var file in Directory.EnumerateFiles(directory, "*.vnd", SearchOption.TopDirectoryOnly)) File.Delete(file);
-                Directory.Delete(directory, false);
-            }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-        }
-    }
+    private sealed record SharePayload(
+        Guid Id,
+        SharePayloadDescriptor Descriptor,
+        StorageFile? File,
+        IDisposable Lease,
+        TaskCompletionSource Completion);
 }

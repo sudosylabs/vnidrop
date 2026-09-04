@@ -1,4 +1,6 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using VniDrop.Native;
 using VniDrop.Platform;
@@ -37,14 +39,19 @@ public sealed partial class ReceivePage : ContentDialog
     {
         var reviewing = inspection is not null;
         Acquisition.Visibility = reviewing ? Visibility.Collapsed : Visibility.Visible;
-        Acquisition.IsHitTestVisible = !inspecting && !picking; Acquisition.Opacity = inspecting || picking ? .6 : 1;
+        OpenInvitationButton.IsEnabled = !inspecting && !picking;
         Review.Visibility = BackButton.Visibility = reviewing ? Visibility.Visible : Visibility.Collapsed;
         BackButton.IsEnabled = ReceiverName.IsEnabled = !receiving;
         Heading.Text = Strings.Get(reviewing || inspecting ? "receive_review_title" : "receive_choose_method_title");
-        Busy.Visibility = inspecting ? Visibility.Visible : Visibility.Collapsed; Busy.IsActive = inspecting;
+        var busy = inspecting || picking;
+        Busy.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+        Busy.IsActive = busy;
+        Busy.IsTabStop = busy;
+        if (busy) DispatcherQueue.TryEnqueue(() => Busy.Focus(FocusState.Programmatic));
         PrimaryButtonText = reviewing && !receiving ? Strings.Get("button_receive") : "";
         IsPrimaryButtonEnabled = reviewing && !inspecting && !receiving;
-        CloseButtonText = Strings.Get(receiving ? "button_cancel_receive" : "button_cancel");
+        DefaultButton = reviewing && !receiving ? ContentDialogButton.Primary : ContentDialogButton.None;
+        CloseButtonText = busy ? "" : Strings.Get(receiving ? "button_cancel_receive" : "button_cancel");
         Receiving.Visibility = receiving ? Visibility.Visible : Visibility.Collapsed;
     }
     private async void OpenInvitation(object sender, RoutedEventArgs e)
@@ -53,7 +60,12 @@ public sealed partial class ReceivePage : ContentDialog
         picking = true; Render();
         try { var ticket = await WindowsFiles.OpenInvitationAsync(); if (ticket is not null) { invitation = ticket; await InspectAsync(); } }
         catch (Exception ex) { ShowError(ex); }
-        finally { picking = false; Render(); }
+        finally
+        {
+            picking = false;
+            Render();
+            if (inspection is null) DispatcherQueue.TryEnqueue(() => OpenInvitationButton.Focus(FocusState.Programmatic));
+        }
     }
     private async Task InspectAsync()
     {
@@ -70,14 +82,24 @@ public sealed partial class ReceivePage : ContentDialog
             Sender.Visibility = string.IsNullOrWhiteSpace(Sender.Text) ? Visibility.Collapsed : Visibility.Visible;
         }
         catch (Exception ex) { inspection = null; ShowError(ex); }
-        finally { inspecting = false; Render(); }
+        finally
+        {
+            inspecting = false;
+            Render();
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (inspection is null) OpenInvitationButton.Focus(FocusState.Programmatic);
+                else ReceiverName.Focus(FocusState.Programmatic);
+            });
+        }
     }
     private async void Receive(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
         args.Cancel = true;
         if (inspection is null || receiving) return;
         receiving = true; Error.IsOpen = false; Render();
-        ProgressLabel.Text = Strings.Get("progress_connecting");
+        SetProgressStatus(Strings.Get("progress_connecting"));
+        DispatcherQueue.TryEnqueue(() => ReceiveProgress.Focus(FocusState.Programmatic));
         try
         {
             var ticket = invitation.Trim(); var name = ReceiverName.Text.Trim(); var directory = App.Window.Model.Preferences.ReceiveDirectory;
@@ -98,9 +120,18 @@ public sealed partial class ReceivePage : ContentDialog
         if (item is not null)
         {
             ReceiveProgress.IsIndeterminate = item.IsIndeterminate; ReceiveProgress.Value = item.Progress;
-            ProgressLabel.Text = item.ProgressText;
+            SetProgressStatus(item.ProgressText);
             if (closeRequested) _ = CancelAsync();
         }
+    }
+    private void SetProgressStatus(string status)
+    {
+        if (ProgressLabel.Text == status) return;
+        ProgressLabel.Text = status;
+        AutomationProperties.SetName(ReceiveProgress, status);
+        var peer = FrameworkElementAutomationPeer.FromElement(ProgressLabel)
+            ?? FrameworkElementAutomationPeer.CreatePeerForElement(ProgressLabel);
+        peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
     }
     private async Task CancelAsync()
     {

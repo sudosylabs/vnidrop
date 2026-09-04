@@ -1,0 +1,25 @@
+<Page
+    x:Class="VniDrop.Views.Settings.AppearancePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:p="using:VniDrop.Platform"
+    xmlns:settings="using:VniDrop.Views.Settings">
+  <settings:SettingsPageLayout Title="{x:Bind p:Strings.Get('appearance_title')}" BackRequested="Back">
+    <settings:SettingsPageLayout.PageContent>
+      <StackPanel Spacing="10">
+        <TextBlock Text="{x:Bind p:Strings.Get('appearance_title')}" Style="{StaticResource VniDropSectionTitleStyle}" />
+        <Border Style="{StaticResource VniDropCardStyle}">
+          <StackPanel x:Name="ThemeChoices">
+            <RadioButton x:Name="SystemTheme" Tag="System" GroupName="Theme" Style="{StaticResource VniDropPolicyOptionStyle}" Checked="ThemeChanged">
+              <StackPanel Spacing="3"><TextBlock Text="{x:Bind p:Strings.Get('appearance_system_mode')}" /><TextBlock Text="{x:Bind p:Strings.Get('appearance_auto_description')}" Style="{StaticResource VniDropCaptionTextStyle}" /></StackPanel>
+            </RadioButton>
+            <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <RadioButton x:Name="LightTheme" Tag="Light" GroupName="Theme" Style="{StaticResource VniDropPolicyOptionStyle}" Content="{x:Bind p:Strings.Get('appearance_light_mode')}" Checked="ThemeChanged" />
+            <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <RadioButton x:Name="DarkTheme" Tag="Dark" GroupName="Theme" Style="{StaticResource VniDropPolicyOptionStyle}" Content="{x:Bind p:Strings.Get('appearance_dark_mode')}" Checked="ThemeChanged" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </settings:SettingsPageLayout.PageContent>
+  </settings:SettingsPageLayout>
+</Page>

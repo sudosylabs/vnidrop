@@ -1,0 +1,40 @@
+<UserControl
+    x:Class="VniDrop.Controls.PageHeader"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid MinHeight="52" RowSpacing="4">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+    <Grid ColumnSpacing="12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <Button
+          x:Name="BackButton"
+          Style="{StaticResource VniDropIconButtonStyle}"
+          Click="BackClicked">
+        <FontIcon Glyph="&#xE72B;" FontSize="16" />
+      </Button>
+      <TextBlock
+          x:Name="TitleText"
+          Grid.Column="1"
+          Style="{StaticResource VniDropPageTitleStyle}"
+          VerticalAlignment="Center" />
+      <ContentPresenter
+          x:Name="ActionsPresenter"
+          Grid.Column="2"
+          VerticalAlignment="Center" />
+    </Grid>
+    <TextBlock
+        x:Name="SubtitleText"
+        Grid.Row="1"
+        Grid.ColumnSpan="3"
+        Style="{StaticResource VniDropSecondaryTextStyle}"
+        MaxWidth="720"
+        HorizontalAlignment="Left" />
+  </Grid>
+</UserControl>

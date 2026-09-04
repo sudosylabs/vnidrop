@@ -10,11 +10,16 @@ public static class VniDropSmokeInput {
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
     [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extraInfo);
+    [DllImport("user32.dll", SetLastError=true)] static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
     public static void Click(IntPtr window, int x, int y) {
         SetForegroundWindow(window);
         SetCursorPos(x, y);
         mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
         mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+    }
+    public static void Close(IntPtr window) {
+        if (!PostMessage(window, 0x0010, IntPtr.Zero, IntPtr.Zero))
+            throw new System.ComponentModel.Win32Exception();
     }
 }
 '@
@@ -50,6 +55,7 @@ function Select-Control([string]$Id) {
     (Control $Id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
 }
 function Set-ControlValue([string]$Id, [string]$Value) {
+    Wait-Until { $candidate = Control $Id; $candidate -and $candidate.Current.IsEnabled -and !$candidate.Current.IsOffscreen } "Control unavailable: $Id"
     (Control $Id).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Value)
 }
 function Click-Control([string]$Id) {
@@ -78,12 +84,13 @@ try {
     Wait-Until { $null -eq (Control 'ChooseFilesButton') } 'Send dialog did not close.'
     Select-Control 'NavDevices'
     Select-Control 'SettingsItem'
-    Wait-Until { Control 'Username' } 'Settings did not open.'
-    Set-ControlValue 'Username' 'Windows UI smoke test'
-    Start-Sleep -Milliseconds 150
-    $savedUsername = (Control 'Username').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+    Invoke-Control 'PreferencesRow'
+    Wait-Until { Control 'DisplayNameTextBox' } 'Preferences did not open.'
+    Set-ControlValue 'DisplayNameTextBox' 'Windows UI smoke test'
+    $savedUsername = (Control 'DisplayNameTextBox').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
     if ($savedUsername -ne 'Windows UI smoke test') { throw "Settings value was not applied through UI Automation: $savedUsername" }
-    Click-Control 'SavePreferencesButton'
+    Click-Control 'SettingsItem'
+    Wait-Until { (Control 'PreferencesRow') -and $null -eq (Control 'DisplayNameTextBox') } 'Selecting Settings again did not return to the settings root.'
     try {
         Wait-Until { (Get-Content -Raw -LiteralPath (Join-Path $profile 'windows-preferences.json') | ConvertFrom-Json).Username -eq 'Windows UI smoke test' } 'Settings were not persisted.'
     } catch {
@@ -91,6 +98,17 @@ try {
         if ($errorBar -and $errorBar.Current.Name) { throw "Settings were not persisted: $($errorBar.Current.Name)" }
         throw
     }
+    Invoke-Control 'PreferencesRow'
+    Wait-Until { Control 'DisplayNameTextBox' } 'Preferences did not reopen.'
+    $reloadedUsername = (Control 'DisplayNameTextBox').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+    if ($reloadedUsername -ne 'Windows UI smoke test') { throw "Persisted settings did not reload: $reloadedUsername" }
+    Set-ControlValue 'DisplayNameTextBox' 'Quick re-entry smoke test'
+    Click-Control 'SettingsItem'
+    Wait-Until { Control 'PreferencesRow' } 'Preferences did not navigate away for the re-entry check.'
+    Invoke-Control 'PreferencesRow'
+    Wait-Until { $field = Control 'DisplayNameTextBox'; $field -and $field.Current.IsEnabled } 'Preferences did not finish reconciling its pending write.'
+    $reenteredUsername = (Control 'DisplayNameTextBox').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+    if ($reenteredUsername -ne 'Quick re-entry smoke test') { throw "Quick preference re-entry showed stale state: $reenteredUsername" }
     $second = Start-Process -FilePath $Executable -ArgumentList ($arguments + ('"' + $invalidInvitation + '"')) -PassThru
     Wait-Until { $second.Refresh(); $second.HasExited } 'Second activation did not redirect to the original instance.'
     Wait-Until { Control 'OpenInvitationButton' } 'File activation did not open the receive dialog.'
@@ -98,11 +116,50 @@ try {
     (Control 'OpenInvitationButton').SetFocus()
     [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
     Wait-Until { $null -eq (Control 'OpenInvitationButton') } 'Receive dialog did not close.'
-    Start-Sleep -Milliseconds 300
-    $appProcess.CloseMainWindow() | Out-Null
+    Select-Control 'SettingsItem'
+    Wait-Until { Control 'PreferencesRow' } 'Settings did not reopen after file activation.'
+    Invoke-Control 'PreferencesRow'
+    Wait-Until { Control 'DisplayNameTextBox' } 'Preferences did not reopen after file activation.'
+    Set-ControlValue 'DisplayNameTextBox' 'Navigation close flush smoke test'
+    Click-Control 'SettingsItem'
+    Wait-Until { Control 'PreferencesRow' } 'Preferences did not navigate away before shutdown.'
+    [VniDropSmokeInput]::Close($appProcess.MainWindowHandle)
+    Wait-Until { $appProcess.Refresh(); $appProcess.HasExited } 'Native app did not flush a navigated-away preference save.'
+    $navigatedUsername = (Get-Content -Raw -LiteralPath (Join-Path $profile 'windows-preferences.json') | ConvertFrom-Json).Username
+    if ($navigatedUsername -ne 'Navigation close flush smoke test') { throw "Navigated-away settings were lost during shutdown: $navigatedUsername" }
+
+    $appProcess = Start-Process -FilePath $Executable -ArgumentList $arguments -PassThru
+    Wait-Until {
+        $appProcess.Refresh()
+        if ($appProcess.HasExited) { throw "Native app exited before the close-flush check (exit $($appProcess.ExitCode))." }
+        $null -ne $appProcess.MainWindowHandle -and $appProcess.MainWindowHandle -ne [IntPtr]::Zero
+    } 'Native window did not reopen for the close-flush check.'
+    $script:root = [System.Windows.Automation.AutomationElement]::FromHandle($appProcess.MainWindowHandle)
+    Wait-Until { $navigation = Control 'Navigation'; $navigation -and $navigation.Current.IsEnabled } 'Reopened app did not become ready.'
+    Select-Control 'SettingsItem'
+    Invoke-Control 'PreferencesRow'
+    Wait-Until { Control 'DisplayNameTextBox' } 'Preferences did not reopen for the close-flush check.'
+    Set-ControlValue 'DisplayNameTextBox' 'Close flush smoke test'
+    [VniDropSmokeInput]::Close($appProcess.MainWindowHandle)
     Wait-Until { $appProcess.Refresh(); $appProcess.HasExited } 'Native app did not shut down cleanly.'
-    Write-Output 'PASS: native startup, resources, navigation, modal transfer flow, settings, single instance, file activation, and shutdown.'
+    $closedUsername = (Get-Content -Raw -LiteralPath (Join-Path $profile 'windows-preferences.json') | ConvertFrom-Json).Username
+    if ($closedUsername -ne 'Close flush smoke test') { throw "Pending settings were lost during shutdown: $closedUsername" }
+    Write-Output 'PASS: native startup, resources, navigation, modal transfer flow, settings autosave and both close-flush paths, single instance, file activation, and shutdown.'
     Write-Output "QA profile: $profile"
+} catch {
+    Write-Output ("FAIL: " + $_.ScriptStackTrace)
+    if ($script:root) {
+        $visible = $script:root.FindAll(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.Condition]::TrueCondition)
+        for ($index = 0; $index -lt [Math]::Min($visible.Count, 80); $index++) {
+            $element = $visible.Item($index)
+            if (!$element.Current.IsOffscreen -and ($element.Current.Name -or $element.Current.AutomationId)) {
+                Write-Output ("UI: {0} | {1} | {2}" -f $element.Current.ControlType.ProgrammaticName, $element.Current.AutomationId, $element.Current.Name)
+            }
+        }
+    }
+    throw
 } finally {
     foreach ($ownedProcess in @($second, $appProcess)) {
         if ($ownedProcess) {

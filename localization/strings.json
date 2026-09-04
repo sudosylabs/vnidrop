@@ -5767,6 +5767,96 @@
         "ru": "Метка обновлена"
       }
     },
+    "windows_bug_report_description": {
+      "context": "Native Windows bug report form: explains that the report is handed to the Windows share sheet and the user chooses the destination.",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Describe the problem, then choose a destination in the Windows share sheet. Device information and optional redacted logs are included in the report.",
+        "fr": "Décrivez le problème, puis choisissez une destination dans le volet de partage Windows. Les informations sur l’appareil et, si vous le souhaitez, les journaux masqués sont inclus dans le rapport.",
+        "es": "Describa el problema y elija un destino en el panel Compartir de Windows. El informe incluye información del dispositivo y, opcionalmente, registros con datos sensibles ocultos.",
+        "it": "Descrivi il problema, quindi scegli una destinazione nel pannello Condividi di Windows. Il report include informazioni sul dispositivo e, facoltativamente, log con i dati sensibili oscurati.",
+        "de": "Beschreiben Sie das Problem und wählen Sie dann im Windows-Freigabefenster ein Ziel aus. Geräteinformationen und optional geschwärzte aktuelle Protokolle werden in den Bericht aufgenommen.",
+        "pt": "Descreva o problema e, em seguida, escolha um destino no painel de partilha do Windows. O relatório inclui informações do dispositivo e, opcionalmente, registos com valores sensíveis ocultados.",
+        "pl": "Opisz problem, a następnie wybierz miejsce docelowe w panelu udostępniania systemu Windows. Raport zawiera informacje o urządzeniu oraz opcjonalnie ostatnie dzienniki z ukrytymi danymi wrażliwymi.",
+        "nl": "Beschrijf het probleem en kies daarna een bestemming in het Windows-deelvenster. Het rapport bevat apparaatgegevens en optioneel recente logbestanden waarin gevoelige waarden zijn afgeschermd.",
+        "ru": "Опишите проблему, затем выберите получателя на панели «Поделиться» Windows. В отчёт включаются сведения об устройстве и, по желанию, недавние журналы со скрытыми конфиденциальными значениями."
+      }
+    },
+    "windows_bug_report_include_logs_description": {
+      "context": "Native Windows bug report form: explains redaction before the Windows share sheet opens.",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Adds recent core logs to the report. Sensitive values are redacted before the Windows share sheet opens.",
+        "fr": "Ajoute les journaux récents du moteur au rapport. Les valeurs sensibles sont masquées avant l’ouverture du volet de partage Windows.",
+        "es": "Agrega registros recientes del núcleo al informe. Los valores sensibles se ocultan antes de abrir el panel Compartir de Windows.",
+        "it": "Aggiunge al report i log recenti del core. I valori sensibili vengono oscurati prima dell’apertura del pannello Condividi di Windows.",
+        "de": "Fügt dem Bericht aktuelle Kernprotokolle hinzu. Sensible Werte werden geschwärzt, bevor das Windows-Freigabefenster geöffnet wird.",
+        "pt": "Adiciona registos recentes do núcleo ao relatório. Os valores sensíveis são ocultados antes de abrir o painel de partilha do Windows.",
+        "pl": "Dodaje do raportu ostatnie dzienniki rdzenia. Dane wrażliwe są ukrywane przed otwarciem panelu udostępniania systemu Windows.",
+        "nl": "Voegt recente kernlogboeken toe aan het rapport. Gevoelige waarden worden afgeschermd voordat het Windows-deelvenster wordt geopend.",
+        "ru": "Добавляет в отчёт недавние журналы ядра. Конфиденциальные значения скрываются до открытия панели «Поделиться» Windows."
+      }
+    },
+    "windows_bug_report_share": {
+      "context": "Native Windows bug report form: button that opens the Windows share sheet with the prepared report.",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Share report",
+        "fr": "Partager le rapport",
+        "es": "Compartir informe",
+        "it": "Condividi report",
+        "de": "Bericht teilen",
+        "pt": "Partilhar relatório",
+        "pl": "Udostępnij raport",
+        "nl": "Rapport delen",
+        "ru": "Поделиться отчётом"
+      }
+    },
+    "windows_bug_report_preparing": {
+      "context": "Native Windows bug report form: accessible progress label while preparing the report for the share sheet.",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Preparing report…",
+        "fr": "Préparation du rapport…",
+        "es": "Preparando informe…",
+        "it": "Preparazione del report…",
+        "de": "Bericht wird vorbereitet…",
+        "pt": "A preparar o relatório…",
+        "pl": "Przygotowywanie raportu…",
+        "nl": "Rapport voorbereiden…",
+        "ru": "Подготовка отчёта…"
+      }
+    },
+    "windows_bug_report_share_failed": {
+      "context": "Native Windows bug report form: error when the Windows share sheet could not be opened; confirms that the draft remains available.",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Could not open the Windows share sheet. Your report is still here.",
+        "fr": "Impossible d’ouvrir le volet de partage Windows. Votre rapport est toujours ici.",
+        "es": "No se pudo abrir el panel Compartir de Windows. Su informe sigue aquí.",
+        "it": "Impossibile aprire il pannello Condividi di Windows. Il report è ancora qui.",
+        "de": "Das Windows-Freigabefenster konnte nicht geöffnet werden. Ihr Bericht ist weiterhin hier.",
+        "pt": "Não foi possível abrir o painel de partilha do Windows. O relatório continua aqui.",
+        "pl": "Nie można otworzyć panelu udostępniania systemu Windows. Raport nadal jest tutaj.",
+        "nl": "Het Windows-deelvenster kon niet worden geopend. Uw rapport staat hier nog.",
+        "ru": "Не удалось открыть панель «Поделиться» Windows. Отчёт остался на этой странице."
+      }
+    },
+    "windows_share_busy": {
+      "context": "Native Windows share: shown when another Windows share sheet already owns the pending invitation or report payload.",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Finish or close the current Windows share before sharing again.",
+        "fr": "Terminez ou fermez le partage Windows en cours avant de partager à nouveau.",
+        "es": "Finalice o cierre el uso compartido de Windows actual antes de volver a compartir.",
+        "it": "Completa o chiudi la condivisione Windows in corso prima di condividere di nuovo.",
+        "de": "Schließen Sie die aktuelle Windows-Freigabe ab oder schließen Sie sie, bevor Sie erneut teilen.",
+        "pt": "Conclua ou feche a partilha atual do Windows antes de partilhar novamente.",
+        "pl": "Zakończ lub zamknij bieżące udostępnianie systemu Windows, zanim udostępnisz ponownie.",
+        "nl": "Voltooi of sluit de huidige Windows-deelactie voordat u opnieuw deelt.",
+        "ru": "Завершите или закройте текущее окно общего доступа Windows, прежде чем делиться снова."
+      }
+    },
     "windows_review_requests": {
       "context": "Native Windows app",
       "targets": ["windows"],

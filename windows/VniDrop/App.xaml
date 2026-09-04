@@ -1,4 +1,5 @@
-<Application x:Class="VniDrop.App"
+<Application
+    x:Class="VniDrop.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Application.Resources>
@@ -6,60 +7,264 @@
       <ResourceDictionary.MergedDictionaries>
         <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
       </ResourceDictionary.MergedDictionaries>
+
       <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Default">
-          <SolidColorBrush x:Key="VniDropDangerForeground" Color="#FFFF99A4" />
-          <SolidColorBrush x:Key="VniDropDangerBackgroundPointerOver" Color="#33FF5D6C" />
-          <SolidColorBrush x:Key="VniDropDangerBackgroundPressed" Color="#4DFF5D6C" />
+          <SolidColorBrush x:Key="VniDropCriticalTextBrush" Color="#FFFF99A4" />
+          <SolidColorBrush x:Key="VniDropCriticalInteractiveForegroundBrush" Color="#FFFF99A4" />
+          <SolidColorBrush x:Key="VniDropCriticalFillBrush" Color="#FFD13438" />
+          <SolidColorBrush x:Key="VniDropCriticalFillPointerOverBrush" Color="#FFE3484C" />
+          <SolidColorBrush x:Key="VniDropCriticalFillPressedBrush" Color="#FFB72D31" />
+          <SolidColorBrush x:Key="VniDropCriticalFillDisabledBrush" Color="#52292929" />
+          <SolidColorBrush x:Key="VniDropCriticalForegroundBrush" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="VniDropCriticalSubtlePointerOverBrush" Color="#33FF5D6C" />
+          <SolidColorBrush x:Key="VniDropCriticalSubtlePressedBrush" Color="#4DFF5D6C" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Light">
-          <SolidColorBrush x:Key="VniDropDangerForeground" Color="#FFC42B36" />
-          <SolidColorBrush x:Key="VniDropDangerBackgroundPointerOver" Color="#20D13438" />
-          <SolidColorBrush x:Key="VniDropDangerBackgroundPressed" Color="#33D13438" />
+          <SolidColorBrush x:Key="VniDropCriticalTextBrush" Color="#FFC42B36" />
+          <SolidColorBrush x:Key="VniDropCriticalInteractiveForegroundBrush" Color="#FFC42B36" />
+          <SolidColorBrush x:Key="VniDropCriticalFillBrush" Color="#FFC42B36" />
+          <SolidColorBrush x:Key="VniDropCriticalFillPointerOverBrush" Color="#FFD13438" />
+          <SolidColorBrush x:Key="VniDropCriticalFillPressedBrush" Color="#FFA4262C" />
+          <SolidColorBrush x:Key="VniDropCriticalFillDisabledBrush" Color="#22000000" />
+          <SolidColorBrush x:Key="VniDropCriticalForegroundBrush" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="VniDropCriticalSubtlePointerOverBrush" Color="#20D13438" />
+          <SolidColorBrush x:Key="VniDropCriticalSubtlePressedBrush" Color="#33D13438" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
-          <StaticResource x:Key="VniDropDangerForeground" ResourceKey="SystemColorWindowTextColorBrush" />
-          <StaticResource x:Key="VniDropDangerBackgroundPointerOver" ResourceKey="SystemColorHighlightColorBrush" />
-          <StaticResource x:Key="VniDropDangerBackgroundPressed" ResourceKey="SystemColorHighlightColorBrush" />
+          <StaticResource x:Key="VniDropCriticalTextBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+          <StaticResource x:Key="VniDropCriticalInteractiveForegroundBrush" ResourceKey="SystemColorHighlightTextColorBrush" />
+          <StaticResource x:Key="VniDropCriticalFillBrush" ResourceKey="SystemColorHighlightColorBrush" />
+          <StaticResource x:Key="VniDropCriticalFillPointerOverBrush" ResourceKey="SystemColorHighlightColorBrush" />
+          <StaticResource x:Key="VniDropCriticalFillPressedBrush" ResourceKey="SystemColorHighlightColorBrush" />
+          <StaticResource x:Key="VniDropCriticalFillDisabledBrush" ResourceKey="SystemColorButtonFaceColorBrush" />
+          <StaticResource x:Key="VniDropCriticalForegroundBrush" ResourceKey="SystemColorHighlightTextColorBrush" />
+          <StaticResource x:Key="VniDropCriticalSubtlePointerOverBrush" ResourceKey="SystemColorHighlightColorBrush" />
+          <StaticResource x:Key="VniDropCriticalSubtlePressedBrush" ResourceKey="SystemColorHighlightColorBrush" />
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
-      <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
-      <CornerRadius x:Key="OverlayCornerRadius">12</CornerRadius>
-      <CornerRadius x:Key="VniDropSurfaceCornerRadius">16</CornerRadius>
-      <Style x:Key="PageTitle" TargetType="TextBlock" BasedOn="{StaticResource TitleTextBlockStyle}" />
-      <Style x:Key="PageScroll" TargetType="ScrollViewer">
+
+      <Thickness x:Key="VniDropPagePadding">32,24,32,32</Thickness>
+      <Thickness x:Key="VniDropPagePaddingMedium">24,20,24,24</Thickness>
+      <Thickness x:Key="VniDropPagePaddingCompact">16,16,16,20</Thickness>
+      <Thickness x:Key="VniDropRowPadding">16,12</Thickness>
+      <CornerRadius x:Key="VniDropControlCornerRadius">8</CornerRadius>
+      <CornerRadius x:Key="VniDropCardCornerRadius">10</CornerRadius>
+      <CornerRadius x:Key="VniDropBadgeCornerRadius">6</CornerRadius>
+      <x:Double x:Key="VniDropPageMaxWidth">1120</x:Double>
+      <x:Double x:Key="VniDropReadingMaxWidth">760</x:Double>
+      <x:Double x:Key="VniDropRowMinHeight">56</x:Double>
+
+      <Style x:Key="VniDropPageTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource TitleTextBlockStyle}">
+        <Setter Property="TextWrapping" Value="Wrap" />
+      </Style>
+      <Style x:Key="VniDropSectionTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource SubtitleTextBlockStyle}">
+        <Setter Property="Margin" Value="0,12,0,2" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+      </Style>
+      <Style x:Key="VniDropSecondaryTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}">
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+      </Style>
+      <Style x:Key="VniDropCaptionTextStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+      </Style>
+
+      <Style x:Key="VniDropCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource VniDropCardCornerRadius}" />
+      </Style>
+      <Style x:Key="VniDropPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="MinWidth" Value="96" />
+        <Setter Property="Padding" Value="16,7" />
+        <Setter Property="CornerRadius" Value="{StaticResource VniDropControlCornerRadius}" />
+      </Style>
+      <Style x:Key="VniDropSecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="MinWidth" Value="88" />
+        <Setter Property="Padding" Value="16,7" />
+        <Setter Property="CornerRadius" Value="{StaticResource VniDropControlCornerRadius}" />
+      </Style>
+      <Style x:Key="VniDropIconButtonStyle" TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
+        <Setter Property="Width" Value="40" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="Padding" Value="8" />
+        <Setter Property="CornerRadius" Value="{StaticResource VniDropControlCornerRadius}" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+      </Style>
+      <Style x:Key="VniDropRowButtonStyle" TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
+        <Setter Property="MinHeight" Value="{StaticResource VniDropRowMinHeight}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Padding" Value="{StaticResource VniDropRowPadding}" />
+        <Setter Property="CornerRadius" Value="6" />
+      </Style>
+      <Style x:Key="VniDropTransferListItemStyle" TargetType="ListViewItem">
+        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="CornerRadius" Value="{StaticResource VniDropCardCornerRadius}" />
+      </Style>
+
+      <Style x:Key="VniDropCriticalPrimaryButtonStyle" TargetType="Button">
+        <Setter Property="Foreground" Value="{ThemeResource VniDropCriticalForegroundBrush}" />
+        <Setter Property="Background" Value="{ThemeResource VniDropCriticalFillBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource VniDropCriticalFillBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="MinWidth" Value="96" />
+        <Setter Property="Padding" Value="16,7" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="CornerRadius" Value="{StaticResource VniDropControlCornerRadius}" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Button">
+              <ContentPresenter x:Name="ContentPresenter"
+                  Background="{TemplateBinding Background}"
+                  Foreground="{TemplateBinding Foreground}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  Content="{TemplateBinding Content}"
+                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                  ContentTransitions="{TemplateBinding ContentTransitions}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}"
+                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                  AutomationProperties.AccessibilityView="Raw">
+                <ContentPresenter.BackgroundTransition>
+                  <BrushTransition Duration="0:0:0.083" />
+                </ContentPresenter.BackgroundTransition>
+                <VisualStateManager.VisualStateGroups>
+                  <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="PointerOver">
+                      <VisualState.Setters>
+                        <Setter Target="ContentPresenter.Background" Value="{ThemeResource VniDropCriticalFillPointerOverBrush}" />
+                        <Setter Target="ContentPresenter.BorderBrush" Value="{ThemeResource VniDropCriticalFillPointerOverBrush}" />
+                      </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                      <VisualState.Setters>
+                        <Setter Target="ContentPresenter.Background" Value="{ThemeResource VniDropCriticalFillPressedBrush}" />
+                        <Setter Target="ContentPresenter.BorderBrush" Value="{ThemeResource VniDropCriticalFillPressedBrush}" />
+                      </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Disabled">
+                      <VisualState.Setters>
+                        <Setter Target="ContentPresenter.Background" Value="{ThemeResource VniDropCriticalFillDisabledBrush}" />
+                        <Setter Target="ContentPresenter.BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                        <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TextFillColorDisabledBrush}" />
+                      </VisualState.Setters>
+                    </VisualState>
+                  </VisualStateGroup>
+                </VisualStateManager.VisualStateGroups>
+              </ContentPresenter>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+
+      <Style x:Key="VniDropCriticalRowButtonStyle" TargetType="Button">
+        <Setter Property="Foreground" Value="{ThemeResource VniDropCriticalTextBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="MinHeight" Value="{StaticResource VniDropRowMinHeight}" />
+        <Setter Property="Padding" Value="{StaticResource VniDropRowPadding}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="FocusVisualMargin" Value="-3" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Button">
+              <ContentPresenter x:Name="ContentPresenter"
+                  Background="{TemplateBinding Background}"
+                  Foreground="{TemplateBinding Foreground}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  Content="{TemplateBinding Content}"
+                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                  ContentTransitions="{TemplateBinding ContentTransitions}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}"
+                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                  AutomationProperties.AccessibilityView="Raw">
+                <ContentPresenter.BackgroundTransition>
+                  <BrushTransition Duration="0:0:0.083" />
+                </ContentPresenter.BackgroundTransition>
+                <VisualStateManager.VisualStateGroups>
+                  <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="PointerOver">
+                      <VisualState.Setters>
+                        <Setter Target="ContentPresenter.Background" Value="{ThemeResource VniDropCriticalSubtlePointerOverBrush}" />
+                        <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource VniDropCriticalInteractiveForegroundBrush}" />
+                      </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                      <VisualState.Setters>
+                        <Setter Target="ContentPresenter.Background" Value="{ThemeResource VniDropCriticalSubtlePressedBrush}" />
+                        <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource VniDropCriticalInteractiveForegroundBrush}" />
+                      </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Disabled">
+                      <VisualState.Setters>
+                        <Setter Target="ContentPresenter.Background" Value="Transparent" />
+                        <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TextFillColorDisabledBrush}" />
+                      </VisualState.Setters>
+                    </VisualState>
+                  </VisualStateGroup>
+                </VisualStateManager.VisualStateGroups>
+              </ContentPresenter>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+
+      <Style x:Key="VniDropDialogButtonStyle" TargetType="Button" BasedOn="{StaticResource VniDropSecondaryButtonStyle}" />
+      <Style x:Key="VniDropDialogAccentButtonStyle" TargetType="Button" BasedOn="{StaticResource VniDropPrimaryButtonStyle}" />
+      <Style x:Key="VniDropDialogCriticalButtonStyle" TargetType="Button" BasedOn="{StaticResource VniDropCriticalPrimaryButtonStyle}" />
+      <Style x:Key="VniDropPolicyOptionStyle" TargetType="RadioButton">
+        <Setter Property="MinHeight" Value="56" />
+        <Setter Property="Padding" Value="14,12" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      </Style>
+      <Style x:Key="VniDropPageScrollStyle" TargetType="ScrollViewer">
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="HorizontalScrollMode" Value="Disabled" />
         <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
         <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
       </Style>
-      <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
-        <Setter Property="Width" Value="40" /><Setter Property="Height" Value="40" /><Setter Property="Padding" Value="8" />
-        <Setter Property="CornerRadius" Value="8" />
-      </Style>
-      <Style x:Key="DialogButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
-        <Setter Property="CornerRadius" Value="8" />
-      </Style>
-      <Style x:Key="DialogAccentButtonStyle" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
-        <Setter Property="CornerRadius" Value="8" />
-      </Style>
-      <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
-        <Setter Property="Foreground" Value="{ThemeResource VniDropDangerForeground}" />
-        <Setter Property="HorizontalContentAlignment" Value="Center" />
-        <Setter Property="CornerRadius" Value="8" />
-      </Style>
-      <Style x:Key="PolicyOptionStyle" TargetType="RadioButton">
-        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
-        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="12" />
-        <Setter Property="Padding" Value="14" />
-        <Setter Property="HorizontalAlignment" Value="Stretch" />
-        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-      </Style>
-      <Style x:Key="SectionTitle" TargetType="TextBlock" BasedOn="{StaticResource SubtitleTextBlockStyle}">
-        <Setter Property="Margin" Value="0,16,0,4" />
-      </Style>
+
+      <!-- Compatibility aliases while existing pages move onto the semantic roles. -->
+      <Style x:Key="PageTitle" TargetType="TextBlock" BasedOn="{StaticResource VniDropPageTitleStyle}" />
+      <Style x:Key="SectionTitle" TargetType="TextBlock" BasedOn="{StaticResource VniDropSectionTitleStyle}" />
+      <Style x:Key="PageScroll" TargetType="ScrollViewer" BasedOn="{StaticResource VniDropPageScrollStyle}" />
+      <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource VniDropIconButtonStyle}" />
+      <Style x:Key="DialogButtonStyle" TargetType="Button" BasedOn="{StaticResource VniDropDialogButtonStyle}" />
+      <Style x:Key="DialogAccentButtonStyle" TargetType="Button" BasedOn="{StaticResource VniDropDialogAccentButtonStyle}" />
+      <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource VniDropCriticalRowButtonStyle}" />
+      <Style x:Key="PolicyOptionStyle" TargetType="RadioButton" BasedOn="{StaticResource VniDropPolicyOptionStyle}" />
     </ResourceDictionary>
   </Application.Resources>
 </Application>

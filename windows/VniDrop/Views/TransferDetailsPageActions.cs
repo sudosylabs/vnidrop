@@ -1,10 +1,12 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using QRCoder;
 using VniDrop.Core;
 using VniDrop.Platform;
+using VniDrop.Services;
 using VniDrop.ViewModels;
 using Windows.Storage.Streams;
 
@@ -16,22 +18,35 @@ public sealed class TransferDetailsPageActions(TransferItem item)
     {
         Text = text,
         TextWrapping = TextWrapping.Wrap,
-        Opacity = secondary ? 0.72 : 1,
+        Foreground = secondary ? (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"] : null,
     };
     private static StackPanel Panel(params UIElement[] children)
     {
-        var panel = new StackPanel { Spacing = 14, MinWidth = 300 };
+        var panel = new StackPanel { Spacing = 14, MaxWidth = 520 };
         foreach (var child in children) panel.Children.Add(child);
         return panel;
     }
     private static Button Action(string text, IconElement icon)
     {
-        var button = new Button { HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var button = new Button
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            Style = (Style)Application.Current.Resources["VniDropSecondaryButtonStyle"],
+        };
         var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 }; content.Children.Add(icon); content.Children.Add(Text(text)); button.Content = content;
         return button;
     }
     private async Task ShowAsync(string title, UIElement content) =>
-        await App.Window.ShowDialogAsync(new ContentDialog { Title = title, Content = content, CloseButtonText = Strings.Get("button_close"), HorizontalContentAlignment = HorizontalAlignment.Stretch });
+        await App.Window.ShowDialogAsync(new ContentDialog
+        {
+            Title = title,
+            Content = content,
+            CloseButtonText = Strings.Get("button_close"),
+            CloseButtonStyle = (Style)Application.Current.Resources["VniDropDialogButtonStyle"],
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            CornerRadius = (CornerRadius)Application.Current.Resources["VniDropCardCornerRadius"],
+        });
 
     public async Task ShareAsync()
     {
@@ -41,15 +56,22 @@ public sealed class TransferDetailsPageActions(TransferItem item)
             panel.Children.Add(Text(Strings.Get("transfer_event_preparing"), true));
             await ShowAsync(Strings.Get("transfer_share_title"), panel); return;
         }
-        var holder = new Grid { Width = 268, Height = 268, Background = new SolidColorBrush(Microsoft.UI.Colors.White), CornerRadius = new(18), HorizontalAlignment = HorizontalAlignment.Center };
+        var holder = new Grid { Width = 268, Height = 268, Background = new SolidColorBrush(Microsoft.UI.Colors.White), CornerRadius = new(10), HorizontalAlignment = HorizontalAlignment.Center };
         var busy = new ProgressRing { IsActive = true, Width = 28, Height = 28 }; holder.Children.Add(busy); panel.Children.Add(holder);
         panel.Children.Add(Text(Strings.Get("transfer_scan_qr"), true));
         var save = Action(Strings.Get("button_download_invitation"), new SymbolIcon(Symbol.Save));
+        AutomationProperties.SetAutomationId(save, "SaveInvitationButton");
         save.Click += async (_, _) => await App.Window.Model.PerformAsync(() => WindowsFiles.SaveInvitationAsync(ticket, item.Name));
         panel.Children.Add(save);
         var share = Action(Strings.Get("button_native_share"), new SymbolIcon(Symbol.Share));
-        share.Style = (Style)Application.Current.Resources["AccentButtonStyle"];
-        share.Click += async (_, _) => await App.Window.Model.PerformAsync(() => App.Window.NativeShare.ShowInvitationAsync(ticket, item.Name));
+        AutomationProperties.SetAutomationId(share, "NativeShareButton");
+        share.Style = (Style)Application.Current.Resources["VniDropPrimaryButtonStyle"];
+        share.Click += async (_, _) =>
+        {
+            share.IsEnabled = false;
+            try { await App.Window.Model.PerformAsync(() => App.Window.NativeShare.ShowInvitationAsync(ticket, item.Name)); }
+            finally { share.IsEnabled = true; }
+        };
         panel.Children.Add(share);
         var dialog = ShowAsync(Strings.Get("transfer_share_title"), panel);
         try
@@ -114,7 +136,7 @@ public sealed class TransferDetailsPageActions(TransferItem item)
     {
         if (!item.CanDelete) return false;
         var body = item.Transfer.direction == "receive" ? Strings.Format("receive_delete_history_description", ("transferName", item.Name)) : Strings.Format("transfer_delete_description", ("transferName", item.Name));
-        if (await App.Window.DialogAsync(Strings.Get("transfer_delete_title"), body, Strings.Get("button_delete_transfer")) != ContentDialogResult.Primary) return false;
+        if (await App.Window.DialogAsync(Strings.Get("transfer_delete_title"), body, Strings.Get("button_delete_transfer"), intent: DialogIntent.Destructive) != ContentDialogResult.Primary) return false;
         return await App.Window.Model.PerformAsync(() => App.Window.Model.Session.RunAsync(c => c.DeleteTransfer(item.Transfer.transferId)));
     }
 }

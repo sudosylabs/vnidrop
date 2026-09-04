@@ -2,6 +2,7 @@ using VniDrop.Core;
 using VniDrop.Native;
 using VniDrop.Platform;
 using Microsoft.UI.Xaml;
+using VniDrop.Controls;
 
 namespace VniDrop.ViewModels;
 
@@ -18,6 +19,14 @@ public sealed class TransferItem : ObservableModel
         "done" => "status_completed", "cancelled" => "status_cancelled", "stopped" => "status_stopped", "failed" => "status_failed", _ => "progress_working"
     });
     public string StatusGlyph => Transfer.status switch { "sharing" or "done" => "\uE73E", "failed" => "\uEA39", "cancelled" or "stopped" => "\uE711", _ => "\uE895" };
+    public StatusTone StatusTone => Transfer.status switch
+    {
+        "sharing" => StatusTone.Accent,
+        "done" => StatusTone.Success,
+        "failed" => StatusTone.Critical,
+        "cancelled" or "stopped" => StatusTone.Neutral,
+        _ => StatusTone.Warning,
+    };
     public string Date => DateTimeOffset.FromUnixTimeMilliseconds(Transfer.createdAt).ToLocalTime().ToString("g");
     public string AutomationName => Name + ", " + Summary + ", " + Status;
     public bool CanShare => Transfer.direction == "send" && Transfer.status == "sharing" && Transfer.ticket is not null;

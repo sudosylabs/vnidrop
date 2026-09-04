@@ -32,7 +32,11 @@ public sealed class AppViewModel : ObservableModel
     public string Error { get => error; private set { Set(ref error, value); Changed(nameof(HasError)); } }
     public bool HasError => Error.Length > 0;
     public bool CanResetIdentity { get; private set; }
-    public bool HasRequests => Snapshot is { } s && (s.Requests.Any(r => r.status == "requested") || s.Offers.Length > 0 || s.Relationships.Any(r => r.state == DeviceRelationshipState.PendingIncoming));
+    public bool HasRequests => Snapshot is { } snapshot && PairingPromptPolicy.HasPending(
+        snapshot.Requests,
+        snapshot.Offers,
+        snapshot.Relationships,
+        snapshot.EligibleDevices);
     private long lastRevision = -1;
     private readonly RefreshGate refreshGate = new();
 

@@ -70,7 +70,8 @@ public sealed partial class SettingsRow : UserControl
     {
         var compact = width < 680;
         Grid.SetColumn(ValueText, compact ? 1 : 2);
-        Grid.SetRow(ValueText, compact ? 1 : 0);
+        Grid.SetRow(ValueText, compact ? 2 : 0);
+        ValueText.Margin = compact ? new Thickness(0, 3, 0, 0) : new Thickness(0);
         ValueText.TextTrimming = compact ? TextTrimming.None : TextTrimming.CharacterEllipsis;
         ValueText.TextWrapping = compact ? TextWrapping.Wrap : TextWrapping.NoWrap;
     }

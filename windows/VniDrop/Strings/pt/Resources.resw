@@ -404,15 +404,18 @@
   <data name="windows_open_folder" xml:space="preserve"><value>Abrir pasta</value></data>
   <data name="windows_operation_failed" xml:space="preserve"><value>Não foi possível concluir esta ação. Tente novamente.</value></data>
   <data name="windows_preferences_invalid" xml:space="preserve"><value>Não foi possível ler as preferências guardadas. O VniDrop manteve-as inalteradas. Restaure o ficheiro de preferências antes de reiniciar.</value></data>
+  <data name="windows_qr_unavailable" xml:space="preserve"><value>O código QR não está disponível para este convite. Utilize Partilhar ou Guardar.</value></data>
   <data name="windows_receive_empty" xml:space="preserve"><value>Abra ou arraste um convite .vnd para receber ficheiros de outro dispositivo.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Destinatários</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Introduza entre 1 e 8 URLs HTTPS de retransmissão distintos, sem credenciais nem fragmentos.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Rever pedidos</value></data>
+  <data name="windows_save_invitation" xml:space="preserve"><value>Guardar</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Guardar preferências</value></data>
   <data name="windows_scan_invitation" xml:space="preserve"><value>Ler para receber</value></data>
   <data name="windows_selection_invalid" xml:space="preserve"><value>Escolha vários ficheiros ou uma pasta.</value></data>
   <data name="windows_selection_required" xml:space="preserve"><value>Escolha ficheiros e introduza um nome para a transferência.</value></data>
   <data name="windows_send_empty" xml:space="preserve"><value>Escolha ficheiros ou uma pasta e partilhe um convite com o dispositivo destinatário. Também pode arrastar ficheiros para aqui.</value></data>
   <data name="windows_share_busy" xml:space="preserve"><value>Conclua ou feche a partilha atual do Windows antes de partilhar novamente.</value></data>
+  <data name="windows_share_description" xml:space="preserve"><value>Partilhe com o Windows, leia o código QR ou guarde um ficheiro de convite.</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Desbloquear</value></data>
 </root>

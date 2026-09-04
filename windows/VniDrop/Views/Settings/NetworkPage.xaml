@@ -9,18 +9,34 @@
       <StackPanel Spacing="20">
         <StackPanel Spacing="10">
           <TextBlock Text="{x:Bind p:Strings.Get('settings_network_title')}" Style="{StaticResource VniDropSectionTitleStyle}" />
-          <Border Style="{StaticResource VniDropCardStyle}">
-            <StackPanel x:Name="ModeChoices">
-              <RadioButton x:Name="Automatic" Tag="Automatic" GroupName="RelayMode" Style="{StaticResource VniDropPolicyOptionStyle}" Content="{x:Bind p:Strings.Get('relay_mode_automatic')}" Checked="ModeChanged" />
-              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
-              <RadioButton x:Name="StrictCustom" Tag="StrictCustom" GroupName="RelayMode" Style="{StaticResource VniDropPolicyOptionStyle}" Content="{x:Bind p:Strings.Get('relay_mode_custom')}" Checked="ModeChanged" />
-              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
-              <RadioButton x:Name="CustomWithDirectFallback" Tag="CustomWithDirectFallback" GroupName="RelayMode" Style="{StaticResource VniDropPolicyOptionStyle}" Content="{x:Bind p:Strings.Get('relay_mode_custom_direct_fallback')}" Checked="ModeChanged" />
-              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
-              <RadioButton x:Name="LocalOnly" Tag="LocalOnly" GroupName="RelayMode" Style="{StaticResource VniDropPolicyOptionStyle}" Content="{x:Bind p:Strings.Get('relay_mode_local_only')}" Checked="ModeChanged" />
-            </StackPanel>
+          <Border Style="{StaticResource VniDropCardStyle}" Padding="16,12">
+            <RadioButtons
+                x:Name="ModeChoices"
+                MaxColumns="1"
+                AutomationProperties.Name="{x:Bind p:Strings.Get('settings_network_title')}"
+                SelectionChanged="ModeChanged">
+              <RadioButton
+                  x:Name="Automatic"
+                  Content="{x:Bind p:Strings.Get('relay_mode_automatic')}"
+                  AutomationProperties.HelpText="{x:Bind p:Strings.Get('relay_mode_automatic_description')}" />
+              <RadioButton
+                  x:Name="StrictCustom"
+                  Content="{x:Bind p:Strings.Get('relay_mode_custom')}"
+                  AutomationProperties.HelpText="{x:Bind p:Strings.Get('relay_mode_custom_description')}" />
+              <RadioButton
+                  x:Name="CustomWithDirectFallback"
+                  Content="{x:Bind p:Strings.Get('relay_mode_custom_direct_fallback')}"
+                  AutomationProperties.HelpText="{x:Bind p:Strings.Get('relay_mode_custom_direct_fallback_description')}" />
+              <RadioButton
+                  x:Name="LocalOnly"
+                  Content="{x:Bind p:Strings.Get('relay_mode_local_only')}"
+                  AutomationProperties.HelpText="{x:Bind p:Strings.Get('relay_mode_local_only_description')}" />
+            </RadioButtons>
           </Border>
-          <TextBlock x:Name="ModeDescription" Style="{StaticResource VniDropSecondaryTextStyle}" />
+          <TextBlock
+              x:Name="ModeDescription"
+              Style="{StaticResource VniDropSecondaryTextStyle}"
+              AutomationProperties.LiveSetting="Polite" />
         </StackPanel>
 
         <InfoBar Severity="Informational" IsOpen="True" IsClosable="False" Message="{x:Bind p:Strings.Get('relay_privacy_description')}" />
@@ -66,10 +82,11 @@
                   x:Name="AddRelay"
                   Style="{StaticResource VniDropSecondaryButtonStyle}"
                   HorizontalAlignment="Left"
+                  AutomationProperties.Name="{x:Bind p:Strings.Get('relay_add_url')}"
                   Click="AddUrl">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <FontIcon Glyph="&#xE710;" FontSize="16" />
-                  <TextBlock Text="{x:Bind p:Strings.Get('relay_add_url')}" />
+                <StackPanel Style="{StaticResource VniDropButtonContentPanelStyle}">
+                  <FontIcon Glyph="&#xE710;" Style="{StaticResource VniDropButtonContentIconStyle}" />
+                  <TextBlock Text="{x:Bind p:Strings.Get('relay_add_url')}" Style="{StaticResource VniDropButtonContentTextStyle}" />
                 </StackPanel>
               </Button>
               <TextBlock Text="{x:Bind p:Strings.Get('relay_custom_urls_help')}" Style="{StaticResource VniDropCaptionTextStyle}" />

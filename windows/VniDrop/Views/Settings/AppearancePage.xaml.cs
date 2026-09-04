@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using VniDrop.Core;
+using VniDrop.Platform;
 
 namespace VniDrop.Views.Settings;
 
@@ -9,7 +10,6 @@ public sealed partial class AppearancePage : Page
 {
     private bool initializing = true;
     private bool saving;
-
     public AppearancePage()
     {
         InitializeComponent();
@@ -25,24 +25,34 @@ public sealed partial class AppearancePage : Page
         initializing = false;
     }
 
-    private void SelectCurrentTheme() =>
-        (App.Window.Model.Preferences.Theme switch
+    private void SelectCurrentTheme()
+    {
+        ThemeChoices.SelectedIndex = App.Window.Model.Preferences.Theme switch
         {
-            "Light" => LightTheme,
-            "Dark" => DarkTheme,
-            _ => SystemTheme,
-        }).IsChecked = true;
+            "Light" => 1,
+            "Dark" => 2,
+            _ => 0,
+        };
+        RenderDescription();
+    }
 
     private void Back(object sender, RoutedEventArgs e) => App.Window.GoBack();
 
-    private async void ThemeChanged(object sender, RoutedEventArgs e)
+    private async void ThemeChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (initializing || saving || sender is not RadioButton { IsChecked: true } selected) return;
+        RenderDescription();
+        if (initializing || saving || ThemeChoices.SelectedIndex < 0) return;
+        var theme = ThemeChoices.SelectedIndex switch
+        {
+            1 => "Light",
+            2 => "Dark",
+            _ => "System",
+        };
         saving = true;
         SetChoicesEnabled(false);
         try
         {
-            await App.Window.Model.SavePreferencesAsync(App.Window.Model.Preferences with { Theme = (string)selected.Tag });
+            await App.Window.Model.SavePreferencesAsync(App.Window.Model.Preferences with { Theme = theme });
             App.Window.ApplyAppearance();
         }
         catch (Exception ex)
@@ -60,8 +70,11 @@ public sealed partial class AppearancePage : Page
         }
     }
 
-    private void SetChoicesEnabled(bool enabled)
+    private void SetChoicesEnabled(bool enabled) => ThemeChoices.IsEnabled = enabled;
+
+    private void RenderDescription()
     {
-        SystemTheme.IsEnabled = LightTheme.IsEnabled = DarkTheme.IsEnabled = enabled;
+        if (ThemeDescription is not null)
+            ThemeDescription.Visibility = ThemeChoices.SelectedIndex == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 }

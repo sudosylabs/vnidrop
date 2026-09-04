@@ -208,53 +208,202 @@ public sealed partial class MainWindow : Window
         object content,
         string primary,
         string? secondary = null,
-        DialogIntent intent = DialogIntent.Standard) =>
-        Dialogs.DecideAsync(title, content, primary, secondary, intent);
+        DialogIntent intent = DialogIntent.Standard,
+        DialogPriority priority = DialogPriority.Standard,
+        Func<bool>? canShow = null) =>
+        Dialogs.DecideAsync(title, content, primary, secondary, intent, priority, canShow);
 
     public Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog) => Dialogs.ShowAsync(dialog);
 
     private async void OnUpdated()
     {
         if (Model.Snapshot is { } snapshot) notifications.Update(snapshot, Model.Preferences.Notifications && !active);
-        await DrainInvitationsAsync();
         if (Model.Ready && !checkingRequests && !closing) await CheckRequestsAsync();
+        await DrainInvitationsAsync();
     }
     private async Task CheckRequestsAsync()
     {
-        if (Model.Snapshot is not { } snapshot) return;
         checkingRequests = true;
         try
         {
-            foreach (var request in snapshot.Requests.Where(r => r.status == "requested"))
+            while (Model.Ready && !closing && Model.Snapshot is { } snapshot)
             {
-                if (!shownRequests.Add("invitation:" + request.id)) continue;
-                var result = await DialogAsync(Strings.Get("approval_connection_request"), Strings.Format("approval_request_body",
-                    ("receiver", request.receiverName ?? request.receiverDeviceName ?? Strings.Get("approval_nearby_device")), ("transferName", request.transferName)),
-                    Strings.Get("button_approve"), Strings.Get("button_refuse"));
-                if (Model.Ready && !closing && result != ContentDialogResult.None)
+                var pendingRequests = snapshot.Requests
+                    .Where(candidate => candidate.status == "requested")
+                    .ToArray();
+                var request = pendingRequests.FirstOrDefault(candidate =>
+                    !shownRequests.Contains("invitation:" + candidate.id));
+                if (request is not null)
                 {
-                    var success = await Model.PerformAsync(() => Model.Session.RunAsync(c => c.RespondReceiverRequest(request.id, result == ContentDialogResult.Primary, null)));
-                    if (!success) shownRequests.Remove("invitation:" + request.id);
+                    var key = "invitation:" + request.id;
+                    shownRequests.Add(key);
+                    var result = await DialogAsync(
+                        Strings.Get("approval_connection_request"),
+                        Strings.Format(
+                            "approval_request_body",
+                            ("receiver", request.receiverName ?? request.receiverDeviceName ?? Strings.Get("approval_nearby_device")),
+                            ("transferName", request.transferName)),
+                        Strings.Get("button_approve"),
+                        Strings.Get("button_refuse"),
+                        priority: DialogPriority.Attention,
+                        canShow: () => Model.Snapshot?.Requests.Any(candidate =>
+                            candidate.id == request.id && candidate.status == "requested") == true);
+                    if (!Model.Ready || closing || result == ContentDialogResult.None)
+                    {
+                        return;
+                    }
+
+                    var success = await Model.PerformAsync(() => Model.Session.RunAsync(core =>
+                        core.RespondReceiverRequest(request.id, result == ContentDialogResult.Primary, null)));
+                    if (!success)
+                    {
+                        shownRequests.Remove(key);
+                        return;
+                    }
+                    continue;
                 }
-            }
-            foreach (var offer in snapshot.Offers)
-            {
-                if (!shownRequests.Add("offer:" + offer.transferId)) continue;
-                var sender = snapshot.Devices.FirstOrDefault(d => d.endpointId == offer.senderEndpointId);
-                var name = sender?.localLabel ?? sender?.remoteDisplayName ?? Strings.Get("saved_devices_unnamed");
-                var result = await DialogAsync(Strings.Get("receive_review_title"), $"{name}\n{offer.transferName}\n{Strings.Format("saved_devices_transfer_files", ("count", offer.fileCount), ("size", Strings.Size(offer.totalSize)))}",
-                    Strings.Get("button_receive"), Strings.Get("button_refuse"));
-                if (!Model.Ready || closing || result == ContentDialogResult.None) continue;
-                var success = await Model.PerformAsync(async () =>
+                var offer = snapshot.Offers.FirstOrDefault(candidate =>
+                    !shownRequests.Contains("offer:" + candidate.transferId));
+                if (offer is not null)
                 {
-                    var response = await Model.Session.RunAsync(c => c.RespondToTargetedOffer(offer.transferId, result == ContentDialogResult.Primary));
-                    if (response is TargetedOfferResponse.Approved approved)
-                        Model.StartTargetedReceive(approved.transferId, resume: false);
+                    var key = "offer:" + offer.transferId;
+                    shownRequests.Add(key);
+                    var sender = snapshot.Devices.FirstOrDefault(d => d.endpointId == offer.senderEndpointId);
+                    var name = sender?.localLabel ?? sender?.remoteDisplayName ?? Strings.Get("saved_devices_unnamed");
+                    var result = await DialogAsync(
+                        Strings.Get("targeted_offer_title"),
+                        PromptContent(
+                            Strings.Format("targeted_offer_body", ("device", name), ("transferName", offer.transferName)),
+                            Strings.Format("saved_devices_transfer_files", ("count", offer.fileCount), ("size", Strings.Size(offer.totalSize)))),
+                        Strings.Get("button_receive"),
+                        Strings.Get("button_refuse"),
+                        priority: DialogPriority.Attention,
+                        canShow: () => Model.Snapshot?.Offers.Any(candidate =>
+                            candidate.transferId == offer.transferId) == true);
+                    if (!Model.Ready || closing || result == ContentDialogResult.None)
+                    {
+                        return;
+                    }
+
+                    var success = await Model.PerformAsync(async () =>
+                    {
+                        var response = await Model.Session.RunAsync(c => c.RespondToTargetedOffer(offer.transferId, result == ContentDialogResult.Primary));
+                        if (response is TargetedOfferResponse.Approved approved)
+                            Model.StartTargetedReceive(approved.transferId, resume: false);
+                    });
+                    if (!success)
+                    {
+                        shownRequests.Remove(key);
+                        return;
+                    }
+                    continue;
+                }
+                var pairing = PairingPromptPolicy.Next(
+                    snapshot.Relationships,
+                    snapshot.EligibleDevices,
+                    shownRequests);
+                if (pairing is null)
+                {
+                    return;
+                }
+
+                shownRequests.Add(pairing.Key);
+                var deviceName = PairingDeviceName(snapshot, pairing);
+                var pairingResult = pairing.Kind == PairingPromptKind.IncomingRequest
+                    ? await DialogAsync(
+                        Strings.Get("pairing_request_title"),
+                        Strings.Format("pairing_request_body", ("device", deviceName)),
+                        Strings.Get("pairing_accept"),
+                        Strings.Get("pairing_decline"),
+                        priority: DialogPriority.Attention,
+                        canShow: () => PairingStillPending(Model.Snapshot, pairing))
+                    : await DialogAsync(
+                        Strings.Get("pairing_allow_title"),
+                        PromptContent(deviceName, Strings.Get("pairing_allow_body"), emphasizePrimary: true),
+                        Strings.Get("pairing_allow_confirm"),
+                        Strings.Get("pairing_decline"),
+                        priority: DialogPriority.Attention,
+                        canShow: () => PairingStillPending(Model.Snapshot, pairing));
+                if (!Model.Ready || closing || pairingResult == ContentDialogResult.None)
+                {
+                    return;
+                }
+
+                var applied = true;
+                var pairingSuccess = await Model.PerformAsync(async () =>
+                {
+                    if (pairing.Kind == PairingPromptKind.IncomingRequest)
+                    {
+                        applied = await Model.Session.RunAsync(core => core.RespondToDevicePairing(
+                            pairing.PeerEndpointId,
+                            pairingResult == ContentDialogResult.Primary));
+                    }
+                    else if (pairingResult == ContentDialogResult.Primary)
+                    {
+                        applied = await Model.Session.RunAsync(core =>
+                            core.RequestSavedDevicePairing(pairing.PeerEndpointId));
+                    }
+                    else
+                    {
+                        await Model.Session.RunAsync(core =>
+                            core.DeclinePairingEligibility(pairing.PeerEndpointId));
+                    }
                 });
-                if (!success) shownRequests.Remove("offer:" + offer.transferId);
+                if (!pairingSuccess || !applied)
+                {
+                    shownRequests.Remove(pairing.Key);
+                    return;
+                }
             }
         }
         finally { checkingRequests = false; }
+    }
+
+    private static string PairingDeviceName(CoreSnapshot snapshot, PairingPromptCandidate pairing)
+    {
+        var saved = snapshot.Devices.FirstOrDefault(device => device.endpointId == pairing.PeerEndpointId);
+        var name = saved?.localLabel ?? saved?.remoteDisplayName ?? pairing.RemoteDisplayName;
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            return name;
+        }
+
+        return pairing.PeerEndpointId.Length <= 12
+            ? pairing.PeerEndpointId
+            : pairing.PeerEndpointId[..8] + "…";
+    }
+
+    private static bool PairingStillPending(CoreSnapshot? snapshot, PairingPromptCandidate pairing) =>
+        snapshot is not null && PairingPromptPolicy.IsPending(
+            pairing,
+            snapshot.Relationships,
+            snapshot.EligibleDevices);
+
+    private static StackPanel PromptContent(
+        string primaryText,
+        string secondaryText,
+        bool emphasizePrimary = false)
+    {
+        var primary = new TextBlock
+        {
+            Text = primaryText,
+            TextWrapping = TextWrapping.Wrap,
+        };
+        if (emphasizePrimary)
+        {
+            primary.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+        }
+
+        var secondary = new TextBlock
+        {
+            Text = secondaryText,
+            TextWrapping = TextWrapping.Wrap,
+            Style = (Style)Application.Current.Resources["VniDropSecondaryTextStyle"],
+        };
+        var content = new StackPanel { Spacing = 8, MaxWidth = 520 };
+        content.Children.Add(primary);
+        content.Children.Add(secondary);
+        return content;
     }
     private async void ReviewRequests(object sender, RoutedEventArgs e)
     {

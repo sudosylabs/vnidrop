@@ -404,15 +404,18 @@
   <data name="windows_open_folder" xml:space="preserve"><value>Otwórz folder</value></data>
   <data name="windows_operation_failed" xml:space="preserve"><value>Nie udało się wykonać tej czynności. Spróbuj ponownie.</value></data>
   <data name="windows_preferences_invalid" xml:space="preserve"><value>Nie udało się odczytać zapisanych preferencji. VniDrop pozostawił je bez zmian. Przywróć plik preferencji przed ponownym uruchomieniem.</value></data>
+  <data name="windows_qr_unavailable" xml:space="preserve"><value>Kod QR jest niedostępny dla tego zaproszenia. Zamiast tego użyj opcji Udostępnij lub Zapisz.</value></data>
   <data name="windows_receive_empty" xml:space="preserve"><value>Otwórz lub upuść zaproszenie .vnd, aby odebrać pliki z innego urządzenia.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Odbiorcy</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Wpisz od 1 do 8 różnych adresów HTTPS serwerów pośredniczących, bez danych logowania i fragmentów.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Przejrzyj prośby</value></data>
+  <data name="windows_save_invitation" xml:space="preserve"><value>Zapisz</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Zapisz preferencje</value></data>
   <data name="windows_scan_invitation" xml:space="preserve"><value>Zeskanuj, aby odebrać</value></data>
   <data name="windows_selection_invalid" xml:space="preserve"><value>Wybierz wiele plików lub jeden folder.</value></data>
   <data name="windows_selection_required" xml:space="preserve"><value>Wybierz pliki i wpisz nazwę transferu.</value></data>
   <data name="windows_send_empty" xml:space="preserve"><value>Wybierz pliki lub folder, a następnie udostępnij zaproszenie urządzeniu odbiorcy. Możesz też upuścić pliki tutaj.</value></data>
   <data name="windows_share_busy" xml:space="preserve"><value>Zakończ lub zamknij bieżące udostępnianie systemu Windows, zanim udostępnisz ponownie.</value></data>
+  <data name="windows_share_description" xml:space="preserve"><value>Udostępnij w systemie Windows, zeskanuj kod QR lub zapisz plik zaproszenia.</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Odblokuj</value></data>
 </root>

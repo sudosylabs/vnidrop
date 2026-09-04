@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using VniDrop.Core;
@@ -19,10 +20,11 @@ public sealed partial class DraftPage : ContentDialog
     public DraftPage(SavedDevice? receiver = null)
     {
         draft = new(receiver); InitializeComponent(); SenderName.Text = App.Window.Model.Preferences.Username;
+        if (AccessChoices.SelectedIndex < 0) AccessChoices.SelectedIndex = 0;
         Recipient.Visibility = receiver is null ? Visibility.Collapsed : Visibility.Visible;
         Recipient.Text = receiver is null ? "" : Strings.Format("saved_devices_transfer_direction_outgoing", ("device", receiver.localLabel ?? receiver.remoteDisplayName ?? Strings.Get("saved_devices_unnamed")));
         SenderName.Visibility = AccessOptions.Visibility = receiver is null ? Visibility.Visible : Visibility.Collapsed;
-        Render();
+        RenderAccessChoice(); Render();
     }
     private string MultipleName(int count) => Strings.Format("send_default_transfer_name", ("count", count));
     public void Select(IReadOnlyList<DraftSource> sources) { draft.Select(sources, MultipleName); if (sources.Count > 0) choosing = false; Render(); }
@@ -69,7 +71,21 @@ public sealed partial class DraftPage : ContentDialog
         draft.Rename(TransferName.Text);
         IsPrimaryButtonEnabled = !draft.IsSubmitting && !picking && draft.Sources.Count > 0 && !string.IsNullOrWhiteSpace(draft.Name);
     }
-    private void AccessChanged(object sender, RoutedEventArgs e) { if (PublicWarning is not null) PublicWarning.IsOpen = Anyone.IsChecked == true; }
+    private void AccessChanged(object sender, SelectionChangedEventArgs e) => RenderAccessChoice(true);
+    private void RenderAccessChoice(bool announce = false)
+    {
+        if (AccessDescription is null || PublicWarning is null) return;
+        var anyone = AccessChoices.SelectedIndex == 1;
+        AccessDescription.Text = Strings.Get(anyone ? "send_access_anyone_description" : "send_access_approval_description");
+        if (announce) Announce(AccessDescription);
+        PublicWarning.IsOpen = anyone;
+    }
+    private static void Announce(TextBlock element)
+    {
+        var peer = FrameworkElementAutomationPeer.FromElement(element)
+            ?? FrameworkElementAutomationPeer.CreatePeerForElement(element);
+        peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
+    }
     private async Task PickAsync(bool folder)
     {
         if (picking || draft.IsSubmitting) return;
@@ -91,7 +107,7 @@ public sealed partial class DraftPage : ContentDialog
         try
         {
             Error.IsOpen = false;
-            var pending = draft.SubmitAsync(App.Window.Model.Session, SenderName.Text.Trim(), Approval.IsChecked == true);
+            var pending = draft.SubmitAsync(App.Window.Model.Session, SenderName.Text.Trim(), AccessChoices.SelectedIndex != 1);
             Render(); Result = await pending; await App.Window.Model.RefreshAsync(true); args.Cancel = false;
         }
         catch (Exception ex) { Error.Message = Strings.Error(ex); Error.IsOpen = true; }

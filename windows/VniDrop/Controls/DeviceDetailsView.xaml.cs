@@ -96,6 +96,7 @@ public sealed partial class DeviceDetailsView : UserControl
         Root.Visibility = Visibility.Visible;
         var name = DisplayName(device);
         DeviceNameText.Text = name;
+        MoreActionsTitle.Text = Strings.Format("saved_devices_more_actions", ("device", name));
         var hasAuthenticatedName = !string.IsNullOrWhiteSpace(device.localLabel)
             && !string.Equals(device.localLabel, device.remoteDisplayName, StringComparison.Ordinal);
         AuthenticatedNameText.Text = hasAuthenticatedName
@@ -191,11 +192,12 @@ public sealed partial class DeviceDetailsView : UserControl
             return;
         }
 
+        var label = string.IsNullOrWhiteSpace(input.Text) ? null : input.Text.Trim();
         await RunBusyAsync(
             DeviceKey(savedDevice.endpointId),
             () => App.Window.Model.Session.RunAsync(core => core.SetSavedDeviceLabel(
                 savedDevice.endpointId,
-                string.IsNullOrWhiteSpace(input.Text) ? null : input.Text.Trim())));
+                label)));
     }
 
     public async Task ForgetAsync(SavedDevice savedDevice, bool block)

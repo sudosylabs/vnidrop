@@ -404,15 +404,18 @@
   <data name="windows_open_folder" xml:space="preserve"><value>Ouvrir le dossier</value></data>
   <data name="windows_operation_failed" xml:space="preserve"><value>Cette action n’a pas pu être effectuée. Veuillez réessayer.</value></data>
   <data name="windows_preferences_invalid" xml:space="preserve"><value>Vos préférences n’ont pas pu être lues. VniDrop les a conservées. Restaurez le fichier de préférences avant de redémarrer.</value></data>
+  <data name="windows_qr_unavailable" xml:space="preserve"><value>Le code QR n’est pas disponible pour cette invitation. Utilisez plutôt Partager ou Enregistrer.</value></data>
   <data name="windows_receive_empty" xml:space="preserve"><value>Ouvrez ou déposez une invitation .vnd pour recevoir des fichiers d’un autre appareil.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Destinataires</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Saisissez entre 1 et 8 URL HTTPS de relais distinctes, sans identifiants ni fragments.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Examiner les demandes</value></data>
+  <data name="windows_save_invitation" xml:space="preserve"><value>Enregistrer</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Enregistrer les préférences</value></data>
   <data name="windows_scan_invitation" xml:space="preserve"><value>Scanner pour recevoir</value></data>
   <data name="windows_selection_invalid" xml:space="preserve"><value>Choisissez plusieurs fichiers ou un seul dossier.</value></data>
   <data name="windows_selection_required" xml:space="preserve"><value>Choisissez des fichiers et saisissez un nom de transfert.</value></data>
   <data name="windows_send_empty" xml:space="preserve"><value>Choisissez des fichiers ou un dossier, puis partagez une invitation avec l’appareil destinataire. Vous pouvez aussi déposer des fichiers ici.</value></data>
   <data name="windows_share_busy" xml:space="preserve"><value>Terminez ou fermez le partage Windows en cours avant de partager à nouveau.</value></data>
+  <data name="windows_share_description" xml:space="preserve"><value>Partagez avec Windows, scannez le code QR ou enregistrez un fichier d’invitation.</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Débloquer</value></data>
 </root>

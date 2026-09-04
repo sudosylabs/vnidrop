@@ -404,15 +404,18 @@
   <data name="windows_open_folder" xml:space="preserve"><value>Открыть папку</value></data>
   <data name="windows_operation_failed" xml:space="preserve"><value>Не удалось выполнить действие. Повторите попытку.</value></data>
   <data name="windows_preferences_invalid" xml:space="preserve"><value>Не удалось прочитать сохранённые настройки. VniDrop сохранил их без изменений. Восстановите файл настроек перед повторным запуском.</value></data>
+  <data name="windows_qr_unavailable" xml:space="preserve"><value>QR-код недоступен для этого приглашения. Используйте «Поделиться» или «Сохранить».</value></data>
   <data name="windows_receive_empty" xml:space="preserve"><value>Откройте или перетащите приглашение .vnd, чтобы получить файлы с другого устройства.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Получатели</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Введите от 1 до 8 разных HTTPS-адресов ретрансляторов без учётных данных и фрагментов.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Просмотреть запросы</value></data>
+  <data name="windows_save_invitation" xml:space="preserve"><value>Сохранить</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Сохранить настройки</value></data>
   <data name="windows_scan_invitation" xml:space="preserve"><value>Сканируйте для получения</value></data>
   <data name="windows_selection_invalid" xml:space="preserve"><value>Выберите несколько файлов или одну папку.</value></data>
   <data name="windows_selection_required" xml:space="preserve"><value>Выберите файлы и введите название передачи.</value></data>
   <data name="windows_send_empty" xml:space="preserve"><value>Выберите файлы или папку и отправьте приглашение принимающему устройству. Также можно перетащить файлы сюда.</value></data>
   <data name="windows_share_busy" xml:space="preserve"><value>Завершите или закройте текущее окно общего доступа Windows, прежде чем делиться снова.</value></data>
+  <data name="windows_share_description" xml:space="preserve"><value>Поделитесь через Windows, отсканируйте QR-код или сохраните файл приглашения.</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Разблокировать</value></data>
 </root>

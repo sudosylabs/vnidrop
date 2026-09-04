@@ -404,15 +404,18 @@
   <data name="windows_open_folder" xml:space="preserve"><value>Open folder</value></data>
   <data name="windows_operation_failed" xml:space="preserve"><value>This action could not be completed. Please try again.</value></data>
   <data name="windows_preferences_invalid" xml:space="preserve"><value>Your saved preferences could not be read. VniDrop has kept them unchanged. Restore the preferences file before starting again.</value></data>
+  <data name="windows_qr_unavailable" xml:space="preserve"><value>QR unavailable for this invitation. Use Share or Save instead.</value></data>
   <data name="windows_receive_empty" xml:space="preserve"><value>Open or drop a .vnd invitation to receive files from another device.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Receivers</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Enter between 1 and 8 distinct HTTPS relay URLs, without credentials or fragments.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Review requests</value></data>
+  <data name="windows_save_invitation" xml:space="preserve"><value>Save</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Save preferences</value></data>
   <data name="windows_scan_invitation" xml:space="preserve"><value>Scan to receive</value></data>
   <data name="windows_selection_invalid" xml:space="preserve"><value>Choose multiple files or one folder.</value></data>
   <data name="windows_selection_required" xml:space="preserve"><value>Choose files and enter a transfer name.</value></data>
   <data name="windows_send_empty" xml:space="preserve"><value>Choose files or a folder, then share an invitation with the receiving device. You can also drop files here.</value></data>
   <data name="windows_share_busy" xml:space="preserve"><value>Finish or close the current Windows share before sharing again.</value></data>
+  <data name="windows_share_description" xml:space="preserve"><value>Share with Windows, scan the QR code, or save an invitation file.</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Unblock</value></data>
 </root>

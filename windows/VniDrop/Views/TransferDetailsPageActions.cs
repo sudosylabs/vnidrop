@@ -1,41 +1,25 @@
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
-using QRCoder;
 using VniDrop.Core;
 using VniDrop.Platform;
 using VniDrop.Services;
 using VniDrop.ViewModels;
-using Windows.Storage.Streams;
 
 namespace VniDrop.Views;
 
 public sealed class TransferDetailsPageActions(TransferItem item)
 {
-    private static TextBlock Text(string text, bool secondary = false) => new()
+    private static TextBlock Text(string text, bool secondary = false)
     {
-        Text = text,
-        TextWrapping = TextWrapping.Wrap,
-        Foreground = secondary ? (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"] : null,
-    };
+        var block = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
+        if (secondary) block.Style = (Style)Application.Current.Resources["VniDropSecondaryTextStyle"];
+        return block;
+    }
     private static StackPanel Panel(params UIElement[] children)
     {
         var panel = new StackPanel { Spacing = 14, MaxWidth = 520 };
         foreach (var child in children) panel.Children.Add(child);
         return panel;
-    }
-    private static Button Action(string text, IconElement icon)
-    {
-        var button = new Button
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            Style = (Style)Application.Current.Resources["VniDropSecondaryButtonStyle"],
-        };
-        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 }; content.Children.Add(icon); content.Children.Add(Text(text)); button.Content = content;
-        return button;
     }
     private async Task ShowAsync(string title, UIElement content) =>
         await App.Window.ShowDialogAsync(new ContentDialog
@@ -56,34 +40,7 @@ public sealed class TransferDetailsPageActions(TransferItem item)
             panel.Children.Add(Text(Strings.Get("transfer_event_preparing"), true));
             await ShowAsync(Strings.Get("transfer_share_title"), panel); return;
         }
-        var holder = new Grid { Width = 268, Height = 268, Background = new SolidColorBrush(Microsoft.UI.Colors.White), CornerRadius = new(10), HorizontalAlignment = HorizontalAlignment.Center };
-        var busy = new ProgressRing { IsActive = true, Width = 28, Height = 28 }; holder.Children.Add(busy); panel.Children.Add(holder);
-        panel.Children.Add(Text(Strings.Get("transfer_scan_qr"), true));
-        var save = Action(Strings.Get("button_download_invitation"), new SymbolIcon(Symbol.Save));
-        AutomationProperties.SetAutomationId(save, "SaveInvitationButton");
-        save.Click += async (_, _) => await App.Window.Model.PerformAsync(() => WindowsFiles.SaveInvitationAsync(ticket, item.Name));
-        panel.Children.Add(save);
-        var share = Action(Strings.Get("button_native_share"), new SymbolIcon(Symbol.Share));
-        AutomationProperties.SetAutomationId(share, "NativeShareButton");
-        share.Style = (Style)Application.Current.Resources["VniDropPrimaryButtonStyle"];
-        share.Click += async (_, _) =>
-        {
-            share.IsEnabled = false;
-            try { await App.Window.Model.PerformAsync(() => App.Window.NativeShare.ShowInvitationAsync(ticket, item.Name)); }
-            finally { share.IsEnabled = true; }
-        };
-        panel.Children.Add(share);
-        var dialog = ShowAsync(Strings.Get("transfer_share_title"), panel);
-        try
-        {
-            var bytes = await Task.Run(() => PngByteQRCodeHelper.GetQRCode(ticket, QRCodeGenerator.ECCLevel.L, 6));
-            using var stream = new InMemoryRandomAccessStream();
-            using (var writer = new DataWriter(stream.GetOutputStreamAt(0))) { writer.WriteBytes(bytes); await writer.StoreAsync(); }
-            var bitmap = new BitmapImage(); await bitmap.SetSourceAsync(stream);
-            holder.Children.Clear(); holder.Children.Add(new Image { Source = bitmap, Margin = new(14), Stretch = Stretch.Uniform });
-        }
-        catch { busy.IsActive = false; }
-        await dialog;
+        await App.Window.ShowDialogAsync(new ShareTransferDialog(ticket, item.Name));
     }
 
     public async Task ActivityAsync()

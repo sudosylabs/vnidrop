@@ -82,12 +82,51 @@
         <Setter Property="MinWidth" Value="96" />
         <Setter Property="Padding" Value="16,7" />
         <Setter Property="CornerRadius" Value="{StaticResource VniDropControlCornerRadius}" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
       </Style>
       <Style x:Key="VniDropSecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
         <Setter Property="MinHeight" Value="36" />
         <Setter Property="MinWidth" Value="88" />
         <Setter Property="Padding" Value="16,7" />
         <Setter Property="CornerRadius" Value="{StaticResource VniDropControlCornerRadius}" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+      </Style>
+      <Style x:Key="VniDropButtonContentPanelStyle" TargetType="StackPanel">
+        <Setter Property="Orientation" Value="Horizontal" />
+        <Setter Property="Spacing" Value="8" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+      </Style>
+      <Style x:Key="VniDropButtonContentIconStyle" TargetType="FontIcon">
+        <Setter Property="Width" Value="20" />
+        <Setter Property="Height" Value="20" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
+      </Style>
+      <Style x:Key="VniDropButtonContentTextStyle" TargetType="TextBlock">
+        <Setter Property="MinHeight" Value="20" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+      </Style>
+      <Style x:Key="VniDropRowContentIconStyle" TargetType="FontIcon">
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
+      </Style>
+      <Style x:Key="VniDropRowContentTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+      </Style>
+      <Style x:Key="VniDropRowContentDescriptionStyle" TargetType="TextBlock" BasedOn="{StaticResource VniDropCaptionTextStyle}">
+        <Setter Property="Margin" Value="0,3,0,0" />
       </Style>
       <Style x:Key="VniDropIconButtonStyle" TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
         <Setter Property="Width" Value="40" />
@@ -243,12 +282,6 @@
       <Style x:Key="VniDropDialogButtonStyle" TargetType="Button" BasedOn="{StaticResource VniDropSecondaryButtonStyle}" />
       <Style x:Key="VniDropDialogAccentButtonStyle" TargetType="Button" BasedOn="{StaticResource VniDropPrimaryButtonStyle}" />
       <Style x:Key="VniDropDialogCriticalButtonStyle" TargetType="Button" BasedOn="{StaticResource VniDropCriticalPrimaryButtonStyle}" />
-      <Style x:Key="VniDropPolicyOptionStyle" TargetType="RadioButton">
-        <Setter Property="MinHeight" Value="56" />
-        <Setter Property="Padding" Value="14,12" />
-        <Setter Property="HorizontalAlignment" Value="Stretch" />
-        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-      </Style>
       <Style x:Key="VniDropPageScrollStyle" TargetType="ScrollViewer">
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="HorizontalScrollMode" Value="Disabled" />
@@ -264,7 +297,6 @@
       <Style x:Key="DialogButtonStyle" TargetType="Button" BasedOn="{StaticResource VniDropDialogButtonStyle}" />
       <Style x:Key="DialogAccentButtonStyle" TargetType="Button" BasedOn="{StaticResource VniDropDialogAccentButtonStyle}" />
       <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource VniDropCriticalRowButtonStyle}" />
-      <Style x:Key="PolicyOptionStyle" TargetType="RadioButton" BasedOn="{StaticResource VniDropPolicyOptionStyle}" />
     </ResourceDictionary>
   </Application.Resources>
 </Application>

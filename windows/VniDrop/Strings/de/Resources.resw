@@ -404,15 +404,18 @@
   <data name="windows_open_folder" xml:space="preserve"><value>Ordner öffnen</value></data>
   <data name="windows_operation_failed" xml:space="preserve"><value>Diese Aktion konnte nicht abgeschlossen werden. Versuchen Sie es erneut.</value></data>
   <data name="windows_preferences_invalid" xml:space="preserve"><value>Die gespeicherten Einstellungen konnten nicht gelesen werden. VniDrop hat sie unverändert gelassen. Stellen Sie die Einstellungsdatei vor dem Neustart wieder her.</value></data>
+  <data name="windows_qr_unavailable" xml:space="preserve"><value>Für diese Einladung ist kein QR-Code verfügbar. Verwenden Sie stattdessen Teilen oder Speichern.</value></data>
   <data name="windows_receive_empty" xml:space="preserve"><value>Öffnen Sie eine .vnd-Einladung oder ziehen Sie sie hierher, um Dateien von einem anderen Gerät zu empfangen.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Empfänger</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Geben Sie 1 bis 8 verschiedene HTTPS-Relay-URLs ohne Zugangsdaten oder Fragmente ein.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Anfragen prüfen</value></data>
+  <data name="windows_save_invitation" xml:space="preserve"><value>Speichern</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Einstellungen speichern</value></data>
   <data name="windows_scan_invitation" xml:space="preserve"><value>Zum Empfangen scannen</value></data>
   <data name="windows_selection_invalid" xml:space="preserve"><value>Wählen Sie mehrere Dateien oder einen Ordner.</value></data>
   <data name="windows_selection_required" xml:space="preserve"><value>Wählen Sie Dateien und geben Sie einen Namen für die Übertragung ein.</value></data>
   <data name="windows_send_empty" xml:space="preserve"><value>Wählen Sie Dateien oder einen Ordner und teilen Sie eine Einladung mit dem empfangenden Gerät. Sie können Dateien auch hierher ziehen.</value></data>
   <data name="windows_share_busy" xml:space="preserve"><value>Schließen Sie die aktuelle Windows-Freigabe ab oder schließen Sie sie, bevor Sie erneut teilen.</value></data>
+  <data name="windows_share_description" xml:space="preserve"><value>Teilen Sie über Windows, scannen Sie den QR-Code oder speichern Sie eine Einladungsdatei.</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Entsperren</value></data>
 </root>

@@ -154,7 +154,7 @@
 
     <StackPanel Spacing="10">
       <TextBlock
-          Text="{x:Bind p:Strings.Get('saved_devices_more_actions')}"
+          x:Name="MoreActionsTitle"
           Style="{StaticResource VniDropSectionTitleStyle}" />
       <Border Style="{StaticResource VniDropCardStyle}">
         <StackPanel>

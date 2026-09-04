@@ -5857,6 +5857,51 @@
         "ru": "Завершите или закройте текущее окно общего доступа Windows, прежде чем делиться снова."
       }
     },
+    "windows_save_invitation": {
+      "context": "Native Windows Share dialog: secondary action that saves the invitation as a .vnd file.",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Save",
+        "fr": "Enregistrer",
+        "es": "Guardar",
+        "it": "Salva",
+        "de": "Speichern",
+        "pt": "Guardar",
+        "pl": "Zapisz",
+        "nl": "Opslaan",
+        "ru": "Сохранить"
+      }
+    },
+    "windows_qr_unavailable": {
+      "context": "Native Windows Share dialog: message shown when its QR code cannot be generated.",
+      "targets": ["windows"],
+      "translations": {
+        "en": "QR unavailable for this invitation. Use Share or Save instead.",
+        "fr": "Le code QR n’est pas disponible pour cette invitation. Utilisez plutôt Partager ou Enregistrer.",
+        "es": "El QR no está disponible para esta invitación. Use Compartir o Guardar.",
+        "it": "Il codice QR non è disponibile per questo invito. Utilizzi invece Condividi o Salva.",
+        "de": "Für diese Einladung ist kein QR-Code verfügbar. Verwenden Sie stattdessen Teilen oder Speichern.",
+        "pt": "O código QR não está disponível para este convite. Utilize Partilhar ou Guardar.",
+        "pl": "Kod QR jest niedostępny dla tego zaproszenia. Zamiast tego użyj opcji Udostępnij lub Zapisz.",
+        "nl": "QR is niet beschikbaar voor deze uitnodiging. Gebruik in plaats daarvan Delen of Opslaan.",
+        "ru": "QR-код недоступен для этого приглашения. Используйте «Поделиться» или «Сохранить»."
+      }
+    },
+    "windows_share_description": {
+      "context": "Native Windows Share dialog: explains its three invitation-sharing methods.",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Share with Windows, scan the QR code, or save an invitation file.",
+        "fr": "Partagez avec Windows, scannez le code QR ou enregistrez un fichier d’invitation.",
+        "es": "Comparta con Windows, escanee el código QR o guarde un archivo de invitación.",
+        "it": "Condividi con Windows, scansiona il codice QR o salva un file di invito.",
+        "de": "Teilen Sie über Windows, scannen Sie den QR-Code oder speichern Sie eine Einladungsdatei.",
+        "pt": "Partilhe com o Windows, leia o código QR ou guarde um ficheiro de convite.",
+        "pl": "Udostępnij w systemie Windows, zeskanuj kod QR lub zapisz plik zaproszenia.",
+        "nl": "Deel via Windows, scan de QR-code of sla een uitnodigingsbestand op.",
+        "ru": "Поделитесь через Windows, отсканируйте QR-код или сохраните файл приглашения."
+      }
+    },
     "windows_review_requests": {
       "context": "Native Windows app",
       "targets": ["windows"],

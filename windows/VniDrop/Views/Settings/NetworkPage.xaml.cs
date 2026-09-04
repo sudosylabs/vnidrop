@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using VniDrop.Core;
@@ -13,7 +14,6 @@ public sealed partial class NetworkPage : Page
     private readonly ObservableCollection<RelayUrlEntry> relayUrls = [];
     private bool initializing = true;
     private bool saving;
-
     public NetworkPage()
     {
         InitializeComponent();
@@ -43,7 +43,14 @@ public sealed partial class NetworkPage : Page
     private void LoadPreferences()
     {
         var preferences = App.Window.Model.Preferences;
-        RadioFor(preferences.RelayMode).IsChecked = true;
+        ModeChoices.SelectedIndex = preferences.RelayMode switch
+        {
+            CoreRelayMode.Automatic => 0,
+            CoreRelayMode.StrictCustom => 1,
+            CoreRelayMode.CustomWithDirectFallback => 2,
+            CoreRelayMode.LocalOnly => 3,
+            _ => throw new ArgumentOutOfRangeException(nameof(preferences.RelayMode)),
+        };
         relayUrls.Clear();
         foreach (var url in preferences.RelayUrls) relayUrls.Add(new(url));
         if (relayUrls.Count == 0) relayUrls.Add(new(""));
@@ -54,29 +61,22 @@ public sealed partial class NetworkPage : Page
         Render();
     }
 
-    private RadioButton RadioFor(CoreRelayMode mode) => mode switch
+    private CoreRelayMode SelectedMode() => ModeChoices.SelectedIndex switch
     {
-        CoreRelayMode.Automatic => Automatic,
-        CoreRelayMode.StrictCustom => StrictCustom,
-        CoreRelayMode.CustomWithDirectFallback => CustomWithDirectFallback,
-        CoreRelayMode.LocalOnly => LocalOnly,
-        _ => throw new ArgumentOutOfRangeException(nameof(mode)),
+        1 => CoreRelayMode.StrictCustom,
+        2 => CoreRelayMode.CustomWithDirectFallback,
+        3 => CoreRelayMode.LocalOnly,
+        _ => CoreRelayMode.Automatic,
     };
-
-    private CoreRelayMode SelectedMode()
-    {
-        var tag = ModeChoices.Children.OfType<RadioButton>().FirstOrDefault(option => option.IsChecked == true)?.Tag as string;
-        return Enum.TryParse<CoreRelayMode>(tag, out var mode) ? mode : CoreRelayMode.Automatic;
-    }
 
     private string[] SelectedUrls() => relayUrls
         .Select(entry => entry.Url.Trim())
         .Where(url => url.Length > 0)
         .ToArray();
 
-    private void ModeChanged(object sender, RoutedEventArgs e)
+    private void ModeChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (RelayUrls is not null) Render();
+        if (RelayUrls is not null) Render(!initializing);
     }
 
     private void UrlChanged(object sender, TextChangedEventArgs e)
@@ -100,7 +100,7 @@ public sealed partial class NetworkPage : Page
         UpdateApplyState();
     }
 
-    private void Render()
+    private void Render(bool announceDescription = false)
     {
         var mode = SelectedMode();
         RelayUrls.Visibility = mode is CoreRelayMode.StrictCustom or CoreRelayMode.CustomWithDirectFallback ? Visibility.Visible : Visibility.Collapsed;
@@ -114,7 +114,15 @@ public sealed partial class NetworkPage : Page
             CoreRelayMode.LocalOnly => "relay_mode_local_only_description",
             _ => throw new ArgumentOutOfRangeException(),
         });
+        if (announceDescription) Announce(ModeDescription);
         UpdateApplyState();
+    }
+
+    private static void Announce(TextBlock element)
+    {
+        var peer = FrameworkElementAutomationPeer.FromElement(element)
+            ?? FrameworkElementAutomationPeer.CreatePeerForElement(element);
+        peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
     }
 
     private void UpdateApplyState()
@@ -169,10 +177,7 @@ public sealed partial class NetworkPage : Page
         }
     }
 
-    private void SetChoicesEnabled(bool enabled)
-    {
-        Automatic.IsEnabled = StrictCustom.IsEnabled = CustomWithDirectFallback.IsEnabled = LocalOnly.IsEnabled = enabled;
-    }
+    private void SetChoicesEnabled(bool enabled) => ModeChoices.IsEnabled = enabled;
 }
 
 public sealed class RelayUrlEntry(string url)

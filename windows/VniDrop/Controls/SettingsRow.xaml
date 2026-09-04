@@ -7,8 +7,9 @@
       x:Name="RootButton"
       Click="RootClicked"
       IsEnabled="{x:Bind IsEnabled, Mode=OneWay}">
-    <Grid x:Name="LayoutGrid" ColumnSpacing="12" RowSpacing="3">
+    <Grid x:Name="LayoutGrid" ColumnSpacing="12">
       <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
@@ -21,19 +22,18 @@
       </Grid.ColumnDefinitions>
       <FontIcon
           x:Name="LeadingIcon"
-          Grid.RowSpan="2"
-          FontSize="18"
+          Style="{StaticResource VniDropRowContentIconStyle}"
           Foreground="{Binding Foreground, ElementName=RootButton}"
           VerticalAlignment="Center" />
-      <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
-        <TextBlock
-            x:Name="TitleText"
-            Style="{StaticResource BodyStrongTextBlockStyle}"
-            TextWrapping="Wrap" />
-        <TextBlock
-            x:Name="DescriptionText"
-            Style="{StaticResource VniDropCaptionTextStyle}" />
-      </StackPanel>
+      <TextBlock
+          x:Name="TitleText"
+          Grid.Column="1"
+          Style="{StaticResource VniDropRowContentTitleStyle}" />
+      <TextBlock
+          x:Name="DescriptionText"
+          Grid.Row="1"
+          Grid.Column="1"
+          Style="{StaticResource VniDropRowContentDescriptionStyle}" />
       <TextBlock
           x:Name="ValueText"
           Grid.Column="2"
@@ -44,16 +44,17 @@
       <ContentPresenter
           x:Name="TrailingPresenter"
           Grid.Column="3"
-          Grid.RowSpan="2"
+          Grid.RowSpan="3"
           VerticalAlignment="Center" />
       <FontIcon
           x:Name="ChevronIcon"
           Grid.Column="4"
-          Grid.RowSpan="2"
+          Grid.RowSpan="3"
           Glyph="&#xE76C;"
           FontSize="12"
           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-          VerticalAlignment="Center" />
+          VerticalAlignment="Center"
+          AutomationProperties.AccessibilityView="Raw" />
     </Grid>
   </Button>
 </UserControl>

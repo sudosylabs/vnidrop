@@ -137,40 +137,27 @@
           <TextBlock
               Text="{x:Bind p:Strings.Get('send_access_title')}"
               Style="{StaticResource BodyStrongTextBlockStyle}" />
-          <Border Style="{StaticResource VniDropCardStyle}">
-            <StackPanel>
+          <Border Style="{StaticResource VniDropCardStyle}" Padding="16,12">
+            <RadioButtons
+                x:Name="AccessChoices"
+                MaxColumns="1"
+                SelectedIndex="0"
+                AutomationProperties.Name="{x:Bind p:Strings.Get('send_access_title')}"
+                SelectionChanged="AccessChanged">
               <RadioButton
-                  x:Name="Approval"
-                  Style="{StaticResource VniDropPolicyOptionStyle}"
-                  GroupName="Access"
-                  IsChecked="True"
-                  Checked="AccessChanged">
-                <StackPanel Spacing="3">
-                  <TextBlock
-                      Text="{x:Bind p:Strings.Get('send_access_approval')}"
-                      TextWrapping="Wrap" />
-                  <TextBlock
-                      Text="{x:Bind p:Strings.Get('send_access_approval_description')}"
-                      Style="{StaticResource VniDropCaptionTextStyle}" />
-                </StackPanel>
-              </RadioButton>
-              <Rectangle Height="1" Margin="48,0,0,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+                  x:Name="ApprovalRequired"
+                  Content="{x:Bind p:Strings.Get('send_access_approval')}"
+                  AutomationProperties.HelpText="{x:Bind p:Strings.Get('send_access_approval_description')}" />
               <RadioButton
-                  x:Name="Anyone"
-                  Style="{StaticResource VniDropPolicyOptionStyle}"
-                  GroupName="Access"
-                  Checked="AccessChanged">
-                <StackPanel Spacing="3">
-                  <TextBlock
-                      Text="{x:Bind p:Strings.Get('send_access_anyone')}"
-                      TextWrapping="Wrap" />
-                  <TextBlock
-                      Text="{x:Bind p:Strings.Get('send_access_anyone_description')}"
-                      Style="{StaticResource VniDropCaptionTextStyle}" />
-                </StackPanel>
-              </RadioButton>
-            </StackPanel>
+                  x:Name="AnyoneWithInvitation"
+                  Content="{x:Bind p:Strings.Get('send_access_anyone')}"
+                  AutomationProperties.HelpText="{x:Bind p:Strings.Get('send_access_anyone_description')}" />
+            </RadioButtons>
           </Border>
+          <TextBlock
+              x:Name="AccessDescription"
+              Style="{StaticResource VniDropCaptionTextStyle}"
+              AutomationProperties.LiveSetting="Polite" />
           <InfoBar
               x:Name="PublicWarning"
               IsOpen="False"

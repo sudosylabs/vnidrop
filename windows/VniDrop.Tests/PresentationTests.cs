@@ -8,6 +8,46 @@ namespace VniDrop.Tests;
 public class PresentationTests
 {
     [Fact]
+    public void PairingPromptsPrioritizeIncomingRequestsAndKeepDismissedEligibilityPending()
+    {
+        var relationships = new[]
+        {
+            new DeviceRelationship("older", DeviceRelationshipState.PendingIncoming, 1, 1, 10, 20),
+            new DeviceRelationship("newer", DeviceRelationshipState.PendingIncoming, 3, 1, 10, 30),
+        };
+        var eligibilities = new[]
+        {
+            new PairingEligibilitySummary("eligible", "Phone", "session", 1, 40, 100),
+            new PairingEligibilitySummary("newer", "Laptop", "incoming-session", 1, 25, 100),
+        };
+
+        var incoming = PairingPromptPolicy.Next(relationships, eligibilities, new HashSet<string>());
+        Assert.Equal(PairingPromptKind.IncomingRequest, incoming?.Kind);
+        Assert.Equal("newer", incoming?.PeerEndpointId);
+        Assert.Equal("Laptop", incoming?.RemoteDisplayName);
+        Assert.True(PairingPromptPolicy.IsPending(incoming!, relationships, eligibilities));
+
+        var deferredIncoming = PairingPromptPolicy.Next(relationships, eligibilities, new HashSet<string>
+        {
+            "pairing:older:1",
+            "pairing:newer:3",
+        });
+        Assert.Equal(PairingPromptKind.Eligibility, deferredIncoming?.Kind);
+        Assert.Equal("eligible", deferredIncoming?.PeerEndpointId);
+        Assert.True(PairingPromptPolicy.IsPending(deferredIncoming!, relationships, eligibilities));
+        Assert.False(PairingPromptPolicy.IsPending(deferredIncoming!, relationships, []));
+
+        var onlyEligibility = PairingPromptPolicy.Next([], eligibilities, new HashSet<string>
+        {
+            "eligibility:eligible:session",
+            "eligibility:newer:incoming-session",
+        });
+        Assert.Null(onlyEligibility);
+        Assert.True(PairingPromptPolicy.HasPending([], [], [], eligibilities));
+        Assert.False(PairingPromptPolicy.HasPending([], [], [], []));
+    }
+
+    [Fact]
     public void InvitationRejectsMalformedUtf8AndOversizedFiles()
     {
         Assert.Throws<DecoderFallbackException>(() => InvitationDocument.Decode([0xff, 0xfe]));

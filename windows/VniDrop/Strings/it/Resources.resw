@@ -404,15 +404,18 @@
   <data name="windows_open_folder" xml:space="preserve"><value>Apri cartella</value></data>
   <data name="windows_operation_failed" xml:space="preserve"><value>Impossibile completare questa azione. Riprova.</value></data>
   <data name="windows_preferences_invalid" xml:space="preserve"><value>Impossibile leggere le preferenze salvate. VniDrop le ha conservate inalterate. Ripristina il file delle preferenze prima di riavviare.</value></data>
+  <data name="windows_qr_unavailable" xml:space="preserve"><value>Il codice QR non è disponibile per questo invito. Utilizzi invece Condividi o Salva.</value></data>
   <data name="windows_receive_empty" xml:space="preserve"><value>Apri o trascina un invito .vnd per ricevere file da un altro dispositivo.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Destinatari</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Inserisci da 1 a 8 URL HTTPS di relay distinti, senza credenziali né frammenti.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Esamina richieste</value></data>
+  <data name="windows_save_invitation" xml:space="preserve"><value>Salva</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Salva preferenze</value></data>
   <data name="windows_scan_invitation" xml:space="preserve"><value>Scansiona per ricevere</value></data>
   <data name="windows_selection_invalid" xml:space="preserve"><value>Scegli più file o una sola cartella.</value></data>
   <data name="windows_selection_required" xml:space="preserve"><value>Scegli i file e inserisci un nome per il trasferimento.</value></data>
   <data name="windows_send_empty" xml:space="preserve"><value>Scegli file o una cartella, poi condividi un invito con il dispositivo destinatario. Puoi anche trascinare i file qui.</value></data>
   <data name="windows_share_busy" xml:space="preserve"><value>Completa o chiudi la condivisione Windows in corso prima di condividere di nuovo.</value></data>
+  <data name="windows_share_description" xml:space="preserve"><value>Condividi con Windows, scansiona il codice QR o salva un file di invito.</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Sblocca</value></data>
 </root>

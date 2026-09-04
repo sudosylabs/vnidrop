@@ -35,16 +35,16 @@
           AutomationProperties.AutomationId="EmptyCreateTransfer"
           Style="{StaticResource VniDropPrimaryButtonStyle}"
           Click="PrimaryClicked">
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <FontIcon x:Name="PrimaryIcon" FontSize="16" />
-          <TextBlock x:Name="PrimaryText" />
+        <StackPanel Style="{StaticResource VniDropButtonContentPanelStyle}">
+          <FontIcon x:Name="PrimaryIcon" Style="{StaticResource VniDropButtonContentIconStyle}" />
+          <TextBlock x:Name="PrimaryText" Style="{StaticResource VniDropButtonContentTextStyle}" />
         </StackPanel>
       </Button>
       <Button
           x:Name="SecondaryButton"
           Style="{StaticResource VniDropSecondaryButtonStyle}"
           Click="SecondaryClicked">
-        <TextBlock x:Name="SecondaryText" />
+        <TextBlock x:Name="SecondaryText" Style="{StaticResource VniDropButtonContentTextStyle}" />
       </Button>
     </StackPanel>
   </StackPanel>

@@ -8,17 +8,28 @@
     <settings:SettingsPageLayout.PageContent>
       <StackPanel Spacing="10">
         <TextBlock Text="{x:Bind p:Strings.Get('appearance_title')}" Style="{StaticResource VniDropSectionTitleStyle}" />
-        <Border Style="{StaticResource VniDropCardStyle}">
-          <StackPanel x:Name="ThemeChoices">
-            <RadioButton x:Name="SystemTheme" Tag="System" GroupName="Theme" Style="{StaticResource VniDropPolicyOptionStyle}" Checked="ThemeChanged">
-              <StackPanel Spacing="3"><TextBlock Text="{x:Bind p:Strings.Get('appearance_system_mode')}" /><TextBlock Text="{x:Bind p:Strings.Get('appearance_auto_description')}" Style="{StaticResource VniDropCaptionTextStyle}" /></StackPanel>
-            </RadioButton>
-            <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
-            <RadioButton x:Name="LightTheme" Tag="Light" GroupName="Theme" Style="{StaticResource VniDropPolicyOptionStyle}" Content="{x:Bind p:Strings.Get('appearance_light_mode')}" Checked="ThemeChanged" />
-            <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
-            <RadioButton x:Name="DarkTheme" Tag="Dark" GroupName="Theme" Style="{StaticResource VniDropPolicyOptionStyle}" Content="{x:Bind p:Strings.Get('appearance_dark_mode')}" Checked="ThemeChanged" />
-          </StackPanel>
+        <Border Style="{StaticResource VniDropCardStyle}" Padding="16,12">
+          <RadioButtons
+              x:Name="ThemeChoices"
+              MaxColumns="1"
+              AutomationProperties.Name="{x:Bind p:Strings.Get('appearance_title')}"
+              SelectionChanged="ThemeChanged">
+            <RadioButton
+                x:Name="SystemTheme"
+                Content="{x:Bind p:Strings.Get('appearance_system_mode')}"
+                AutomationProperties.HelpText="{x:Bind p:Strings.Get('appearance_auto_description')}" />
+            <RadioButton
+                x:Name="LightTheme"
+                Content="{x:Bind p:Strings.Get('appearance_light_mode')}" />
+            <RadioButton
+                x:Name="DarkTheme"
+                Content="{x:Bind p:Strings.Get('appearance_dark_mode')}" />
+          </RadioButtons>
         </Border>
+        <TextBlock
+            x:Name="ThemeDescription"
+            Text="{x:Bind p:Strings.Get('appearance_auto_description')}"
+            Style="{StaticResource VniDropSecondaryTextStyle}" />
       </StackPanel>
     </settings:SettingsPageLayout.PageContent>
   </settings:SettingsPageLayout>

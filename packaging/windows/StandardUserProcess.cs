@@ -29,7 +29,7 @@ public static class StandardUserProcess
     static extern bool GetTokenInformation(SafeAccessTokenHandle token, int kind, IntPtr data, int size, out int needed);
     [DllImport("advapi32.dll", SetLastError = true)]
     static extern bool CreateRestrictedToken(SafeAccessTokenHandle existing, uint flags,
-        uint disabledCount, ref MandatoryLabel disabled, uint deletedCount, IntPtr deleted,
+        uint disabledCount, IntPtr disabled, uint deletedCount, IntPtr deleted,
         uint restrictedCount, IntPtr restricted, out SafeAccessTokenHandle token);
     [DllImport("advapi32.dll", SetLastError = true)]
     static extern bool SetTokenInformation(SafeAccessTokenHandle token, int kind, ref MandatoryLabel label, int size);
@@ -108,20 +108,10 @@ public static class StandardUserProcess
             using (existing)
             {
                 SafeAccessTokenHandle restricted;
-                // Remove administrative access explicitly, preserving the runner's logon
-                // session groups needed to initialize processes on its existing desktop.
-                var administrators = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
-                var adminBytes = new byte[administrators.BinaryLength];
-                administrators.GetBinaryForm(adminBytes, 0);
-                var adminData = Marshal.AllocHGlobal(adminBytes.Length);
-                try
-                {
-                    Marshal.Copy(adminBytes, 0, adminData, adminBytes.Length);
-                    var disabled = new MandatoryLabel { Sid = adminData };
-                    if (!CreateRestrictedToken(existing, 1, 1, ref disabled, 0, IntPtr.Zero, 0, IntPtr.Zero, out restricted))
-                        throw Failure("CreateRestrictedToken");
-                }
-                finally { Marshal.FreeHGlobal(adminData); }
+                // Hosted runners have UAC disabled, so synthesize the limited-user
+                // token that normal interactive Windows sessions already provide.
+                if (!CreateRestrictedToken(existing, 0x5, 0, IntPtr.Zero, 0, IntPtr.Zero, 0, IntPtr.Zero, out restricted))
+                    throw Failure("CreateRestrictedToken");
                 using (restricted)
                 {
                     // An administrator token's default DACL can rely on Administrators

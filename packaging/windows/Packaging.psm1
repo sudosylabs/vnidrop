@@ -42,7 +42,7 @@ function Get-PackagingWix {
     $directory = Join-Path $repo 'build/windows/tools/wix'
     $wix = Join-Path $directory 'wix.exe'
     if (!(Test-Path -LiteralPath $wix)) {
-        & $dotnet tool install wix --version 4.0.6 --tool-path $directory --allow-roll-forward
+        & $dotnet tool install wix --version 4.0.6 --tool-path $directory --allow-roll-forward | Out-Host
         if ($LASTEXITCODE) { throw 'WiX installation failed' }
     }
     $version = & $wix --version
@@ -51,7 +51,7 @@ function Get-PackagingWix {
     if (!(Test-Path -LiteralPath $extension)) {
         Push-Location $directory
         try {
-            & $wix extension add WixToolset.Bal.wixext/4.0.6
+            & $wix extension add WixToolset.Bal.wixext/4.0.6 | Out-Host
             if ($LASTEXITCODE) { throw 'WiX bootstrapper extension installation failed' }
         } finally { Pop-Location }
     }

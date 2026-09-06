@@ -167,6 +167,9 @@ Omitting `-LegacyInstaller` uses a small synthetic MSI for local diagnostics;
 the release workflow always supplies the published installer. The MSIX test uses
 Developer Mode to register its extracted payload temporarily, then verifies
 localized startup, warm/cold notification COM activation and removal.
+The MSIX test also requires an absent default VniDrop profile. It uses that profile
+for cold activation without changing the manifest's exact SDK activation argument,
+then moves its newly created profile under `build/windows/msix-test` for inspection.
 CI enables Developer Mode only for that test and restores its previous setting.
 Neither test signs or changes the release MSIX. Store-delivered upgrades, real
 notification delivery/clicks and existing user profiles on Windows 10/11 remain

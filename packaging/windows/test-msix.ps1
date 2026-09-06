@@ -10,10 +10,9 @@ $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 Import-Module "$PSScriptRoot/Packaging.psm1" -Force
 $stage = Join-Path $repo ('build/windows/msix-test/' + [guid]::NewGuid().ToString('N'))
 $layout = Join-Path $stage 'package'
-$profile = Join-Path $stage 'profile with spaces'
-[IO.Directory]::CreateDirectory($profile) | Out-Null
-Set-Content -LiteralPath (Join-Path $profile 'windows-preferences.json') -Value '{"Username":"MSIX test","RelayMode":3}'
+$profile = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.vnidrop'
 if (Get-AppxPackage -Name 'SudosyLabs.Vnidrop') { throw 'MSIX test requires an account without an installed VniDrop Store package' }
+if (Test-Path -LiteralPath $profile) { throw 'MSIX notification tests require a clean account without an existing default VniDrop profile' }
 $developerKey = 'HKLM:/SOFTWARE/Microsoft/Windows/CurrentVersion/AppModelUnlock'
 $oldDeveloperMode = Get-ItemPropertyValue -LiteralPath $developerKey -Name AllowDevelopmentWithoutDevLicense -ErrorAction SilentlyContinue
 if ($oldDeveloperMode -ne 1 -and !$EnableDeveloperMode) { throw 'Loose-package testing needs Developer Mode. Use an isolated Windows test machine.' }
@@ -24,10 +23,8 @@ if ($LASTEXITCODE) { throw 'MSIX test extraction failed' }
 Assert-NotificationRegistration $testManifest
 $notificationActivation = $testManifest.SelectSingleNode('//*[local-name()="ToastNotificationActivation"]')
 $notificationClsid = [guid]$notificationActivation.GetAttribute('ToastActivatorCLSID')
-$notificationServer = $testManifest.SelectSingleNode('//*[local-name()="ExeServer"]')
-# Cold COM activation must use the isolated test profile instead of the user's real identity.
-$notificationServer.SetAttribute('Arguments', ('----AppNotificationActivated: --profile "' + $profile + '"'))
-$testManifest.Save((Join-Path $layout 'AppxManifest.xml'))
+# The SDK matches the COM activation argument exactly; cold activation uses the
+# default profile on this clean account, without modifying the production manifest.
 # Development registration uses the extracted payload; the Store upload remains unsigned and unchanged.
 Remove-Item -LiteralPath (Join-Path $layout 'AppxBlockMap.xml') -Force
 Add-Type -AssemblyName UIAutomationClient
@@ -60,7 +57,11 @@ public static class VniDropPackageTest {
 '@
 $registered = $null
 $process = $null
+$profileCreated = $false
 try {
+    [void][IO.Directory]::CreateDirectory($profile)
+    $profileCreated = $true
+    Set-Content -LiteralPath (Join-Path $profile 'windows-preferences.json') -Value '{"Username":"MSIX test","RelayMode":3}'
     if ($oldDeveloperMode -ne 1) {
         [void](New-Item -Path $developerKey -Force)
         Set-ItemProperty -LiteralPath $developerKey -Name AllowDevelopmentWithoutDevLicense -Value 1 -Type DWord
@@ -94,12 +95,14 @@ try {
         throw 'Packaged WinUI startup or localization did not load'
     }
     $appId = $registered.PackageFamilyName + '!VniDrop'
+    Write-Host 'Testing notification activation with the app running.'
     [VniDropPackageTest]::Notify($notificationClsid, $appId)
     $process.Refresh()
     if ($process.HasExited -or !$process.Responding) { throw 'Notification activation did not reach the running app' }
     [void]$process.CloseMainWindow()
     if (!$process.WaitForExit(15000)) { throw 'Packaged WinUI app did not shut down cleanly' }
     $process = $null
+    Write-Host 'Testing notification activation after the app exits.'
     [VniDropPackageTest]::Notify($notificationClsid, $appId)
     $deadline.Restart()
     do {
@@ -116,6 +119,16 @@ try {
 } finally {
     if ($process -and !$process.HasExited) { $process.Kill(); $process.WaitForExit() }
     if ($registered) { Remove-AppxPackage -Package $registered.PackageFullName }
+    if ($profileCreated -and (Test-Path -LiteralPath $profile)) {
+        $resolvedProfile = (Resolve-Path -LiteralPath $profile).Path
+        $retainedProfile = [IO.Path]::GetFullPath((Join-Path $stage 'profile'))
+        if ($resolvedProfile -ne [IO.Path]::GetFullPath($profile) -or
+            (Get-Item -LiteralPath $profile).Attributes -band [IO.FileAttributes]::ReparsePoint -or
+            !$retainedProfile.StartsWith([IO.Path]::GetFullPath($stage) + [IO.Path]::DirectorySeparatorChar)) {
+            throw 'Unsafe MSIX test profile cleanup path'
+        }
+        Move-Item -LiteralPath $resolvedProfile -Destination $retainedProfile
+    }
     if ($oldDeveloperMode -ne 1 -and $EnableDeveloperMode) {
         if ($null -eq $oldDeveloperMode) { Remove-ItemProperty -LiteralPath $developerKey -Name AllowDevelopmentWithoutDevLicense -ErrorAction SilentlyContinue }
         else { Set-ItemProperty -LiteralPath $developerKey -Name AllowDevelopmentWithoutDevLicense -Value $oldDeveloperMode -Type DWord }

@@ -13,11 +13,8 @@
         <Border Style="{StaticResource VniDropCardStyle}" Padding="16">
           <Grid ColumnSpacing="16">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-            <StackPanel Spacing="4" VerticalAlignment="Center">
-              <TextBlock Text="{x:Bind p:Strings.Get('notifications_local_title')}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-              <TextBlock Text="{x:Bind p:Strings.Get('notifications_description')}" Style="{StaticResource VniDropCaptionTextStyle}" />
-            </StackPanel>
-            <ToggleSwitch x:Name="Notifications" Grid.Column="1" OnContent="{x:Bind p:Strings.Get('windows_on')}" OffContent="{x:Bind p:Strings.Get('windows_off')}" Toggled="NotificationsChanged" />
+            <TextBlock Text="{x:Bind p:Strings.Get('notifications_local_title')}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap" VerticalAlignment="Center" />
+            <ToggleSwitch x:Name="Notifications" Grid.Column="1" VerticalAlignment="Center" OnContent="{x:Bind p:Strings.Get('windows_on')}" OffContent="{x:Bind p:Strings.Get('windows_off')}" Toggled="NotificationsChanged" />
           </Grid>
         </Border>
         <InfoBar x:Name="NotificationUnavailable" Severity="Warning" IsOpen="False" IsClosable="False" Message="{x:Bind p:Strings.Get('notifications_unsupported')}" />

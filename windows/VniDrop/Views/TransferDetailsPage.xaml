@@ -93,18 +93,23 @@
               </Grid.ColumnDefinitions>
               <StackPanel Spacing="4">
                 <TextBlock
-                    Text="{x:Bind p:Strings.Get('metadata_size')}"
+                    Text="{x:Bind p:Strings.Get('windows_metadata_file_count')}"
                     Style="{StaticResource VniDropCaptionTextStyle}" />
-                <TextBlock Text="{x:Bind Item.Summary, Mode=OneWay}" TextWrapping="Wrap" />
+                <TextBlock x:Name="FileCountText" Text="{x:Bind Item.FileCount, Mode=OneWay}" TextWrapping="Wrap" />
               </StackPanel>
-              <StackPanel x:Name="AccessRow" Grid.Column="1" Spacing="4" Visibility="Collapsed">
+              <StackPanel Grid.Column="1" Spacing="4">
                 <TextBlock
-                    Text="{x:Bind p:Strings.Get('send_access_title')}"
+                    Text="{x:Bind p:Strings.Get('windows_metadata_transfer_size')}"
                     Style="{StaticResource VniDropCaptionTextStyle}" />
-                <TextBlock Text="{x:Bind Item.Access, Mode=OneWay}" TextWrapping="Wrap" />
+                <TextBlock x:Name="TransferSizeText" Text="{x:Bind Item.TransferSize, Mode=OneWay}" TextWrapping="Wrap" />
               </StackPanel>
             </Grid>
-            <Rectangle x:Name="AccessDivider" Height="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Visibility="Collapsed" />
+            <StackPanel x:Name="AccessRow" Spacing="4" Visibility="Collapsed">
+              <TextBlock
+                  Text="{x:Bind p:Strings.Get('send_access_title')}"
+                  Style="{StaticResource VniDropCaptionTextStyle}" />
+              <TextBlock x:Name="AccessText" Text="{x:Bind Item.Access, Mode=OneWay}" TextWrapping="Wrap" />
+            </StackPanel>
             <StackPanel Visibility="{x:Bind Item.ShowProgress, Mode=OneWay}" Spacing="6">
               <ProgressBar
                   Value="{x:Bind Item.Progress, Mode=OneWay}"

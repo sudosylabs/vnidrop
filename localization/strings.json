@@ -6217,6 +6217,36 @@
         "ru": "Включены"
       }
     },
+    "windows_metadata_file_count": {
+      "context": "Windows transfer details: label above the number of files in the transfer.",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Number of files",
+        "fr": "Nombre de fichiers",
+        "es": "Número de archivos",
+        "it": "Numero di file",
+        "de": "Anzahl der Dateien",
+        "pt": "Número de ficheiros",
+        "pl": "Liczba plików",
+        "nl": "Aantal bestanden",
+        "ru": "Количество файлов"
+      }
+    },
+    "windows_metadata_transfer_size": {
+      "context": "Windows transfer details: label above the total size of the transfer.",
+      "targets": ["windows"],
+      "translations": {
+        "en": "Size of transfer",
+        "fr": "Taille du transfert",
+        "es": "Tamaño de la transferencia",
+        "it": "Dimensione del trasferimento",
+        "de": "Übertragungsgröße",
+        "pt": "Tamanho da transferência",
+        "pl": "Rozmiar transferu",
+        "nl": "Overdrachtsgrootte",
+        "ru": "Размер передачи"
+      }
+    },
     "windows_off": {
       "context": "Windows notifications toggle: disabled",
       "targets": ["windows"],

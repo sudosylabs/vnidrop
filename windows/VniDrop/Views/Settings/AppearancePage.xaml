@@ -7,7 +7,6 @@
   <settings:SettingsPageLayout Title="{x:Bind p:Strings.Get('appearance_title')}" BackRequested="Back">
     <settings:SettingsPageLayout.PageContent>
       <StackPanel Spacing="10">
-        <TextBlock Text="{x:Bind p:Strings.Get('appearance_title')}" Style="{StaticResource VniDropSectionTitleStyle}" />
         <Border Style="{StaticResource VniDropCardStyle}" Padding="16,12">
           <RadioButtons
               x:Name="ThemeChoices"

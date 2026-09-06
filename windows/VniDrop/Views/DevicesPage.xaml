@@ -186,11 +186,12 @@
 
           <StackPanel Spacing="10">
             <TextBlock
+                x:Name="SavedDevicesHeading"
                 Text="{x:Bind p:Strings.Get('saved_devices_list_title')}"
                 Style="{StaticResource VniDropSectionTitleStyle}" />
             <controls:EmptyState
                 x:Name="SavedEmpty"
-                Glyph="&#xE772;"
+                Glyph="&#xE975;"
                 Title="{x:Bind p:Strings.Get('saved_devices_empty_title')}"
                 Description="{x:Bind p:Strings.Get('saved_devices_empty')}"
                 Visibility="Collapsed" />
@@ -223,7 +224,7 @@
                         CornerRadius="8"
                         Background="{ThemeResource ControlFillColorSecondaryBrush}">
                       <FontIcon
-                          Glyph="&#xE772;"
+                          Glyph="&#xE975;"
                           FontSize="22"
                           HorizontalAlignment="Center"
                           VerticalAlignment="Center"

@@ -29,7 +29,7 @@ public sealed partial class TransferDetailsPage : Page
     {
         var send = Item.Transfer.direction == "send";
         ShareButton.Visibility = send && Item.Transfer.status is "sharing" or "importing" ? Visibility.Visible : Visibility.Collapsed;
-        AccessRow.Visibility = AccessDivider.Visibility = send ? Visibility.Visible : Visibility.Collapsed;
+        AccessRow.Visibility = send ? Visibility.Visible : Visibility.Collapsed;
         ReceiversButton.Visibility = send ? Visibility.Visible : Visibility.Collapsed;
         Destinations.Visibility = send ? Visibility.Visible : Visibility.Collapsed;
         StopButton.Visibility = Item.CanStop ? Visibility.Visible : Visibility.Collapsed;

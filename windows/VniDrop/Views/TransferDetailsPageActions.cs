@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using VniDrop.Controls;
 using VniDrop.Core;
 using VniDrop.Platform;
 using VniDrop.Services;
@@ -57,7 +58,7 @@ public sealed class TransferDetailsPageActions(TransferItem item)
             var content = new StackPanel { Spacing = 3 }; content.Children.Add(Text(Strings.Get(key!)));
             content.Children.Add(Text(DateTimeOffset.FromUnixTimeMilliseconds(entry.timestamp).ToLocalTime().ToString("g"), true)); Grid.SetColumn(content, 1); row.Children.Add(content); panel.Children.Add(row);
         }
-        await ShowAsync(Strings.Get("transfer_activity_title"), new ScrollViewer { Content = panel, MaxHeight = 560 });
+        await App.Window.ShowDialogAsync(new ScrollableListDialog(Strings.Get("transfer_activity_title"), panel));
     }
 
     public async Task ReceiversAsync()
@@ -81,7 +82,7 @@ public sealed class TransferDetailsPageActions(TransferItem item)
             if (!string.IsNullOrWhiteSpace(receiver.reason)) block.Children.Add(Text(receiver.reason!, true));
             panel.Children.Add(block);
         }
-        await ShowAsync(Strings.Get("transfer_receivers_title"), new ScrollViewer { Content = panel, MaxHeight = 560 });
+        await App.Window.ShowDialogAsync(new ScrollableListDialog(Strings.Get("transfer_receivers_title"), panel));
     }
 
     public async Task StopAsync()

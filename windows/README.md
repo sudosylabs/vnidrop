@@ -61,6 +61,17 @@ startup, navigation resource names, modal transfer flows, settings persistence,
 single-instance redirection, `.vnd` activation, invalid invitation feedback,
 and shutdown. It leaves its isolated profile under `build/windows/smoke`.
 
+Transfer-detail layout and scrolling checks use an isolated 22-file transfer with
+12 completed receivers. Choose a new fixture directory for each run:
+
+```powershell
+dotnet run --project windows/scripts/fixtures/TransferDetails/TransferDetails.csproj -- build/windows/details-fixture
+powershell.exe -NoProfile -File windows/scripts/smoke-transfer-details.ps1 -Executable windows/VniDrop/bin/Debug/net10.0-windows10.0.26100.0/win-x64/VniDrop.exe -ProfileDirectory build/windows/details-fixture/sender
+```
+
+These checks cover separate metadata, action alignment at 1200/800/500 effective
+pixels, and internal history scrolling with fixed dialog controls after resizing.
+
 For manual acceptance, create an approval-required share through the file picker,
 export its `.vnd` invitation, receive it on a second device, approve the request,
 and check the downloaded bytes. Also check light/dark mode, keyboard navigation,

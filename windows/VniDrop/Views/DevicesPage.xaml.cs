@@ -113,6 +113,7 @@ public sealed partial class DevicesPage : Page
             BlockedItems.ItemsSource = blocked;
             BlockedSection.Visibility = blocked.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
             SavedDevices.ItemsSource = savedItems;
+            SavedDevicesHeading.Visibility = savedItems.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
             SavedEmpty.Visibility = savedItems.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
         finally

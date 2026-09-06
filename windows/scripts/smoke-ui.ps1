@@ -96,6 +96,23 @@ function Assert-NoPageShortcutTooltip {
         Start-Sleep -Milliseconds 100
     }
 }
+function Assert-PageHeading {
+    $title = Control 'TitleText'
+    if (!$title) { throw 'The page has no heading.' }
+    $matches = $script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.AndCondition]::new(
+            [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text),
+            [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, $title.Current.Name)))
+    $visible = @($matches | Where-Object { !$_.Current.IsOffscreen })
+    if ($visible.Count -ne 1) { throw "Expected one visible page heading, found $($visible.Count): $($title.Current.Name)" }
+}
+function Assert-HeaderAlignment {
+    $title = (Control 'TitleText').Current.BoundingRectangle
+    $subtitle = (Control 'SubtitleText').Current.BoundingRectangle
+    if ($subtitle.IsEmpty -or [Math]::Abs($title.Left - $subtitle.Left) -gt 1 -or $subtitle.Top -lt $title.Bottom) {
+        throw "Page title and description must share a left edge without overlap: title=$title subtitle=$subtitle"
+    }
+}
 try {
     $arguments = @('--profile', ('"' + $profile + '"'))
     $appProcess = Start-Process -FilePath $Executable -ArgumentList $arguments -PassThru
@@ -116,6 +133,9 @@ try {
     Invoke-Control 'CloseButton'
     Wait-Until { $null -eq (Control 'ChooseFilesButton') } 'Send dialog did not close.'
     Select-Control 'NavDevices'
+    Wait-Until { $title = Control 'TitleText'; $description = Control 'DescriptionText'; $title -and $title.Current.Name -eq (Control 'NavDevices').Current.Name -and $description -and !$description.Current.IsOffscreen } 'Devices did not show its empty state.'
+    $savedHeading = Control 'SavedDevicesHeading'
+    if ($savedHeading -and !$savedHeading.Current.IsOffscreen) { throw 'The saved-device list heading must only accompany a populated list.' }
     Select-Control 'SettingsItem'
     $scale = [VniDropSmokeInput]::GetDpiForWindow($appProcess.MainWindowHandle) / 96.0
     foreach ($width in @(1200, 800, 500)) {
@@ -124,6 +144,19 @@ try {
         Wait-Until { try { Assert-ShortValueInline 'PreferencesRow'; return $true } catch { return $false } } "Short value wrapped below its label at $width effective pixels."
     }
     Assert-NoPageShortcutTooltip
+    foreach ($page in @(@('AppearanceRow', 'ThemeChoices'), @('NetworkRow', 'ModeChoices'), @('NotificationsRow', 'Notifications'))) {
+        Invoke-Control $page[0]
+        Wait-Until { (Control $page[1]) -and $null -eq (Control 'PreferencesRow') } "Settings page did not open: $($page[0])"
+        Assert-PageHeading
+        if ($page[0] -eq 'NotificationsRow') {
+            foreach ($width in @(1200, 800, 500)) {
+                [VniDropSmokeInput]::SetWindowPos($appProcess.MainWindowHandle, [IntPtr]::Zero, 0, 0, [int]($width * $scale), [int](760 * $scale), 0x0040) | Out-Null
+                Wait-Until { try { Assert-HeaderAlignment; return $true } catch { return $false } } "Notification header is misaligned at $width effective pixels."
+            }
+        }
+        Invoke-Control 'NavigationViewBackButton'
+        Wait-Until { (Control 'PreferencesRow') -and $null -eq (Control $page[1]) } 'Settings did not return to its root.'
+    }
     [VniDropSmokeInput]::SetWindowPos($appProcess.MainWindowHandle, [IntPtr]::Zero, 0, 0, [int](1000 * $scale), [int](760 * $scale), 0x0040) | Out-Null
     Invoke-Control 'PreferencesRow'
     Wait-Until { Control 'DisplayNameTextBox' } 'Preferences did not open for keyboard navigation.'
@@ -190,7 +223,7 @@ try {
     Wait-Until { $appProcess.Refresh(); $appProcess.HasExited } 'Native app did not shut down cleanly.'
     $closedUsername = (Get-Content -Raw -LiteralPath (Join-Path $profile 'windows-preferences.json') | ConvertFrom-Json).Username
     if ($closedUsername -ne 'Close flush smoke test') { throw "Pending settings were lost during shutdown: $closedUsername" }
-    Write-Output 'PASS: native startup, resources, responsive row values, shortcut tooltips and Alt+Left, navigation, modal transfer flow, settings autosave and both close-flush paths, single instance, file activation, and shutdown.'
+    Write-Output 'PASS: native startup, resources, empty devices, settings headings and responsive header alignment, responsive row values, shortcut tooltips and Alt+Left, navigation, modal transfer flow, settings autosave and both close-flush paths, single instance, file activation, and shutdown.'
     Write-Output "QA profile: $profile"
 } catch {
     Write-Output ("FAIL: " + $_.ScriptStackTrace)

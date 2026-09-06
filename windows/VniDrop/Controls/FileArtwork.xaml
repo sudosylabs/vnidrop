@@ -3,12 +3,10 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     AutomationProperties.AccessibilityView="Raw">
-  <Border Style="{StaticResource VniDropFileArtworkSurfaceStyle}">
-    <Grid>
-      <FontIcon x:Name="FallbackIcon" FontSize="22"
-          Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-          HorizontalAlignment="Center" VerticalAlignment="Center" />
-      <Image x:Name="PreviewImage" Stretch="Uniform" Visibility="Collapsed" />
-    </Grid>
-  </Border>
+  <Grid>
+    <FontIcon x:Name="FallbackIcon" FontSize="22"
+        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+        HorizontalAlignment="Center" VerticalAlignment="Center" />
+    <Image x:Name="PreviewImage" Stretch="Uniform" Visibility="Collapsed" />
+  </Grid>
 </UserControl>

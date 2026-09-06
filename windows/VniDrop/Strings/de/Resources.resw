@@ -397,6 +397,8 @@
   <data name="windows_close_title" xml:space="preserve"><value>VniDrop schließen?</value></data>
   <data name="windows_delete_body" xml:space="preserve"><value>Diese Übertragung aus dem Verlauf entfernen? Empfangene Dateien bleiben auf diesem Gerät.</value></data>
   <data name="windows_keep_open" xml:space="preserve"><value>Lassen Sie VniDrop geöffnet, während andere diese Übertragung empfangen.</value></data>
+  <data name="windows_metadata_file_count" xml:space="preserve"><value>Anzahl der Dateien</value></data>
+  <data name="windows_metadata_transfer_size" xml:space="preserve"><value>Übertragungsgröße</value></data>
   <data name="windows_name_required" xml:space="preserve"><value>Geben Sie einen Anzeigenamen ein.</value></data>
   <data name="windows_network_busy" xml:space="preserve"><value>Beenden Sie aktive Übertragungen und Freigaben, bevor Sie das Netzwerk ändern oder den Cache leeren.</value></data>
   <data name="windows_off" xml:space="preserve"><value>Aus</value></data>

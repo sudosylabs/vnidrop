@@ -14,6 +14,8 @@ public sealed class TransferItem : ObservableModel
     private string previewPath = "";
     public string PreviewPath { get => previewPath; set => Set(ref previewPath, value); }
     public string Summary => Strings.FileSummary(Transfer.fileCount, Transfer.totalSize);
+    public string FileCount => Transfer.fileCount.ToString("N0");
+    public string TransferSize => Strings.Size(Transfer.totalSize);
     public string Access => Strings.Get(Transfer.accessMode == TransferAccessMode.ApprovalRequired ? "send_access_approval" : "send_access_anyone");
     public string CatalogDetail => Transfer.direction == "send" ? Summary + " · " + Access : Summary;
     public string Status => Strings.Get(Transfer.status switch

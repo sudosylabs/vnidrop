@@ -36,7 +36,7 @@
             Content="{x:Bind p:Strings.Get('nav_saved_devices')}"
             Tag="devices">
           <NavigationViewItem.Icon>
-            <FontIcon Glyph="&#xE772;" />
+            <FontIcon Glyph="&#xE975;" />
           </NavigationViewItem.Icon>
         </NavigationViewItem>
       </NavigationView.MenuItems>

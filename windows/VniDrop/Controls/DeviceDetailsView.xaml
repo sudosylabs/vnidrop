@@ -20,7 +20,7 @@
               CornerRadius="10"
               Background="{ThemeResource ControlFillColorSecondaryBrush}">
             <FontIcon
-                Glyph="&#xE772;"
+                Glyph="&#xE975;"
                 FontSize="25"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"

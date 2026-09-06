@@ -397,6 +397,8 @@
   <data name="windows_close_title" xml:space="preserve"><value>Fechar o VniDrop?</value></data>
   <data name="windows_delete_body" xml:space="preserve"><value>Remover esta transferência do histórico? Os ficheiros recebidos permanecerão neste dispositivo.</value></data>
   <data name="windows_keep_open" xml:space="preserve"><value>Mantenha o VniDrop aberto enquanto os destinatários recebem esta transferência.</value></data>
+  <data name="windows_metadata_file_count" xml:space="preserve"><value>Número de ficheiros</value></data>
+  <data name="windows_metadata_transfer_size" xml:space="preserve"><value>Tamanho da transferência</value></data>
   <data name="windows_name_required" xml:space="preserve"><value>Introduza um nome de apresentação.</value></data>
   <data name="windows_network_busy" xml:space="preserve"><value>Conclua as transferências ativas e pare a partilha antes de alterar a rede ou limpar a cache.</value></data>
   <data name="windows_off" xml:space="preserve"><value>Desativadas</value></data>

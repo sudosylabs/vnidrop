@@ -26,6 +26,7 @@ try {
     & $bun run localization/src/cli.ts generate
     if ($LASTEXITCODE) { throw 'Localization generation failed' }
     if ($Test) {
+        & "$PSScriptRoot/test-icons.ps1"
         & "$PSScriptRoot/test-file-association.ps1"
         & $bun run localization/src/cli.ts validate
         if ($LASTEXITCODE) { throw 'Localization validation failed' }

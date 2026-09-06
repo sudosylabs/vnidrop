@@ -7,6 +7,7 @@ $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $stage = Join-Path $repo ('build/windows/standard-user-test/' + [guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($stage)
 $result = Join-Path $stage 'result.json'
+$log = Join-Path $stage 'launcher.log'
 $script = @'
 $ErrorActionPreference = 'Stop'
 Add-Type -Path '{0}'
@@ -19,9 +20,10 @@ $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 exit 23
 '@ -f ("$PSScriptRoot/StandardUserProcess.cs".Replace("'", "''")), $result.Replace("'", "''")
 $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
-$child = [StandardUserProcess]::Start("$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe", "-NoProfile -NonInteractive -EncodedCommand $encoded", $repo)
+$child = [StandardUserProcess]::Start("$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe", "-NoProfile -NonInteractive -EncodedCommand $encoded", $repo, $log)
 try {
     if (!$child.WaitForExit(30000)) { throw 'Standard-user process test timed out' }
+    Write-Host "Child exit code: $($child.ExitCode)"
     $actual = Get-Content -LiteralPath $result -Raw | ConvertFrom-Json
     Write-Host "Standard-user child: $($actual | ConvertTo-Json -Compress)"
     if ($actual.Integrity -ne 0x2000 -or $actual.Administrator -or
@@ -33,4 +35,5 @@ try {
 } finally {
     if (!$child.HasExited) { $child.Kill(); $child.WaitForExit() }
     $child.Dispose()
+    if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log | Write-Host }
 }

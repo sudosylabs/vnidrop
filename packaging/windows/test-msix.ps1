@@ -23,6 +23,7 @@ if ($integrity -ge 0x3000) {
     if (!$EnableDeveloperMode) { throw 'Notification activation must be tested from a non-elevated PowerShell process' }
     [void][IO.Directory]::CreateDirectory($stage)
     $log = Join-Path $stage 'activation.log'
+    $launcherLog = Join-Path $stage 'launcher.log'
     $script = @'
 $ErrorActionPreference = 'Stop'
 try {{ & '{0}' -Package '{1}' *> '{2}'; exit 0 }}
@@ -35,7 +36,7 @@ catch {{ $_ | Out-String | Add-Content -LiteralPath '{2}'; exit 1 }}
             [void](New-Item -Path $developerKey -Force)
             Set-ItemProperty -LiteralPath $developerKey -Name AllowDevelopmentWithoutDevLicense -Value 1 -Type DWord
         }
-        $child = [StandardUserProcess]::Start("$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe", "-NoProfile -NonInteractive -EncodedCommand $encoded", $repo)
+        $child = [StandardUserProcess]::Start("$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe", "-NoProfile -NonInteractive -EncodedCommand $encoded", $repo, $launcherLog)
         if (!$child.WaitForExit(240000)) { throw 'Non-elevated MSIX activation test timed out' }
         if ($child.ExitCode) { throw "Non-elevated MSIX activation test failed with exit code $($child.ExitCode)" }
     } finally {
@@ -44,6 +45,7 @@ catch {{ $_ | Out-String | Add-Content -LiteralPath '{2}'; exit 1 }}
             $child.Dispose()
         }
         if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log | Write-Host }
+        if (Test-Path -LiteralPath $launcherLog) { Get-Content -LiteralPath $launcherLog | Write-Host }
         if ($oldDeveloperMode -ne 1) {
             if ($null -eq $oldDeveloperMode) { Remove-ItemProperty -LiteralPath $developerKey -Name AllowDevelopmentWithoutDevLicense -ErrorAction SilentlyContinue }
             else { Set-ItemProperty -LiteralPath $developerKey -Name AllowDevelopmentWithoutDevLicense -Value $oldDeveloperMode -Type DWord }

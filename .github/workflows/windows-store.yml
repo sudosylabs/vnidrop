@@ -116,7 +116,8 @@ jobs:
           name: windows-package-failure-logs
           path: |
             build/windows/installer/test-*/*.log
-            build/windows/msix-test/*/activation.log
+            build/windows/msix-test/*/*.log
+            build/windows/standard-user-test/*/*.log
           if-no-files-found: ignore
           retention-days: 7
 

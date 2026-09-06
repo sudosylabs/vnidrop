@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
@@ -37,6 +38,8 @@ public static class StandardUserProcess
         IntPtr environment, string directory, ref StartupInfo startup, out ProcessInfo process);
     [DllImport("kernel32.dll")]
     static extern bool CloseHandle(IntPtr handle);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool SetHandleInformation(IntPtr handle, uint mask, uint flags);
 
     public static int IntegrityLevel(int processId)
     {
@@ -61,7 +64,7 @@ public static class StandardUserProcess
         }
     }
 
-    public static Process Start(string executable, string arguments, string directory)
+    public static Process Start(string executable, string arguments, string directory, string output)
     {
         using (var current = Process.GetCurrentProcess())
         {
@@ -91,20 +94,28 @@ public static class StandardUserProcess
                         var label = new MandatoryLabel { Sid = data, Attributes = 0x20 };
                         if (!SetTokenInformation(restricted, 25, ref label, Marshal.SizeOf(label) + bytes.Length))
                             throw new Win32Exception();
-                        var startup = new StartupInfo { Size = Marshal.SizeOf(typeof(StartupInfo)), Flags = 1 };
-                        ProcessInfo child;
-                        if (!CreateProcessAsUser(restricted, executable, new StringBuilder("\"" + executable + "\" " + arguments),
-                            IntPtr.Zero, IntPtr.Zero, false, 0x08000000, IntPtr.Zero, directory, ref startup, out child))
-                            throw new Win32Exception();
-                        try
+                        using (var log = new FileStream(output, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
                         {
-                            var process = Process.GetProcessById((int)child.ProcessId);
-                            // Keep a managed handle open before releasing the creation handle,
-                            // so .NET Framework can read the exit code after the child exits.
-                            var handle = process.Handle;
-                            return process;
+                            var outputHandle = log.SafeFileHandle.DangerousGetHandle();
+                            if (!SetHandleInformation(outputHandle, 1, 1)) throw new Win32Exception();
+                            var startup = new StartupInfo {
+                                Size = Marshal.SizeOf(typeof(StartupInfo)), Flags = 0x101,
+                                StdOutput = outputHandle, StdError = outputHandle
+                            };
+                            ProcessInfo child;
+                            if (!CreateProcessAsUser(restricted, executable, new StringBuilder("\"" + executable + "\" " + arguments),
+                                IntPtr.Zero, IntPtr.Zero, true, 0x08000000, IntPtr.Zero, directory, ref startup, out child))
+                                throw new Win32Exception();
+                            try
+                            {
+                                var process = Process.GetProcessById((int)child.ProcessId);
+                                // Keep a managed handle open before releasing the creation handle,
+                                // so .NET Framework can read the exit code after the child exits.
+                                var handle = process.Handle;
+                                return process;
+                            }
+                            finally { CloseHandle(child.Thread); CloseHandle(child.Process); }
                         }
-                        finally { CloseHandle(child.Thread); CloseHandle(child.Process); }
                     }
                     finally { Marshal.FreeHGlobal(data); }
                 }

@@ -1,9 +1,11 @@
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using System.Security.AccessControl;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
 
@@ -40,6 +42,52 @@ public static class StandardUserProcess
     static extern bool CloseHandle(IntPtr handle);
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern bool SetHandleInformation(IntPtr handle, uint mask, uint flags);
+    [DllImport("user32.dll")]
+    static extern IntPtr GetProcessWindowStation();
+    [DllImport("user32.dll")]
+    static extern IntPtr GetThreadDesktop(uint threadId);
+    [DllImport("kernel32.dll")]
+    static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern bool GetUserObjectSecurity(IntPtr handle, ref uint information, byte[] descriptor, uint size, out uint needed);
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern bool SetUserObjectSecurity(IntPtr handle, ref uint information, byte[] descriptor);
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    static extern bool GetUserObjectInformation(IntPtr handle, int kind, StringBuilder value, uint size, out uint needed);
+
+    static string DesktopName(IntPtr handle)
+    {
+        var name = new StringBuilder(256);
+        uint needed;
+        if (!GetUserObjectInformation(handle, 2, name, (uint)name.Capacity * 2, out needed)) throw new Win32Exception();
+        return name.ToString();
+    }
+
+    static readonly Dictionary<IntPtr, byte[]> desktopSecurity = new Dictionary<IntPtr, byte[]>();
+    static void GrantDesktopAccess(IntPtr handle, int access)
+    {
+        uint information = 4, size;
+        GetUserObjectSecurity(handle, ref information, null, 0, out size);
+        if (size == 0) throw new Win32Exception();
+        var original = new byte[size];
+        if (!GetUserObjectSecurity(handle, ref information, original, size, out size)) throw new Win32Exception();
+        var descriptor = new RawSecurityDescriptor(original, 0);
+        if (descriptor.DiscretionaryAcl == null) return;
+        descriptor.DiscretionaryAcl.InsertAce(0, new CommonAce(AceFlags.None, AceQualifier.AccessAllowed,
+            access, WindowsIdentity.GetCurrent().User, false, null));
+        var updated = new byte[descriptor.BinaryLength];
+        descriptor.GetBinaryForm(updated, 0);
+        desktopSecurity.Add(handle, original);
+        if (!SetUserObjectSecurity(handle, ref information, updated)) throw new Win32Exception();
+    }
+
+    public static void RestoreDesktopAccess()
+    {
+        uint information = 4;
+        foreach (var entry in desktopSecurity)
+            if (!SetUserObjectSecurity(entry.Key, ref information, entry.Value)) throw new Win32Exception();
+        desktopSecurity.Clear();
+    }
 
     public static int IntegrityLevel(int processId)
     {
@@ -73,6 +121,12 @@ public static class StandardUserProcess
                     WorkingDirectory = directory, UseShellExecute = false, CreateNoWindow = true
                 });
 
+            // Service-created runner desktops can grant access only through Administrators.
+            // Keep the same account's access while its child runs without that group.
+            GrantDesktopAccess(GetProcessWindowStation(), 0x000F037F);
+            GrantDesktopAccess(GetThreadDesktop(GetCurrentThreadId()), 0x000F01FF);
+            var desktop = DesktopName(GetProcessWindowStation()) + "\\" + DesktopName(GetThreadDesktop(GetCurrentThreadId()));
+
             SafeAccessTokenHandle existing;
             if (!OpenProcessToken(current.Handle, 0x008B, out existing)) throw new Win32Exception();
             using (existing)
@@ -99,7 +153,7 @@ public static class StandardUserProcess
                             var outputHandle = log.SafeFileHandle.DangerousGetHandle();
                             if (!SetHandleInformation(outputHandle, 1, 1)) throw new Win32Exception();
                             var startup = new StartupInfo {
-                                Size = Marshal.SizeOf(typeof(StartupInfo)), Flags = 0x101,
+                                Size = Marshal.SizeOf(typeof(StartupInfo)), Flags = 0x101, Desktop = desktop,
                                 StdOutput = outputHandle, StdError = outputHandle
                             };
                             ProcessInfo child;

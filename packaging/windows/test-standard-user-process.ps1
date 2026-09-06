@@ -20,8 +20,9 @@ $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 exit 23
 '@ -f ("$PSScriptRoot/StandardUserProcess.cs".Replace("'", "''")), $result.Replace("'", "''")
 $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
-$child = [StandardUserProcess]::Start("$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe", "-NoProfile -NonInteractive -EncodedCommand $encoded", $repo, $log)
+$child = $null
 try {
+    $child = [StandardUserProcess]::Start("$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe", "-NoProfile -NonInteractive -EncodedCommand $encoded", $repo, $log)
     if (!$child.WaitForExit(30000)) { throw 'Standard-user process test timed out' }
     Write-Host "Child exit code: $($child.ExitCode)"
     $actual = Get-Content -LiteralPath $result -Raw | ConvertFrom-Json
@@ -33,7 +34,10 @@ try {
     if ($child.ExitCode -ne 23) { throw "Standard-user process lost the child exit code: $($child.ExitCode)" }
     Write-Host 'PASS: child has standard-user privileges, retains its identity and can write its result; exit code preserved.'
 } finally {
-    if (!$child.HasExited) { $child.Kill(); $child.WaitForExit() }
-    $child.Dispose()
+    if ($child) {
+        if (!$child.HasExited) { $child.Kill(); $child.WaitForExit() }
+        $child.Dispose()
+    }
+    [StandardUserProcess]::RestoreDesktopAccess()
     if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log | Write-Host }
 }

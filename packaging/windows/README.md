@@ -62,6 +62,10 @@ embedded MSI must match the validated MSI exactly. PDBs are excluded.
 The direct EXE is a WiX 4.0.6 Burn bundle containing a per-user MSI. The build
 script installs the pinned WiX tool and bootstrapper extension under
 `build/windows/tools/wix`; end users need neither WiX nor .NET installed.
+Its `theme.xml` uses VniDrop artwork, system colors, Segoe UI and native controls
+for install, maintenance, progress and completion screens. UI wording comes from
+the WiX standard localization resources. The extraction test verifies the actual
+embedded theme, artwork and text references.
 The MSI retains the Compose upgrade code
 `E08E256E-2F07-479E-8AA9-4898D424F6C5` and jpackage's `.vnd` ProgId. Major upgrades
 remove the old runtime inside a rollback transaction, including same-version

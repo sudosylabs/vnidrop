@@ -36,6 +36,21 @@ function Run-Installer([string]$Path, [string[]]$Arguments) {
 
 & $tools.Executable burn extract $exe -o (Join-Path $stage 'bundle') -oba (Join-Path $stage 'bootstrapper')
 if ($LASTEXITCODE) { throw 'EXE extraction failed' }
+$repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+foreach ($asset in @(
+    @{ Source = (Join-Path $PSScriptRoot 'theme.xml'); Packed = 'thm.xml' },
+    @{ Source = (Join-Path $repo 'assets/windows/app-icon.png'); Packed = 'logo.png' }
+)) {
+    $packed = Join-Path $stage ('bootstrapper/' + $asset.Packed)
+    Assert ((Get-FileHash -LiteralPath $asset.Source).Hash -eq (Get-FileHash -LiteralPath $packed).Hash) "EXE is missing the current branded setup asset: $($asset.Packed)"
+}
+[xml]$theme = Get-Content -LiteralPath (Join-Path $stage 'bootstrapper/thm.xml') -Raw
+[xml]$themeStrings = Get-Content -LiteralPath (Join-Path $stage 'bootstrapper/thm.wxl') -Raw
+$stringIds = @($themeStrings.SelectNodes('//*[local-name()="String"]') | ForEach-Object { $_.GetAttribute('Id') })
+foreach ($reference in [regex]::Matches($theme.OuterXml, '#\(loc\.([A-Za-z0-9_]+)\)')) {
+    Assert ($reference.Groups[1].Value -cin $stringIds) "Setup text was not packaged: $($reference.Value)"
+}
+Write-Host 'PASS: embedded setup branding, theme and all referenced UI strings.'
 $embeddedMsi = @(Get-ChildItem -LiteralPath (Join-Path $stage 'bundle') -Recurse -Filter '*.msi')
 Assert ($embeddedMsi.Count -eq 1) 'The EXE must embed exactly one MSI'
 Assert ((Get-FileHash -LiteralPath $msi).Hash -eq (Get-FileHash -LiteralPath $embeddedMsi[0].FullName).Hash) 'EXE contains a different MSI'

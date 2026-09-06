@@ -18,12 +18,14 @@ public partial class App : Application
         var options = LaunchOptions.Parse(Environment.GetCommandLineArgs().Skip(1));
         var dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         NativeNotifications.Register(() => dispatcher.TryEnqueue(() => Window?.Activate()));
-        var activation = AppInstance.GetCurrent().GetActivatedEventArgs();
+        // The SDK deserializes notification arguments using an event created by
+        // Register; reading them after failed/unsupported registration can fail fast.
+        var activation = options.ReadActivation(NativeNotifications.Available, () => AppInstance.GetCurrent().GetActivatedEventArgs());
         var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(options.Profile.ToUpperInvariant())));
         instance = AppInstance.FindOrRegisterForKey(key);
         if (!instance.IsCurrent)
         {
-            await instance.RedirectActivationToAsync(activation);
+            if (activation is not null) await instance.RedirectActivationToAsync(activation);
             NativeNotifications.Unregister(); Exit(); return;
         }
         instance.Activated += (_, redirected) => dispatcher.TryEnqueue(async () =>

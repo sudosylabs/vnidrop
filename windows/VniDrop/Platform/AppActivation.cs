@@ -7,7 +7,7 @@ namespace VniDrop.Platform;
 
 public static class AppActivation
 {
-    public static string[] Invitations(AppActivationArguments args) => args.Data switch
+    public static string[] Invitations(AppActivationArguments? args) => args?.Data switch
     {
         IFileActivatedEventArgs files => files.Files.Select(f => f.Path).Where(p => p.EndsWith(".vnd", StringComparison.OrdinalIgnoreCase)).ToArray(),
         ILaunchActivatedEventArgs launch => LaunchOptions.Parse(SplitCommandLine(launch.Arguments)).Invitations,

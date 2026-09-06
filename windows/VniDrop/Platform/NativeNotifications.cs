@@ -14,7 +14,7 @@ public sealed class NativeNotifications
 
     public static void Register(Action onActivate)
     {
-        if (registered) return;
+        if (registered || !AppNotificationManager.IsSupported()) return;
         activate = onActivate;
         try
         {

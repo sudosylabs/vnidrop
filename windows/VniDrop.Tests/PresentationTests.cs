@@ -412,6 +412,20 @@ public class PresentationTests
     }
 
     [Theory]
+    [InlineData(false, "----AppNotificationActivated:", false)]
+    [InlineData(true, "----AppNotificationActivated:", true)]
+    [InlineData(false, "invitation.vnd", true)]
+    public void ActivationArgumentsRequireNotificationRegistrationOnlyForNotificationLaunches(bool available, string argument, bool shouldRead)
+    {
+        var options = LaunchOptions.Parse([argument]);
+        var called = false;
+        var expected = new object();
+        var actual = options.ReadActivation(available, () => { called = true; return expected; });
+        Assert.Equal(shouldRead, called);
+        Assert.Same(shouldRead ? expected : null, actual);
+    }
+
+    [Theory]
     [InlineData(0, "fr-FR", "one")]
     [InlineData(1, "en-US", "one")]
     [InlineData(2, "en-US", "other")]

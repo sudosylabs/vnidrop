@@ -58,9 +58,11 @@ try {{
     exit 0
 }} catch {{ $_ | Out-String | Add-Content -LiteralPath '{4}'; exit 1 }}
 '@ -f $fixture.Replace("'", "''"), $account.SID.Value, $result.Replace("'", "''"), ('$' + $VerifyLauncher.ToString().ToLowerInvariant()), $log.Replace("'", "''")
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
+    # CreateProcessWithLogonW limits the command line to 1,024 characters.
+    $entry = Join-Path $fixture 'run.ps1'
+    Set-Content -LiteralPath $entry -Value $script -Encoding UTF8
     $credential = [Management.Automation.PSCredential]::new("$env:COMPUTERNAME\$name", $password)
-    $child = Start-Process -FilePath "$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe" -ArgumentList "-NoProfile -NonInteractive -EncodedCommand $encoded" -Credential $credential -LoadUserProfile -WorkingDirectory $fixture -WindowStyle Hidden -PassThru
+    $child = Start-Process -FilePath "$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe" -ArgumentList ('-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $entry + '"') -Credential $credential -LoadUserProfile -WorkingDirectory $fixture -WindowStyle Hidden -PassThru
     $handle = $child.Handle
     $deadline = [Diagnostics.Stopwatch]::StartNew()
     $seen = [Collections.Generic.HashSet[int]]::new()

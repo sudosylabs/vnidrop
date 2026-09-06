@@ -1,0 +1,56 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="VniDrop" Manufacturer="Sudosy Labs" Version="$(var.Version)" Language="1033"
+           UpgradeCode="E08E256E-2F07-479E-8AA9-4898D424F6C5" Scope="perUser" InstallerVersion="500">
+    <!-- Remove the Compose component layout inside the rollback transaction. -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of VniDrop is already installed."
+                  AllowSameVersionUpgrades="yes" IgnoreLanguage="yes" Schedule="afterInstallInitialize" />
+    <Property Id="WINDOWSBUILDNUMBER">
+      <RegistrySearch Id="WindowsBuildNumber" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+                      Name="CurrentBuildNumber" Type="raw" Bitness="always64" />
+    </Property>
+    <Launch Condition="Installed OR (VersionNT64 AND WINDOWSBUILDNUMBER &gt;= 19041)"
+            Message="VniDrop requires Windows 10 version 2004 or later (x64)." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <Icon Id="AppIcon" SourceFile="$(var.Repo)/assets/windows/app-icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLFOLDER]" After="CostFinalize" />
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="VniDrop" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+    <StandardDirectory Id="DesktopFolder" />
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="ShellIntegration" Guid="*">
+        <RegistryValue Root="HKCU" Key="Software\VniDrop\Installer" Name="InstallDirectory"
+                       Value="[INSTALLFOLDER]" Type="string" KeyPath="yes" />
+        <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="VniDrop"
+                  Target="[#VniDropExe]" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" />
+        <Shortcut Id="DesktopShortcut" Directory="DesktopFolder" Name="VniDrop"
+                  Target="[#VniDropExe]" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" />
+        <RegistryKey Root="HKCU" Key="Software\Classes\$(var.InvitationProgId)">
+          <RegistryValue Value="VniDrop Invitation" Type="string" />
+          <RegistryValue Key="DefaultIcon" Value="&quot;[#VniDropExe]&quot;,0" Type="string" />
+          <RegistryValue Key="Application" Name="ApplicationName" Value="VniDrop" Type="string" />
+          <RegistryValue Key="Application" Name="ApplicationIcon" Value="&quot;[#VniDropExe]&quot;,0" Type="string" />
+          <RegistryValue Key="shell\open\command" Value="&quot;[#VniDropExe]&quot; &quot;%1&quot;" Type="string" />
+        </RegistryKey>
+        <!-- Advertise the handler without replacing another application's default or UserChoice. -->
+        <RegistryValue Root="HKCU" Key="Software\Classes\.vnd\OpenWithProgids"
+                       Name="$(var.InvitationProgId)" Value="" Type="string" />
+        <RegistryKey Root="HKCU" Key="Software\VniDrop\Capabilities">
+          <RegistryValue Name="ApplicationName" Value="VniDrop" Type="string" />
+          <RegistryValue Name="ApplicationDescription" Value="Send files directly across your devices." Type="string" />
+          <RegistryValue Name="ApplicationIcon" Value="&quot;[#VniDropExe]&quot;,0" Type="string" />
+          <RegistryValue Key="FileAssociations" Name=".vnd" Value="$(var.InvitationProgId)" Type="string" />
+        </RegistryKey>
+        <RegistryValue Root="HKCU" Key="Software\RegisteredApplications" Name="VniDrop"
+                       Value="Software\VniDrop\Capabilities" Type="string" />
+        <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+      </Component>
+    </DirectoryRef>
+    <Feature Id="DefaultFeature" Title="VniDrop" Level="1">
+      <ComponentGroupRef Id="NativeFiles" />
+      <ComponentRef Id="ShellIntegration" />
+    </Feature>
+  </Package>
+</Wix>

@@ -44,6 +44,21 @@
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
 
+      <SolidColorBrush x:Key="TitleBarBackButtonBackgroundDisabled" Color="Transparent" />
+
+      <!-- WinUI 1.8's pane-toggle disabled template targets a nonexistent AnimatedIcon.Background. -->
+      <Style x:Key="TitleBarPaneToggleButtonStyle" TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
+        <Setter Property="FontFamily" Value="{ThemeResource SymbolThemeFontFamily}" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="Content" Value="&#xE700;" />
+        <Setter Property="Width" Value="{ThemeResource TitleBarPaneToggleButtonWidth}" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="2" />
+      </Style>
+
       <Thickness x:Key="VniDropPagePadding">32,24,32,32</Thickness>
       <Thickness x:Key="VniDropPagePaddingMedium">24,20,24,24</Thickness>
       <Thickness x:Key="VniDropPagePaddingCompact">16,16,16,20</Thickness>

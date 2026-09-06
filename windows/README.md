@@ -43,10 +43,42 @@ tool directories used by `build.ps1`. They are development prerequisites, not
 checked-in binaries. Native bindings are also generated into ignored `build/`;
 `windows/uniffi.toml` and the generator commit in `build-core.ps1` define the ABI.
 
+## Invitation file association
+
+Register the unpackaged native app as a `.vnd` handler for the current Windows user:
+
+```powershell
+pwsh windows/scripts/build.ps1 -SkipCore -RegisterFileAssociation -Run
+```
+
+This registers the development executable with `build/windows/dev-profile` (or
+`-ProfileDirectory`), so Explorer opens invitations in the same profile and redirects
+to its existing window. Registration is explicit; ordinary builds and launches do
+not change it. An unclaimed `.vnd` extension gets an initial native mapping.
+Windows may still ask you to choose **VniDrop** and **Always** on the first open.
+Existing defaults are preserved; change them through **Open with** or
+**Settings > Apps > Default apps**, searching for `.vnd`.
+
+To register a published app at its final location, or remove its registration:
+
+```powershell
+pwsh windows/scripts/register-file-association.ps1 -Executable C:/Apps/VniDrop/VniDrop.exe
+pwsh windows/scripts/register-file-association.ps1 -Executable C:/Apps/VniDrop/VniDrop.exe -Unregister
+```
+
+Without `-ProfileDirectory`, the published handler uses `%USERPROFILE%\.vnidrop`.
+Keep the full app directory at the registered location; rerun registration after
+moving it. Unregister before removing the app. An old executable's unregister
+command cannot remove a replacement build's registration. No administrator rights
+are needed. This is for development builds. The release EXE registers its handler
+during installation; MSIX uses manifest associations. Installed users do not run
+this script. See [Windows packaging](../packaging/windows/README.md).
+
 ## Verification
 
 ```powershell
 pwsh windows/scripts/build.ps1 -SkipCore -Test
+powershell.exe -NoProfile -File windows/scripts/test-file-association.ps1
 powershell.exe -NoProfile -File windows/scripts/smoke-ui.ps1 -Executable windows/VniDrop/bin/Debug/net10.0-windows10.0.26100.0/win-x64/VniDrop.exe
 ```
 
@@ -55,6 +87,23 @@ It covers folder contents, Unicode paths, empty files, no-overwrite receiving,
 cancellation while awaiting approval, saved-device consent, targeted receiving,
 and identity preservation after shutdown. Presentation tests cover invitations,
 draft state, argument parsing, plural forms, and legacy preferences.
+
+File-association tests use an isolated registry subtree. They check Windows command
+line quoting (spaces, Unicode, and profile roots), registration updates, preserving
+other handlers and user defaults, and removal without affecting a newer build.
+For Explorer acceptance, open a `.vnd` file while the app is closed, close its
+invitation review, then open it again while the app is running. Both opens should
+show the receive review in one window. An invalid invitation must show an error
+without starting a transfer; a valid invitation must still require confirmation.
+Generate valid and invalid fixtures without using personal transfers (choose a new
+directory for each run):
+
+```powershell
+dotnet run --project windows/scripts/fixtures/FileActivation/FileActivation.csproj -- build/windows/activation-fixture
+```
+
+The fixture sender stops after export; verify the valid invitation's file name,
+size, and sender in the review, then cancel without starting a download.
 
 The UI smoke test requires an interactive Windows desktop. It verifies native
 startup, navigation resource names, modal transfer flows, settings persistence,
@@ -110,17 +159,17 @@ identity recovery, and local Windows notifications when supported by the host.
 Closing the app confirms and stops active sharing; keeping a background process
 in the notification area is not implemented yet.
 
-This is a runnable native implementation alongside the existing shipping host.
-The production Windows Store and EXE packaging workflows still build Compose.
-Remaining cutover work includes native MSIX/installer packaging with the existing
-Store identity and `.vnd` registration, notification activation in installed
+The Windows Store and EXE release workflow now builds the native app, preserving
+the existing Store and MSI upgrade identities and registering `.vnd` at installation.
+The separate Native Windows workflow still provides a development publish folder.
+Remaining product acceptance includes notification activation in installed
 packages, Windows share-sheet integration, camera QR scanning, and the full
-Windows 10/11 accessibility and cross-device acceptance matrix. Double-click
-file activation depends on an installed file association; command-line `.vnd`
-activation and the in-app picker work in development builds.
+Windows 10/11 accessibility and cross-device acceptance matrix. Unpackaged native
+builds support double-click activation after the explicit registration above;
+command-line `.vnd` activation and the in-app picker also work without registration.
 
 Per-receiver byte progress, detailed activity timelines, and cancelling a draft
-during preparation also need completion before replacing the shipping host.
+during preparation also need completion before publishing the native release.
 
 Android/Linux continue using Compose; the Apple app and Rust core are unchanged.
 

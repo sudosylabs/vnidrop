@@ -55,7 +55,11 @@ function Invoke-Control([string]$Id) {
     $control.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 }
 function Select-Control([string]$Id) {
-    (Control $Id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $control = Control $Id
+    if (!$control -or $control.Current.IsOffscreen -or $control.Current.BoundingRectangle.IsEmpty) {
+        Invoke-Control 'PART_PaneToggleButton'
+    }
+    Click-Control $Id
 }
 function Set-ControlValue([string]$Id, [string]$Value) {
     Wait-Until { $candidate = Control $Id; $candidate -and $candidate.Current.IsEnabled -and !$candidate.Current.IsOffscreen } "Control unavailable: $Id"
@@ -113,6 +117,36 @@ function Assert-HeaderAlignment {
         throw "Page title and description must share a left edge without overlap: title=$title subtitle=$subtitle"
     }
 }
+function Assert-ShellLayout([bool]$Expanded) {
+    $titleBar = (Control 'AppTitleBar').Current.BoundingRectangle
+    $back = (Control 'PART_BackButton').Current.BoundingRectangle
+    $heading = (Control 'TitleText').Current.BoundingRectangle
+    if ($titleBar.Height -lt 40 * $scale -or $back.Top -lt $titleBar.Top -or $back.Bottom -gt $titleBar.Bottom -or $heading.Top -lt $titleBar.Bottom) {
+        throw "Back must sit inside the tall title bar, above the page: titlebar=$titleBar back=$back heading=$heading"
+    }
+    if ($heading.Top - $titleBar.Bottom -gt 48 * $scale) {
+        throw 'Closed notification bars must not leave an empty band above the page heading.'
+    }
+    foreach ($id in @('NavigationViewBackButton', 'TogglePaneButton')) {
+        $duplicate = Control $id
+        if ($duplicate -and !$duplicate.Current.IsOffscreen -and !$duplicate.Current.BoundingRectangle.IsEmpty) {
+            throw "Navigation must not duplicate the title-bar controls: $id"
+        }
+    }
+    $toggle = Control 'PART_PaneToggleButton'
+    $toggleVisible = $toggle -and !$toggle.Current.IsOffscreen -and !$toggle.Current.BoundingRectangle.IsEmpty
+    $device = Control 'NavDevices'
+    $deviceVisible = $device -and !$device.Current.IsOffscreen -and !$device.Current.BoundingRectangle.IsEmpty
+    if ($toggleVisible -eq $Expanded -or $deviceVisible -ne $Expanded) {
+        throw "Expected expanded sidebar=$Expanded, got toggle=$toggleVisible and devices=$deviceVisible"
+    }
+    if ($toggleVisible) {
+        $bounds = $toggle.Current.BoundingRectangle
+        if ($bounds.Top -lt $titleBar.Top -or $bounds.Bottom -gt $titleBar.Bottom) {
+            throw 'The sidebar toggle must be inside the title bar.'
+        }
+    }
+}
 try {
     $arguments = @('--profile', ('"' + $profile + '"'))
     $appProcess = Start-Process -FilePath $Executable -ArgumentList $arguments -PassThru
@@ -123,6 +157,10 @@ try {
     } 'Native window did not open.'
     $script:root = [System.Windows.Automation.AutomationElement]::FromHandle($appProcess.MainWindowHandle)
     Wait-Until { $navigation = Control 'Navigation'; $navigation -and $navigation.Current.IsEnabled } 'Core startup failed: navigation never became available.'
+    $scale = [VniDropSmokeInput]::GetDpiForWindow($appProcess.MainWindowHandle) / 96.0
+    [VniDropSmokeInput]::SetWindowPos($appProcess.MainWindowHandle, [IntPtr]::Zero, 0, 0, [int](1200 * $scale), [int](760 * $scale), 0x0040) | Out-Null
+    Wait-Until { try { Assert-ShellLayout $true; return $true } catch { return $false } } 'Expanded shell layout failed.'
+    if ((Control 'PART_BackButton').Current.IsEnabled) { throw 'Back must be disabled at a navigation root.' }
     foreach ($id in @('NavSend', 'NavReceive', 'NavDevices')) {
         $control = Control $id
         if (!$control -or [string]::IsNullOrWhiteSpace($control.Current.Name)) { throw "Missing navigation resource: $id" }
@@ -137,16 +175,23 @@ try {
     $savedHeading = Control 'SavedDevicesHeading'
     if ($savedHeading -and !$savedHeading.Current.IsOffscreen) { throw 'The saved-device list heading must only accompany a populated list.' }
     Select-Control 'SettingsItem'
-    $scale = [VniDropSmokeInput]::GetDpiForWindow($appProcess.MainWindowHandle) / 96.0
     foreach ($width in @(1200, 800, 500)) {
         [VniDropSmokeInput]::SetWindowPos($appProcess.MainWindowHandle, [IntPtr]::Zero, 0, 0, [int]($width * $scale), [int](760 * $scale), 0x0040) | Out-Null
         Wait-Until { $bounds = $script:root.Current.BoundingRectangle; [Math]::Abs($bounds.Width - $width * $scale) -lt 20 } 'Window did not resize.'
         Wait-Until { try { Assert-ShortValueInline 'PreferencesRow'; return $true } catch { return $false } } "Short value wrapped below its label at $width effective pixels."
+        Wait-Until { try { Assert-ShellLayout ($width -ge 1000); return $true } catch { return $false } } "Shell did not adapt at $width effective pixels."
     }
+    Invoke-Control 'PART_PaneToggleButton'
+    Wait-Until { $device = Control 'NavDevices'; $device -and !$device.Current.IsOffscreen } 'The title-bar toggle did not open the overlay sidebar.'
+    Click-Control 'NavDevices'
+    Wait-Until { $device = Control 'NavDevices'; $device -and $device.Current.IsOffscreen } 'Choosing a destination did not dismiss the overlay sidebar.'
+    Select-Control 'SettingsItem'
+    Wait-Until { Control 'PreferencesRow' } 'Settings is not reachable through the overlay sidebar.'
     Assert-NoPageShortcutTooltip
     foreach ($page in @(@('AppearanceRow', 'ThemeChoices'), @('NetworkRow', 'ModeChoices'), @('NotificationsRow', 'Notifications'))) {
         Invoke-Control $page[0]
         Wait-Until { (Control $page[1]) -and $null -eq (Control 'PreferencesRow') } "Settings page did not open: $($page[0])"
+        if (!(Control 'PART_BackButton').Current.IsEnabled) { throw 'Title-bar Back must enable on a detail page.' }
         Assert-PageHeading
         if ($page[0] -eq 'NotificationsRow') {
             foreach ($width in @(1200, 800, 500)) {
@@ -154,10 +199,11 @@ try {
                 Wait-Until { try { Assert-HeaderAlignment; return $true } catch { return $false } } "Notification header is misaligned at $width effective pixels."
             }
         }
-        Invoke-Control 'NavigationViewBackButton'
+        Invoke-Control 'PART_BackButton'
         Wait-Until { (Control 'PreferencesRow') -and $null -eq (Control $page[1]) } 'Settings did not return to its root.'
+        if ((Control 'PART_BackButton').Current.IsEnabled) { throw 'Back stayed enabled after returning to the root.' }
     }
-    [VniDropSmokeInput]::SetWindowPos($appProcess.MainWindowHandle, [IntPtr]::Zero, 0, 0, [int](1000 * $scale), [int](760 * $scale), 0x0040) | Out-Null
+    [VniDropSmokeInput]::SetWindowPos($appProcess.MainWindowHandle, [IntPtr]::Zero, 0, 0, [int](1200 * $scale), [int](760 * $scale), 0x0040) | Out-Null
     Invoke-Control 'PreferencesRow'
     Wait-Until { Control 'DisplayNameTextBox' } 'Preferences did not open for keyboard navigation.'
     (Control 'DisplayNameTextBox').SetFocus()

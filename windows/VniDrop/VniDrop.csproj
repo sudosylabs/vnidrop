@@ -31,4 +31,14 @@
       </ResolvedFileToPublish>
     </ItemGroup>
   </Target>
+  <Target Name="ExportStoreRuntimeRegistrations" AfterTargets="Publish">
+    <ItemGroup>
+      <_StoreRuntimeRegistration Include="@(MicrosoftWindowsAppSDKAppxFragmentFiles)" />
+      <_StoreRuntimeRegistration Include="$(WindowsAppSDKAppxManifest)"
+                                 Condition="'@(MicrosoftWindowsAppSDKAppxFragmentFiles)' == '' and Exists('$(WindowsAppSDKAppxManifest)')" />
+    </ItemGroup>
+    <Error Condition="'@(_StoreRuntimeRegistration)' == ''" Text="Windows App SDK package registration inputs are missing." />
+    <WriteLinesToFile File="$(VniDropRoot)/build/windows/package-registration-inputs.txt"
+                      Lines="@(_StoreRuntimeRegistration)" Overwrite="true" />
+  </Target>
 </Project>

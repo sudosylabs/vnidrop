@@ -4,6 +4,7 @@ param(
     [switch]$Test,
     [switch]$Publish,
     [switch]$Run,
+    [switch]$RegisterFileAssociation,
     [string]$ProfileDirectory
 )
 $ErrorActionPreference = 'Stop'
@@ -25,6 +26,7 @@ try {
     & $bun run localization/src/cli.ts generate
     if ($LASTEXITCODE) { throw 'Localization generation failed' }
     if ($Test) {
+        & "$PSScriptRoot/test-file-association.ps1"
         & $bun run localization/src/cli.ts validate
         if ($LASTEXITCODE) { throw 'Localization validation failed' }
         & $bun test localization/src/lib/windows-resources.test.ts
@@ -35,7 +37,18 @@ try {
     }
     Set-Location (Join-Path $repo 'windows')
     $arguments = @('build', 'VniDrop/VniDrop.csproj', '-c', $Configuration, "-p:RustProfile=$rustProfile")
-    if ($Publish) { $arguments[0] = 'publish'; $arguments += @('-o', (Join-Path $repo 'build/windows/publish')) }
+    if ($Publish) {
+        $publishDirectory = Join-Path $repo 'build/windows/publish'
+        if (Test-Path -LiteralPath $publishDirectory) {
+            $resolved = (Resolve-Path -LiteralPath $publishDirectory).Path
+            if ($resolved -ne [IO.Path]::GetFullPath($publishDirectory) -or
+                (Get-Item -LiteralPath $publishDirectory).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                throw 'Unsafe native publish cleanup path'
+            }
+            Remove-Item -LiteralPath $resolved -Recurse -Force
+        }
+        $arguments[0] = 'publish'; $arguments += @('-o', $publishDirectory)
+    }
     & $dotnet @arguments
     if ($LASTEXITCODE) { throw 'Native Windows build failed' }
     if ($Publish) {
@@ -43,10 +56,15 @@ try {
             if (!(Test-Path -LiteralPath (Join-Path $repo "build/windows/publish/$asset"))) { throw "Published app is missing $asset" }
         }
     }
-    if ($Run) {
-        if (!$ProfileDirectory) { $ProfileDirectory = Join-Path $repo 'build/windows/dev-profile' }
+    if ($Run -or $RegisterFileAssociation) {
+        if (!$ProfileDirectory -and ($Run -or !$Publish)) { $ProfileDirectory = Join-Path $repo 'build/windows/dev-profile' }
         $executable = Join-Path $repo "windows/VniDrop/bin/$Configuration/net10.0-windows10.0.26100.0/win-x64/VniDrop.exe"
         if ($Publish) { $executable = Join-Path $repo 'build/windows/publish/VniDrop.exe' }
-        Start-Process -FilePath $executable -ArgumentList @('--profile', ('"' + [IO.Path]::GetFullPath($ProfileDirectory) + '"'))
+        if ($RegisterFileAssociation) {
+            & "$PSScriptRoot/register-file-association.ps1" -Executable $executable -ProfileDirectory $ProfileDirectory
+        }
+        if ($Run) {
+            Start-Process -FilePath $executable -ArgumentList @('--profile', ('"' + ([IO.Path]::GetFullPath($ProfileDirectory) -replace '(\\+)$', '$1$1') + '"'))
+        }
     }
 } finally { Pop-Location }

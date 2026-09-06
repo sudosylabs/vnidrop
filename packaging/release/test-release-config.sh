@@ -25,21 +25,15 @@ grep -F 'run: make build-apple-dmg' \
 	exit 1
 }
 
-grep -F 'TargetFormat.Exe' \
-	"$repo_root/desktopApp/build.gradle.kts" >/dev/null || {
-	printf 'Desktop packaging must enable the Windows EXE target\n' >&2
+grep -F './windows/scripts/build.ps1 -Configuration Release -Test -Publish' \
+	"$repo_root/.github/workflows/windows-store.yml" >/dev/null || {
+	printf 'Windows packaging must test and publish the native Release app\n' >&2
 	exit 1
 }
 
-grep -F '":desktopApp:packageReleaseExe"' \
+grep -F './packaging/windows/build-installer.ps1 -AppImage ./build/windows/publish' \
 	"$repo_root/.github/workflows/windows-store.yml" >/dev/null || {
-	printf 'Windows packaging must build the direct EXE installer\n' >&2
-	exit 1
-}
-
-grep -F 'DirectInstaller = $directInstallers[0].FullName' \
-	"$repo_root/.github/workflows/windows-store.yml" >/dev/null || {
-	printf 'Windows packaging must pass the direct installer through artifact validation\n' >&2
+	printf 'Windows packaging must build the native direct EXE installer\n' >&2
 	exit 1
 }
 

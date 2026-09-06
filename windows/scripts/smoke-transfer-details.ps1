@@ -73,6 +73,7 @@ try {
     foreach ($id in @('TransferActivityButton', 'TransferReceiversButton')) {
         Invoke-Control $id
         Wait-Until { Control 'DialogListViewport' } 'History dialog did not open.'
+        Invoke-Control 'PART_BackButton'
         foreach ($height in @(760, 500, 760)) {
             Resize-Window 500 $height
             $viewport = Control 'DialogListViewport'
@@ -90,8 +91,18 @@ try {
         }
         Invoke-Control 'CloseButton'
         Wait-Until { $null -eq (Control 'DialogListViewport') } 'History dialog did not close.'
+        if (!(Control 'FileCountText') -or !(Control 'PART_BackButton').Current.IsEnabled) {
+            throw 'Title-bar Back must not navigate the page underneath an open dialog.'
+        }
     }
-    Write-Output 'PASS: separate transfer metadata, responsive action alignment, bounded activity and receiver lists, internal scrolling, and fixed dialog controls during resize.'
+    $appProcess.CloseMainWindow() | Out-Null
+    Wait-Until { Control 'PrimaryButton' } 'The active fixture did not show a close confirmation.'
+    if ((Control 'AppTitleBar').Current.IsEnabled -or (Control 'PART_PaneToggleButton').Current.IsEnabled) {
+        throw 'Title-bar navigation must disable while closing.'
+    }
+    Invoke-Control 'CloseButton'
+    Wait-Until { (Control 'AppTitleBar').Current.IsEnabled -and (Control 'PART_PaneToggleButton').Current.IsEnabled } 'Cancelling close did not restore title-bar navigation.'
+    Write-Output 'PASS: transfer metadata, action alignment, bounded history scrolling, modal Back protection, and title-bar state during close and cancel.'
 } catch {
     Write-Output ("FAIL: " + $_.ScriptStackTrace)
     if ($script:layoutFailure) { Write-Output $script:layoutFailure }

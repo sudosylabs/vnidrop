@@ -1,0 +1,12 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
+  <Bundle Name="VniDrop" Manufacturer="Sudosy Labs" Version="$(var.Version)"
+          UpgradeCode="B7C7BC9D-7163-4F9D-9B36-B7E75DC39AC0" IconSourceFile="$(var.Repo)/assets/windows/app-icon.ico">
+    <BootstrapperApplication>
+      <bal:WixStandardBootstrapperApplication Theme="hyperlinkLicense" LicenseUrl=""
+                                              SuppressOptionsUI="yes" />
+    </BootstrapperApplication>
+    <Chain>
+      <MsiPackage SourceFile="$(var.Msi)" Compressed="yes" Vital="yes" />
+    </Chain>
+  </Bundle>
+</Wix>

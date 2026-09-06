@@ -40,6 +40,9 @@ public sealed partial class MainWindow : Window
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1200, 900));
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets/app-icon.ico"));
         SystemBackdrop = new MicaBackdrop();
+        ExtendsContentIntoTitleBar = true;
+        AppWindow.TitleBar.PreferredHeightOption = Microsoft.UI.Windowing.TitleBarHeightOption.Tall;
+        SetTitleBar(AppTitleBar);
         refreshTimer = DispatcherQueue.CreateTimer(); refreshTimer.Interval = TimeSpan.FromMilliseconds(350);
         refreshTimer.Tick += async (_, _) => await Model.RefreshAsync();
         Model.Updated += OnUpdated;
@@ -82,6 +85,8 @@ public sealed partial class MainWindow : Window
     {
         Navigation.IsEnabled = CanNavigate;
         ContentFrame.IsEnabled = CanNavigate;
+        AppTitleBar.IsEnabled = CanNavigate;
+        AppTitleBar.IsBackButtonEnabled = CanNavigate && ContentFrame.CanGoBack;
     }
 
     private bool CanNavigate => WindowInteractionPolicy.AllowsNavigation(Model.Ready, Model.Maintaining, closing);
@@ -125,23 +130,40 @@ public sealed partial class MainWindow : Window
     {
         ContentFrame.Navigate(pageType, parameter);
         ContentFrame.BackStack.Clear();
-        Navigation.IsBackEnabled = false;
+        UpdateInteractionState();
     }
 
     public void NavigateTo(Type pageType, object? parameter = null) => ContentFrame.Navigate(pageType, parameter);
 
     public bool GoBack()
     {
-        if (!CanNavigate || !ContentFrame.CanGoBack) return false;
+        if (!CanNavigate || Dialogs.HasActiveDialog) return false;
+        if (Navigation.DisplayMode != NavigationViewDisplayMode.Expanded && Navigation.IsPaneOpen)
+        {
+            Navigation.IsPaneOpen = false;
+            return true;
+        }
+        if (!ContentFrame.CanGoBack) return false;
         ContentFrame.GoBack();
         return true;
     }
 
-    private void NavigateBack(NavigationView sender, NavigationViewBackRequestedEventArgs args) => GoBack();
+    private void TitleBarBackRequested(TitleBar sender, object args) => GoBack();
+
+    private void TitleBarPaneToggleRequested(TitleBar sender, object args)
+    {
+        if (CanNavigate && !Dialogs.HasActiveDialog)
+            Navigation.IsPaneOpen = !Navigation.IsPaneOpen;
+    }
+
+    private void NavigationDisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
+    {
+        AppTitleBar.IsPaneToggleButtonVisible = args.DisplayMode != NavigationViewDisplayMode.Expanded;
+    }
 
     private void FrameNavigated(object sender, NavigationEventArgs e)
     {
-        Navigation.IsBackEnabled = ContentFrame.CanGoBack;
+        UpdateInteractionState();
     }
 
     public void ShowTransfers(bool receive)

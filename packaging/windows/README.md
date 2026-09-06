@@ -1,6 +1,6 @@
 # Windows packaging
 
-This directory turns the Compose Desktop Windows app image into the unsigned
+This directory turns the native WinUI 3 Release publish output into the unsigned
 MSIX artifacts accepted by Partner Center. Microsoft signs the package after
 certification, so this build does not use a PFX, certificate, HSM, or signing
 secret. The same workflow also produces an intentionally unsigned `.exe` for
@@ -53,11 +53,30 @@ Windows SmartScreen is expected to show an unknown-publisher or potentially
 dangerous-app warning. Users should download it only from the official GitHub
 Release and compare it with the published `SHA256SUMS` before running it.
 
-The workflow explicitly selects Gobley's release Rust variant and rejects a
-package containing the debug native JAR. It verifies that the direct installer
-is unsigned, and also verifies the bundled JVM, vnidrop.dll, app version,
-manifest identity, architecture, and launcher after MakeAppx unpacks the
-finished package.
+The workflow builds and tests the native Release app, including the Release Rust
+library, .NET runtime, Windows App SDK, XAML and localized resources. It verifies
+the unsigned installer, native version and runtime assets, Store identity, and
+every published file's hash after extracting both the MSI and MSIX. The EXE's
+embedded MSI must match the validated MSI exactly. PDBs are excluded.
+
+The direct EXE is a WiX 4.0.6 Burn bundle containing a per-user MSI. The build
+script installs the pinned WiX tool and bootstrapper extension under
+`build/windows/tools/wix`; end users need neither WiX nor .NET installed.
+The MSI retains the Compose upgrade code
+`E08E256E-2F07-479E-8AA9-4898D424F6C5` and jpackage's `.vnd` ProgId. Major upgrades
+remove the old runtime inside a rollback transaction, including same-version
+Compose-to-WinUI replacement across installer languages. The new bundle has its
+own stable upgrade code.
+Installation adds Start menu and desktop shortcuts and registers VniDrop in
+Open With and Default apps. It does not overwrite Windows UserChoice or another
+application's default. Windows may ask the user to choose a handler once.
+Uninstall removes installer-owned files and registrations, preserving profiles.
+
+The MSIX retains the existing Store identity and manifest `.vnd` association.
+It imports runtime registrations from the Windows App SDK manifest or fragments
+selected by the native build. MakePri merges the already-compiled `VniDrop.pri`
+with Store artwork once; scanning the framework payload again creates duplicate
+resource entries. The original app PRI and XAML files remain intact.
 
 ## First Store release
 
@@ -80,8 +99,8 @@ already-live free product. For the first release:
 
 Use this restricted-capability justification in Submission options:
 
-> VniDrop is a classic JVM desktop application that loads its bundled native
-> Rust and JVM libraries and needs normal user-level filesystem and network
+> VniDrop is a native WinUI desktop application that loads its bundled native
+> Rust library and needs normal user-level filesystem and network
 > access to transfer user-selected files directly between devices.
 
 After the first release is certified and live, the coordinated release
@@ -105,16 +124,39 @@ pricing, and availability are preserved.
 From the repository root:
 
 ~~~powershell
-.\gradlew.bat :shared:jvmTest :desktopApp:createReleaseDistributable :desktopApp:packageReleaseExe -Pvnidrop.desktop.rustVariant=release -Pvnidrop.diagnostics.included=false --no-daemon --no-configuration-cache --stacktrace
-
-$directInstaller = Get-ChildItem .\desktopApp\build\compose\binaries\main-release\exe\*.exe
-if (@($directInstaller).Count -ne 1) { throw "Expected exactly one direct installer" }
-.\packaging\windows\build-msix.ps1 -AppImage .\desktopApp\build\compose\binaries\main-release\app\VniDrop -DirectInstaller $directInstaller.FullName -OutputDirectory .\build\release\windows
+.\windows\scripts\build.ps1 -Configuration Release -Test -Publish
+.\packaging\windows\build-installer.ps1 -AppImage .\build\windows\publish -OutputDirectory .\build\windows\installer
+$version = (.\packaging\version\resolve-version.ps1 -Field Json | ConvertFrom-Json).productVersion
+.\packaging\windows\build-msix.ps1 -AppImage .\build\windows\publish -DirectInstaller ".\build\windows\installer\VniDrop_${version}_x64.exe" -OutputDirectory .\build\release\windows
+.\packaging\windows\test-installer.ps1 -AppImage .\build\windows\publish -InstallerDirectory .\build\windows\installer
 ~~~
 
-The packaging script requires Windows SDK 10.0.26100.0. It uses MakePri to
-index the scale-qualified visual assets, then MakeAppx with SHA-256 block maps
-and manifest validation enabled.
+The packaging script requires Windows SDK 10.0.26100.0 and the native build
+prerequisites in [`windows/README.md`](../../windows/README.md). It uses MakeAppx
+with SHA-256 block maps and manifest validation enabled. MSI and build sources
+remain under `build/windows/installer`; only the existing release artifact set
+is copied into `build/release/windows`.
+
+On a clean interactive test account, run the installation acceptance checks:
+
+~~~powershell
+.\packaging\windows\test-installer.ps1 -AppImage .\build\windows\publish -InstallerDirectory .\build\windows\installer -Install
+powershell.exe -NoProfile -File .\packaging\windows\test-msix.ps1 -Package ".\build\release\windows\VniDrop_${version}_x64.msix"
+~~~
+
+The installer test refuses to replace an existing VniDrop installation. It
+installs a small legacy MSI fixture, upgrades through the EXE, launches the
+installed native app in an isolated profile, and checks uninstall and default
+preservation. The MSIX test uses Developer Mode to register its extracted
+payload temporarily, then verifies activation, localized navigation and removal.
+CI enables Developer Mode only for that test and restores its previous setting.
+Neither test signs or changes the release MSIX. Testing the real previous public
+installer and a Store-delivered upgrade on Windows 10/11 remains a release
+acceptance step; the legacy fixture does not replace those checks.
+
+For diagnosing a failing bootstrapper, add `-MsiOnly` to the installer acceptance
+command. This tests the embedded MSI directly and explicitly leaves EXE
+installation unverified. The release workflow always tests the full EXE.
 
 Microsoft references:
 

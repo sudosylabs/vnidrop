@@ -183,6 +183,8 @@ checks cover running-instance and cold-start notification activation through the
 Windows notification COM contract, alongside packaged startup. Real notification
 delivery/clicks, Windows share-sheet integration, and the full Windows 10/11
 accessibility and cross-device acceptance matrix still require interactive testing.
+The hosted-runner cold-notification check is not yet passing; see the
+[package acceptance blocker](../packaging/windows/README.md) before releasing.
 Unpackaged native builds support double-click activation after the explicit registration above;
 command-line `.vnd` activation and the in-app picker also work without registration.
 

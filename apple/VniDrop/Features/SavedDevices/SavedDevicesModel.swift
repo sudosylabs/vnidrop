@@ -171,6 +171,11 @@ final class SavedDevicesModel: ObservableObject {
 	private func respondToPrompt(accepted: Bool) {
 		guard let prompt = state.pairingPrompt.prompt, !state.pairingPrompt.busy else { return }
 		state.pairingPrompt.busy = true
+		// Retire the prompt as soon as it is answered. It is still pending in the
+		// core until the response round-trips, and an answered-but-present prompt
+		// re-presents the alert the instant the button press dismisses it. `busy`
+		// keeps a concurrent refresh from putting it back before then.
+		state.pairingPrompt.prompt = nil
 		Task {
 			let result: Result<Void, Error>
 			switch (prompt, accepted) {
@@ -184,10 +189,10 @@ final class SavedDevicesModel: ObservableObject {
 					.map { _ in () }
 			}
 			state.pairingPrompt.busy = false
-			switch result {
-			case .success: await refresh()
-			case .failure(let error): messages.error(error)
-			}
+			if case .failure(let error) = result { messages.error(error) }
+			// Refresh on failure too: the prompt was cleared optimistically, so the
+			// snapshot is what puts an unanswered request back in front of the user.
+			await refresh()
 		}
 	}
 
@@ -251,6 +256,9 @@ final class SavedDevicesModel: ObservableObject {
 				await refresh()
 			case .failure(let error):
 				messages.error(error)
+				// The offer is hidden while responding; re-read so an offer that was
+				// never actually answered comes back instead of vanishing silently.
+				await refresh()
 			}
 			state.targetedOffers.respondingIds.remove(transferId)
 		}

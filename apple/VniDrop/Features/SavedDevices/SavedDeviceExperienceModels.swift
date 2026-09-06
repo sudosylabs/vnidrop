@@ -44,7 +44,13 @@ struct TargetedOfferState: Equatable {
 	var senderDisplayNames: [String: String] = [:]
 	var respondingIds: Set<String> = []
 
-	var current: PendingTargetedOfferModel? { pending.first }
+	/// Skips offers with an answer in flight. The core still lists them as pending
+	/// until the response round-trips, and leaving one `current` re-presents the
+	/// alert the moment the user's button press dismisses it (macOS re-presents
+	/// on the next update; iOS coalesces it away).
+	var current: PendingTargetedOfferModel? {
+		pending.first { !respondingIds.contains($0.transferId) }
+	}
 
 	var currentSenderDisplayName: String? {
 		guard let current else { return nil }

@@ -156,6 +156,11 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
+        # XcodeGen's default host path is the iOS bundle layout
+        # (VniDrop.app/VniDrop), which does not exist in a macOS app — the tests
+        # then fail to even build for `-destination platform=macOS`.
+        # BUNDLE_EXECUTABLE_FOLDER_PATH resolves to the right layout on both.
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/VniDrop.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VniDrop
     dependencies:
       - target: VniDrop
 

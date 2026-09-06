@@ -46,6 +46,17 @@ final class SavedDevicesModelTests: XCTestCase {
 		)
 	}
 
+	private func pendingOffer(
+		id: String = "t1",
+		sender: String = peer
+	) -> PendingTargetedOfferModel {
+		PendingTargetedOfferModel(
+			transferId: id, senderEndpointId: sender, receiverEndpointId: Self.localEndpoint,
+			manifestId: "m1", contentHash: "hash", transferName: "Photos",
+			fileCount: 1, totalSize: 100, protocolVersion: 1, receivedAt: 1
+		)
+	}
+
 	private func transfer(
 		id: String = "t1",
 		sender: String = localEndpoint,
@@ -208,6 +219,29 @@ final class SavedDevicesModelTests: XCTestCase {
 		XCTAssertNil(model.state.pairingPrompt.prompt)
 	}
 
+	/// Same re-presentation hazard as the targeted offer: the prompt must stop being
+	/// presentable the moment it is answered, not when the core response lands.
+	func testAnsweredPairingPromptLeavesImmediately() async {
+		gateway.deviceRelationships = [relationship(state: .pendingIncoming)]
+		let model = await makeModel()
+		XCTAssertNotNil(model.state.pairingPrompt.prompt)
+
+		model.acceptPairingPrompt()
+
+		XCTAssertNil(model.state.pairingPrompt.prompt)
+	}
+
+	func testFailedPairingResponseRestoresThePrompt() async {
+		gateway.deviceRelationships = [relationship(state: .pendingIncoming)]
+		gateway.respondToPairingResult = .failure(TestError.unimplemented)
+		let model = await makeModel()
+
+		model.acceptPairingPrompt()
+		await waitUntil { !model.state.pairingPrompt.busy && !model.state.isLoading }
+
+		XCTAssertNotNil(model.state.pairingPrompt.prompt)
+	}
+
 	func testDecliningEligibilityConsumesItInTheCore() async {
 		gateway.pairingEligibilities = [eligibility()]
 		let model = await makeModel()
@@ -324,6 +358,35 @@ final class SavedDevicesModelTests: XCTestCase {
 		await waitUntil { self.gateway.offerResponses.count == 1 }
 
 		XCTAssertTrue(gateway.targetedReceives.isEmpty)
+	}
+
+	/// The alert is bound to `current`, and answering it dismisses the alert before
+	/// the core has settled the offer. A still-current offer re-presents the alert on
+	/// the next update — the macOS "asked three times" bug.
+	func testAnsweredOfferStopsBeingCurrentImmediately() async {
+		gateway.pendingTargetedOffers = [pendingOffer()]
+		gateway.offerResponseResult = .success(.declined)
+		let model = await makeModel()
+		XCTAssertNotNil(model.state.targetedOffers.current)
+
+		model.declineTargetedOffer("t1")
+
+		// Synchronously, in the same turn as the button press: no window exists in
+		// which the offer is both answered and presentable.
+		XCTAssertNil(model.state.targetedOffers.current)
+	}
+
+	/// A failed response leaves the offer unanswered, so it has to come back rather
+	/// than stay hidden behind the optimistic clear.
+	func testFailedOfferResponseRestoresThePrompt() async {
+		gateway.pendingTargetedOffers = [pendingOffer()]
+		gateway.offerResponseResult = .failure(TestError.unimplemented)
+		let model = await makeModel()
+
+		model.declineTargetedOffer("t1")
+		await waitUntil { !model.state.targetedOffers.respondingIds.contains("t1") }
+
+		XCTAssertNotNil(model.state.targetedOffers.current)
 	}
 
 	func testConcurrentResponsesToTheSameOfferAreIgnored() async {

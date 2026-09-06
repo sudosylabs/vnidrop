@@ -38,6 +38,5 @@ try {
         if (!$child.HasExited) { $child.Kill(); $child.WaitForExit() }
         $child.Dispose()
     }
-    [StandardUserProcess]::RestoreDesktopAccess()
     if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log | Write-Host }
 }

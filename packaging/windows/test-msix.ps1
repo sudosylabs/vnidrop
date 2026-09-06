@@ -44,7 +44,6 @@ catch {{ $_ | Out-String | Add-Content -LiteralPath '{2}'; exit 1 }}
             if (!$child.HasExited) { $child.Kill(); $child.WaitForExit() }
             $child.Dispose()
         }
-        [StandardUserProcess]::RestoreDesktopAccess()
         if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log | Write-Host }
         if (Test-Path -LiteralPath $launcherLog) { Get-Content -LiteralPath $launcherLog | Write-Host }
         if ($oldDeveloperMode -ne 1) {

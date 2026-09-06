@@ -1,11 +1,9 @@
 using System;
 using System.ComponentModel;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
-using System.Security.AccessControl;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
 
@@ -30,7 +28,7 @@ public static class StandardUserProcess
     static extern bool GetTokenInformation(SafeAccessTokenHandle token, int kind, IntPtr data, int size, out int needed);
     [DllImport("advapi32.dll", SetLastError = true)]
     static extern bool CreateRestrictedToken(SafeAccessTokenHandle existing, uint flags,
-        uint disabledCount, IntPtr disabled, uint deletedCount, IntPtr deleted,
+        uint disabledCount, ref MandatoryLabel disabled, uint deletedCount, IntPtr deleted,
         uint restrictedCount, IntPtr restricted, out SafeAccessTokenHandle token);
     [DllImport("advapi32.dll", SetLastError = true)]
     static extern bool SetTokenInformation(SafeAccessTokenHandle token, int kind, ref MandatoryLabel label, int size);
@@ -48,10 +46,6 @@ public static class StandardUserProcess
     static extern IntPtr GetThreadDesktop(uint threadId);
     [DllImport("kernel32.dll")]
     static extern uint GetCurrentThreadId();
-    [DllImport("user32.dll", SetLastError = true)]
-    static extern bool GetUserObjectSecurity(IntPtr handle, ref uint information, byte[] descriptor, uint size, out uint needed);
-    [DllImport("user32.dll", SetLastError = true)]
-    static extern bool SetUserObjectSecurity(IntPtr handle, ref uint information, byte[] descriptor);
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     static extern bool GetUserObjectInformation(IntPtr handle, int kind, StringBuilder value, uint size, out uint needed);
 
@@ -59,38 +53,14 @@ public static class StandardUserProcess
     {
         var name = new StringBuilder(256);
         uint needed;
-        if (!GetUserObjectInformation(handle, 2, name, (uint)name.Capacity * 2, out needed)) throw new Win32Exception();
+        if (!GetUserObjectInformation(handle, 2, name, (uint)name.Capacity * 2, out needed)) throw Failure("GetUserObjectInformation");
         return name.ToString();
     }
 
-    static readonly Dictionary<IntPtr, byte[]> desktopSecurity = new Dictionary<IntPtr, byte[]>();
-    static void GrantDesktopAccess(IntPtr handle, int access)
+    static Win32Exception Failure(string operation)
     {
-        uint information = 0x14, size;
-        GetUserObjectSecurity(handle, ref information, null, 0, out size);
-        if (size == 0) throw new Win32Exception();
-        var original = new byte[size];
-        if (!GetUserObjectSecurity(handle, ref information, original, size, out size)) throw new Win32Exception();
-        var descriptor = new RawSecurityDescriptor(original, 0);
-        Console.WriteLine("Runner desktop " + DesktopName(handle) + ": " + descriptor.GetSddlForm(AccessControlSections.All));
-        if (descriptor.DiscretionaryAcl == null) return;
-        descriptor.DiscretionaryAcl.InsertAce(0, new CommonAce(AceFlags.None, AceQualifier.AccessAllowed,
-            access, WindowsIdentity.GetCurrent().User, false, null));
-        // The runner may also label its desktop high integrity; a DACL grant alone
-        // cannot permit the medium-integrity child to initialize USER32 there.
-        descriptor.SystemAcl = new RawSecurityDescriptor("S:(ML;;NW;;;ME)").SystemAcl;
-        var updated = new byte[descriptor.BinaryLength];
-        descriptor.GetBinaryForm(updated, 0);
-        desktopSecurity.Add(handle, original);
-        if (!SetUserObjectSecurity(handle, ref information, updated)) throw new Win32Exception();
-    }
-
-    public static void RestoreDesktopAccess()
-    {
-        uint information = 0x14;
-        foreach (var entry in desktopSecurity)
-            if (!SetUserObjectSecurity(entry.Key, ref information, entry.Value)) throw new Win32Exception();
-        desktopSecurity.Clear();
+        var code = Marshal.GetLastWin32Error();
+        return new Win32Exception(code, operation + ": " + new Win32Exception(code).Message);
     }
 
     public static int IntegrityLevel(int processId)
@@ -125,21 +95,27 @@ public static class StandardUserProcess
                     WorkingDirectory = directory, UseShellExecute = false, CreateNoWindow = true
                 });
 
-            // Service-created runner desktops can grant access only through Administrators.
-            // Keep the same account's access while its child runs without that group.
-            GrantDesktopAccess(GetProcessWindowStation(), 0x000F037F);
-            GrantDesktopAccess(GetThreadDesktop(GetCurrentThreadId()), 0x000F01FF);
             var desktop = DesktopName(GetProcessWindowStation()) + "\\" + DesktopName(GetThreadDesktop(GetCurrentThreadId()));
 
             SafeAccessTokenHandle existing;
-            if (!OpenProcessToken(current.Handle, 0x008B, out existing)) throw new Win32Exception();
+            if (!OpenProcessToken(current.Handle, 0x008B, out existing)) throw Failure("OpenProcessToken");
             using (existing)
             {
                 SafeAccessTokenHandle restricted;
-                // Hosted runners have UAC disabled and no linked standard-user token.
-                // Remove administrator groups/privileges, retaining the same user/profile.
-                if (!CreateRestrictedToken(existing, 0x5, 0, IntPtr.Zero, 0, IntPtr.Zero, 0, IntPtr.Zero, out restricted))
-                    throw new Win32Exception();
+                // Remove administrative access explicitly, preserving the runner's logon
+                // session groups needed to initialize processes on its existing desktop.
+                var administrators = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
+                var adminBytes = new byte[administrators.BinaryLength];
+                administrators.GetBinaryForm(adminBytes, 0);
+                var adminData = Marshal.AllocHGlobal(adminBytes.Length);
+                try
+                {
+                    Marshal.Copy(adminBytes, 0, adminData, adminBytes.Length);
+                    var disabled = new MandatoryLabel { Sid = adminData };
+                    if (!CreateRestrictedToken(existing, 1, 1, ref disabled, 0, IntPtr.Zero, 0, IntPtr.Zero, out restricted))
+                        throw Failure("CreateRestrictedToken");
+                }
+                finally { Marshal.FreeHGlobal(adminData); }
                 using (restricted)
                 {
                     var sid = new SecurityIdentifier("S-1-16-8192");
@@ -151,11 +127,11 @@ public static class StandardUserProcess
                         Marshal.Copy(bytes, 0, data, bytes.Length);
                         var label = new MandatoryLabel { Sid = data, Attributes = 0x20 };
                         if (!SetTokenInformation(restricted, 25, ref label, Marshal.SizeOf(label) + bytes.Length))
-                            throw new Win32Exception();
+                            throw Failure("SetTokenInformation");
                         using (var log = new FileStream(output, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
                         {
                             var outputHandle = log.SafeFileHandle.DangerousGetHandle();
-                            if (!SetHandleInformation(outputHandle, 1, 1)) throw new Win32Exception();
+                            if (!SetHandleInformation(outputHandle, 1, 1)) throw Failure("SetHandleInformation");
                             var startup = new StartupInfo {
                                 Size = Marshal.SizeOf(typeof(StartupInfo)), Flags = 0x101, Desktop = desktop,
                                 StdOutput = outputHandle, StdError = outputHandle
@@ -163,7 +139,7 @@ public static class StandardUserProcess
                             ProcessInfo child;
                             if (!CreateProcessAsUser(restricted, executable, new StringBuilder("\"" + executable + "\" " + arguments),
                                 IntPtr.Zero, IntPtr.Zero, true, 0x08000000, IntPtr.Zero, directory, ref startup, out child))
-                                throw new Win32Exception();
+                                throw Failure("CreateProcessAsUser");
                             try
                             {
                                 var process = Process.GetProcessById((int)child.ProcessId);

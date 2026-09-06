@@ -96,7 +96,14 @@ public static class StandardUserProcess
                         if (!CreateProcessAsUser(restricted, executable, new StringBuilder("\"" + executable + "\" " + arguments),
                             IntPtr.Zero, IntPtr.Zero, false, 0x08000000, IntPtr.Zero, directory, ref startup, out child))
                             throw new Win32Exception();
-                        try { return Process.GetProcessById((int)child.ProcessId); }
+                        try
+                        {
+                            var process = Process.GetProcessById((int)child.ProcessId);
+                            // Keep a managed handle open before releasing the creation handle,
+                            // so .NET Framework can read the exit code after the child exits.
+                            var handle = process.Handle;
+                            return process;
+                        }
                         finally { CloseHandle(child.Thread); CloseHandle(child.Process); }
                     }
                     finally { Marshal.FreeHGlobal(data); }

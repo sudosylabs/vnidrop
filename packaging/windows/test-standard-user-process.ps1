@@ -22,12 +22,13 @@ $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
 $child = [StandardUserProcess]::Start("$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe", "-NoProfile -NonInteractive -EncodedCommand $encoded", $repo)
 try {
     if (!$child.WaitForExit(30000)) { throw 'Standard-user process test timed out' }
-    if ($child.ExitCode -ne 23) { throw "Standard-user process lost the child exit code: $($child.ExitCode)" }
     $actual = Get-Content -LiteralPath $result -Raw | ConvertFrom-Json
+    Write-Host "Standard-user child: $($actual | ConvertTo-Json -Compress)"
     if ($actual.Integrity -ne 0x2000 -or $actual.Administrator -or
         $actual.User -ne [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) {
         throw "Child must retain the same user, with medium integrity and no administrator membership: $($actual | ConvertTo-Json -Compress)"
     }
+    if ($child.ExitCode -ne 23) { throw "Standard-user process lost the child exit code: $($child.ExitCode)" }
     Write-Host 'PASS: child has standard-user privileges, retains its identity and can write its result; exit code preserved.'
 } finally {
     if (!$child.HasExited) { $child.Kill(); $child.WaitForExit() }

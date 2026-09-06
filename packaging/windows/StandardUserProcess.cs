@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
@@ -32,6 +33,8 @@ public static class StandardUserProcess
         uint restrictedCount, IntPtr restricted, out SafeAccessTokenHandle token);
     [DllImport("advapi32.dll", SetLastError = true)]
     static extern bool SetTokenInformation(SafeAccessTokenHandle token, int kind, ref MandatoryLabel label, int size);
+    [DllImport("advapi32.dll", SetLastError = true)]
+    static extern bool SetTokenInformation(SafeAccessTokenHandle token, int kind, ref IntPtr data, int size);
     [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     static extern bool CreateProcessAsUser(SafeAccessTokenHandle token, string application, StringBuilder command,
         IntPtr processAttributes, IntPtr threadAttributes, bool inheritHandles, uint flags,
@@ -118,6 +121,19 @@ public static class StandardUserProcess
                 finally { Marshal.FreeHGlobal(adminData); }
                 using (restricted)
                 {
+                    // An administrator token's default DACL can rely on Administrators
+                    // for access to its own process/thread objects. The filtered child
+                    // must retain that access through its user SID instead.
+                    var acl = new RawSecurityDescriptor("D:(A;;GA;;;" + WindowsIdentity.GetCurrent().User.Value + ")(A;;GA;;;SY)").DiscretionaryAcl;
+                    var aclBytes = new byte[acl.BinaryLength];
+                    acl.GetBinaryForm(aclBytes, 0);
+                    var aclData = Marshal.AllocHGlobal(aclBytes.Length);
+                    try
+                    {
+                        Marshal.Copy(aclBytes, 0, aclData, aclBytes.Length);
+                        if (!SetTokenInformation(restricted, 6, ref aclData, IntPtr.Size)) throw Failure("SetTokenDefaultDacl");
+                    }
+                    finally { Marshal.FreeHGlobal(aclData); }
                     var sid = new SecurityIdentifier("S-1-16-8192");
                     var bytes = new byte[sid.BinaryLength];
                     sid.GetBinaryForm(bytes, 0);

@@ -53,7 +53,9 @@ jobs:
 
       - name: Verify standard-user activation launcher
         shell: powershell
-        run: ./packaging/windows/test-standard-user-process.ps1
+        run: |
+          ./packaging/windows/test-standard-user-process.ps1
+          ./packaging/windows/test-msix-ci.ps1 -VerifyLauncher
 
       - name: Set up Rust
         shell: pwsh
@@ -107,7 +109,7 @@ jobs:
 
       - name: Verify packaged WinUI activation
         shell: powershell
-        run: ./packaging/windows/test-msix.ps1 -Package ./build/release/windows/VniDrop_${{ steps.version.outputs.app }}_x64.msix -EnableDeveloperMode
+        run: ./packaging/windows/test-msix-ci.ps1 -Package ./build/release/windows/VniDrop_${{ steps.version.outputs.app }}_x64.msix
 
       - name: Retain Windows package failure logs
         if: failure()
@@ -118,6 +120,7 @@ jobs:
             build/windows/installer/test-*/*.log
             build/windows/msix-test/*/*.log
             build/windows/standard-user-test/*/*.log
+            build/windows/msix-user-test/*/fixture/*.log
           if-no-files-found: ignore
           retention-days: 7
 

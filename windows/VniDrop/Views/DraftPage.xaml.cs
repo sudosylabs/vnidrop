@@ -44,7 +44,7 @@ public sealed partial class DraftPage : ContentDialog
         SetControlsEnabled(ReviewStep, interactive);
         SetControlsEnabled(ChooseStep, interactive);
         ChooseFilesButton.IsEnabled = ChooseFolderButton.IsEnabled = BackButton.IsEnabled = interactive;
-        CloseButtonText = interactive ? Strings.Get("button_cancel") : "";
+        CloseButtonText = Strings.Get("button_cancel");
         PrimaryButtonText = review ? Strings.Get(draft.Receiver is null ? "button_share_file" : "saved_devices_send_action") : "";
         IsPrimaryButtonEnabled = review && !draft.IsSubmitting && !picking && !string.IsNullOrWhiteSpace(draft.Name);
         DefaultButton = review ? ContentDialogButton.Primary : ContentDialogButton.None;
@@ -99,11 +99,16 @@ public sealed partial class DraftPage : ContentDialog
     private void ChooseAgain(object sender, RoutedEventArgs e) { choosing = true; Render(); }
     private void ClearSelection(object sender, RoutedEventArgs e) { draft.Clear(); Render(); }
     private void RemoveSource(object sender, RoutedEventArgs e) { draft.Remove((DraftSource)((Button)sender).Tag, MultipleName); Render(); }
-    private void OnClosing(ContentDialog sender, ContentDialogClosingEventArgs args) => args.Cancel = draft.IsSubmitting || picking;
+    private void OnClosing(ContentDialog sender, ContentDialogClosingEventArgs args)
+    {
+        args.Cancel = draft.IsSubmitting || picking;
+        if (draft.IsSubmitting) draft.CancelPreparation();
+    }
     private async void Submit(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
         args.Cancel = true;
-        var deferral = args.GetDeferral();
+        if (draft.IsSubmitting || picking) return;
+        var close = false;
         try
         {
             Error.IsOpen = false;
@@ -111,10 +116,17 @@ public sealed partial class DraftPage : ContentDialog
             Render(); Result = await pending;
             await App.Window.Model.RefreshAsync(true);
             if (Result is ShareResult share) _ = App.Window.Model.SavePreviewAsync(share.transferId, draft.Sources);
-            args.Cancel = false;
+            close = true;
+        }
+        catch (OperationCanceledException)
+        {
+            Result = null;
+            await App.Window.Model.RefreshAsync(true);
+            close = true;
         }
         catch (Exception ex) { Error.Message = Strings.Error(ex); Error.IsOpen = true; }
-        finally { Render(); deferral.Complete(); }
+        finally { Render(); }
+        if (close) Hide();
     }
     private void DragOverFiles(object sender, DragEventArgs e)
     { if (!draft.IsSubmitting && !picking && e.DataView.Contains(StandardDataFormats.StorageItems)) e.AcceptedOperation = DataPackageOperation.Copy; }

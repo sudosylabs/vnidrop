@@ -25,6 +25,22 @@ function Assert-NativeAppImage([string]$Path, [string]$Version) {
     }
 }
 
+function Assert-NotificationRegistration([xml]$Manifest) {
+    $application = $Manifest.SelectSingleNode('/*[local-name()="Package"]/*[local-name()="Applications"]/*[local-name()="Application"]')
+    $activation = $application.SelectSingleNode('./*[local-name()="Extensions"]/*[@Category="windows.toastNotificationActivation"]/*[local-name()="ToastNotificationActivation"]')
+    if (!$activation) { throw 'MSIX notification activation is missing' }
+    $clsid = [guid]$activation.GetAttribute('ToastActivatorCLSID')
+    if ($clsid -eq [guid]::Empty) { throw 'MSIX notification activator must have a stable CLSID' }
+    $servers = @($application.SelectNodes('./*[local-name()="Extensions"]/*[@Category="windows.comServer"]/*[local-name()="ComServer"]/*[local-name()="ExeServer"]'))
+    $server = @($servers | Where-Object {
+        @($_.SelectNodes('./*[local-name()="Class"]') | Where-Object { [guid]$_.GetAttribute('Id') -eq $clsid }).Count -eq 1
+    })
+    if ($server.Count -ne 1 -or $server[0].GetAttribute('Executable') -cne $application.GetAttribute('Executable') -or
+        $server[0].GetAttribute('Arguments') -cne '----AppNotificationActivated:') {
+        throw 'MSIX notification activation must route to the app executable with the Windows App SDK activation argument'
+    }
+}
+
 function Get-PackagingDotnet {
     $command = Get-Command dotnet -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
@@ -58,4 +74,4 @@ function Get-PackagingWix {
     return @{ Executable = $wix; BalExtension = $extension }
 }
 
-Export-ModuleMember -Function Assert-NativeAppImage, Get-PackagingDotnet, Get-PackagingWix
+Export-ModuleMember -Function Assert-NativeAppImage, Assert-NotificationRegistration, Get-PackagingDotnet, Get-PackagingWix

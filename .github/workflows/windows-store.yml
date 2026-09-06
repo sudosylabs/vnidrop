@@ -97,7 +97,9 @@ jobs:
 
       - name: Verify installer payload and upgrade behavior
         shell: pwsh
-        run: ./packaging/windows/test-installer.ps1 -AppImage ./build/windows/publish -InstallerDirectory ./build/windows/installer -Install
+        run: |
+          $legacy = ./packaging/windows/get-legacy-installer.ps1
+          ./packaging/windows/test-installer.ps1 -AppImage ./build/windows/publish -InstallerDirectory ./build/windows/installer -LegacyInstaller $legacy -Install
 
       - name: Verify packaged WinUI activation
         shell: powershell

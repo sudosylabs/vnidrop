@@ -65,7 +65,12 @@ script installs the pinned WiX tool and bootstrapper extension under
 Its `theme.xml` uses VniDrop artwork, system colors, Segoe UI and native controls
 for install, maintenance, progress and completion screens. UI wording comes from
 the WiX standard localization resources. The extraction test verifies the actual
-embedded theme, artwork and text references.
+embedded theme, artwork and text references. The package workflow downloads the
+published Compose 0.3.3 installer through `get-legacy-installer.ps1` and verifies
+its pinned SHA-256 before same-version upgrade acceptance. The populated profile
+fixture verifies protected identity, legacy preferences, history and received
+files after upgrade and uninstall. Omitting `-LegacyInstaller` retains the small
+synthetic fixture for local diagnostics; it does not prove release migration.
 The MSI retains the Compose upgrade code
 `E08E256E-2F07-479E-8AA9-4898D424F6C5` and jpackage's `.vnd` ProgId. Major upgrades
 remove the old runtime inside a rollback transaction, including same-version
@@ -81,6 +86,11 @@ It imports runtime registrations from the Windows App SDK manifest or fragments
 selected by the native build. MakePri merges the already-compiled `VniDrop.pri`
 with Store artwork once; scanning the framework payload again creates duplicate
 resource entries. The original app PRI and XAML files remain intact.
+The manifest declares VniDrop's notification activator and matching COM server.
+Packaging rejects missing or mismatched declarations. The MSIX acceptance script
+invokes the notification COM contract against the running app and after closing it;
+the extracted test manifest routes these activations to an isolated profile.
+Actual notification delivery and user clicks remain interactive acceptance checks.
 
 ## First Store release
 
@@ -144,19 +154,23 @@ is copied into `build/release/windows`.
 On a clean interactive test account, run the installation acceptance checks:
 
 ~~~powershell
-.\packaging\windows\test-installer.ps1 -AppImage .\build\windows\publish -InstallerDirectory .\build\windows\installer -Install
+$legacy = .\packaging\windows\get-legacy-installer.ps1
+.\packaging\windows\test-installer.ps1 -AppImage .\build\windows\publish -InstallerDirectory .\build\windows\installer -LegacyInstaller $legacy -Install
 powershell.exe -NoProfile -File .\packaging\windows\test-msix.ps1 -Package ".\build\release\windows\VniDrop_${version}_x64.msix"
 ~~~
 
 The installer test refuses to replace an existing VniDrop installation. It
-installs a small legacy MSI fixture, upgrades through the EXE, launches the
-installed native app in an isolated profile, and checks uninstall and default
-preservation. The MSIX test uses Developer Mode to register its extracted
-payload temporarily, then verifies activation, localized navigation and removal.
+installs the checksum-pinned Compose release, upgrades through the native EXE,
+and launches the installed app against a seeded profile. It checks identity,
+preferences, history, received files, uninstall and file-default preservation.
+Omitting `-LegacyInstaller` uses a small synthetic MSI for local diagnostics;
+the release workflow always supplies the published installer. The MSIX test uses
+Developer Mode to register its extracted payload temporarily, then verifies
+localized startup, warm/cold notification COM activation and removal.
 CI enables Developer Mode only for that test and restores its previous setting.
-Neither test signs or changes the release MSIX. Testing the real previous public
-installer and a Store-delivered upgrade on Windows 10/11 remains a release
-acceptance step; the legacy fixture does not replace those checks.
+Neither test signs or changes the release MSIX. Store-delivered upgrades, real
+notification delivery/clicks and existing user profiles on Windows 10/11 remain
+release acceptance checks.
 
 For diagnosing a failing bootstrapper, add `-MsiOnly` to the installer acceptance
 command. This tests the embedded MSI directly and explicitly leaves EXE

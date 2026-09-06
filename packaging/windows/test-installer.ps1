@@ -2,6 +2,7 @@
 param(
     [Parameter(Mandatory)][string]$AppImage,
     [Parameter(Mandatory)][string]$InstallerDirectory,
+    [string]$LegacyInstaller,
     [switch]$Install,
     [switch]$MsiOnly
 )
@@ -124,10 +125,29 @@ if ($LASTEXITCODE) { throw 'Legacy fixture build failed' }
 $installed = $false
 $legacyInstalled = $false
 $app = $null
+$legacyProductCode = $null
+$dotnet = Get-PackagingDotnet
+$profileFixture = Join-Path $repo 'windows/scripts/fixtures/UpgradeProfile/UpgradeProfile.csproj'
+$profile = Join-Path $stage 'profile with spaces'
+& $dotnet build $profileFixture -c Release -p:RustProfile=release
+if ($LASTEXITCODE) { throw 'Upgrade profile fixture build failed' }
+function Test-UpgradeProfile([string]$Mode) {
+    & $dotnet run --project $profileFixture -c Release -p:RustProfile=release --no-build -- $Mode $profile
+    if ($LASTEXITCODE) { throw "Upgrade profile $Mode failed" }
+}
+Test-UpgradeProfile seed
 try {
-    Run-Installer msiexec.exe @('/i', ('"' + $legacyMsi + '"'), '/qn', '/norestart', '/l*v', ('"' + (Join-Path $stage 'legacy-install.log') + '"'))
+    if ($LegacyInstaller) {
+        $legacyPath = (Resolve-Path -LiteralPath $LegacyInstaller).Path
+        Run-Installer $legacyPath @('/quiet', '/norestart', '/log', ('"' + (Join-Path $stage 'legacy-install.log') + '"'))
+    } else {
+        Run-Installer msiexec.exe @('/i', ('"' + $legacyMsi + '"'), '/qn', '/norestart', '/l*v', ('"' + (Join-Path $stage 'legacy-install.log') + '"'))
+    }
     $legacyInstalled = $true
-    Assert (Test-Path -LiteralPath (Join-Path $installFolder 'compose-runtime.txt')) 'Legacy fixture was not installed'
+    $legacyProducts = @($installer.RelatedProducts($upgradeCode))
+    Assert ($legacyProducts.Count -eq 1) 'The legacy installer did not register the Compose upgrade identity'
+    $legacyProductCode = $legacyProducts[0]
+    Assert (Test-Path -LiteralPath $installFolder) 'Legacy app was not installed'
     if ($MsiOnly) {
         Run-Installer msiexec.exe @('/i', ('"' + $msi + '"'), '/qn', '/norestart', '/l*v', ('"' + (Join-Path $stage 'native-install.log') + '"'))
     } else {
@@ -139,11 +159,11 @@ try {
     Assert ($related.Count -eq 1 -and $related[0] -eq $productCode) 'Upgrade did not replace the legacy MSI'
     $legacyInstalled = $false
     Assert-NativeAppImage $installFolder $version
+    $installedFiles = @(Get-ChildItem -LiteralPath $installFolder -Recurse -File)
+    $installedHashes = @($installedFiles | ForEach-Object { (Get-FileHash -LiteralPath $_.FullName).Hash } | Sort-Object)
+    Assert (($installedHashes -join ';') -eq ($expectedHashes -join ';')) 'Upgrade left legacy files behind or changed the native payload'
     $installedCommand = (Get-Item -LiteralPath "HKCU:/Software/Classes/$progId/shell/open/command").GetValue('')
     Assert ($installedCommand -eq ('"' + (Join-Path $installFolder 'VniDrop.exe') + '" "%1"')) 'Installed handler points at the wrong executable'
-    $profile = Join-Path $stage 'profile with spaces'
-    [IO.Directory]::CreateDirectory($profile) | Out-Null
-    Set-Content -LiteralPath (Join-Path $profile 'windows-preferences.json') -Value '{"Username":"Installer test","RelayMode":3}'
     $app = Start-Process -FilePath (Join-Path $installFolder 'VniDrop.exe') -ArgumentList @('--profile', ('"' + $profile + '"')) -PassThru
     $deadline = [Diagnostics.Stopwatch]::StartNew()
     do {
@@ -154,6 +174,7 @@ try {
     [void]$app.CloseMainWindow()
     Assert ($app.WaitForExit(15000)) 'Installed app did not shut down cleanly'
     $app = $null
+    Test-UpgradeProfile verify
     if ($MsiOnly) {
         Run-Installer msiexec.exe @('/x', ('"' + $msi + '"'), '/qn', '/norestart', '/l*v', ('"' + (Join-Path $stage 'native-uninstall.log') + '"'))
     } else {
@@ -163,13 +184,14 @@ try {
     $legacyInstalled = $false
     Assert (!(Test-Path -LiteralPath $installFolder)) 'Uninstall left installed files behind'
     Assert (!(Test-Path -LiteralPath "HKCU:/Software/Classes/$progId/shell/open/command")) 'Uninstall left a dead invitation handler'
-    Assert (Test-Path -LiteralPath (Join-Path $profile 'windows-preferences.json')) 'Uninstall removed user data'
+    Test-UpgradeProfile verify
     $defaultAfterKey = Get-Item -LiteralPath 'HKCU:/Software/Classes/.vnd' -ErrorAction SilentlyContinue
     $defaultAfter = if ($defaultAfterKey) { $defaultAfterKey.GetValue('') } else { $null }
     Assert ($defaultBefore -eq $defaultAfter) 'Installation changed the existing file default'
     $choiceAfter = Get-ItemProperty -LiteralPath $choiceKey -ErrorAction SilentlyContinue | Select-Object ProgId, Hash | ConvertTo-Json -Compress
     Assert ($choiceBefore -eq $choiceAfter) 'Installation changed Windows UserChoice'
     Write-Host 'PASS: legacy upgrade, installed WinUI launch, handler routing, uninstall, retained profile and unchanged user defaults.'
+    if (!$LegacyInstaller) { Write-Warning 'The synthetic legacy fixture was used; pass -LegacyInstaller for published Compose installer acceptance.' }
     if ($MsiOnly) { Write-Warning 'MSI-only diagnostic run: EXE installation has not been verified.' }
 } finally {
     if ($app -and !$app.HasExited) { $app.Kill(); $app.WaitForExit() }
@@ -177,5 +199,5 @@ try {
         if ($MsiOnly) { Run-Installer msiexec.exe @('/x', ('"' + $msi + '"'), '/qn', '/norestart') }
         else { Run-Installer $exe @('/uninstall', '/quiet', '/norestart') }
     }
-    if ($legacyInstalled) { Run-Installer msiexec.exe @('/x', ('"' + $legacyMsi + '"'), '/qn', '/norestart') }
+    if ($legacyInstalled -and $legacyProductCode) { Run-Installer msiexec.exe @('/x', $legacyProductCode, '/qn', '/norestart') }
 }

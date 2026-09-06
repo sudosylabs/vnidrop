@@ -1646,7 +1646,7 @@ fn authorization_replay_after_receiver_commit_and_restart_is_stored() {
 
     assert!(alice
         .core()
-        .redeliver_targeted_authorization_for_test(transfer.id.clone())
+        .redeliver_targeted_authorization_for_test(transfer.id.clone(), &bob.core())
         .unwrap());
     let receiver = bob
         .core()

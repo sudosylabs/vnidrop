@@ -7,6 +7,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $packagePath = (Resolve-Path -LiteralPath $Package).Path
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+Import-Module "$PSScriptRoot/Packaging.psm1" -Force
 $stage = Join-Path $repo ('build/windows/msix-test/' + [guid]::NewGuid().ToString('N'))
 $layout = Join-Path $stage 'package'
 $profile = Join-Path $stage 'profile with spaces'
@@ -19,6 +20,14 @@ if ($oldDeveloperMode -ne 1 -and !$EnableDeveloperMode) { throw 'Loose-package t
 $sdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin/10.0.26100.0/x64/MakeAppx.exe'
 & $sdk unpack /p $packagePath /d $layout /o | Out-Null
 if ($LASTEXITCODE) { throw 'MSIX test extraction failed' }
+[xml]$testManifest = Get-Content -LiteralPath (Join-Path $layout 'AppxManifest.xml') -Raw
+Assert-NotificationRegistration $testManifest
+$notificationActivation = $testManifest.SelectSingleNode('//*[local-name()="ToastNotificationActivation"]')
+$notificationClsid = [guid]$notificationActivation.GetAttribute('ToastActivatorCLSID')
+$notificationServer = $testManifest.SelectSingleNode('//*[local-name()="ExeServer"]')
+# Cold COM activation must use the isolated test profile instead of the user's real identity.
+$notificationServer.SetAttribute('Arguments', ('----AppNotificationActivated: --profile "' + $profile + '"'))
+$testManifest.Save((Join-Path $layout 'AppxManifest.xml'))
 # Development registration uses the extracted payload; the Store upload remains unsigned and unchanged.
 Remove-Item -LiteralPath (Join-Path $layout 'AppxBlockMap.xml') -Force
 Add-Type -AssemblyName UIAutomationClient
@@ -27,6 +36,16 @@ Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 public static class VniDropPackageTest {
+    [ComImport, Guid("53E31837-6600-4A81-9395-75CFFE746F94"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface INotificationActivationCallback {
+        void Activate([MarshalAs(UnmanagedType.LPWStr)] string appId,
+            [MarshalAs(UnmanagedType.LPWStr)] string arguments, IntPtr data, uint count);
+    }
+    public static void Notify(Guid clsid, string appId) {
+        var callback = (INotificationActivationCallback)Activator.CreateInstance(Type.GetTypeFromCLSID(clsid));
+        try { callback.Activate(appId, "", IntPtr.Zero, 0); }
+        finally { Marshal.ReleaseComObject(callback); }
+    }
     [ComImport, Guid("2e941141-7f97-4756-ba1d-9decde894a3d"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IApplicationActivationManager {
         [PreserveSig] int ActivateApplication([MarshalAs(UnmanagedType.LPWStr)] string appId,
@@ -74,10 +93,26 @@ try {
         }
         throw 'Packaged WinUI startup or localization did not load'
     }
+    $appId = $registered.PackageFamilyName + '!VniDrop'
+    [VniDropPackageTest]::Notify($notificationClsid, $appId)
+    $process.Refresh()
+    if ($process.HasExited -or !$process.Responding) { throw 'Notification activation did not reach the running app' }
     [void]$process.CloseMainWindow()
     if (!$process.WaitForExit(15000)) { throw 'Packaged WinUI app did not shut down cleanly' }
     $process = $null
-    Write-Host 'PASS: MSIX registration, Store identity, .vnd declaration, packaged activation, WinUI resources and localized startup.'
+    [VniDropPackageTest]::Notify($notificationClsid, $appId)
+    $deadline.Restart()
+    do {
+        Start-Sleep -Milliseconds 200
+        $instances = @(Get-Process VniDrop -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq (Join-Path $layout 'VniDrop.exe') })
+        if ($instances.Count -eq 1) { $process = $instances[0] }
+    } while ((!$process -or $process.MainWindowHandle -eq 0) -and $deadline.Elapsed.TotalSeconds -lt 30)
+    if (!$process -or $instances.Count -ne 1 -or $process.MainWindowHandle -eq 0 -or !$process.Responding) { throw 'Cold notification activation did not open one responsive WinUI window' }
+    [VniDropPackageTest]::Notify($notificationClsid, $appId)
+    [void]$process.CloseMainWindow()
+    if (!$process.WaitForExit(15000)) { throw 'Notification-activated app did not shut down cleanly' }
+    $process = $null
+    Write-Host 'PASS: MSIX registration, Store identity, .vnd declaration, WinUI resources, localized startup, and warm/cold notification COM activation.'
 } finally {
     if ($process -and !$process.HasExited) { $process.Kill(); $process.WaitForExit() }
     if ($registered) { Remove-AppxPackage -Package $registered.PackageFullName }

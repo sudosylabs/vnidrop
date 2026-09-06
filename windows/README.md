@@ -84,9 +84,22 @@ powershell.exe -NoProfile -File windows/scripts/smoke-ui.ps1 -Executable windows
 
 The bridge suite uses two real Rust endpoints in isolated local-only profiles.
 It covers folder contents, Unicode paths, empty files, no-overwrite receiving,
-cancellation while awaiting approval, saved-device consent, targeted receiving,
+cancellation during preparation and while awaiting approval, saved-device consent, targeted receiving,
 and identity preservation after shutdown. Presentation tests cover invitations,
 draft state, argument parsing, plural forms, and legacy preferences.
+
+For Rust core changes, run the workspace checks from the repository root. Limiting
+test concurrency on Windows keeps the many simultaneous test endpoints from
+competing for local networking resources:
+
+```powershell
+$env:RUST_TEST_THREADS = '4'
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --features integration-test-store -- -D warnings
+cargo test --workspace --all-targets --features integration-test-store
+$env:RUSTDOCFLAGS = '-D warnings'
+cargo doc --workspace --no-deps
+```
 
 File-association tests use an isolated registry subtree. They check Windows command
 line quoting (spaces, Unicode, and profile roots), registration updates, preserving
@@ -152,26 +165,36 @@ generated files. Windows-specific strings use `targets: ["windows"]`.
 
 ## Migration status
 
-The native app implements send/receive history, file and folder drafts, invitation
+The native app implements send/receive history, file and folder drafts with
+preparation cancellation, invitation
 review/import/export/copy, QR display, approval dialogs, cancellation, saved-device
 management and targeted transfers, settings, relay configuration, cache management,
 identity recovery, and local Windows notifications when supported by the host.
-Closing the app confirms and stops active sharing; keeping a background process
-in the notification area is not implemented yet.
+Per-receiver progress and activity timelines are implemented. Closing the app
+confirms and stops active sharing. Transfers continue while the app remains open;
+notification-area background operation and desktop camera QR scanning are outside
+the Windows release scope.
 
 The Windows Store and EXE release workflow now builds the native app, preserving
 the existing Store and MSI upgrade identities and registering `.vnd` at installation.
 The separate Native Windows workflow still provides a development publish folder.
-Remaining product acceptance includes notification activation in installed
-packages, Windows share-sheet integration, camera QR scanning, and the full
-Windows 10/11 accessibility and cross-device acceptance matrix. Unpackaged native
-builds support double-click activation after the explicit registration above;
+The MSIX declares the app-specific notification COM activator. Package acceptance
+checks cover running-instance and cold-start notification activation through the
+Windows notification COM contract, alongside packaged startup. Real notification
+delivery/clicks, Windows share-sheet integration, and the full Windows 10/11
+accessibility and cross-device acceptance matrix still require interactive testing.
+Unpackaged native builds support double-click activation after the explicit registration above;
 command-line `.vnd` activation and the in-app picker also work without registration.
 
-Per-receiver byte progress, detailed activity timelines, and cancelling a draft
-during preparation also need completion before publishing the native release.
+The package workflow tests the checksum-pinned, published Compose 0.3.3 installer
+as a same-version upgrade, with an existing profile fixture containing legacy
+preferences, protected identity, transfer history and received file bytes. It
+verifies preservation after the new app runs and again after uninstall. The
+fixture creates a real core profile and Compose-format preferences; it does not
+replace testing an actual user's migrated profile on supported Windows versions.
 
-Android/Linux continue using Compose; the Apple app and Rust core are unchanged.
+Android/Linux continue using Compose, and Apple continues using SwiftUI. All
+hosts share the Rust transfer core.
 
 Windows platform references: [WinUI 3](https://learn.microsoft.com/windows/apps/winui/winui3/),
 [app activation](https://learn.microsoft.com/windows/apps/develop/launch/multi-instance-apps),

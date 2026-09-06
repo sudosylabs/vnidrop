@@ -1,6 +1,6 @@
+use std::path::Path;
 #[cfg(unix)]
-use std::os::fd::AsRawFd;
-use std::{io::Read, path::Path};
+use std::{io::Read, os::fd::AsRawFd};
 
 use crate::{
     api::{CoreLimits, ShareSource, SourceKind},
@@ -15,8 +15,26 @@ use crate::{
 fn path_validation_rejects_unsafe_paths() {
     assert!(path_to_string(Path::new("../escape"), true).is_err());
     assert!(path_to_string(Path::new("/absolute"), true).is_err());
+    #[cfg(unix)]
     assert!(validated_relative_string("bad\\name").is_err());
     assert!(validated_relative_string("").is_err());
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_relative_paths_normalize_separators_and_reject_roots() {
+    assert_eq!(
+        validated_relative_string("folder\\file.txt").unwrap(),
+        "folder/file.txt"
+    );
+    for path in [
+        "C:\\file.txt",
+        "C:file.txt",
+        "\\\\server\\share\\file.txt",
+        "folder\\..\\file.txt",
+    ] {
+        assert!(validated_relative_string(path).is_err(), "accepted {path}");
+    }
 }
 
 #[test]

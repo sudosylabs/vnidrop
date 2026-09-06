@@ -75,6 +75,16 @@ public sealed class CoreIntegrationTests : IAsyncLifetime
         await receiver.RunAsync(c => c.ReceiveTargetedTransfer(transfer.id, Path.Combine(directory, "targeted"))).WaitAsync(TimeSpan.FromSeconds(30));
         Assert.Equal(TargetedTransferState.Completed, (await receiver.RunAsync(c => c.GetTargetedTransfer(transfer.id)))!.state);
         Assert.Equal("Hello from WinUI", await File.ReadAllTextAsync(Directory.GetFiles(Path.Combine(directory, "targeted"), "hello.txt", SearchOption.AllDirectories).Single()));
+        var obligations = (await sender.SnapshotAsync()).Obligations;
+        var draft = new TransferDraft((await sender.RunAsync(c => c.ListSavedDevices())).Single());
+        draft.Select([new(source, "hello.txt", false, 16)], _ => "Direct");
+        var submitting = draft.SubmitAsync(sender, "Sender", true);
+        draft.CancelPreparation();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => submitting.WaitAsync(TimeSpan.FromSeconds(15)));
+        Assert.False(draft.IsSubmitting);
+        var after = (await sender.SnapshotAsync()).Obligations;
+        Assert.Equal(0ul, after.targetedPreparations);
+        Assert.Equal(obligations.targetedProviderAvailability, after.targetedProviderAvailability);
     }
 
     [Fact]
@@ -116,6 +126,29 @@ public sealed class CoreIntegrationTests : IAsyncLifetime
         await Assert.ThrowsAsync<InvalidOperationException>(() => profile.SavePreferencesAsync(preferences with { RelayMode = CoreRelayMode.Automatic }));
         Assert.Equal("sharing", Assert.Single((await profile.Session.SnapshotAsync()).Transfers).status);
         Assert.Equal(preferences, profile.Preferences);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CancellingDraftImmediatelyLeavesNoAvailableInvitationAndAllowsRetry(bool approval)
+    {
+        var source = Path.Combine(directory, "cancel-before-registration.bin");
+        await File.WriteAllBytesAsync(source, new byte[1024 * 1024]);
+        var draft = new TransferDraft();
+        draft.Select([new(source, "cancel-before-registration.bin", false, 1024 * 1024)], _ => "Draft");
+        var submitting = draft.SubmitAsync(sender, "Sender", approval);
+        draft.CancelPreparation();
+        draft.CancelPreparation();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => submitting.WaitAsync(TimeSpan.FromSeconds(15)));
+        Assert.False(draft.IsSubmitting);
+        var snapshot = await sender.SnapshotAsync();
+        Assert.All(snapshot.Transfers, transfer => Assert.Contains(transfer.status, new[] { "cancelled", "stopped" }));
+        Assert.Equal(0ul, snapshot.Obligations.activeInvitationTransfers);
+        Assert.Equal(0ul, snapshot.Obligations.invitationProviderAvailability);
+        var retried = Assert.IsType<ShareResult>(await draft.SubmitAsync(sender, "Sender", approval));
+        Assert.NotEmpty(retried.ticket);
+        await sender.RunAsync(c => c.CancelTransfer(retried.transferId));
     }
 
     private static async Task UntilAsync(Func<Task<bool>> predicate, string message)

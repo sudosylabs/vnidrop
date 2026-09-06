@@ -59,6 +59,19 @@ impl CoreInner {
         Some(direction)
     }
 
+    pub(super) async fn cancel_share_preparation(&self, transfer_id: u64) -> Result<()> {
+        let mut active_shares = self.active_shares.lock().await;
+        self.repository
+            .cancel_share_preparation(transfer_id)
+            .await?;
+        active_shares.remove(&transfer_id);
+        self.unregister_transfer_hashes(transfer_id).await;
+        self.access_policy.remove_transfer(transfer_id).await;
+        let local_id = self.repository.transfer_local_id(transfer_id).await?;
+        self.store.tags().delete(share_tag_name(&local_id)).await?;
+        Ok(())
+    }
+
     /// Stop a live share or report missing when no active transfer was found.
     pub(super) async fn cancel_idle_or_share(&self, transfer_id: u64) -> Result<()> {
         let mut active_shares = self.active_shares.lock().await;

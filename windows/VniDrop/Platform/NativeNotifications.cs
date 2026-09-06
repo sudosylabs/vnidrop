@@ -14,6 +14,7 @@ public sealed class NativeNotifications
 
     public static void Register(Action onActivate)
     {
+        if (registered) return;
         activate = onActivate;
         try
         {
@@ -21,14 +22,20 @@ public sealed class NativeNotifications
             AppNotificationManager.Default.Register();
             Available = registered = true;
         }
-        catch (System.Runtime.InteropServices.COMException) { Available = false; }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            AppNotificationManager.Default.NotificationInvoked -= Invoked;
+            activate = null;
+            Available = false;
+        }
     }
     private static void Invoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args) => activate?.Invoke();
     public static void Unregister()
     {
         if (!registered) return;
         AppNotificationManager.Default.NotificationInvoked -= Invoked;
-        AppNotificationManager.Default.Unregister(); Available = registered = false;
+        try { AppNotificationManager.Default.Unregister(); }
+        finally { activate = null; Available = registered = false; }
     }
 
     public void Update(CoreSnapshot snapshot, bool enabled)

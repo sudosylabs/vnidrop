@@ -96,6 +96,7 @@ try {
 	Assert-Condition (([regex]::Matches($manifestTemplate, "__VERSION__")).Count -eq 1) "AppxManifest.xml must contain exactly one __VERSION__ placeholder"
 	$manifestText = $manifestTemplate.Replace("__VERSION__", $packageVersion)
 	[xml]$nativeManifest = $manifestText
+	Assert-NotificationRegistration $nativeManifest
 	$runtimeExtensions = $nativeManifest.CreateElement('Extensions', $nativeManifest.DocumentElement.NamespaceURI)
 	$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 	$registrationInputs = @(Get-Content -LiteralPath (Join-Path $repoRoot 'build/windows/package-registration-inputs.txt') | Where-Object { $_.Trim() })
@@ -148,6 +149,7 @@ try {
 	)
 
 	[xml] $manifest = Get-Content -LiteralPath (Join-Path $unpackedRoot "AppxManifest.xml") -Raw
+	Assert-NotificationRegistration $manifest
 	$namespaces = [System.Xml.XmlNamespaceManager]::new($manifest.NameTable)
 	$namespaces.AddNamespace("f", "http://schemas.microsoft.com/appx/manifest/foundation/windows10")
 	$namespaces.AddNamespace("uap", "http://schemas.microsoft.com/appx/manifest/uap/windows10")

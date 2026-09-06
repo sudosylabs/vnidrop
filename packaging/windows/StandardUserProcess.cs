@@ -66,15 +66,19 @@ public static class StandardUserProcess
     static readonly Dictionary<IntPtr, byte[]> desktopSecurity = new Dictionary<IntPtr, byte[]>();
     static void GrantDesktopAccess(IntPtr handle, int access)
     {
-        uint information = 4, size;
+        uint information = 0x14, size;
         GetUserObjectSecurity(handle, ref information, null, 0, out size);
         if (size == 0) throw new Win32Exception();
         var original = new byte[size];
         if (!GetUserObjectSecurity(handle, ref information, original, size, out size)) throw new Win32Exception();
         var descriptor = new RawSecurityDescriptor(original, 0);
+        Console.WriteLine("Runner desktop " + DesktopName(handle) + ": " + descriptor.GetSddlForm(AccessControlSections.All));
         if (descriptor.DiscretionaryAcl == null) return;
         descriptor.DiscretionaryAcl.InsertAce(0, new CommonAce(AceFlags.None, AceQualifier.AccessAllowed,
             access, WindowsIdentity.GetCurrent().User, false, null));
+        // The runner may also label its desktop high integrity; a DACL grant alone
+        // cannot permit the medium-integrity child to initialize USER32 there.
+        descriptor.SystemAcl = new RawSecurityDescriptor("S:(ML;;NW;;;ME)").SystemAcl;
         var updated = new byte[descriptor.BinaryLength];
         descriptor.GetBinaryForm(updated, 0);
         desktopSecurity.Add(handle, original);
@@ -83,7 +87,7 @@ public static class StandardUserProcess
 
     public static void RestoreDesktopAccess()
     {
-        uint information = 4;
+        uint information = 0x14;
         foreach (var entry in desktopSecurity)
             if (!SetUserObjectSecurity(entry.Key, ref information, entry.Value)) throw new Win32Exception();
         desktopSecurity.Clear();

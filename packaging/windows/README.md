@@ -171,6 +171,11 @@ The MSIX test also requires an absent default VniDrop profile. It uses that prof
 for cold activation without changing the manifest's exact SDK activation argument,
 then moves its newly created profile under `build/windows/msix-test` for inspection.
 CI enables Developer Mode only for that test and restores its previous setting.
+Because hosted Windows runners run elevated with UAC disabled, the test launches
+a child with a restricted standard-user token and medium integrity, retaining the
+same account and profile. It checks the child and app integrity levels, since the
+Windows App SDK does not support notifications in elevated processes. The launcher
+also has a separate identity, privilege, profile-write and exit-code regression test.
 Neither test signs or changes the release MSIX. Store-delivered upgrades, real
 notification delivery/clicks and existing user profiles on Windows 10/11 remain
 release acceptance checks.

@@ -51,6 +51,10 @@ jobs:
         shell: pwsh
         run: ./packaging/windows/test-packaging-tools.ps1
 
+      - name: Verify standard-user activation launcher
+        shell: powershell
+        run: ./packaging/windows/test-standard-user-process.ps1
+
       - name: Set up Rust
         shell: pwsh
         run: |
@@ -105,12 +109,14 @@ jobs:
         shell: powershell
         run: ./packaging/windows/test-msix.ps1 -Package ./build/release/windows/VniDrop_${{ steps.version.outputs.app }}_x64.msix -EnableDeveloperMode
 
-      - name: Retain installer failure logs
+      - name: Retain Windows package failure logs
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: windows-installer-failure-logs
-          path: build/windows/installer/test-*/*.log
+          name: windows-package-failure-logs
+          path: |
+            build/windows/installer/test-*/*.log
+            build/windows/msix-test/*/activation.log
           if-no-files-found: ignore
           retention-days: 7
 

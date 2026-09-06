@@ -16,6 +16,42 @@ if (Test-Path -LiteralPath $profile) { throw 'MSIX notification tests require a 
 $developerKey = 'HKLM:/SOFTWARE/Microsoft/Windows/CurrentVersion/AppModelUnlock'
 $oldDeveloperMode = Get-ItemPropertyValue -LiteralPath $developerKey -Name AllowDevelopmentWithoutDevLicense -ErrorAction SilentlyContinue
 if ($oldDeveloperMode -ne 1 -and !$EnableDeveloperMode) { throw 'Loose-package testing needs Developer Mode. Use an isolated Windows test machine.' }
+Add-Type -Path "$PSScriptRoot/StandardUserProcess.cs"
+$integrity = [StandardUserProcess]::IntegrityLevel($PID)
+Write-Host "MSIX test process integrity: $integrity"
+if ($integrity -ge 0x3000) {
+    if (!$EnableDeveloperMode) { throw 'Notification activation must be tested from a non-elevated PowerShell process' }
+    [void][IO.Directory]::CreateDirectory($stage)
+    $log = Join-Path $stage 'activation.log'
+    $script = @'
+$ErrorActionPreference = 'Stop'
+try {{ & '{0}' -Package '{1}' *> '{2}'; exit 0 }}
+catch {{ $_ | Out-String | Add-Content -LiteralPath '{2}'; exit 1 }}
+'@ -f $PSCommandPath.Replace("'", "''"), $packagePath.Replace("'", "''"), $log.Replace("'", "''")
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
+    $child = $null
+    try {
+        if ($oldDeveloperMode -ne 1) {
+            [void](New-Item -Path $developerKey -Force)
+            Set-ItemProperty -LiteralPath $developerKey -Name AllowDevelopmentWithoutDevLicense -Value 1 -Type DWord
+        }
+        $child = [StandardUserProcess]::Start("$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe", "-NoProfile -NonInteractive -EncodedCommand $encoded", $repo)
+        if (!$child.WaitForExit(240000)) { throw 'Non-elevated MSIX activation test timed out' }
+        if ($child.ExitCode) { throw "Non-elevated MSIX activation test failed with exit code $($child.ExitCode)" }
+    } finally {
+        if ($child) {
+            if (!$child.HasExited) { $child.Kill(); $child.WaitForExit() }
+            $child.Dispose()
+        }
+        if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log | Write-Host }
+        if ($oldDeveloperMode -ne 1) {
+            if ($null -eq $oldDeveloperMode) { Remove-ItemProperty -LiteralPath $developerKey -Name AllowDevelopmentWithoutDevLicense -ErrorAction SilentlyContinue }
+            else { Set-ItemProperty -LiteralPath $developerKey -Name AllowDevelopmentWithoutDevLicense -Value $oldDeveloperMode -Type DWord }
+        }
+    }
+    return
+}
+if ($integrity -ne 0x2000) { throw "MSIX activation tests require medium integrity, got $integrity" }
 $sdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin/10.0.26100.0/x64/MakeAppx.exe'
 & $sdk unpack /p $packagePath /d $layout /o | Out-Null
 if ($LASTEXITCODE) { throw 'MSIX test extraction failed' }
@@ -73,6 +109,9 @@ try {
     if (!$manifest.SelectSingleNode('//*[local-name()="FileType" and text()=".vnd"]')) { throw 'Installed MSIX is missing its invitation association' }
     $processId = [VniDropPackageTest]::Launch(($registered.PackageFamilyName + '!VniDrop'), ('--profile "' + $profile + '"'))
     $process = Get-Process -Id $processId
+    $appIntegrity = [StandardUserProcess]::IntegrityLevel($processId)
+    Write-Host "Packaged app integrity: $appIntegrity"
+    if ($appIntegrity -ne 0x2000) { throw 'Packaged notification test launched an app without standard-user integrity' }
     $deadline = [Diagnostics.Stopwatch]::StartNew()
     $createTransfer = $null
     $root = $null
@@ -111,6 +150,7 @@ try {
         if ($instances.Count -eq 1) { $process = $instances[0] }
     } while ((!$process -or $process.MainWindowHandle -eq 0) -and $deadline.Elapsed.TotalSeconds -lt 30)
     if (!$process -or $instances.Count -ne 1 -or $process.MainWindowHandle -eq 0 -or !$process.Responding) { throw 'Cold notification activation did not open one responsive WinUI window' }
+    if ([StandardUserProcess]::IntegrityLevel($process.Id) -ne 0x2000) { throw 'Cold notification activation did not retain standard-user integrity' }
     [VniDropPackageTest]::Notify($notificationClsid, $appId)
     [void]$process.CloseMainWindow()
     if (!$process.WaitForExit(15000)) { throw 'Notification-activated app did not shut down cleanly' }

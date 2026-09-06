@@ -11,7 +11,6 @@
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
-        <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="24" />
@@ -25,31 +24,34 @@
           Style="{StaticResource VniDropRowContentIconStyle}"
           Foreground="{Binding Foreground, ElementName=RootButton}"
           VerticalAlignment="Center" />
-      <TextBlock
-          x:Name="TitleText"
-          Grid.Column="1"
-          Style="{StaticResource VniDropRowContentTitleStyle}" />
-      <TextBlock
-          x:Name="DescriptionText"
-          Grid.Row="1"
-          Grid.Column="1"
-          Style="{StaticResource VniDropRowContentDescriptionStyle}" />
+      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+        <TextBlock
+            x:Name="TitleText"
+            TextAlignment="Left"
+            Style="{StaticResource VniDropRowContentTitleStyle}" />
+        <TextBlock
+            x:Name="DescriptionText"
+            TextAlignment="Left"
+            Style="{StaticResource VniDropRowContentDescriptionStyle}" />
+      </StackPanel>
       <TextBlock
           x:Name="ValueText"
           Grid.Column="2"
           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
           TextTrimming="CharacterEllipsis"
+          TextAlignment="Left"
+          HorizontalAlignment="Right"
           MaxWidth="280"
           VerticalAlignment="Center" />
       <ContentPresenter
           x:Name="TrailingPresenter"
           Grid.Column="3"
-          Grid.RowSpan="3"
+          Grid.RowSpan="2"
           VerticalAlignment="Center" />
       <FontIcon
           x:Name="ChevronIcon"
           Grid.Column="4"
-          Grid.RowSpan="3"
+          Grid.RowSpan="2"
           Glyph="&#xE76C;"
           FontSize="12"
           Foreground="{ThemeResource TextFillColorSecondaryBrush}"

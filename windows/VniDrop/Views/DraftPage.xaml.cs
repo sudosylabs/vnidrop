@@ -108,7 +108,10 @@ public sealed partial class DraftPage : ContentDialog
         {
             Error.IsOpen = false;
             var pending = draft.SubmitAsync(App.Window.Model.Session, SenderName.Text.Trim(), AccessChoices.SelectedIndex != 1);
-            Render(); Result = await pending; await App.Window.Model.RefreshAsync(true); args.Cancel = false;
+            Render(); Result = await pending;
+            await App.Window.Model.RefreshAsync(true);
+            if (Result is ShareResult share) _ = App.Window.Model.SavePreviewAsync(share.transferId, draft.Sources);
+            args.Cancel = false;
         }
         catch (Exception ex) { Error.Message = Strings.Error(ex); Error.IsOpen = true; }
         finally { Render(); deferral.Complete(); }

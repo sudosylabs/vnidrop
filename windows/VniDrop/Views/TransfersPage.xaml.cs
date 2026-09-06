@@ -24,6 +24,7 @@ public sealed partial class TransfersPage : Page
     public TransfersPage()
     {
         InitializeComponent();
+        KeyboardAcceleratorPlacementMode = Microsoft.UI.Xaml.Input.KeyboardAcceleratorPlacementMode.Hidden;
         Loaded += (_, _) => { UpdateContentWidth(); Model.Updated += Update; Update(); };
         Unloaded += (_, _) => Model.Updated -= Update;
         SizeChanged += (_, _) =>

@@ -60,6 +60,7 @@ public sealed partial class SettingsRow : UserControl
         AutomationProperties.SetHelpText(RootButton, Description);
         var automationId = AutomationProperties.GetAutomationId(this);
         if (!string.IsNullOrWhiteSpace(automationId)) AutomationProperties.SetAutomationId(RootButton, automationId);
+        UpdateResponsiveLayout(ActualWidth);
     }
 
     private void RootClicked(object sender, RoutedEventArgs e) => Click?.Invoke(this, e);
@@ -68,9 +69,14 @@ public sealed partial class SettingsRow : UserControl
 
     private void UpdateResponsiveLayout(double width)
     {
-        var compact = width < 680;
+        var value = new TextBlock { Text = Value, FontFamily = ValueText.FontFamily, FontSize = ValueText.FontSize };
+        value.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        var available = Math.Max(0, width - RootButton.Padding.Left - RootButton.Padding.Right - 96);
+        var compact = value.DesiredSize.Width > Math.Min(280, available / 2);
         Grid.SetColumn(ValueText, compact ? 1 : 2);
-        Grid.SetRow(ValueText, compact ? 2 : 0);
+        Grid.SetRow(ValueText, compact ? 1 : 0);
+        ValueText.HorizontalAlignment = compact ? HorizontalAlignment.Stretch : HorizontalAlignment.Right;
+        ValueText.MaxWidth = compact ? double.PositiveInfinity : 280;
         ValueText.Margin = compact ? new Thickness(0, 3, 0, 0) : new Thickness(0);
         ValueText.TextTrimming = compact ? TextTrimming.None : TextTrimming.CharacterEllipsis;
         ValueText.TextWrapping = compact ? TextWrapping.Wrap : TextWrapping.NoWrap;

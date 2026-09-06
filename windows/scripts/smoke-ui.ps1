@@ -9,6 +9,8 @@ using System.Runtime.InteropServices;
 public static class VniDropSmokeInput {
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
     [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
+    [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr window);
     [DllImport("user32.dll")] static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extraInfo);
     [DllImport("user32.dll", SetLastError=true)] static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
     public static void Click(IntPtr window, int x, int y) {
@@ -21,13 +23,14 @@ public static class VniDropSmokeInput {
         if (!PostMessage(window, 0x0010, IntPtr.Zero, IntPtr.Zero))
             throw new System.ComponentModel.Win32Exception();
     }
+    public static void Hover(IntPtr window, int x, int y) { SetForegroundWindow(window); SetCursorPos(x, y); }
 }
 '@
 $Executable = (Resolve-Path -LiteralPath $Executable).Path
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $profile = Join-Path $repo ('build/windows/smoke/' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $profile -Force | Out-Null
-@{ RelayMode = 3; ReceiveDirectory = (Join-Path $profile 'received') } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $profile 'windows-preferences.json')
+@{ Username = 'S25'; RelayMode = 3; ReceiveDirectory = (Join-Path $profile 'received') } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $profile 'windows-preferences.json')
 $invalidInvitation = Join-Path $profile 'invalid.vnd'
 Set-Content -LiteralPath $invalidInvitation -Value 'invalid invitation fixture'
 $appProcess = $null
@@ -64,6 +67,35 @@ function Click-Control([string]$Id) {
     if ($bounds.IsEmpty) { throw "Control has no clickable bounds: $Id" }
     [VniDropSmokeInput]::Click($appProcess.MainWindowHandle, [int]($bounds.X + $bounds.Width / 2), [int]($bounds.Y + $bounds.Height / 2))
 }
+function Assert-ShortValueInline([string]$Id) {
+    $row = Control $Id
+    $title = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'TitleText'))
+    $value = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'ValueText'))
+    if (!$title -or !$value -or $value.Current.Name -ne 'S25') { throw 'The label/value regression fixture is missing.' }
+    $titleBounds = $title.Current.BoundingRectangle
+    $valueBounds = $value.Current.BoundingRectangle
+    if ($valueBounds.Left -le $titleBounds.Left -or $valueBounds.Top -ge $titleBounds.Bottom -or $valueBounds.Bottom -le $titleBounds.Top) {
+        throw "Short row value must stay beside its label: title=$titleBounds value=$valueBounds"
+    }
+}
+function Assert-NoPageShortcutTooltip {
+    $bounds = (Control 'Navigation').Current.BoundingRectangle
+    [VniDropSmokeInput]::Hover($appProcess.MainWindowHandle, [int]($bounds.Right - 15), [int]($bounds.Top + $bounds.Height / 2))
+    $watch = [Diagnostics.Stopwatch]::StartNew()
+    while ($watch.Elapsed.TotalSeconds -lt 2) {
+        $tooltips = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ToolTip))
+        foreach ($tooltip in $tooltips) {
+            if ($tooltip.Current.ProcessId -eq $appProcess.Id -and $tooltip.Current.Name -match 'Alt\+|Ctrl\+') {
+                throw "Page-wide shortcut tooltip leaked into the UI: $($tooltip.Current.Name)"
+            }
+        }
+        Start-Sleep -Milliseconds 100
+    }
+}
 try {
     $arguments = @('--profile', ('"' + $profile + '"'))
     $appProcess = Start-Process -FilePath $Executable -ArgumentList $arguments -PassThru
@@ -78,12 +110,26 @@ try {
         $control = Control $id
         if (!$control -or [string]::IsNullOrWhiteSpace($control.Current.Name)) { throw "Missing navigation resource: $id" }
     }
+    Assert-NoPageShortcutTooltip
     Invoke-Control 'EmptyCreateTransfer'
     Wait-Until { Control 'ChooseFilesButton' } 'Send dialog did not open.'
     Invoke-Control 'CloseButton'
     Wait-Until { $null -eq (Control 'ChooseFilesButton') } 'Send dialog did not close.'
     Select-Control 'NavDevices'
     Select-Control 'SettingsItem'
+    $scale = [VniDropSmokeInput]::GetDpiForWindow($appProcess.MainWindowHandle) / 96.0
+    foreach ($width in @(1200, 800, 500)) {
+        [VniDropSmokeInput]::SetWindowPos($appProcess.MainWindowHandle, [IntPtr]::Zero, 0, 0, [int]($width * $scale), [int](760 * $scale), 0x0040) | Out-Null
+        Wait-Until { $bounds = $script:root.Current.BoundingRectangle; [Math]::Abs($bounds.Width - $width * $scale) -lt 20 } 'Window did not resize.'
+        Wait-Until { try { Assert-ShortValueInline 'PreferencesRow'; return $true } catch { return $false } } "Short value wrapped below its label at $width effective pixels."
+    }
+    Assert-NoPageShortcutTooltip
+    [VniDropSmokeInput]::SetWindowPos($appProcess.MainWindowHandle, [IntPtr]::Zero, 0, 0, [int](1000 * $scale), [int](760 * $scale), 0x0040) | Out-Null
+    Invoke-Control 'PreferencesRow'
+    Wait-Until { Control 'DisplayNameTextBox' } 'Preferences did not open for keyboard navigation.'
+    (Control 'DisplayNameTextBox').SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait('%{LEFT}')
+    Wait-Until { Control 'PreferencesRow' } 'Alt+Left stopped navigating back after hiding the page tooltip.'
     Invoke-Control 'PreferencesRow'
     Wait-Until { Control 'DisplayNameTextBox' } 'Preferences did not open.'
     Set-ControlValue 'DisplayNameTextBox' 'Windows UI smoke test'
@@ -104,7 +150,7 @@ try {
     if ($reloadedUsername -ne 'Windows UI smoke test') { throw "Persisted settings did not reload: $reloadedUsername" }
     Set-ControlValue 'DisplayNameTextBox' 'Quick re-entry smoke test'
     Click-Control 'SettingsItem'
-    Wait-Until { Control 'PreferencesRow' } 'Preferences did not navigate away for the re-entry check.'
+    Wait-Until { (Control 'PreferencesRow') -and $null -eq (Control 'DisplayNameTextBox') } 'Preferences did not navigate away for the re-entry check.'
     Invoke-Control 'PreferencesRow'
     Wait-Until { $field = Control 'DisplayNameTextBox'; $field -and $field.Current.IsEnabled } 'Preferences did not finish reconciling its pending write.'
     $reenteredUsername = (Control 'DisplayNameTextBox').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
@@ -117,12 +163,12 @@ try {
     [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
     Wait-Until { $null -eq (Control 'OpenInvitationButton') } 'Receive dialog did not close.'
     Select-Control 'SettingsItem'
-    Wait-Until { Control 'PreferencesRow' } 'Settings did not reopen after file activation.'
+    Wait-Until { (Control 'PreferencesRow') -and $null -eq (Control 'DisplayNameTextBox') } 'Settings did not reopen after file activation.'
     Invoke-Control 'PreferencesRow'
     Wait-Until { Control 'DisplayNameTextBox' } 'Preferences did not reopen after file activation.'
     Set-ControlValue 'DisplayNameTextBox' 'Navigation close flush smoke test'
     Click-Control 'SettingsItem'
-    Wait-Until { Control 'PreferencesRow' } 'Preferences did not navigate away before shutdown.'
+    Wait-Until { (Control 'PreferencesRow') -and $null -eq (Control 'DisplayNameTextBox') } 'Preferences did not navigate away before shutdown.'
     [VniDropSmokeInput]::Close($appProcess.MainWindowHandle)
     Wait-Until { $appProcess.Refresh(); $appProcess.HasExited } 'Native app did not flush a navigated-away preference save.'
     $navigatedUsername = (Get-Content -Raw -LiteralPath (Join-Path $profile 'windows-preferences.json') | ConvertFrom-Json).Username
@@ -144,7 +190,7 @@ try {
     Wait-Until { $appProcess.Refresh(); $appProcess.HasExited } 'Native app did not shut down cleanly.'
     $closedUsername = (Get-Content -Raw -LiteralPath (Join-Path $profile 'windows-preferences.json') | ConvertFrom-Json).Username
     if ($closedUsername -ne 'Close flush smoke test') { throw "Pending settings were lost during shutdown: $closedUsername" }
-    Write-Output 'PASS: native startup, resources, navigation, modal transfer flow, settings autosave and both close-flush paths, single instance, file activation, and shutdown.'
+    Write-Output 'PASS: native startup, resources, responsive row values, shortcut tooltips and Alt+Left, navigation, modal transfer flow, settings autosave and both close-flush paths, single instance, file activation, and shutdown.'
     Write-Output "QA profile: $profile"
 } catch {
     Write-Output ("FAIL: " + $_.ScriptStackTrace)

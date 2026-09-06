@@ -97,11 +97,12 @@
                   <ColumnDefinition Width="*" />
                   <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <FontIcon
-                    Glyph="{x:Bind Glyph}"
-                    FontSize="20"
-                    VerticalAlignment="Center"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <controls:FileArtwork
+                    Width="36" Height="36"
+                    SourcePath="{x:Bind Source.Path}"
+                    FileName="{x:Bind Name}"
+                    IsDirectory="{x:Bind Source.IsDirectory}"
+                    VerticalAlignment="Center" />
                 <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
                   <TextBlock
                       Text="{x:Bind Name}"

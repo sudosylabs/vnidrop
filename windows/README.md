@@ -80,6 +80,12 @@ notification preference, relay policy, and diagnostics installation identifier.
 Saving writes a separate JSON preferences file atomically. The Kotlin preferences
 file is left intact. Invalid saved policies fail closed.
 
+File selection uses Windows thumbnails and associated file icons. Invitation
+shares keep a bounded preview under `ui/previews`, compatible with the KMP cache,
+so their artwork survives a restart or a moved source file. Received transfers
+load artwork from their published files. Older native shares without cached
+artwork use a file-type icon; their original source paths were not retained.
+
 All visible strings come from `localization/strings.json`. The localization CLI
 generates `Strings/<locale>/Resources.resw` for nine languages. Do not edit these
 generated files. Windows-specific strings use `targets: ["windows"]`.

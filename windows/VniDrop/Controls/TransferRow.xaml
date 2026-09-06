@@ -51,18 +51,11 @@
       <ColumnDefinition Width="Auto" />
       <ColumnDefinition Width="Auto" />
     </Grid.ColumnDefinitions>
-    <Border
+    <controls:FileArtwork
+        x:Name="Artwork"
         Width="44"
         Height="44"
-        CornerRadius="8"
-        Background="{ThemeResource ControlFillColorSecondaryBrush}">
-      <FontIcon
-          Glyph="&#xE8A5;"
-          FontSize="22"
-          Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-          HorizontalAlignment="Center"
-          VerticalAlignment="Center" />
-    </Border>
+        VerticalAlignment="Center" />
     <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
       <TextBlock
           x:Name="NameText"

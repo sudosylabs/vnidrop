@@ -64,18 +64,14 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
-              <Border
+              <controls:FileArtwork
                   Width="44"
                   Height="44"
-                  CornerRadius="8"
-                  Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                <FontIcon
-                    Glyph="&#xE8A5;"
-                    FontSize="22"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-              </Border>
+                  VerticalAlignment="Center"
+                  FileName="{x:Bind Item.Name, Mode=OneWay}"
+                  FileCount="{x:Bind Item.Transfer.fileCount, Mode=OneWay}"
+                  TransferId="{x:Bind Item.PreviewTransferId, Mode=OneWay}"
+                  SourcePath="{x:Bind Item.PreviewPath, Mode=OneWay}" />
               <TextBlock
                   Grid.Column="1"
                   Text="{x:Bind Item.Name, Mode=OneWay}"

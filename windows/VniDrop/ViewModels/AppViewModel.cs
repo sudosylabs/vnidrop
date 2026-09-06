@@ -15,6 +15,9 @@ public sealed class AppViewModel : ObservableModel
     private readonly object targetedReceiveGate = new();
     private readonly Dictionary<string, Task> targetedReceives = [];
     public CoreSession Session => runtime.Session;
+    public FilePreviewStore Previews { get; }
+    public event Action<ulong>? PreviewSaved;
+    private HashSet<ulong>? previewIds;
     public AppPreferences Preferences => runtime.Preferences;
     private bool maintaining;
     public bool Maintaining { get => maintaining; private set => Set(ref maintaining, value); }
@@ -40,7 +43,28 @@ public sealed class AppViewModel : ObservableModel
     private long lastRevision = -1;
     private readonly RefreshGate refreshGate = new();
 
-    public AppViewModel(string profile) => runtime = new(profile);
+    public AppViewModel(string profile)
+    {
+        runtime = new(profile);
+        Previews = new(profile);
+    }
+
+    public async Task SavePreviewAsync(ulong transferId, IReadOnlyList<DraftSource> sources)
+    {
+        try
+        {
+            foreach (var source in sources)
+            {
+                if (await WindowsFilePreviews.ReadAsync(source.Path) is not { } bytes) continue;
+                if (!Outgoing.Any(item => item.Transfer.transferId == transferId)) return;
+                await Task.Run(() => Previews.Save(transferId, bytes));
+                PreviewSaved?.Invoke(transferId);
+                break;
+            }
+        }
+        // A missing thumbnail must not turn a successful share into a retry.
+        catch (Exception) { }
+    }
     public async Task StartAsync(bool resetIdentity = false)
     {
         if (Starting || Ready) return;
@@ -74,6 +98,9 @@ public sealed class AppViewModel : ObservableModel
             try
             {
                 var snapshot = await session.SnapshotAsync();
+                var artifacts = snapshot.Transfers.Any(t => t.direction == "receive" && t.status == "done"
+                    && !Incoming.Any(item => item.Transfer.localId == t.localId && item.PreviewPath.Length > 0))
+                    ? await session.RunAsync(c => c.ListReceivedArtifacts()) : null;
                 if (!Ready || !ReferenceEquals(session, Session)) return;
                 if (lastRevision < 0) Events.AddRange(await session.RunAsync(c => c.ListEvents(null)));
                 Events.AddRange(session.DrainEvents());
@@ -83,6 +110,19 @@ public sealed class AppViewModel : ObservableModel
                 Snapshot = snapshot;
                 Sync(Outgoing, snapshot.Transfers.Where(t => t.direction == "send"));
                 Sync(Incoming, snapshot.Transfers.Where(t => t.direction == "receive"));
+                if (artifacts is not null)
+                {
+                    foreach (var item in Incoming)
+                        item.PreviewPath = artifacts.FirstOrDefault(a => a.transferLocalId == item.Transfer.localId)?.locator ?? "";
+                }
+                var activePreviewIds = Outgoing.Select(item => item.Transfer.transferId).ToHashSet();
+                if (previewIds is null || !previewIds.SetEquals(activePreviewIds))
+                {
+                    previewIds = activePreviewIds;
+                    try { await Task.Run(() => Previews.Retain(activePreviewIds)); }
+                    catch (Exception) { }
+                }
+                if (!Ready || !ReferenceEquals(session, Session)) return;
                 lastRevision = revision;
                 Changed(nameof(Snapshot)); Changed(nameof(HasRequests)); Updated?.Invoke();
             }

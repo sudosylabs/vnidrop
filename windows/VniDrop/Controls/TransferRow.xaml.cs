@@ -47,6 +47,10 @@ public sealed partial class TransferRow : UserControl
         }
         RootGrid.Visibility = Visibility.Visible;
         NameText.Text = item.Name;
+        Artwork.FileName = item.Name;
+        Artwork.FileCount = item.Transfer.fileCount;
+        Artwork.TransferId = item.PreviewTransferId;
+        Artwork.SourcePath = item.PreviewPath;
         DetailText.Text = $"{item.CatalogDetail} · {item.Date}";
         Badge.Text = item.Status;
         Badge.Glyph = item.StatusGlyph;

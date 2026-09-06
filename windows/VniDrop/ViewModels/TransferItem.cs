@@ -10,6 +10,9 @@ public sealed class TransferItem : ObservableModel
 {
     public StoredTransfer Transfer { get; private set; }
     public string Name => Transfer.transferName ?? Strings.Get("receive_unknown_transfer");
+    public ulong PreviewTransferId => Transfer.direction == "send" ? Transfer.transferId : 0;
+    private string previewPath = "";
+    public string PreviewPath { get => previewPath; set => Set(ref previewPath, value); }
     public string Summary => Strings.FileSummary(Transfer.fileCount, Transfer.totalSize);
     public string Access => Strings.Get(Transfer.accessMode == TransferAccessMode.ApprovalRequired ? "send_access_approval" : "send_access_anyone");
     public string CatalogDetail => Transfer.direction == "send" ? Summary + " · " + Access : Summary;

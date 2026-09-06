@@ -26,7 +26,7 @@ try {
     if (!$child.WaitForExit(30000)) { throw 'Standard-user process test timed out' }
     Write-Host "Child exit code: $($child.ExitCode)"
     $actual = Get-Content -LiteralPath $result -Raw | ConvertFrom-Json
-    Write-Host "Standard-user child: $($actual | ConvertTo-Json -Compress)"
+    Write-Host "Child integrity: $($actual.Integrity); administrator membership: $($actual.Administrator)"
     if ($actual.Integrity -ne 0x2000 -or $actual.Administrator -or
         $actual.User -ne [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) {
         throw "Child must retain the same user, with medium integrity and no administrator membership: $($actual | ConvertTo-Json -Compress)"

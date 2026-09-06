@@ -39,6 +39,16 @@ catch {{ $_ | Out-String | Add-Content -LiteralPath '{2}'; exit 1 }}
         $child = [StandardUserProcess]::Start("$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe", "-NoProfile -NonInteractive -EncodedCommand $encoded", $repo, $launcherLog)
         if (!$child.WaitForExit(240000)) { throw 'Non-elevated MSIX activation test timed out' }
         if ($child.ExitCode) { throw "Non-elevated MSIX activation test failed with exit code $($child.ExitCode)" }
+    } catch {
+        Get-CimInstance Win32_Process -Filter "Name = 'VniDrop.exe'" | ForEach-Object {
+            Write-Host "Remaining app PID $($_.ProcessId), integrity $([StandardUserProcess]::IntegrityLevel($_.ProcessId)): $($_.ExecutablePath) $($_.CommandLine)"
+        }
+        foreach ($eventLog in @('Application', 'System')) {
+            Get-WinEvent -FilterHashtable @{ LogName = $eventLog; StartTime = (Get-Date).AddMinutes(-5); Level = 1, 2 } -ErrorAction SilentlyContinue |
+                Where-Object { $_.Message -match 'VniDrop|21D530A5|WindowsAppRuntime' } |
+                Select-Object -First 5 | ForEach-Object { Write-Host "$($_.ProviderName) $($_.Id): $($_.Message)" }
+        }
+        throw
     } finally {
         if ($child) {
             if (!$child.HasExited) { $child.Kill(); $child.WaitForExit() }
@@ -158,6 +168,12 @@ try {
     if (!$process.WaitForExit(15000)) { throw 'Notification-activated app did not shut down cleanly' }
     $process = $null
     Write-Host 'PASS: MSIX registration, Store identity, .vnd declaration, WinUI resources, localized startup, and warm/cold notification COM activation.'
+} catch {
+    Get-Process VniDrop -ErrorAction SilentlyContinue | ForEach-Object {
+        try { Write-Host "Activation failure app PID $($_.Id), integrity $([StandardUserProcess]::IntegrityLevel($_.Id))" }
+        catch { Write-Host "Cannot read activation process: $_" }
+    }
+    throw
 } finally {
     if ($process -and !$process.HasExited) { $process.Kill(); $process.WaitForExit() }
     if ($registered) { Remove-AppxPackage -Package $registered.PackageFullName }

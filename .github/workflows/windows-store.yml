@@ -53,9 +53,7 @@ jobs:
 
       - name: Verify standard-user activation launcher
         shell: powershell
-        run: |
-          ./packaging/windows/diagnose-standard-user-process.ps1
-          ./packaging/windows/test-standard-user-process.ps1
+        run: ./packaging/windows/test-standard-user-process.ps1
 
       - name: Set up Rust
         shell: pwsh

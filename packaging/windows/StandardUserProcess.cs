@@ -42,6 +42,8 @@ public static class StandardUserProcess
     [DllImport("kernel32.dll")]
     static extern bool CloseHandle(IntPtr handle);
     [DllImport("kernel32.dll", SetLastError = true)]
+    static extern SafeProcessHandle OpenProcess(uint access, bool inheritHandle, int processId);
+    [DllImport("kernel32.dll", SetLastError = true)]
     static extern bool SetHandleInformation(IntPtr handle, uint mask, uint flags);
     [DllImport("user32.dll")]
     static extern IntPtr GetProcessWindowStation();
@@ -68,10 +70,11 @@ public static class StandardUserProcess
 
     public static int IntegrityLevel(int processId)
     {
-        using (var process = Process.GetProcessById(processId))
+        using (var process = OpenProcess(0x1000, false, processId))
         {
+            if (process.IsInvalid) throw Failure("OpenProcess for integrity query");
             SafeAccessTokenHandle token;
-            if (!OpenProcessToken(process.Handle, 0x0008, out token)) throw new Win32Exception();
+            if (!OpenProcessToken(process.DangerousGetHandle(), 0x0008, out token)) throw new Win32Exception();
             using (token)
             {
                 int size;

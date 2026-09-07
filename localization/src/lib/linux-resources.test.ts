@@ -2,6 +2,12 @@ import { expect, test } from "bun:test";
 import { renderLinuxResources } from "./linux-resources";
 import { REPO_ROOT, STRINGS_JSON } from "../config";
 
+test("committed Linux catalog matches the localization source", async () => {
+  const source = await Bun.file(STRINGS_JSON).json();
+  const committed = await Bun.file(`${REPO_ROOT}/linux/data/strings.json`).text();
+  expect(committed).toBe(renderLinuxResources(source));
+});
+
 test("Linux catalogs preserve named arguments, plural categories and source fallbacks", () => {
   const result = JSON.parse(renderLinuxResources({sourceLanguage: "en", supportedLanguages: ["en", "fr"], strings: {
     title: {context: "Title", translations: {en: 'Files & "{name}"'}},

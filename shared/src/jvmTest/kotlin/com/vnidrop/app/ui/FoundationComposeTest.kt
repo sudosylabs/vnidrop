@@ -73,6 +73,7 @@ import com.vnidrop.app.ui.shell.AppShell
 import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import com.vnidrop.app.ui.theme.VniDropTheme
+import com.vnidrop.app.ui.theme.VniDropThemeTokens
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -504,6 +505,41 @@ class FoundationComposeTest {
 		}
 		onNodeWithText("Saved successfully").assertIsDisplayed()
 		onNodeWithContentDescription(Res.string.snackbar_dismiss.value).assertIsDisplayed()
+	}
+
+	@Test
+	fun nativeSnackbarUpdatesSurfaceAndControlsWithTheActiveTheme() = runComposeUiTest {
+		val dark = mutableStateOf(true)
+		var colors = VniDropThemeTokens.dark
+		val controller = UiMessageController()
+		controller.tryShow(UiMessage(UiText.Dynamic("Saved successfully"), actionLabel = UiText.Dynamic("Undo")))
+		setContent {
+			CompositionLocalProvider(LocalUiPlatform provides UiPlatform.Android) {
+				VniDropTheme(isDarkTheme = dark.value) {
+					colors = LocalVniDropColors.current
+					Box(Modifier.width(320.dp)) { VniDropSnackbarHost(controller) }
+				}
+			}
+		}
+
+		for (isDark in listOf(true, false, true)) {
+			runOnIdle { dark.value = isDark }
+			onNodeWithText("Saved successfully").assertIsDisplayed()
+			val surface = onNodeWithTag("android-snackbar").captureToImage().toPixelMap()
+			assertTrue((0 until surface.height).sumOf { y ->
+				(0 until surface.width).count { x -> surface[x, y].toArgb() == colors.backgroundDialog.toArgb() }
+			} > surface.width * surface.height / 3, "Snackbar background must follow the active theme (dark=$isDark)")
+			listOf(
+				onNodeWithText("Saved successfully") to colors.foregroundDefault,
+				onNodeWithText("Undo") to colors.brandLink,
+				onNodeWithContentDescription(Res.string.snackbar_dismiss.value) to colors.foregroundLighter,
+			).forEach { (node, expected) ->
+				val pixels = node.captureToImage().toPixelMap()
+				assertTrue((0 until pixels.height).any { y ->
+					(0 until pixels.width).any { x -> pixels[x, y].toArgb() == expected.toArgb() }
+				}, "Snackbar control must use its active theme color (dark=$isDark)")
+			}
+		}
 	}
 
 	@Test

@@ -27,7 +27,7 @@ data class AppPreferences(
 	/** Stable anonymous install id for bug-report correlation; never an account or advertising id. */
 	val diagnosticsInstallId: String = "",
 	val relaySettings: RelaySettings = RelaySettings(),
-	val useDynamicColors: Boolean = false,
+	val useDynamicColors: Boolean = true,
 )
 
 class AppPreferencesDefaults(
@@ -79,7 +79,7 @@ class AppPreferencesRepository(
 			AppPreferences(
 				username = prefs[PreferenceKeys.Username]?.takeIf { it.isNotBlank() } ?: defaults.username,
 				receiveFolder = resolveReceiveFolder(prefs, defaults.receiveFolder),
-				useDynamicColors = prefs[PreferenceKeys.DynamicColors] ?: false,
+				useDynamicColors = prefs[PreferenceKeys.DynamicColors] ?: true,
 				themeMode = prefs[PreferenceKeys.ThemeMode]?.let { themeModeOrNull(it) } ?: defaults.themeMode,
 				notificationsEnabled = prefs[PreferenceKeys.NotificationsEnabled] ?: defaults.notificationsEnabled,
 				diagnosticsInstallId = prefs[PreferenceKeys.DiagnosticsInstallId].orEmpty(),

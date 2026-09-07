@@ -29,7 +29,7 @@ internal fun AppearanceSettings(
 	onModeChanged: (ThemeMode) -> Unit,
 	onBack: () -> Unit,
 	showBack: Boolean,
-	useDynamicColors: Boolean = false,
+	useDynamicColors: Boolean = true,
 	onDynamicColorsChanged: (Boolean) -> Unit = {},
 ) {
 	Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {

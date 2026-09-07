@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
@@ -65,11 +66,20 @@ fun VniDropSnackbarHost(
 	}
 
 	SnackbarHost(hostState = hostState, modifier = modifier) { data ->
+		val colors = LocalVniDropColors.current
 		if (LocalUiPlatform.current == UiPlatform.Android) {
-			Snackbar(data, actionOnNewLine = data.visuals.actionLabel != null, modifier = Modifier.padding(12.dp))
+			Snackbar(
+				data,
+				actionOnNewLine = data.visuals.actionLabel != null,
+				modifier = Modifier.padding(12.dp).testTag("android-snackbar"),
+				containerColor = colors.backgroundDialog,
+				contentColor = colors.foregroundDefault,
+				actionColor = colors.brandLink,
+				actionContentColor = colors.brandLink,
+				dismissActionContentColor = colors.foregroundLighter,
+			)
 			return@SnackbarHost
 		}
-		val colors = LocalVniDropColors.current
 		val accent = when (tone) {
 			UiMessageTone.Info -> colors.brandLink
 			UiMessageTone.Success -> colors.brandDefault

@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 data class AppState(
 	val destination: AppDestination = AppDestination.Send,
 	val themeMode: ThemeMode = ThemeMode.System,
-	val useDynamicColors: Boolean = false,
+	val useDynamicColors: Boolean = true,
 	/** True after the first core initialize attempt finishes (success or failure). */
 	val startupSettled: Boolean = false,
 )

@@ -185,7 +185,7 @@ object VniDropThemeTokens {
 @Composable
 fun VniDropTheme(
 	mode: ThemeMode,
-	useDynamicColors: Boolean = false,
+	useDynamicColors: Boolean = true,
 	content: @Composable () -> Unit,
 ) {
 	VniDropTheme(isDarkTheme = rememberResolvedDarkTheme(mode), useDynamicColors = useDynamicColors, content = content)
@@ -194,7 +194,7 @@ fun VniDropTheme(
 @Composable
 fun VniDropTheme(
 	isDarkTheme: Boolean,
-	useDynamicColors: Boolean = false,
+	useDynamicColors: Boolean = true,
 	content: @Composable () -> Unit,
 ) {
 	val base = if (isDarkTheme) VniDropThemeTokens.dark else VniDropThemeTokens.light

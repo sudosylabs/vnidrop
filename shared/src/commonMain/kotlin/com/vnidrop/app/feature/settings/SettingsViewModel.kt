@@ -90,7 +90,7 @@ data class SettingsState(
 	val isValidatingFolder: Boolean = false,
 	val supportsCustomReceiveFolders: Boolean = true,
 	val themeMode: ThemeMode = ThemeMode.System,
-	val useDynamicColors: Boolean = false,
+	val useDynamicColors: Boolean = true,
 	val savedRelaySettings: RelaySettings = RelaySettings(),
 	val relayMode: RelayMode = RelayMode.Automatic,
 	val relayUrls: List<String> = emptyList(),

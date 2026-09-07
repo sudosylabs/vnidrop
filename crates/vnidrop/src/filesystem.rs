@@ -385,16 +385,21 @@ pub(crate) fn collect_import_files_with_limits(
                 file.collection_name
             );
         }
-        if let ImportSource::Path(path) = &file.source {
-            known_total = known_total
-                .checked_add(std::fs::metadata(path)?.len())
-                .context("collection size overflow")?;
-            if known_total > limits.max_total_bytes {
-                anyhow::bail!(
-                    "collection size {known_total} exceeds limit {}",
-                    limits.max_total_bytes
-                );
-            }
+        #[cfg(not(unix))]
+        let ImportSource::Path(path) = &file.source;
+        #[cfg(unix)]
+        let path = match &file.source {
+            ImportSource::Path(path) => path,
+            ImportSource::FileDescriptor(_) => continue,
+        };
+        known_total = known_total
+            .checked_add(std::fs::metadata(path)?.len())
+            .context("collection size overflow")?;
+        if known_total > limits.max_total_bytes {
+            anyhow::bail!(
+                "collection size {known_total} exceeds limit {}",
+                limits.max_total_bytes
+            );
         }
     }
     Ok(files)

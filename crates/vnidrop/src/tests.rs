@@ -24,6 +24,7 @@ mod network_config_tests;
 mod pairing_eligibility_tests;
 #[path = "tests/persistence.rs"]
 mod persistence_tests;
+#[cfg(unix)]
 #[path = "tests/platform_contract_android.rs"]
 mod platform_contract_android_tests;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -37,6 +38,7 @@ mod platform_contract_windows_tests;
 mod repository_tests;
 #[path = "tests/runtime.rs"]
 mod runtime_tests;
+#[cfg(unix)]
 #[path = "tests/secure_secret_android.rs"]
 mod secure_secret_android_tests;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -49,6 +51,8 @@ mod secure_secret_tests;
 #[cfg(target_os = "windows")]
 #[path = "tests/secure_secret_windows.rs"]
 mod secure_secret_windows_tests;
+#[path = "tests/share_cancellation.rs"]
+mod share_cancellation_tests;
 #[path = "tests/targeted_lifecycle.rs"]
 mod targeted_lifecycle_tests;
 #[path = "tests/targeted_module.rs"]

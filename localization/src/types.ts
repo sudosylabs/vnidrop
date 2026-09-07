@@ -1,8 +1,8 @@
 /** Canonical localization data model. See ../README.md for the full spec. */
 
 /** Output targets a string can be emitted to. */
-export type Target = "kmp" | "apple";
-export const ALL_TARGETS: Target[] = ["kmp", "apple"];
+export type Target = "kmp" | "apple" | "windows";
+export const ALL_TARGETS: Target[] = ["kmp", "apple", "windows"];
 
 /** Argument types, used to pick the right platform placeholder token. */
 export type ArgType = "string" | "int" | "double";

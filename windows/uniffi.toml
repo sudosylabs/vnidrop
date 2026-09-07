@@ -1,0 +1,4 @@
+[bindings.csharp]
+namespace = "VniDrop.Native"
+access_modifier = "public"
+cdylib_name = "vnidrop_native"

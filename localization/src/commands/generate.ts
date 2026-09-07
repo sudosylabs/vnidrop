@@ -2,6 +2,7 @@
  * Generate platform files from strings.json:
  *   - Apple: one Localizable.xcstrings (all languages nested).
  *   - KMP:   one values[-lang]/strings.xml per supported language.
+ *   - Windows: one Strings/<locale>/Resources.resw per supported language.
  */
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -14,12 +15,14 @@ import {
   kmpValuesDir,
   KMP_RESOURCES,
   STRINGS_JSON,
+  REPO_ROOT,
 } from "../config";
 import { renderAndroid, type ParsedAndroid } from "../lib/android-xml";
 import { fromCanonical, type Flavor } from "../lib/placeholders";
 import { renderSwiftAccessors } from "../lib/swift-accessors";
 import { renderXcstrings, type XcCatalog, type XcEntry } from "../lib/xcstrings";
 import { targetsOf, type StringEntry, type StringsFile } from "../types";
+import { renderWindowsResources } from "../lib/windows-resources";
 
 function render(entry: StringEntry, text: string, flavor: Flavor): string {
   return fromCanonical(text, entry.args ?? [], flavor);
@@ -127,5 +130,8 @@ export async function generate() {
     const file = join(dir, "strings.xml");
     await Bun.write(file, renderAndroid(buildAndroid(doc, lang)));
     console.log(`Wrote ${file}`);
+    const windowsDirectory = join(REPO_ROOT, "windows/VniDrop/Strings", lang === "en" ? "en-US" : lang);
+    await mkdir(windowsDirectory, { recursive: true });
+    await Bun.write(join(windowsDirectory, "Resources.resw"), renderWindowsResources(doc, lang));
   }
 }

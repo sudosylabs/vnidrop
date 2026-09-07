@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>14</LangVersion>
+    <VniDropRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))</VniDropRoot>
+    <RustProfile Condition="'$(RustProfile)' == ''">debug</RustProfile>
+    <RustTarget Condition="'$(RustTarget)' == ''">x86_64-pc-windows-msvc</RustTarget>
+    <Version>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(VniDropRoot)/version.properties')), '(?m)(?&lt;=^PRODUCT_VERSION=)[0-9.]+').Value)</Version>
+  </PropertyGroup>
+</Project>

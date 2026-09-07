@@ -1,0 +1,96 @@
+<ContentDialog
+    x:Class="VniDrop.Views.ShareTransferDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:p="using:VniDrop.Platform"
+    Title="{x:Bind p:Strings.Get('transfer_share_title')}"
+    PrimaryButtonText="{x:Bind p:Strings.Get('transfer_share_title')}"
+    SecondaryButtonText="{x:Bind p:Strings.Get('windows_save_invitation')}"
+    CloseButtonText="{x:Bind p:Strings.Get('button_close')}"
+    PrimaryButtonClick="ShareInvitation"
+    SecondaryButtonClick="SaveInvitation"
+    Opened="LoadQr"
+    Closing="PreventCloseWhileBusy"
+    Closed="DialogClosed"
+    DefaultButton="Primary"
+    HorizontalContentAlignment="Stretch"
+    CornerRadius="{StaticResource VniDropCardCornerRadius}"
+    PrimaryButtonStyle="{StaticResource VniDropDialogAccentButtonStyle}"
+    SecondaryButtonStyle="{StaticResource VniDropDialogButtonStyle}"
+    CloseButtonStyle="{StaticResource VniDropDialogButtonStyle}">
+  <ContentDialog.Resources>
+    <x:Double x:Key="ContentDialogMaxWidth">540</x:Double>
+  </ContentDialog.Resources>
+
+  <ScrollViewer
+      Style="{StaticResource VniDropPageScrollStyle}"
+      MaxHeight="560">
+    <StackPanel Spacing="16" MaxWidth="480">
+      <TextBlock
+          Text="{x:Bind p:Strings.Get('windows_share_description')}"
+          Style="{StaticResource VniDropSecondaryTextStyle}" />
+
+      <InfoBar
+          x:Name="ActionError"
+          Severity="Error"
+          IsOpen="False"
+          IsClosable="True"
+          AutomationProperties.LiveSetting="Polite" />
+
+      <StackPanel x:Name="ActionStatus" Spacing="8" Visibility="Collapsed">
+        <ProgressBar
+            x:Name="ActionProgress"
+            IsIndeterminate="True"
+            IsTabStop="False"
+            AutomationProperties.AccessibilityView="Raw" />
+        <TextBlock
+            x:Name="ActionStatusText"
+            Text="{x:Bind p:Strings.Get('progress_working')}"
+            Style="{StaticResource VniDropSecondaryTextStyle}"
+            AutomationProperties.LiveSetting="Polite" />
+      </StackPanel>
+
+      <Border
+          x:Name="QrFrame"
+          Width="236"
+          Height="236"
+          Padding="12"
+          HorizontalAlignment="Center"
+          Background="White"
+          BorderBrush="#33000000"
+          BorderThickness="1"
+          CornerRadius="8">
+        <Grid>
+          <Image
+              x:Name="QrImage"
+              Visibility="Collapsed"
+              Stretch="Uniform"
+              AutomationProperties.AccessibilityView="Raw" />
+          <ProgressRing
+              x:Name="QrProgress"
+              Width="28"
+              Height="28"
+              IsActive="True"
+              IsTabStop="False"
+              AutomationProperties.AccessibilityView="Raw" />
+        </Grid>
+      </Border>
+
+      <TextBlock
+          x:Name="QrCaption"
+          Text="{x:Bind p:Strings.Get('transfer_event_preparing')}"
+          Style="{StaticResource VniDropSecondaryTextStyle}"
+          TextAlignment="Center"
+          HorizontalAlignment="Center"
+          AutomationProperties.LiveSetting="Polite" />
+
+      <InfoBar
+          x:Name="QrError"
+          Severity="Informational"
+          IsOpen="False"
+          IsClosable="False"
+          Message="{x:Bind p:Strings.Get('windows_qr_unavailable')}"
+          AutomationProperties.LiveSetting="Polite" />
+    </StackPanel>
+  </ScrollViewer>
+</ContentDialog>

@@ -1,0 +1,200 @@
+<ContentDialog
+    x:Class="VniDrop.Views.DraftPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:VniDrop.Controls"
+    xmlns:p="using:VniDrop.Platform"
+    xmlns:vm="using:VniDrop.ViewModels"
+    CloseButtonText="{x:Bind p:Strings.Get('button_cancel')}"
+    PrimaryButtonClick="Submit"
+    Closing="OnClosing"
+    DefaultButton="None"
+    HorizontalContentAlignment="Stretch"
+    CornerRadius="{StaticResource VniDropCardCornerRadius}"
+    PrimaryButtonStyle="{StaticResource VniDropDialogAccentButtonStyle}"
+    CloseButtonStyle="{StaticResource VniDropDialogButtonStyle}">
+  <ContentDialog.Resources>
+    <x:Double x:Key="ContentDialogMaxWidth">560</x:Double>
+  </ContentDialog.Resources>
+  <ContentDialog.Title>
+    <Grid ColumnSpacing="12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <Button
+          x:Name="BackButton"
+          Style="{StaticResource VniDropIconButtonStyle}"
+          Click="ChooseAgain"
+          Visibility="Collapsed"
+          AutomationProperties.Name="{x:Bind p:Strings.Get('button_back')}"
+          ToolTipService.ToolTip="{x:Bind p:Strings.Get('button_back')}">
+        <FontIcon Glyph="&#xE72B;" FontSize="16" />
+      </Button>
+      <TextBlock
+          x:Name="Heading"
+          Grid.Column="1"
+          TextWrapping="Wrap"
+          VerticalAlignment="Center" />
+    </Grid>
+  </ContentDialog.Title>
+  <ScrollViewer
+      Style="{StaticResource VniDropPageScrollStyle}"
+      MaxHeight="640">
+    <StackPanel Spacing="16">
+      <InfoBar x:Name="Error" Severity="Error" IsOpen="False" />
+
+      <StackPanel x:Name="ChooseStep" Spacing="16">
+        <TextBlock
+            Text="{x:Bind p:Strings.Get('send_choose_file_body')}"
+            Style="{StaticResource VniDropSecondaryTextStyle}" />
+        <Border Style="{StaticResource VniDropCardStyle}">
+          <StackPanel
+              AllowDrop="True"
+              DragOver="DragOverFiles"
+              Drop="DropFiles">
+            <controls:SettingsRow
+                x:Name="ChooseFilesButton"
+                AutomationProperties.AutomationId="ChooseFilesButton"
+                Glyph="&#xE8A5;"
+                Title="{x:Bind p:Strings.Get('button_choose_files')}"
+                ShowChevron="True"
+                Click="ChooseFiles" />
+            <Rectangle Height="1" Margin="52,0,0,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <controls:SettingsRow
+                x:Name="ChooseFolderButton"
+                AutomationProperties.AutomationId="ChooseFolderButton"
+                Glyph="&#xE8B7;"
+                Title="{x:Bind p:Strings.Get('button_choose_folder')}"
+                ShowChevron="True"
+                Click="ChooseFolder" />
+          </StackPanel>
+        </Border>
+        <TextBlock
+            Text="{x:Bind p:Strings.Get('send_new_transfer_description')}"
+            Style="{StaticResource VniDropCaptionTextStyle}" />
+      </StackPanel>
+
+      <StackPanel x:Name="ReviewStep" Spacing="16" Visibility="Collapsed">
+        <TextBlock
+            x:Name="Recipient"
+            Style="{StaticResource BodyStrongTextBlockStyle}"
+            TextWrapping="Wrap" />
+        <TextBlock
+            x:Name="SelectionSummary"
+            Style="{StaticResource VniDropCaptionTextStyle}" />
+        <ListView
+            x:Name="Sources"
+            SelectionMode="None"
+            MaxHeight="190"
+            HorizontalContentAlignment="Stretch"
+            ItemContainerStyle="{StaticResource VniDropTransferListItemStyle}">
+          <ListView.ItemTemplate>
+            <DataTemplate x:DataType="vm:DraftSourceItem">
+              <Grid Padding="12" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="36" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <controls:FileArtwork
+                    Width="36" Height="36"
+                    SourcePath="{x:Bind Source.Path}"
+                    FileName="{x:Bind Name}"
+                    IsDirectory="{x:Bind Source.IsDirectory}"
+                    VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                  <TextBlock
+                      Text="{x:Bind Name}"
+                      Style="{StaticResource BodyStrongTextBlockStyle}"
+                      TextTrimming="CharacterEllipsis" />
+                  <TextBlock
+                      Text="{x:Bind Detail}"
+                      Style="{StaticResource VniDropCaptionTextStyle}" />
+                </StackPanel>
+                <Button
+                    Grid.Column="2"
+                    Style="{StaticResource VniDropIconButtonStyle}"
+                    Tag="{x:Bind Source}"
+                    Click="RemoveSource"
+                    AutomationProperties.Name="{x:Bind p:Strings.Get('button_remove_file')}"
+                    ToolTipService.ToolTip="{x:Bind p:Strings.Get('button_remove_file')}">
+                  <FontIcon Glyph="&#xE74D;" FontSize="16" />
+                </Button>
+              </Grid>
+            </DataTemplate>
+          </ListView.ItemTemplate>
+        </ListView>
+        <TextBox
+            x:Name="TransferName"
+            Header="{x:Bind p:Strings.Get('field_transfer_name')}"
+            TextChanged="NameChanged"
+            MaxLength="240" />
+        <TextBox
+            x:Name="SenderName"
+            Header="{x:Bind p:Strings.Get('field_sender_name')}"
+            MaxLength="100" />
+        <StackPanel x:Name="AccessOptions" Spacing="8">
+          <TextBlock
+              Text="{x:Bind p:Strings.Get('send_access_title')}"
+              Style="{StaticResource BodyStrongTextBlockStyle}" />
+          <Border Style="{StaticResource VniDropCardStyle}" Padding="16,12">
+            <RadioButtons
+                x:Name="AccessChoices"
+                MaxColumns="1"
+                SelectedIndex="0"
+                AutomationProperties.Name="{x:Bind p:Strings.Get('send_access_title')}"
+                SelectionChanged="AccessChanged">
+              <RadioButton
+                  x:Name="ApprovalRequired"
+                  Content="{x:Bind p:Strings.Get('send_access_approval')}"
+                  AutomationProperties.HelpText="{x:Bind p:Strings.Get('send_access_approval_description')}" />
+              <RadioButton
+                  x:Name="AnyoneWithInvitation"
+                  Content="{x:Bind p:Strings.Get('send_access_anyone')}"
+                  AutomationProperties.HelpText="{x:Bind p:Strings.Get('send_access_anyone_description')}" />
+            </RadioButtons>
+          </Border>
+          <TextBlock
+              x:Name="AccessDescription"
+              Style="{StaticResource VniDropCaptionTextStyle}"
+              AutomationProperties.LiveSetting="Polite" />
+          <InfoBar
+              x:Name="PublicWarning"
+              IsOpen="False"
+              Severity="Warning"
+              IsClosable="False"
+              Message="{x:Bind p:Strings.Get('send_access_anyone_warning')}" />
+        </StackPanel>
+        <CommandBar
+            DefaultLabelPosition="Right"
+            HorizontalAlignment="Left"
+            Background="Transparent">
+          <AppBarButton
+              Icon="Document"
+              Label="{x:Bind p:Strings.Get('button_change_files')}"
+              Click="ChooseFiles" />
+          <AppBarButton
+              Icon="Folder"
+              Label="{x:Bind p:Strings.Get('button_choose_folder')}"
+              Click="ChooseFolder" />
+          <AppBarButton
+              Icon="Clear"
+              Label="{x:Bind p:Strings.Get('button_clear')}"
+              Click="ClearSelection" />
+        </CommandBar>
+      </StackPanel>
+
+      <StackPanel x:Name="Preparation" Visibility="Collapsed" Spacing="8">
+        <ProgressBar
+            x:Name="PreparationProgress"
+            IsIndeterminate="True"
+            IsTabStop="True"
+            AutomationProperties.Name="{x:Bind p:Strings.Get('button_sharing_file')}" />
+        <TextBlock
+            Text="{x:Bind p:Strings.Get('button_sharing_file')}"
+            Style="{StaticResource VniDropSecondaryTextStyle}" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</ContentDialog>

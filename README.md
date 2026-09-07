@@ -44,6 +44,10 @@ uploading them to a file-hosting service. Choose what to send, decide who may
 receive it, and share a small invitation. The receiving device uses that
 invitation to find the sender and request the files.
 
+The native C# / WinUI 3 Windows app lives in [`windows/`](windows/README.md).
+The Windows release workflow packages this host for the Store and direct download;
+see its build instructions and remaining release acceptance work before publishing.
+
 There is no account to create and no cloud copy of the transfer waiting after
 you are done. The sender remains in control and can stop sharing at any time.
 
@@ -183,8 +187,8 @@ The security and lifecycle rules are documented in
 - Saved devices with mutual consent, and targeted transfers that need no new
   invitation
 - Safe receive destinations that do not silently overwrite existing files
-- Native SwiftUI apps on iOS, iPadOS, and macOS; Compose apps on Android,
-  Windows, and Linux
+- Native SwiftUI apps on iOS, iPadOS, and macOS; WinUI on Windows; Compose on
+  Android and Linux
 - Strict custom HTTPS relay profiles with safe apply and rollback
 - Optional user-submitted bug reports with transfer contents, invitations, and
   file paths excluded

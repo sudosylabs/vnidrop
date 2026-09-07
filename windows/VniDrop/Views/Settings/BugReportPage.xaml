@@ -1,0 +1,118 @@
+<Page
+    x:Class="VniDrop.Views.Settings.BugReportPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:p="using:VniDrop.Platform"
+    xmlns:settings="using:VniDrop.Views.Settings">
+  <settings:SettingsPageLayout
+      Title="{x:Bind p:Strings.Get('about_bug_report')}"
+      Subtitle="{x:Bind p:Strings.Get('windows_bug_report_description')}"
+      BackRequested="Back">
+    <settings:SettingsPageLayout.PageContent>
+      <StackPanel Spacing="20">
+        <InfoBar
+            x:Name="SubmitError"
+            AutomationProperties.AutomationId="BugReportError"
+            IsOpen="False"
+            IsClosable="True"
+            Severity="Error"
+            Message="{x:Bind p:Strings.Get('windows_bug_report_share_failed')}" />
+
+        <Border Style="{StaticResource VniDropCardStyle}" Padding="16">
+          <StackPanel x:Name="ReportForm" Spacing="16">
+            <StackPanel Spacing="6">
+              <TextBox
+                  x:Name="BugWhat"
+                  AutomationProperties.AutomationId="BugWhat"
+                  Header="{x:Bind p:Strings.Get('bug_report_what_label')}"
+                  PlaceholderText="{x:Bind p:Strings.Get('bug_report_what_hint')}"
+                  AcceptsReturn="True"
+                  TextWrapping="Wrap"
+                  MaxLength="4000"
+                  MinHeight="90"
+                  TextChanged="RequiredTextChanged" />
+              <TextBlock
+                  x:Name="BugWhatError"
+                  AutomationProperties.LiveSetting="Assertive"
+                  Foreground="{ThemeResource VniDropCriticalTextBrush}"
+                  FontSize="12"
+                  Text="{x:Bind p:Strings.Get('bug_report_missing_what')}"
+                  TextWrapping="Wrap"
+                  Visibility="Collapsed" />
+            </StackPanel>
+            <StackPanel Spacing="6">
+              <TextBox
+                  x:Name="BugExpected"
+                  AutomationProperties.AutomationId="BugExpected"
+                  Header="{x:Bind p:Strings.Get('bug_report_expected_label')}"
+                  PlaceholderText="{x:Bind p:Strings.Get('bug_report_expected_hint')}"
+                  AcceptsReturn="True"
+                  TextWrapping="Wrap"
+                  MaxLength="4000"
+                  MinHeight="70"
+                  TextChanged="RequiredTextChanged" />
+              <TextBlock
+                  x:Name="BugExpectedError"
+                  AutomationProperties.LiveSetting="Assertive"
+                  Foreground="{ThemeResource VniDropCriticalTextBrush}"
+                  FontSize="12"
+                  Text="{x:Bind p:Strings.Get('bug_report_missing_expected')}"
+                  TextWrapping="Wrap"
+                  Visibility="Collapsed" />
+            </StackPanel>
+            <TextBox
+                x:Name="BugSteps"
+                AutomationProperties.AutomationId="BugSteps"
+                Header="{x:Bind p:Strings.Get('bug_report_steps_label')}"
+                PlaceholderText="{x:Bind p:Strings.Get('bug_report_steps_hint')}"
+                AcceptsReturn="True"
+                TextWrapping="Wrap"
+                MaxLength="4000"
+                MinHeight="70" />
+            <TextBox
+                x:Name="BugContact"
+                AutomationProperties.AutomationId="BugContact"
+                Header="{x:Bind p:Strings.Get('bug_report_contact_label')}"
+                PlaceholderText="{x:Bind p:Strings.Get('bug_report_contact_hint')}"
+                MaxLength="320" />
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource VniDropCardStyle}" Padding="16">
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <StackPanel Spacing="4">
+              <TextBlock Text="{x:Bind p:Strings.Get('bug_report_include_logs')}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+              <TextBlock Text="{x:Bind p:Strings.Get('windows_bug_report_include_logs_description')}" Style="{StaticResource VniDropCaptionTextStyle}" />
+            </StackPanel>
+            <ToggleSwitch
+                x:Name="BugLogs"
+                Grid.Column="1"
+                AutomationProperties.AutomationId="BugLogs"
+                OnContent="{x:Bind p:Strings.Get('windows_on')}"
+                OffContent="{x:Bind p:Strings.Get('windows_off')}" />
+          </Grid>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <Button
+              x:Name="SubmitButton"
+              AutomationProperties.AutomationId="SubmitBugReportButton"
+              Style="{StaticResource VniDropPrimaryButtonStyle}"
+              Content="{x:Bind p:Strings.Get('windows_bug_report_share')}"
+              Click="SubmitBugReport" />
+          <ProgressRing
+              x:Name="Submitting"
+              AutomationProperties.AutomationId="BugReportBusy"
+              AutomationProperties.Name="{x:Bind p:Strings.Get('windows_bug_report_preparing')}"
+              AutomationProperties.LiveSetting="Polite"
+              Width="24"
+              Height="24"
+              IsActive="False"
+              IsTabStop="False"
+              Visibility="Collapsed" />
+        </StackPanel>
+      </StackPanel>
+    </settings:SettingsPageLayout.PageContent>
+  </settings:SettingsPageLayout>
+</Page>

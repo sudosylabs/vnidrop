@@ -111,6 +111,9 @@ impl CoreInner {
             .remove(&transfer_id);
         if let Err(error) = &result {
             if was_cancelled {
+                self.cancel_share_preparation(transfer_id)
+                    .await
+                    .map_err(VnidropError::repository)?;
                 self.emit_transfer(transfer_id, "send", "lifecycle", "cancelled", json!({}));
             } else {
                 self.emit_transfer(
@@ -184,6 +187,9 @@ impl CoreInner {
             )
             .await?;
 
+        // Serialize publication with cancellation: SQLite can commit Sharing before
+        // the future resumes to register the provider, including when it is dropped.
+        let mut active_shares = self.active_shares.lock().await;
         // Persist the completed share before exposing it through the provider.
         // The remaining in-memory registrations are infallible and can be
         // reconstructed from SQLite if the process exits immediately after.
@@ -207,6 +213,14 @@ impl CoreInner {
             let _ = self.store.tags().delete(&tag_name).await;
             return Err(VnidropError::repository(error).into());
         }
+        #[cfg(test)]
+        {
+            let gate = self.share_publication_gate.lock().unwrap().take();
+            if let Some((arrived, release)) = gate {
+                let _ = arrived.send(());
+                let _ = release.await;
+            }
+        }
         // Map root + every collection member so provider ACL cannot fail-open
         // on child blob hashes that are not the collection root.
         self.register_share_hashes(
@@ -217,10 +231,7 @@ impl CoreInner {
         self.access_policy
             .set_mode(metadata.transfer_id, access_mode)
             .await;
-        self.active_shares
-            .lock()
-            .await
-            .insert(metadata.transfer_id, ());
+        active_shares.insert(metadata.transfer_id, ());
         drop(import.tag);
 
         // Tickets are capabilities: never persist the full string in events.

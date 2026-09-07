@@ -1,0 +1,86 @@
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Assert-NativeAppImage([string]$Path, [string]$Version) {
+    foreach ($asset in @('VniDrop.exe', 'VniDrop.dll', 'VniDrop.Core.dll', 'vnidrop_native.dll',
+        'VniDrop.runtimeconfig.json', 'coreclr.dll', 'hostfxr.dll', 'Microsoft.UI.Xaml.dll',
+        'Microsoft.WindowsAppRuntime.dll', 'VniDrop.pri', 'App.xbf', 'MainWindow.xbf', 'Views/TransfersPage.xbf')) {
+        $file = Join-Path $Path $asset
+        if (!(Test-Path -LiteralPath $file -PathType Leaf) -or (Get-Item -LiteralPath $file).Length -eq 0) {
+            throw "Native app image is missing $asset"
+        }
+    }
+    $actualVersion = (Get-Item -LiteralPath (Join-Path $Path 'VniDrop.dll')).VersionInfo.ProductVersion.Split('+')[0]
+    if ($actualVersion -ne $Version) { throw "Native app version $actualVersion does not match $Version" }
+    $runtime = Get-Content -LiteralPath (Join-Path $Path 'VniDrop.runtimeconfig.json') -Raw | ConvertFrom-Json
+    if (!$runtime.runtimeOptions.PSObject.Properties['includedFrameworks']) { throw 'The .NET runtime must be self-contained' }
+    if ($runtime.runtimeOptions.configProperties.'System.Reflection.Metadata.MetadataUpdater.IsSupported' -ne $false) {
+        throw 'The native app must be published in Release configuration'
+    }
+    $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+    $releaseCore = Join-Path $repo 'target/x86_64-pc-windows-msvc/release/vnidrop.dll'
+    if (!(Test-Path -LiteralPath $releaseCore) -or
+        (Get-FileHash -LiteralPath $releaseCore).Hash -ne (Get-FileHash -LiteralPath (Join-Path $Path 'vnidrop_native.dll')).Hash) {
+        throw 'The app image must contain the freshly built Release Rust library'
+    }
+}
+
+function Assert-NotificationRegistration([xml]$Manifest) {
+    $application = $Manifest.SelectSingleNode('/*[local-name()="Package"]/*[local-name()="Applications"]/*[local-name()="Application"]')
+    $activation = $application.SelectSingleNode('./*[local-name()="Extensions"]/*[@Category="windows.toastNotificationActivation"]/*[local-name()="ToastNotificationActivation"]')
+    if (!$activation) { throw 'MSIX notification activation is missing' }
+    $clsid = [guid]$activation.GetAttribute('ToastActivatorCLSID')
+    if ($clsid -eq [guid]::Empty) { throw 'MSIX notification activator must have a stable CLSID' }
+    $servers = @($application.SelectNodes('./*[local-name()="Extensions"]/*[@Category="windows.comServer"]/*[local-name()="ComServer"]/*[local-name()="ExeServer"]'))
+    $server = @($servers | Where-Object {
+        @($_.SelectNodes('./*[local-name()="Class"]') | Where-Object { [guid]$_.GetAttribute('Id') -eq $clsid }).Count -eq 1
+    })
+    if ($server.Count -ne 1 -or $server[0].GetAttribute('Executable') -cne $application.GetAttribute('Executable') -or
+        $server[0].GetAttribute('Arguments') -cne '----AppNotificationActivated:') {
+        throw 'MSIX notification activation must route to the app executable with the Windows App SDK activation argument'
+    }
+}
+
+function Get-ColdNotificationTestSkipReason(
+    [string]$GitHubActions = $env:GITHUB_ACTIONS,
+    [string]$RunnerEnvironment = $env:RUNNER_ENVIRONMENT
+) {
+    if ($GitHubActions -eq 'true' -and $RunnerEnvironment -eq 'github-hosted') {
+        return 'Cold notification COM activation is skipped on GitHub-hosted Windows runners: DCOM startup times out in that environment even with a restricted medium-integrity caller. Run test-msix.ps1 on a clean interactive Windows account for cold-start acceptance. See packaging/windows/README.md.'
+    }
+}
+
+function Get-PackagingDotnet {
+    $command = Get-Command dotnet -ErrorAction SilentlyContinue
+    if ($command) { return $command.Source }
+    $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+    $env:DOTNET_ROOT = Join-Path $repo 'build/windows/tools/dotnet'
+    $env:DOTNET_CLI_HOME = Join-Path $repo 'build/windows/tools/dotnet-home'
+    $path = Join-Path $env:DOTNET_ROOT 'dotnet.exe'
+    if (!(Test-Path -LiteralPath $path)) { throw 'Install the .NET 10 SDK before packaging.' }
+    return $path
+}
+
+function Get-PackagingWix {
+    $dotnet = Get-PackagingDotnet
+    $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+    $directory = Join-Path $repo 'build/windows/tools/wix'
+    $wix = Join-Path $directory 'wix.exe'
+    if (!(Test-Path -LiteralPath $wix)) {
+        & $dotnet tool install wix --version 4.0.6 --tool-path $directory --allow-roll-forward | Out-Host
+        if ($LASTEXITCODE) { throw 'WiX installation failed' }
+    }
+    $version = & $wix --version
+    if ($LASTEXITCODE -or $version -notmatch '^4\.0\.6\+') { throw "Expected WiX 4.0.6, found $version" }
+    $extension = Join-Path $directory '.wix/extensions/WixToolset.Bal.wixext/4.0.6/wixext4/WixToolset.Bal.wixext.dll'
+    if (!(Test-Path -LiteralPath $extension)) {
+        Push-Location $directory
+        try {
+            & $wix extension add WixToolset.Bal.wixext/4.0.6 | Out-Host
+            if ($LASTEXITCODE) { throw 'WiX bootstrapper extension installation failed' }
+        } finally { Pop-Location }
+    }
+    return @{ Executable = $wix; BalExtension = $extension }
+}
+
+Export-ModuleMember -Function Assert-NativeAppImage, Assert-NotificationRegistration, Get-ColdNotificationTestSkipReason, Get-PackagingDotnet, Get-PackagingWix

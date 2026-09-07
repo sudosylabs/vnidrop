@@ -1,0 +1,12 @@
+<UserControl
+    x:Class="VniDrop.Controls.FileArtwork"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    AutomationProperties.AccessibilityView="Raw">
+  <Grid>
+    <FontIcon x:Name="FallbackIcon" FontSize="22"
+        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+        HorizontalAlignment="Center" VerticalAlignment="Center" />
+    <Image x:Name="PreviewImage" Stretch="Uniform" Visibility="Collapsed" />
+  </Grid>
+</UserControl>

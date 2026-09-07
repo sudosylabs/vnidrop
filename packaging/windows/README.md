@@ -1,6 +1,6 @@
 # Windows packaging
 
-This directory turns the Compose Desktop Windows app image into the unsigned
+This directory turns the native WinUI 3 Release publish output into the unsigned
 MSIX artifacts accepted by Partner Center. Microsoft signs the package after
 certification, so this build does not use a PFX, certificate, HSM, or signing
 secret. The same workflow also produces an intentionally unsigned `.exe` for
@@ -53,11 +53,45 @@ Windows SmartScreen is expected to show an unknown-publisher or potentially
 dangerous-app warning. Users should download it only from the official GitHub
 Release and compare it with the published `SHA256SUMS` before running it.
 
-The workflow explicitly selects Gobley's release Rust variant and rejects a
-package containing the debug native JAR. It verifies that the direct installer
-is unsigned, and also verifies the bundled JVM, vnidrop.dll, app version,
-manifest identity, architecture, and launcher after MakeAppx unpacks the
-finished package.
+The workflow builds and tests the native Release app, including the Release Rust
+library, .NET runtime, Windows App SDK, XAML and localized resources. It verifies
+the unsigned installer, native version and runtime assets, Store identity, and
+every published file's hash after extracting both the MSI and MSIX. The EXE's
+embedded MSI must match the validated MSI exactly. PDBs are excluded.
+
+The direct EXE is a WiX 4.0.6 Burn bundle containing a per-user MSI. The build
+script installs the pinned WiX tool and bootstrapper extension under
+`build/windows/tools/wix`; end users need neither WiX nor .NET installed.
+Its `theme.xml` uses VniDrop artwork, system colors, Segoe UI and native controls
+for install, maintenance, progress and completion screens. UI wording comes from
+the WiX standard localization resources. The extraction test verifies the actual
+embedded theme, artwork and text references. The package workflow downloads the
+published Compose 0.3.3 installer through `get-legacy-installer.ps1` and verifies
+its pinned SHA-256 before same-version upgrade acceptance. The populated profile
+fixture verifies protected identity, legacy preferences, history and received
+files after upgrade and uninstall. Omitting `-LegacyInstaller` retains the small
+synthetic fixture for local diagnostics; it does not prove release migration.
+The MSI retains the Compose upgrade code
+`E08E256E-2F07-479E-8AA9-4898D424F6C5` and jpackage's `.vnd` ProgId. Major upgrades
+remove the old runtime inside a rollback transaction, including same-version
+Compose-to-WinUI replacement across installer languages. The new bundle has its
+own stable upgrade code.
+Installation adds Start menu and desktop shortcuts and registers VniDrop in
+Open With and Default apps. It does not overwrite Windows UserChoice or another
+application's default. Windows may ask the user to choose a handler once.
+Uninstall removes installer-owned files and registrations, preserving profiles.
+
+The MSIX retains the existing Store identity and manifest `.vnd` association.
+It imports runtime registrations from the Windows App SDK manifest or fragments
+selected by the native build. MakePri merges the already-compiled `VniDrop.pri`
+with Store artwork once; scanning the framework payload again creates duplicate
+resource entries. The original app PRI and XAML files remain intact.
+The manifest declares VniDrop's notification activator and matching COM server.
+Packaging rejects missing or mismatched declarations. The MSIX acceptance script
+invokes the notification COM contract against the running app and after closing it;
+only the latter check is skipped on GitHub-hosted runners, as described below.
+The test uses a clean account's default profile without changing the manifest.
+Actual notification delivery and user clicks remain interactive acceptance checks.
 
 ## First Store release
 
@@ -80,8 +114,8 @@ already-live free product. For the first release:
 
 Use this restricted-capability justification in Submission options:
 
-> VniDrop is a classic JVM desktop application that loads its bundled native
-> Rust and JVM libraries and needs normal user-level filesystem and network
+> VniDrop is a native WinUI desktop application that loads its bundled native
+> Rust library and needs normal user-level filesystem and network
 > access to transfer user-selected files directly between devices.
 
 After the first release is certified and live, the coordinated release
@@ -105,19 +139,84 @@ pricing, and availability are preserved.
 From the repository root:
 
 ~~~powershell
-.\gradlew.bat :shared:jvmTest :desktopApp:createReleaseDistributable :desktopApp:packageReleaseExe -Pvnidrop.desktop.rustVariant=release -Pvnidrop.diagnostics.included=false --no-daemon --no-configuration-cache --stacktrace
-
-$directInstaller = Get-ChildItem .\desktopApp\build\compose\binaries\main-release\exe\*.exe
-if (@($directInstaller).Count -ne 1) { throw "Expected exactly one direct installer" }
-.\packaging\windows\build-msix.ps1 -AppImage .\desktopApp\build\compose\binaries\main-release\app\VniDrop -DirectInstaller $directInstaller.FullName -OutputDirectory .\build\release\windows
+.\windows\scripts\build.ps1 -Configuration Release -Test -Publish
+.\packaging\windows\build-installer.ps1 -AppImage .\build\windows\publish -OutputDirectory .\build\windows\installer
+$version = (.\packaging\version\resolve-version.ps1 -Field Json | ConvertFrom-Json).productVersion
+.\packaging\windows\build-msix.ps1 -AppImage .\build\windows\publish -DirectInstaller ".\build\windows\installer\VniDrop_${version}_x64.exe" -OutputDirectory .\build\release\windows
+.\packaging\windows\test-installer.ps1 -AppImage .\build\windows\publish -InstallerDirectory .\build\windows\installer
 ~~~
 
-The packaging script requires Windows SDK 10.0.26100.0. It uses MakePri to
-index the scale-qualified visual assets, then MakeAppx with SHA-256 block maps
-and manifest validation enabled.
+The packaging script requires Windows SDK 10.0.26100.0 and the native build
+prerequisites in [`windows/README.md`](../../windows/README.md). It uses MakeAppx
+with SHA-256 block maps and manifest validation enabled. MSI and build sources
+remain under `build/windows/installer`; only the existing release artifact set
+is copied into `build/release/windows`.
+
+On a clean interactive test account, run the installation acceptance checks:
+
+~~~powershell
+$legacy = .\packaging\windows\get-legacy-installer.ps1
+.\packaging\windows\test-installer.ps1 -AppImage .\build\windows\publish -InstallerDirectory .\build\windows\installer -LegacyInstaller $legacy -Install
+powershell.exe -NoProfile -File .\packaging\windows\test-msix.ps1 -Package ".\build\release\windows\VniDrop_${version}_x64.msix"
+~~~
+
+The installer test refuses to replace an existing VniDrop installation. It
+installs the checksum-pinned Compose release, upgrades through the native EXE,
+and launches the installed app against a seeded profile. It checks identity,
+preferences, history, received files, uninstall and file-default preservation.
+Omitting `-LegacyInstaller` uses a small synthetic MSI for local diagnostics;
+the release workflow always supplies the published installer. The MSIX test uses
+Developer Mode to register its extracted payload temporarily, then verifies
+localized startup, warm notification COM activation and removal. Cold notification
+COM activation also runs outside GitHub-hosted runners.
+The MSIX test also requires an absent default VniDrop profile. It uses that profile
+for cold activation without changing the manifest's exact SDK activation argument,
+then moves its newly created profile under `build/windows/msix-test` for inspection.
+CI enables Developer Mode only for that test and restores its previous setting.
+Because hosted Windows runners run elevated with UAC disabled, the test launches
+a child with a restricted standard-user token and medium integrity, retaining the
+same account and profile. It checks the child and app integrity levels, since the
+Windows App SDK does not support notifications in elevated processes. The launcher
+also has a separate identity, privilege, profile-write and exit-code regression test.
+Neither test signs or changes the release MSIX. Store-delivered upgrades, real
+notification delivery/clicks and existing user profiles on Windows 10/11 remain
+release acceptance checks.
+
+The script skips only cold notification COM activation when both
+`GITHUB_ACTIONS=true` and `RUNNER_ENVIRONMENT=github-hosted`. It reports the skip in
+the log and job summary; all other package checks still fail normally. Local,
+self-hosted, and unrecognized environments retain the cold activation assertions.
+Run `powershell.exe -NoProfile -File .\packaging\windows\test-msix-runner-policy.ps1`
+to verify the environment gate without installing or launching an app.
+
+The [hosted-runner failure](https://github.com/sudosylabs/vnidrop/actions/runs/34055161962/attempts/2)
+is a DCOM registration timeout (`CO_E_SERVER_EXEC_FAILURE`, event 10010) after
+the app exits. Packaged startup and warm notification activation pass at medium
+integrity. GitHub's Windows runners run as administrators with UAC disabled;
+filtering the caller's token does not resolve this cold DCOM launch failure.
+Launching a secondary account with credentials also failed package activation
+with `0x80070520`, without that account's interactive desktop logon. The exact
+runner-side cause remains unresolved; the skip is based on these observed failures.
+
+Local verification on 7 September 2026, using commit `871eceb`, passed warm and
+cold COM activation and a real click on a previously delivered test notification
+after the app closed. This ran in an interactive medium-integrity session on
+Windows build `26200.9278` (25H2), with the production registration and an isolated
+profile selected by a build-only default-profile override. The resulting WinUI
+window responded to navigation. This supports an environment-specific runner
+limitation; it does not replace testing each release package on supported Windows
+versions. For release acceptance, run the full command above on a clean interactive
+test account and verify an actual notification click after closing the app.
+
+For diagnosing a failing bootstrapper, add `-MsiOnly` to the installer acceptance
+command. This tests the embedded MSI directly and explicitly leaves EXE
+installation unverified. The release workflow always tests the full EXE.
 
 Microsoft references:
 
+- [GitHub-hosted runner privileges](https://docs.github.com/en/actions/reference/runners/github-hosted-runners#administrative-privileges)
+- [GitHub runner environment variables](https://docs.github.com/en/actions/reference/workflows-and-actions/variables#default-environment-variables)
+- [Windows App SDK notification requirements](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/app-notifications-quickstart)
 - [MSIX Store package requirements](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements)
 - [Manual desktop MSIX packaging](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-manual-conversion)
 - [MakeAppx](https://learn.microsoft.com/en-us/windows/msix/package/create-app-package-with-makeappx-tool)

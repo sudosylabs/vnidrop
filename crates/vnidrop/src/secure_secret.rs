@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{error::VnidropError, util::now_ms};
 
-#[cfg(any(test, target_os = "android"))]
+#[cfg(any(all(test, unix), target_os = "android"))]
 pub(crate) mod android;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) mod apple;

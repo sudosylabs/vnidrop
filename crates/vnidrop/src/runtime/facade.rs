@@ -28,6 +28,19 @@ pub struct VnidropCore {
 }
 
 impl VnidropCore {
+    #[cfg(test)]
+    pub(crate) fn hold_share_publication_for_test(
+        &self,
+    ) -> (
+        std::sync::mpsc::Receiver<()>,
+        tokio::sync::oneshot::Sender<()>,
+    ) {
+        let (arrived, waiting) = std::sync::mpsc::sync_channel(1);
+        let (release, held) = tokio::sync::oneshot::channel();
+        *self.inner.share_publication_gate.lock().unwrap() = Some((arrived, held));
+        (waiting, release)
+    }
+
     fn initialize_protected(
         app_data_dir: String,
         event_sink: Arc<dyn CoreEventSink>,
@@ -274,8 +287,21 @@ impl VnidropCore {
     pub(crate) fn redeliver_targeted_authorization_for_test(
         &self,
         id: String,
+        receiver: &Self,
     ) -> Result<bool, VnidropError> {
         self.block_on(async {
+            // Replay tests target durable authorization, so resolve the restarted
+            // peer directly instead of racing public discovery of its new port.
+            let _connection = tokio::time::timeout(
+                self.inner.connection_timeout(),
+                self.inner.endpoint.connect(
+                    receiver.inner.endpoint.addr(),
+                    crate::targeted_transfer::protocol::TargetedTransferProtocol::ALPN,
+                ),
+            )
+            .await
+            .map_err(VnidropError::device_unavailable)?
+            .map_err(VnidropError::device_unavailable)?;
             let row = self
                 .inner
                 .targeted_transfers
@@ -588,6 +614,11 @@ impl VnidropCore {
         // blocked export write cannot prevent the cancel signal from being
         // delivered (the receive `select!` observes it on the next yield).
         if let Some(direction) = self.inner.take_active_transfer(transfer_id) {
+            if direction == TransferDirection::Send {
+                return self
+                    .block_on(self.inner.cancel_share_preparation(transfer_id))
+                    .map_err(VnidropError::transfer);
+            }
             let expected = match direction {
                 TransferDirection::Send => TransferStatus::Importing,
                 TransferDirection::Receive => TransferStatus::Receiving,

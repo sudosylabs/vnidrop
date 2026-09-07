@@ -1,0 +1,140 @@
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using VniDrop.Core;
+using VniDrop.Native;
+using VniDrop.Platform;
+using VniDrop.ViewModels;
+using Windows.ApplicationModel.DataTransfer;
+
+namespace VniDrop.Views;
+
+public sealed partial class DraftPage : ContentDialog
+{
+    private readonly TransferDraft draft;
+    private bool rendering;
+    private bool picking;
+    private bool choosing;
+    public object? Result { get; private set; }
+    public DraftPage(SavedDevice? receiver = null)
+    {
+        draft = new(receiver); InitializeComponent(); SenderName.Text = App.Window.Model.Preferences.Username;
+        if (AccessChoices.SelectedIndex < 0) AccessChoices.SelectedIndex = 0;
+        Recipient.Visibility = receiver is null ? Visibility.Collapsed : Visibility.Visible;
+        Recipient.Text = receiver is null ? "" : Strings.Format("saved_devices_transfer_direction_outgoing", ("device", receiver.localLabel ?? receiver.remoteDisplayName ?? Strings.Get("saved_devices_unnamed")));
+        SenderName.Visibility = AccessOptions.Visibility = receiver is null ? Visibility.Visible : Visibility.Collapsed;
+        RenderAccessChoice(); Render();
+    }
+    private string MultipleName(int count) => Strings.Format("send_default_transfer_name", ("count", count));
+    public void Select(IReadOnlyList<DraftSource> sources) { draft.Select(sources, MultipleName); if (sources.Count > 0) choosing = false; Render(); }
+    private void Render()
+    {
+        rendering = true;
+        var review = draft.Sources.Count > 0 && !choosing;
+        Heading.Text = Strings.Get(review ? "send_review_title" : "send_choose_file_title");
+        if (TransferName.Text != draft.Name) TransferName.Text = draft.Name;
+        Sources.ItemsSource = draft.Sources.Select(s => new DraftSourceItem(s)).ToArray();
+        SelectionSummary.Text = Strings.Format("send_selected_files_count", ("count", draft.Sources.Count));
+        SelectionSummary.Visibility = draft.Sources.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+        ChooseStep.Visibility = review ? Visibility.Collapsed : Visibility.Visible;
+        ReviewStep.Visibility = BackButton.Visibility = review ? Visibility.Visible : Visibility.Collapsed;
+        var interactive = !draft.IsSubmitting && !picking;
+        ReviewStep.IsHitTestVisible = ChooseStep.IsHitTestVisible = interactive;
+        SetControlsEnabled(ReviewStep, interactive);
+        SetControlsEnabled(ChooseStep, interactive);
+        ChooseFilesButton.IsEnabled = ChooseFolderButton.IsEnabled = BackButton.IsEnabled = interactive;
+        CloseButtonText = Strings.Get("button_cancel");
+        PrimaryButtonText = review ? Strings.Get(draft.Receiver is null ? "button_share_file" : "saved_devices_send_action") : "";
+        IsPrimaryButtonEnabled = review && !draft.IsSubmitting && !picking && !string.IsNullOrWhiteSpace(draft.Name);
+        DefaultButton = review ? ContentDialogButton.Primary : ContentDialogButton.None;
+        Preparation.Visibility = draft.IsSubmitting ? Visibility.Visible : Visibility.Collapsed;
+        PreparationProgress.IsTabStop = draft.IsSubmitting;
+        if (draft.IsSubmitting)
+            DispatcherQueue.TryEnqueue(() => PreparationProgress.Focus(FocusState.Programmatic));
+        rendering = false;
+    }
+
+    private static void SetControlsEnabled(DependencyObject root, bool enabled)
+    {
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var index = 0; index < count; index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is Control control) control.IsEnabled = enabled;
+            SetControlsEnabled(child, enabled);
+        }
+    }
+    private void NameChanged(object sender, TextChangedEventArgs e)
+    {
+        if (rendering) return;
+        draft.Rename(TransferName.Text);
+        IsPrimaryButtonEnabled = !draft.IsSubmitting && !picking && draft.Sources.Count > 0 && !string.IsNullOrWhiteSpace(draft.Name);
+    }
+    private void AccessChanged(object sender, SelectionChangedEventArgs e) => RenderAccessChoice(true);
+    private void RenderAccessChoice(bool announce = false)
+    {
+        if (AccessDescription is null || PublicWarning is null) return;
+        var anyone = AccessChoices.SelectedIndex == 1;
+        AccessDescription.Text = Strings.Get(anyone ? "send_access_anyone_description" : "send_access_approval_description");
+        if (announce) Announce(AccessDescription);
+        PublicWarning.IsOpen = anyone;
+    }
+    private static void Announce(TextBlock element)
+    {
+        var peer = FrameworkElementAutomationPeer.FromElement(element)
+            ?? FrameworkElementAutomationPeer.CreatePeerForElement(element);
+        peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
+    }
+    private async Task PickAsync(bool folder)
+    {
+        if (picking || draft.IsSubmitting) return;
+        picking = true; Error.IsOpen = false; Render();
+        try { Select(await WindowsFiles.PickAsync(folder)); }
+        catch (Exception ex) { Error.Message = Strings.Error(ex); Error.IsOpen = true; }
+        finally { picking = false; Render(); }
+    }
+    private async void ChooseFiles(object sender, RoutedEventArgs e) => await PickAsync(false);
+    private async void ChooseFolder(object sender, RoutedEventArgs e) => await PickAsync(true);
+    private void ChooseAgain(object sender, RoutedEventArgs e) { choosing = true; Render(); }
+    private void ClearSelection(object sender, RoutedEventArgs e) { draft.Clear(); Render(); }
+    private void RemoveSource(object sender, RoutedEventArgs e) { draft.Remove((DraftSource)((Button)sender).Tag, MultipleName); Render(); }
+    private void OnClosing(ContentDialog sender, ContentDialogClosingEventArgs args)
+    {
+        args.Cancel = draft.IsSubmitting || picking;
+        if (draft.IsSubmitting) draft.CancelPreparation();
+    }
+    private async void Submit(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    {
+        args.Cancel = true;
+        if (draft.IsSubmitting || picking) return;
+        var close = false;
+        try
+        {
+            Error.IsOpen = false;
+            var pending = draft.SubmitAsync(App.Window.Model.Session, SenderName.Text.Trim(), AccessChoices.SelectedIndex != 1);
+            Render(); Result = await pending;
+            await App.Window.Model.RefreshAsync(true);
+            if (Result is ShareResult share) _ = App.Window.Model.SavePreviewAsync(share.transferId, draft.Sources);
+            close = true;
+        }
+        catch (OperationCanceledException)
+        {
+            Result = null;
+            await App.Window.Model.RefreshAsync(true);
+            close = true;
+        }
+        catch (Exception ex) { Error.Message = Strings.Error(ex); Error.IsOpen = true; }
+        finally { Render(); }
+        if (close) Hide();
+    }
+    private void DragOverFiles(object sender, DragEventArgs e)
+    { if (!draft.IsSubmitting && !picking && e.DataView.Contains(StandardDataFormats.StorageItems)) e.AcceptedOperation = DataPackageOperation.Copy; }
+    private async void DropFiles(object sender, DragEventArgs e)
+    {
+        var deferral = e.GetDeferral();
+        try { if (!draft.IsSubmitting && !picking) Select((await e.DataView.GetStorageItemsAsync()).Select(i => WindowsFiles.Source(i.Path)).ToArray()); }
+        catch (Exception ex) { Error.Message = Strings.Error(ex); Error.IsOpen = true; }
+        finally { deferral.Complete(); }
+    }
+}

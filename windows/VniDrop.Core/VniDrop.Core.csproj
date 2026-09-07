@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(VniDropRoot)/build/windows/bindings/vnidrop.cs" Link="Generated/Vnidrop.cs" />
+    <None Include="$(VniDropRoot)/target/$(RustTarget)/$(RustProfile)/vnidrop.dll" Link="vnidrop_native.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="CheckNativeBindings" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(VniDropRoot)/build/windows/bindings/vnidrop.cs')" Text="Generate the Rust bindings first: pwsh windows/scripts/build-core.ps1" />
+  </Target>
+</Project>

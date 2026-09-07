@@ -139,6 +139,13 @@ pub(super) struct CoreInner {
     pub(super) delivery_receipt_task: TokioMutex<Option<JoinHandle<()>>>,
     pub(super) targeted_reconciliation_task: TokioMutex<Option<JoinHandle<()>>>,
     pub(super) shutdown_started: AtomicBool,
+    #[cfg(test)]
+    share_publication_gate: std::sync::Mutex<
+        Option<(
+            std::sync::mpsc::SyncSender<()>,
+            tokio::sync::oneshot::Receiver<()>,
+        )>,
+    >,
     /// Test-only log of peers passed to [`Self::cancel_targeted_transfers_for_peer`].
     #[cfg(test)]
     targeted_cancel_log: std::sync::Mutex<Vec<String>>,
@@ -552,6 +559,8 @@ impl CoreInner {
             delivery_receipt_task: TokioMutex::new(None),
             targeted_reconciliation_task: TokioMutex::new(None),
             shutdown_started: AtomicBool::new(false),
+            #[cfg(test)]
+            share_publication_gate: std::sync::Mutex::new(None),
             #[cfg(test)]
             targeted_cancel_log: std::sync::Mutex::new(Vec::new()),
             #[cfg(test)]

@@ -1,0 +1,35 @@
+<Page
+    x:Class="VniDrop.Views.Settings.AppearancePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:p="using:VniDrop.Platform"
+    xmlns:settings="using:VniDrop.Views.Settings">
+  <settings:SettingsPageLayout Title="{x:Bind p:Strings.Get('appearance_title')}" BackRequested="Back">
+    <settings:SettingsPageLayout.PageContent>
+      <StackPanel Spacing="10">
+        <Border Style="{StaticResource VniDropCardStyle}" Padding="16,12">
+          <RadioButtons
+              x:Name="ThemeChoices"
+              MaxColumns="1"
+              AutomationProperties.Name="{x:Bind p:Strings.Get('appearance_title')}"
+              SelectionChanged="ThemeChanged">
+            <RadioButton
+                x:Name="SystemTheme"
+                Content="{x:Bind p:Strings.Get('appearance_system_mode')}"
+                AutomationProperties.HelpText="{x:Bind p:Strings.Get('appearance_auto_description')}" />
+            <RadioButton
+                x:Name="LightTheme"
+                Content="{x:Bind p:Strings.Get('appearance_light_mode')}" />
+            <RadioButton
+                x:Name="DarkTheme"
+                Content="{x:Bind p:Strings.Get('appearance_dark_mode')}" />
+          </RadioButtons>
+        </Border>
+        <TextBlock
+            x:Name="ThemeDescription"
+            Text="{x:Bind p:Strings.Get('appearance_auto_description')}"
+            Style="{StaticResource VniDropSecondaryTextStyle}" />
+      </StackPanel>
+    </settings:SettingsPageLayout.PageContent>
+  </settings:SettingsPageLayout>
+</Page>

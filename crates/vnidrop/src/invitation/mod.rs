@@ -539,6 +539,30 @@ impl Repository {
         Ok(())
     }
 
+    pub(crate) async fn cancel_share_preparation(&self, transfer_id: u64) -> Result<()> {
+        self.maybe_fail_write()?;
+        let result = sqlx::query(
+            "UPDATE transfers SET status = CASE status WHEN 'sharing' THEN 'stopped' ELSE 'cancelled' END, updated_at = ?1
+             WHERE transfer_id = ?2 AND direction = 'send' AND status IN ('importing', 'sharing')",
+        )
+        .bind(now_ms())
+        .bind(to_db_id(transfer_id)?)
+        .execute(&self.pool)
+        .await?;
+        if result.rows_affected() == 0 {
+            let status: Option<String> = sqlx::query_scalar(
+                "SELECT status FROM transfers WHERE transfer_id = ?1 AND direction = 'send'",
+            )
+            .bind(to_db_id(transfer_id)?)
+            .fetch_optional(&self.pool)
+            .await?;
+            if !matches!(status.as_deref(), Some("cancelled" | "stopped" | "failed")) {
+                anyhow::bail!("share preparation was not found");
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) async fn transition_transfer_status(
         &self,
         transfer_id: u64,

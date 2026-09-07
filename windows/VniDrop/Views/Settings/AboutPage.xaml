@@ -1,0 +1,86 @@
+<Page
+    x:Class="VniDrop.Views.Settings.AboutPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="using:VniDrop.Controls"
+    xmlns:p="using:VniDrop.Platform"
+    xmlns:settings="using:VniDrop.Views.Settings">
+  <settings:SettingsPageLayout Title="{x:Bind p:Strings.Get('about_title')}" ContentMaxWidth="920" BackRequested="Back">
+    <settings:SettingsPageLayout.PageContent>
+      <StackPanel Spacing="24">
+        <Border Style="{StaticResource VniDropCardStyle}" Padding="16">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{x:Bind p:Strings.Get('about_tagline')}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+            <Rectangle Height="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <TextBlock Text="{x:Bind p:Strings.Get('about_description')}" Style="{StaticResource VniDropSecondaryTextStyle}" />
+          </StackPanel>
+        </Border>
+
+        <StackPanel Spacing="10">
+          <TextBlock Text="{x:Bind p:Strings.Get('about_is_title')}" Style="{StaticResource VniDropSectionTitleStyle}" />
+          <Border Style="{StaticResource VniDropCardStyle}">
+            <StackPanel>
+              <settings:FactRow Glyph="&#xE724;" Text="{x:Bind p:Strings.Get('about_is_direct')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:FactRow Glyph="&#xE77B;" Text="{x:Bind p:Strings.Get('about_is_no_account')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:FactRow Glyph="&#xE72E;" Text="{x:Bind p:Strings.Get('about_is_in_control')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:FactRow Glyph="&#xE72E;" Text="{x:Bind p:Strings.Get('about_is_encrypted')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:FactRow Glyph="&#xE943;" Text="{x:Bind p:Strings.Get('about_is_open')}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <StackPanel Spacing="10">
+          <TextBlock Text="{x:Bind p:Strings.Get('about_isnt_title')}" Style="{StaticResource VniDropSectionTitleStyle}" />
+          <Border Style="{StaticResource VniDropCardStyle}">
+            <StackPanel>
+              <settings:FactRow Glyph="&#xE753;" Text="{x:Bind p:Strings.Get('about_isnt_cloud')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:FactRow Glyph="&#xE895;" Text="{x:Bind p:Strings.Get('about_isnt_sync')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:FactRow Glyph="&#xE789;" Text="{x:Bind p:Strings.Get('about_isnt_public')}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <StackPanel Spacing="10">
+          <TextBlock Text="{x:Bind p:Strings.Get('about_privacy_title')}" Style="{StaticResource VniDropSectionTitleStyle}" />
+          <Border Style="{StaticResource VniDropCardStyle}">
+            <StackPanel>
+              <settings:FactRow Glyph="&#xE8D7;" Text="{x:Bind p:Strings.Get('about_privacy_capability')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:FactRow Glyph="&#xE72E;" Text="{x:Bind p:Strings.Get('about_privacy_deny')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:FactRow Glyph="&#xE968;" Text="{x:Bind p:Strings.Get('about_privacy_relay')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:FactRow Glyph="&#xEDA2;" Text="{x:Bind p:Strings.Get('about_privacy_local')}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <StackPanel Spacing="10">
+          <TextBlock Text="{x:Bind p:Strings.Get('about_title')}" Style="{StaticResource VniDropSectionTitleStyle}" />
+          <Border Style="{StaticResource VniDropCardStyle}">
+            <StackPanel>
+              <settings:SettingsValueRow x:Name="VersionValue" Label="{x:Bind p:Strings.Get('version_title')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:SettingsValueRow x:Name="OsValue" Label="{x:Bind p:Strings.Get('os_version_title')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:SettingsValueRow x:Name="DeviceModelValue" Label="{x:Bind p:Strings.Get('device_model_title')}" />
+              <Rectangle Height="1" Margin="16,0" Fill="{ThemeResource CardStrokeColorDefaultBrush}" />
+              <settings:SettingsValueRow Label="{x:Bind p:Strings.Get('about_license_label')}" Value="Apache 2.0" />
+            </StackPanel>
+          </Border>
+          <HyperlinkButton NavigateUri="https://vnidrop.sudosy.fr/privacy/" Content="{x:Bind p:Strings.Get('about_privacy_policy_label')}" Padding="0" />
+        </StackPanel>
+
+        <Border Style="{StaticResource VniDropCardStyle}">
+          <c:SettingsRow AutomationProperties.AutomationId="BugReportRow" Glyph="&#xE730;" Title="{x:Bind p:Strings.Get('about_bug_report')}" ShowChevron="True" Click="OpenBugReport" />
+        </Border>
+      </StackPanel>
+    </settings:SettingsPageLayout.PageContent>
+  </settings:SettingsPageLayout>
+</Page>

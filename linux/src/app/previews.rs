@@ -50,6 +50,11 @@ fn restore(profile: &Path, active: &BTreeSet<u64>) -> BTreeMap<u64, Vec<u8>> {
     for (_, id, path, size) in entries {
         if !active.contains(&id) || size == 0 || size > 512 * 1024 || used + size > 20 * 1024 * 1024
         {
+            #[cfg(test)]
+            eprintln!(
+                "[DEBUG-preview-cache] removing {id}, active={}, bytes={size}",
+                active.contains(&id)
+            );
             let _ = std::fs::remove_file(path);
             continue;
         }
@@ -76,6 +81,8 @@ impl App {
         glib::spawn_future_local(async move {
             let _ = gio::spawn_blocking(move || {
                 let Some(bytes) = thumbnail(&source) else {
+                    #[cfg(test)]
+                    eprintln!("[DEBUG-preview-cache] thumbnail unavailable for {id}");
                     return;
                 };
                 let dir = profile.join("ui/previews");
@@ -84,7 +91,9 @@ impl App {
                 }
                 let temp = dir.join(format!(".{}.tmp", uuid::Uuid::new_v4()));
                 if std::fs::write(&temp, bytes).is_ok() {
-                    let _ = std::fs::rename(&temp, dir.join(format!("{id}.preview")));
+                    let _result = std::fs::rename(&temp, dir.join(format!("{id}.preview")));
+                    #[cfg(test)]
+                    eprintln!("[DEBUG-preview-cache] saved {id}: {}", _result.is_ok());
                 }
                 let _ = std::fs::remove_file(temp);
             })
@@ -123,13 +132,19 @@ impl App {
                 .unwrap_or_default();
             if let Some(app) = weak.upgrade() {
                 app.preview_loading.set(false);
+                #[cfg(test)]
+                eprintln!("[DEBUG-preview-cache] restored {} images", result.len());
                 app.previews.replace(
                     result
                         .into_iter()
                         .filter_map(|(id, data)| {
-                            gtk::gdk::Texture::from_bytes(&glib::Bytes::from_owned(data))
-                                .ok()
-                                .map(|image| (id, image))
+                            let texture =
+                                gtk::gdk::Texture::from_bytes(&glib::Bytes::from_owned(data));
+                            #[cfg(test)]
+                            if let Err(error) = &texture {
+                                eprintln!("[DEBUG-preview-cache] texture {id} failed: {error}");
+                            }
+                            texture.ok().map(|image| (id, image))
                         })
                         .collect(),
                 );

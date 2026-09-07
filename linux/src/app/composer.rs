@@ -503,7 +503,7 @@ impl Composer {
                         app.selected
                             .replace(Some((share.transfer_id, "send".into())));
                         composer.dialog.set_can_close(true);
-                        composer.dialog.close();
+                        super::dialogs::close(&composer.dialog);
                         app.show_transfers();
                         app.split.set_show_content(true);
                     }
@@ -547,7 +547,7 @@ impl Composer {
                 match result {
                     Ok(_) => {
                         composer.dialog.set_can_close(true);
-                        composer.dialog.close();
+                        super::dialogs::close(&composer.dialog);
                         app.error("saved_devices_send_started");
                     }
                     Err(key) => {
@@ -579,7 +579,7 @@ impl Composer {
             return;
         }
         let Some(preparation) = self.preparation.borrow().clone() else {
-            self.dialog.close();
+            super::dialogs::close(&self.dialog);
             return;
         };
         let Some(app) = self.app.upgrade() else {

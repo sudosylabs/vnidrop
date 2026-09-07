@@ -395,3 +395,23 @@ Verification: `make check-linux`, `xvfb-run -a make test-linux-ui`,
 `make package-linux-native-deb`. RPM validation, installed upgrade acceptance and
 public release publication remain separate gates; the released KMP pipeline is
 unchanged.
+
+### GNOME CI compatibility follow-up
+
+- Window captures preserve the paintable's intrinsic size, including decorations,
+  so screenshot tests do not rescale QR modules before decoding. Failed UI runs
+  upload their captured images for diagnosis.
+- Fast transfer completion closes the composer even before libadwaita 1.5 has
+  opened its sheet on the second presentation frame. The compatibility helper
+  preserves the can-close guard and retries after presentation. This covers the
+  [upstream early-close issue](https://github.com/GNOME/libadwaita/commit/9bc2b37232d19ac7e6d3bf88076b49f07b1ab91a).
+- Selectable labels release their selection during destruction, covering the
+  [GTK clipboard-provider lifetime issue](https://github.com/GNOME/gtk/commit/35d15de3b617bd5ad954d1bb3f97b859cca238b5)
+  in the Ubuntu 24.04 baseline without disabling normal text selection.
+- Deterministic GTK regressions cover early completion, guarded closure, label and
+  subtitle disposal, and readiness observation while background events remain
+  pending. The wait helper checks conditions between events instead of waiting
+  for the entire event queue to drain.
+
+Verification: `make check-linux` and
+`GSK_RENDERER=cairo xvfb-run -a make/with-secret-service.sh make test-linux-ui`.

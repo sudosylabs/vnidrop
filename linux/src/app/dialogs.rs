@@ -68,12 +68,34 @@ pub(super) fn scrollable_content(title: &str) -> (adw::Dialog, gtk::Box) {
     (dialog, rows)
 }
 
+pub(super) fn close(dialog: &impl IsA<adw::Dialog>) {
+    let dialog = dialog.as_ref();
+    if dialog.parent().is_none() || !dialog.close() || dialog.parent().is_none() {
+        return;
+    }
+    // libadwaita 1.5 opens on its second frame, overriding an earlier close.
+    let frames = std::cell::Cell::new(0);
+    dialog.add_tick_callback(move |dialog, _| {
+        frames.set(frames.get() + 1);
+        if dialog.parent().is_none() {
+            return glib::ControlFlow::Break;
+        }
+        if frames.get() < 3 {
+            return glib::ControlFlow::Continue;
+        }
+        dialog.close();
+        glib::ControlFlow::Break
+    });
+}
+
 pub fn fact(title: &str, value: &str) -> adw::ActionRow {
-    adw::ActionRow::builder()
+    let row = adw::ActionRow::builder()
         .title(text(title))
         .subtitle(glib::markup_escape_text(value))
         .subtitle_selectable(true)
-        .build()
+        .build();
+    super::widgets::protect_selection(&row);
+    row
 }
 
 impl App {
@@ -289,7 +311,7 @@ impl App {
                         app.refresh();
                     },
                 );
-                dialog_copy.close();
+                close(&dialog_copy);
                 app.show_transfers();
                 app.split.set_show_content(true);
                 app.refresh();

@@ -350,6 +350,7 @@ impl App {
             .xalign(0.0)
             .selectable(true)
             .build();
+        super::widgets::protect_selection(&title);
         title.add_css_class("title-1");
         self.details.append(&title);
         let state = gtk::Label::builder()

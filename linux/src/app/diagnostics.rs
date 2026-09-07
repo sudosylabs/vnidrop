@@ -237,6 +237,7 @@ impl App {
                             .wrap(true)
                             .selectable(true)
                             .build();
+                        super::widgets::protect_selection(&receipt);
                         content.append(&receipt);
                         let done = icon_button("button_close", "window-close-symbolic");
                         let dialog = close.clone();

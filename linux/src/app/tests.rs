@@ -12,17 +12,20 @@ mod reporting_ui_tests;
 mod settings_ui_tests;
 #[path = "transfer_details_tests.rs"]
 mod transfer_details_tests;
+#[path = "widget_tests.rs"]
+mod widget_tests;
 
 fn until(description: &str, condition: impl Fn() -> bool) {
     eprintln!("GTK workflow: {description}");
     let context = glib::MainContext::default();
     let deadline = Instant::now() + Duration::from_secs(20);
     while !condition() {
-        while context.pending() {
-            context.iteration(false);
-        }
         assert!(Instant::now() < deadline, "timed out: {description}");
-        thread::sleep(Duration::from_millis(5));
+        if context.pending() {
+            context.iteration(false);
+        } else {
+            thread::sleep(Duration::from_millis(5));
+        }
     }
 }
 
@@ -157,6 +160,7 @@ fn assert_scannable(window: &adw::ApplicationWindow, ticket: &str) {
 #[test]
 fn native_draft_approval_receive_and_shutdown() {
     adw::init().expect("GTK display (use xvfb-run for headless testing)");
+    widget_tests::readiness_and_clipboard();
     gio::resources_register_include!("icons.gresource").expect("compiled icon resources");
     gtk::IconTheme::for_display(&gtk::gdk::Display::default().unwrap())
         .add_resource_path("/com/vnidrop/VniDrop/icons");
@@ -179,6 +183,7 @@ fn native_draft_approval_receive_and_shutdown() {
     app.window.present();
     app.initialize();
     until("initial snapshot", || app.snapshot.borrow().is_some());
+    widget_tests::early_close(&app);
     assert_eq!(
         app.object::<gtk::Stack>("root")
             .visible_child_name()

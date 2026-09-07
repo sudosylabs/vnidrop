@@ -286,16 +286,7 @@ pub(super) fn settings_restart_and_preview_workflow(root: &std::path::Path) {
     );
     until("image selected", || submit.is_sensitive());
     submit.emit_clicked();
-    let previous = RefCell::new(None);
     until("image preview visible", || {
-        let state = (
-            app.previews.borrow().len(),
-            app.window.visible_dialog().map(|d| d.title()),
-        );
-        if previous.borrow().as_ref() != Some(&state) {
-            eprintln!("[DEBUG-preview-state] {state:?}");
-            previous.replace(Some(state));
-        }
         !app.previews.borrow().is_empty() && app.window.visible_dialog().is_none()
     });
     let id = *app.previews.borrow().keys().next().unwrap();

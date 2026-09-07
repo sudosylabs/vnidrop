@@ -2,6 +2,21 @@ use adw::prelude::*;
 
 use super::i18n::text;
 
+pub(super) fn protect_selection(widget: &impl IsA<gtk::Widget>) {
+    let widget = widget.as_ref();
+    if let Some(label) = widget.downcast_ref::<gtk::Label>() {
+        if label.is_selectable() {
+            // GTK 4.14 can retain a clipboard provider pointing to a disposed label.
+            label.connect_destroy(|label| label.set_selectable(false));
+        }
+    }
+    let mut child = widget.first_child();
+    while let Some(widget) = child {
+        protect_selection(&widget);
+        child = widget.next_sibling();
+    }
+}
+
 pub(super) struct ProgressView {
     pub root: gtk::Box,
     label: gtk::Label,

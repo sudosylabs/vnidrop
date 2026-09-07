@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
@@ -22,6 +26,10 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.vnidrop.app.UiPlatform
+import com.vnidrop.app.feature.receive.ReceiveScreen
+import com.vnidrop.app.feature.receive.ReceiveState
+import com.vnidrop.app.feature.receive.ReceiveInvitationActions
+import com.vnidrop.app.feature.receive.ReceiveMethodAvailability
 import com.vnidrop.app.core.CoreState
 import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.Transfer
@@ -39,6 +47,45 @@ import vnidrop.shared.generated.resources.*
 
 @OptIn(ExperimentalTestApi::class)
 class AndroidSendFlowTest {
+	@Test
+	fun longFileNamesStayOnOneLineWithMiddleEllipsis() = runComposeUiTest {
+		val name = "CV_Abass_Hammed_McDonalds_Application_September_2026.pdf"
+		val screen = mutableStateOf(0)
+		val invitations = object : ReceiveInvitationActions {
+			override val fileAvailability = ReceiveMethodAvailability.Available
+			override val qrAvailability = ReceiveMethodAvailability.Available
+			override fun pickInvitation(onResult: (Result<String>) -> Unit) = Unit
+			override fun scanQrCode(onResult: (Result<String>) -> Unit) = Unit
+			override fun cancel() = Unit
+		}
+		setContent {
+			Phone {
+				if (screen.value == 1) TransferCatalog(
+					listOf(transfer().copy(transferName = name)), emptyMap(), windowClass = WindowClass.Phone,
+					onOpenComposer = {}, onTransferSelected = {},
+				) else if (screen.value == 2) ReceiveScreen(
+					CoreState(isInitialized = true, transfers = listOf(transfer().copy(transferName = name, direction = TransferDirection.Receive, status = TransferStatus.Done))),
+					ReceiveState(), WindowClass.Phone, invitations,
+					onOpenAcquisition = {}, onDismissAcquisition = {}, onReceiverNameChanged = {}, onInvitationResult = { _, _ -> },
+					onReceive = {}, onRequestDeleteHistoryItem = {}, onRequestClearHistory = {}, onDismissHistoryDelete = {}, onConfirmHistoryDelete = {},
+				) else if (screen.value == 3) SendScreen(
+					CoreState(isInitialized = true, transfers = listOf(transfer().copy(transferName = name))),
+					SendState(selectedTransferId = 9UL), WindowClass.Phone,
+					onOpenComposer = {}, onTransferSelected = {}, onCloseTransferDetails = {}, onCopyTicket = {},
+				) else Composer(draft().copy(sources = draft().sources.map { it.copy(displayName = name) }))
+			}
+		}
+		for (page in 0..3) {
+			runOnIdle { screen.value = page }
+			val layouts = mutableListOf<TextLayoutResult>()
+			onNodeWithText(name).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+			val layout = layouts.single()
+			assertEquals(1, layout.lineCount)
+			assertEquals(TextOverflow.MiddleEllipsis, layout.layoutInput.overflow)
+			assertEquals(name, layout.layoutInput.text.text)
+		}
+	}
+
 	@Test
 	fun composerKeepsSubmitVisibleAndDisablesEditingWhileSubmitting() = runComposeUiTest {
 		val state = mutableStateOf(draft())

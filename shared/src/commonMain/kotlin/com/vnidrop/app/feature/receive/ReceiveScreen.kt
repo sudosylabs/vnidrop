@@ -328,7 +328,7 @@ private fun ReceiveTransferRow(
 	if (LocalUiPlatform.current == UiPlatform.Android) {
 		var expanded by remember { mutableStateOf(false) }
 		ListItem(
-			headlineContent = { Text(transfer.transferName ?: stringResource(Res.string.receive_unknown_transfer), maxLines = 2, overflow = TextOverflow.Ellipsis) },
+			headlineContent = { Text(transfer.transferName ?: stringResource(Res.string.receive_unknown_transfer), maxLines = 1, overflow = TextOverflow.MiddleEllipsis) },
 			supportingContent = { Column {
 				Text("${formatBytes(transfer.totalSize)} · ${displayNameForStatus(transfer.status)}")
 				if (transfer.status == TransferStatus.Receiving && progress != null) ProgressRow(progress.label, progress.progress, detail = progress.detail)

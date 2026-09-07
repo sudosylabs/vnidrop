@@ -76,7 +76,7 @@ cd "$repo_root"
 	:androidApp:check \
 	:androidApp:assembleRelease \
 	:androidApp:bundleRelease \
-	-Pvnidrop.diagnostics.included=false \
+	-Pvnidrop.diagnostics.included=true \
 	--no-daemon \
 	--no-configuration-cache \
 	--stacktrace

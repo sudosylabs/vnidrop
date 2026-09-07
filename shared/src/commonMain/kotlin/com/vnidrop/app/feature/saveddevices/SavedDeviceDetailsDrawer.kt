@@ -193,7 +193,7 @@ internal fun SavedDeviceDetailsDrawer(
 	}
 
 	if (native) FullscreenDialog(onDismiss) {
-		Scaffold(topBar = {
+		Scaffold(containerColor = MaterialTheme.colorScheme.surface, topBar = {
 			TopAppBar(title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) }, navigationIcon = {
 				IconButton(onClick = onDismiss) { PlatformIcon(AppIcon.ArrowBack, stringResource(Res.string.button_back)) }
 			})

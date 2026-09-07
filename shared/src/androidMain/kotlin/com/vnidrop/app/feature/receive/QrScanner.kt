@@ -61,6 +61,7 @@ internal fun QrScanner(activity: ComponentActivity, onResult: (Result<String>) -
 	}
 	FullscreenDialog(onDismiss) {
 		Scaffold(
+			containerColor = MaterialTheme.colorScheme.surface,
 			modifier = Modifier.fillMaxSize().testTag("qr-scanner"),
 			topBar = { TopAppBar(title = { Text(stringResource(Res.string.receive_method_scan)) }, navigationIcon = { IconButton(onClick = onDismiss) { PlatformIcon(AppIcon.Close, stringResource(Res.string.button_close)) } }) },
 		) { padding ->

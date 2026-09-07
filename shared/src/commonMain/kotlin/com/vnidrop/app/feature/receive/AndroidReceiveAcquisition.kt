@@ -39,6 +39,7 @@ internal fun AndroidReceiveAcquisition(
 ) {
 	FullscreenDialog(onDismiss) {
 		Scaffold(
+			containerColor = MaterialTheme.colorScheme.surface,
 			modifier = Modifier.fillMaxSize().imePadding().testTag("receive-acquisition"),
 			snackbarHost = { messages?.let { VniDropSnackbarHost(it) } },
 			topBar = {
@@ -68,7 +69,7 @@ internal fun AndroidReceiveAcquisition(
 					state.inspection?.metadata?.let { metadata ->
 						item {
 							Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-								Text(metadata.transferName, style = MaterialTheme.typography.headlineSmall)
+								Text(metadata.transferName, style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
 								val count = metadata.fileCount.coerceAtMost(Int.MAX_VALUE.toULong()).toInt()
 								Text("${pluralStringResource(Res.plurals.transfer_file_count, count, count)} · ${formatBytes(metadata.totalSize)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
 							}

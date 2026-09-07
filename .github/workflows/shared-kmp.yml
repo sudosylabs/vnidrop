@@ -6,6 +6,8 @@ on:
       - "shared/**"
       - "version.properties"
       - "packaging/version/**"
+      - "packaging/android/**"
+      - ".github/workflows/android-release.yml"
       - "crates/vnidrop/**"
       - "Cargo.toml"
       - "Cargo.lock"
@@ -28,6 +30,8 @@ on:
       - "shared/**"
       - "version.properties"
       - "packaging/version/**"
+      - "packaging/android/**"
+      - ".github/workflows/android-release.yml"
       - "crates/vnidrop/**"
       - "Cargo.toml"
       - "Cargo.lock"
@@ -107,6 +111,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes dbus-x11 gnome-keyring libsecret-tools
+
+      - name: Verify bug-report build configuration
+        run: python3 packaging/android/tests/test_diagnostics_config.py
 
       - name: Run shared JVM tests
         run: make/with-secret-service.sh make check-shared

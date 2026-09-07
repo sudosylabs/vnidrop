@@ -57,6 +57,7 @@ internal fun AndroidTransferComposer(
 ) {
 	val editable = !state.isSubmitting && !state.isPicking
 	Scaffold(
+		containerColor = MaterialTheme.colorScheme.surface,
 		modifier = Modifier.fillMaxSize().imePadding().testTag("android-transfer-composer"),
 		topBar = {
 			TopAppBar(
@@ -96,7 +97,7 @@ internal fun AndroidTransferComposer(
 			} else {
 				items(state.sources, key = { it.id.value }) { file ->
 					ListItem(
-						headlineContent = { Text(file.displayName, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+						headlineContent = { Text(file.displayName, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) },
 						supportingContent = { Text(when {
 							file.isDirectory -> stringResource(Res.string.send_folder_label)
 							file.sizeBytes != null -> formatBytes(file.sizeBytes)

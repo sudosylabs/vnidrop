@@ -48,6 +48,7 @@ internal fun AndroidTransferDetails(
 	onDelete: () -> Unit,
 ) {
 	Scaffold(
+		containerColor = MaterialTheme.colorScheme.surface,
 		topBar = {
 			TopAppBar(
 				title = { Text(stringResource(Res.string.send_transfer_details_title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -68,7 +69,7 @@ internal fun AndroidTransferDetails(
 		) {
 			item {
 				Column(Modifier.padding(horizontal = 24.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-					Text(transfer.transferName ?: stringResource(Res.string.send_new_transfer_title), style = MaterialTheme.typography.headlineSmall)
+					Text(transfer.transferName ?: stringResource(Res.string.send_new_transfer_title), style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
 					val fileCount = transfer.fileCount.coerceAtMost(Int.MAX_VALUE.toULong()).toInt()
 					Text("${pluralStringResource(Res.plurals.transfer_file_count, fileCount, fileCount)} · ${formatBytes(transfer.totalSize)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
 				}

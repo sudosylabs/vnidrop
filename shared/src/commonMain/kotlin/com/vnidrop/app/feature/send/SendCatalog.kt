@@ -174,6 +174,7 @@ internal fun TransferCatalog(
 	}
 	if (android && !LocalRootScaffold.current) {
 		Scaffold(
+			containerColor = MaterialTheme.colorScheme.surface,
 			topBar = {
 				TopAppBar(
 					title = { Text(stringResource(Res.string.send_title)) },
@@ -250,7 +251,7 @@ private fun TransferListItem(
 	if (LocalUiPlatform.current == UiPlatform.Android) {
 		ListItem(
 			modifier = Modifier.clickable(onClick = onClick),
-			headlineContent = { Text(transfer.transferName ?: stringResource(Res.string.send_new_transfer_title), maxLines = 2, overflow = TextOverflow.Ellipsis) },
+			headlineContent = { Text(transfer.transferName ?: stringResource(Res.string.send_new_transfer_title), maxLines = 1, overflow = TextOverflow.MiddleEllipsis) },
 			supportingContent = {
 				Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
 					Text("${formatBytes(transfer.totalSize)} · ${displayNameForStatus(transfer.status)}", style = MaterialTheme.typography.bodyMedium)

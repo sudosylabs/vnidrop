@@ -373,7 +373,7 @@ impl App {
             let result = gio::spawn_blocking(move || {
                 let preferences = Preferences::load(&profile, defaults)?;
                 let path = profile.to_str().ok_or("linux_local_files_only")?.to_owned();
-                let session = Session::open(path, preferences.network.clone())?;
+                let session = Session::open(path, preferences.network_config())?;
                 Ok((preferences, session))
             })
             .await

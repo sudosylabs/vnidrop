@@ -23,6 +23,20 @@ pub struct Preferences {
 }
 
 impl Preferences {
+    pub fn network_config(&self) -> CoreNetworkConfig {
+        // Preferences retain custom URLs when their mode is inactive, as Compose does.
+        let relay_urls = match self.network.mode {
+            CoreRelayMode::Automatic | CoreRelayMode::LocalOnly => Vec::new(),
+            CoreRelayMode::StrictCustom | CoreRelayMode::CustomWithDirectFallback => {
+                self.network.relay_urls.clone()
+            }
+        };
+        CoreNetworkConfig {
+            mode: self.network.mode,
+            relay_urls,
+        }
+    }
+
     pub fn defaults(downloads: PathBuf, username: String) -> Self {
         Self {
             username,
@@ -280,6 +294,49 @@ mod tests {
             serde_json::to_value(reopened).unwrap(),
             serde_json::to_value(prefs).unwrap()
         );
+    }
+
+    #[test]
+    fn imported_inactive_relay_urls_are_retained_but_not_passed_to_core() {
+        for (mode, expected_mode) in [
+            ("Automatic", CoreRelayMode::Automatic),
+            ("LocalOnly", CoreRelayMode::LocalOnly),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let bytes = legacy(&[
+                ("relay_mode", mode),
+                ("relay_urls", "https://relay.example"),
+            ]);
+            fs::write(dir.path().join("app_preferences.preferences_pb"), bytes).unwrap();
+            let prefs = Preferences::load(dir.path(), defaults()).unwrap();
+            assert_eq!(
+                prefs.network_config(),
+                CoreNetworkConfig {
+                    mode: expected_mode,
+                    relay_urls: vec![]
+                }
+            );
+            assert_eq!(prefs.network.relay_urls, ["https://relay.example"]);
+            prefs.save(dir.path()).unwrap();
+            let reopened = Preferences::load(dir.path(), defaults()).unwrap();
+            assert_eq!(reopened.network, prefs.network);
+            assert_eq!(reopened.network_config(), prefs.network_config());
+        }
+    }
+
+    #[test]
+    fn custom_relay_modes_pass_saved_urls_to_core() {
+        for mode in ["StrictCustom", "CustomWithDirectFallback"] {
+            let prefs = Preferences::import_legacy(
+                &legacy(&[
+                    ("relay_mode", mode),
+                    ("relay_urls", "https://relay.example"),
+                ]),
+                defaults(),
+            )
+            .unwrap();
+            assert_eq!(prefs.network_config(), prefs.network);
+        }
     }
 
     #[test]

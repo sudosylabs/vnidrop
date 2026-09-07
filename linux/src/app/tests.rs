@@ -127,7 +127,12 @@ fn assert_scannable(window: &adw::ApplicationWindow, ticket: &str) {
     let (width, height) = (texture.width() as usize, texture.height() as usize);
     let mut rgba = vec![0; width * height * 4];
     texture.download(&mut rgba, width * 4);
-    let gray: Vec<_> = rgba.chunks_exact(4).map(|pixel| pixel[0]).collect();
+    let gray: Vec<_> = rgba
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|pixel| pixel[0])
+        .collect();
     let mut decoder = quircs::Quirc::default();
     assert!(
         decoder

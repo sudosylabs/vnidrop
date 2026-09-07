@@ -27,6 +27,7 @@ internal fun SettingsRoute(
 		onSectionSelected = viewModel::selectSection,
 		onUsernameChanged = viewModel::setUsername,
 		onThemeModeChanged = viewModel::setThemeMode,
+		onDynamicColorsChanged = viewModel::setDynamicColors,
 		onRelayModeChanged = viewModel::setRelayMode,
 		onRelayUrlChanged = viewModel::setRelayUrl,
 		onAddRelayUrl = viewModel::addRelayUrl,

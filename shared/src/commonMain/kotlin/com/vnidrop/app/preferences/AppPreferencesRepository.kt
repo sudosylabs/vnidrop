@@ -1,8 +1,8 @@
 package com.vnidrop.app.preferences
 
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.preferencesOf
@@ -27,6 +27,7 @@ data class AppPreferences(
 	/** Stable anonymous install id for bug-report correlation; never an account or advertising id. */
 	val diagnosticsInstallId: String = "",
 	val relaySettings: RelaySettings = RelaySettings(),
+	val useDynamicColors: Boolean = true,
 )
 
 class AppPreferencesDefaults(
@@ -41,6 +42,7 @@ interface PreferencesRepository {
 	suspend fun setUsername(username: String)
 	suspend fun setReceiveFolder(folder: ReceiveFolder)
 	suspend fun resetReceiveFolder()
+	suspend fun setDynamicColors(enabled: Boolean)
 	suspend fun setThemeMode(mode: ThemeMode)
 	suspend fun setNotificationsEnabled(enabled: Boolean)
 	suspend fun setRelaySettings(settings: RelaySettings)
@@ -77,6 +79,7 @@ class AppPreferencesRepository(
 			AppPreferences(
 				username = prefs[PreferenceKeys.Username]?.takeIf { it.isNotBlank() } ?: defaults.username,
 				receiveFolder = resolveReceiveFolder(prefs, defaults.receiveFolder),
+				useDynamicColors = prefs[PreferenceKeys.DynamicColors] ?: true,
 				themeMode = prefs[PreferenceKeys.ThemeMode]?.let { themeModeOrNull(it) } ?: defaults.themeMode,
 				notificationsEnabled = prefs[PreferenceKeys.NotificationsEnabled] ?: defaults.notificationsEnabled,
 				diagnosticsInstallId = prefs[PreferenceKeys.DiagnosticsInstallId].orEmpty(),
@@ -103,6 +106,10 @@ class AppPreferencesRepository(
 
 	override suspend fun resetReceiveFolder() {
 		setReceiveFolder(defaults.receiveFolder)
+	}
+
+	override suspend fun setDynamicColors(enabled: Boolean) {
+		dataStore.edit { it[PreferenceKeys.DynamicColors] = enabled }
 	}
 
 	override suspend fun setThemeMode(mode: ThemeMode) {
@@ -147,6 +154,7 @@ private object PreferenceKeys {
 	val ReceiveFolderKind = stringPreferencesKey("receive_folder_kind")
 	val ReceiveFolderValue = stringPreferencesKey("receive_folder_value")
 	val ReceiveFolderDisplayName = stringPreferencesKey("receive_folder_display_name")
+	val DynamicColors = booleanPreferencesKey("dynamic_colors")
 	val ThemeMode = stringPreferencesKey("theme_mode")
 	val NotificationsEnabled = booleanPreferencesKey("notifications_enabled")
 	val DiagnosticsInstallId = stringPreferencesKey("diagnostics_install_id")

@@ -6,12 +6,14 @@
 	<uses-permission android:name="android.permission.INTERNET"/>
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 	<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-	<uses-permission android:name="android.permission.NFC"/>
 	<!-- Pre-Android 10 public Downloads writes. Android 10+ uses MediaStore. -->
 	<uses-permission
 		android:name="android.permission.WRITE_EXTERNAL_STORAGE"
 		android:maxSdkVersion="28"/>
-	<uses-feature android:name="android.hardware.nfc" android:required="false"/>
+	<uses-permission android:name="android.permission.CAMERA"/>
+	<uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
+	<uses-feature android:name="android.hardware.camera.any" android:required="false"/>
+	<uses-feature android:name="android.hardware.camera" android:required="false"/>
 
 	<application
 		android:allowBackup="true"
@@ -22,7 +24,7 @@
 		android:roundIcon="@mipmap/ic_launcher_round"
 		android:supportsRtl="true"
 		android:theme="@android:style/Theme.Material.NoActionBar">
-		<meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="barcode_ui"/>
+
 		<activity
 			android:exported="true"
 			android:launchMode="singleTask"

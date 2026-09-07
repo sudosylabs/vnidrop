@@ -1,11 +1,12 @@
 package com.vnidrop.app.ui.components
 
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,8 +32,8 @@ fun PrimaryButton(
 		onClick = onClick,
 		enabled = enabled,
 		modifier = modifier.heightIn(min = if (desktop) 36.dp else 44.dp),
-		shape = RoundedCornerShape(if (desktop) 6.dp else 8.dp),
-		colors = ButtonDefaults.buttonColors(containerColor = LocalVniDropColors.current.brandButton, contentColor = Color.White),
+		shape = if (desktop) RoundedCornerShape(6.dp) else ButtonDefaults.shape,
+		colors = if (desktop) ButtonDefaults.buttonColors(containerColor = LocalVniDropColors.current.brandButton, contentColor = Color.White) else ButtonDefaults.buttonColors(),
 	) {
 		leadingIcon?.let {
 			it()
@@ -55,7 +56,7 @@ fun SecondaryButton(
 		onClick = onClick,
 		enabled = enabled,
 		modifier = modifier.heightIn(min = if (desktop) 36.dp else 44.dp),
-		shape = RoundedCornerShape(if (desktop) 6.dp else 8.dp),
+		shape = if (desktop) RoundedCornerShape(6.dp) else ButtonDefaults.shape,
 	) {
 		leadingIcon?.let {
 			it()
@@ -109,10 +110,10 @@ fun DestructiveButton(
 		onClick = onClick,
 		enabled = enabled,
 		modifier = modifier.heightIn(min = if (desktop) 36.dp else 44.dp),
-		shape = RoundedCornerShape(if (desktop) 6.dp else 8.dp),
+		shape = if (desktop) RoundedCornerShape(6.dp) else ButtonDefaults.shape,
 		colors = ButtonDefaults.buttonColors(
 			containerColor = LocalVniDropColors.current.destructiveDefault,
-			contentColor = Color.White,
+			contentColor = if (desktop) Color.White else MaterialTheme.colorScheme.onError,
 		),
 	) {
 		leadingIcon?.let {

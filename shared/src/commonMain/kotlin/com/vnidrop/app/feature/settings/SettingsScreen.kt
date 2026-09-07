@@ -11,6 +11,20 @@ import androidx.compose.ui.unit.dp
 import com.vnidrop.app.core.RelayMode
 import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.ThemeMode
+import org.jetbrains.compose.resources.stringResource
+import vnidrop.shared.generated.resources.*
+
+@Composable
+internal fun SettingsSection.title(): String = stringResource(when (this) {
+	SettingsSection.Overview -> Res.string.settings_title
+	SettingsSection.Preferences -> Res.string.preferences_title
+	SettingsSection.Appearance -> Res.string.appearance_title
+	SettingsSection.Network -> Res.string.settings_network_title
+	SettingsSection.Notifications -> Res.string.notifications_title
+	SettingsSection.Storage -> Res.string.storage_title
+	SettingsSection.About -> Res.string.about_title
+	SettingsSection.BugReport -> Res.string.about_bug_report
+})
 
 @Composable
 fun SettingsScreen(
@@ -39,6 +53,7 @@ fun SettingsScreen(
 	onAddRelayUrl: () -> Unit = {},
 	onRemoveRelayUrl: (Int) -> Unit = {},
 	onApplyRelaySettings: () -> Unit = {},
+	onDynamicColorsChanged: (Boolean) -> Unit = {},
 ) {
 	if (windowClass == WindowClass.Desktop) {
 		Row(
@@ -81,6 +96,7 @@ fun SettingsScreen(
 					onAddRelayUrl = onAddRelayUrl,
 					onRemoveRelayUrl = onRemoveRelayUrl,
 					onApplyRelaySettings = onApplyRelaySettings,
+				onDynamicColorsChanged = onDynamicColorsChanged,
 				)
 			}
 		}
@@ -126,6 +142,7 @@ fun SettingsScreen(
 				onAddRelayUrl = onAddRelayUrl,
 				onRemoveRelayUrl = onRemoveRelayUrl,
 				onApplyRelaySettings = onApplyRelaySettings,
+				onDynamicColorsChanged = onDynamicColorsChanged,
 			)
 		}
 	}
@@ -160,11 +177,12 @@ private fun SettingsSectionContent(
 	onAddRelayUrl: () -> Unit,
 	onRemoveRelayUrl: (Int) -> Unit,
 	onApplyRelaySettings: () -> Unit,
+	onDynamicColorsChanged: (Boolean) -> Unit,
 ) {
 	when (section) {
 		SettingsSection.Overview -> Unit
 		SettingsSection.Preferences -> PreferencesSettings(state, onUsernameChanged, onChooseFolder, onResetFolder, onBack, showBack)
-		SettingsSection.Appearance -> AppearanceSettings(state.themeMode, onThemeModeChanged, onBack, showBack)
+		SettingsSection.Appearance -> AppearanceSettings(state.themeMode, onThemeModeChanged, onBack, showBack, state.useDynamicColors, onDynamicColorsChanged)
 		SettingsSection.Network -> NetworkSettings(
 			state = state,
 			onModeChanged = onRelayModeChanged,

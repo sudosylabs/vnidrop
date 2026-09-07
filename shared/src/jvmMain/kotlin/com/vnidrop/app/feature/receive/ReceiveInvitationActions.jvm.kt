@@ -13,7 +13,6 @@ actual fun rememberReceiveInvitationActions(): ReceiveInvitationActions = rememb
 	object : ReceiveInvitationActions {
 		override val fileAvailability = ReceiveMethodAvailability.Available
 		override val qrAvailability = ReceiveMethodAvailability.Hidden
-		override val nfcAvailability = ReceiveMethodAvailability.Hidden
 
 		override fun pickInvitation(onResult: (Result<String>) -> Unit) {
 			EventQueue.invokeLater {
@@ -31,9 +30,6 @@ actual fun rememberReceiveInvitationActions(): ReceiveInvitationActions = rememb
 
 		override fun scanQrCode(onResult: (Result<String>) -> Unit) =
 			onResult(Result.failure(UnsupportedOperationException("QR scanning is unavailable on desktop")))
-
-		override fun readNfcInvitation(onResult: (Result<String>) -> Unit) =
-			onResult(Result.failure(UnsupportedOperationException("NFC is unavailable on desktop")))
 
 		override fun cancel() = Unit
 	}

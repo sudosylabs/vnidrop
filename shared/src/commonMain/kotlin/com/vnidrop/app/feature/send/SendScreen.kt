@@ -1,7 +1,17 @@
 package com.vnidrop.app.feature.send
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateMapOf
@@ -9,12 +19,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.dp
+import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.CoreState
 import com.vnidrop.app.core.ReceiverDeliveryStatus
+import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.ui.components.AdaptiveDrawer
+import com.vnidrop.app.ui.components.DestructiveQuietButton
+import com.vnidrop.app.ui.navigation.LocalPageActive
+import com.vnidrop.app.ui.platform.LocalUiPlatform
+import com.vnidrop.app.ui.platform.PlatformBackHandler
 import com.vnidrop.app.ui.state.WindowClass
+import org.jetbrains.compose.resources.stringResource
+import vnidrop.shared.generated.resources.*
 
 @Composable
 fun SendScreen(
@@ -46,7 +64,8 @@ fun SendScreen(
 		qrCache.keys.retainAll(outgoingTransfers.mapNotNull { it.ticket }.toSet())
 	}
 
-	Box(Modifier.fillMaxSize()) {
+	val catalogListState = rememberLazyListState()
+	val content: @Composable (Transfer?) -> Unit = { selectedTransfer ->
 		if (selectedTransfer != null) {
 			TransferDetails(
 				transfer = selectedTransfer,
@@ -74,8 +93,24 @@ fun SendScreen(
 				onShare = onShareTransfer,
 				onStopSharing = onStopSharing,
 				onDelete = onRequestDeleteTransfer,
+				listState = catalogListState,
 			)
 		}
+	}
+
+	if (LocalUiPlatform.current == UiPlatform.Android) {
+		AnimatedContent(
+			targetState = selectedTransfer,
+			contentKey = { it?.transferId },
+			modifier = Modifier.fillMaxSize(),
+			transitionSpec = {
+				val direction = if (targetState == null) -1 else 1
+				(slideInHorizontally { direction * it / 4 } + fadeIn()) togetherWith
+					(slideOutHorizontally { -direction * it / 4 } + fadeOut())
+			},
+		) { transfer -> content(transfer) }
+	} else {
+		Box(Modifier.fillMaxSize()) { content(selectedTransfer) }
 	}
 
 	val canShowDetailPanel = selectedTransfer != null && when (state.detailPanel) {
@@ -83,7 +118,8 @@ fun SendScreen(
 		TransferDetailPanel.Activity, TransferDetailPanel.Receivers -> true
 		null -> false
 	}
-	if (selectedTransfer != null && state.detailPanel != null && canShowDetailPanel) {
+	PlatformBackHandler(selectedTransfer != null && !canShowDetailPanel && !(deleteTarget != null && state.isDeleteConfirmationOpen), onCloseTransferDetails)
+	if (LocalPageActive.current && selectedTransfer != null && state.detailPanel != null && canShowDetailPanel) {
 		AdaptiveDrawer(windowClass = windowClass, onDismissRequest = onCloseDetailPanel) {
 			when (state.detailPanel) {
 				TransferDetailPanel.Activity -> TransferActivityPanel(coreState.events, selectedTransfer.transferId)
@@ -104,8 +140,16 @@ fun SendScreen(
 		}
 	}
 
-	if (deleteTarget != null && state.isDeleteConfirmationOpen) {
-		AdaptiveDrawer(windowClass = windowClass, onDismissRequest = onDismissDelete, dialogMaxWidth = 440.dp) {
+	if (LocalPageActive.current && deleteTarget != null && state.isDeleteConfirmationOpen) {
+		if (LocalUiPlatform.current == UiPlatform.Android) {
+			AlertDialog(
+				onDismissRequest = onDismissDelete,
+				title = { Text(stringResource(Res.string.transfer_delete_title)) },
+				text = { Text(stringResource(Res.string.transfer_delete_description, deleteTarget.transferName ?: stringResource(Res.string.send_new_transfer_title))) },
+				confirmButton = { DestructiveQuietButton(stringResource(if (state.isDeleting) Res.string.transfer_deleting else Res.string.button_delete_transfer), onConfirmDelete, enabled = !state.isDeleting) },
+				dismissButton = { TextButton(onClick = onDismissDelete, enabled = !state.isDeleting) { Text(stringResource(Res.string.button_cancel)) } },
+			)
+		} else AdaptiveDrawer(windowClass = windowClass, onDismissRequest = onDismissDelete, dialogMaxWidth = 440.dp) {
 			DeleteTransferPanel(
 				transferName = deleteTarget.transferName,
 				isDeleting = state.isDeleting,

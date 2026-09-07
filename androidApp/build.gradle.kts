@@ -87,6 +87,7 @@ android {
 
 	defaultConfig {
 		applicationId = "com.vnidrop.app"
+		ndk { abiFilters += setOf("arm64-v8a", "x86_64") }
 		minSdk = libs.versions.android.minSdk.get().toInt()
 		targetSdk = libs.versions.android.targetSdk.get().toInt()
 		versionCode = androidVersionCode
@@ -142,13 +143,15 @@ tasks.configureEach {
 
 val verifyDebugVnidropLibraries = tasks.register<VerifyVnidropLibrariesTask>("verifyDebugVnidropLibraries") {
 	group = "verification"
-	description = "Verifies that the debug APK packages VniDrop for every supported Android ABI."
+	description = "Verifies that the debug APK packages VniDrop and its QR decoder for every supported Android ABI."
 	dependsOn("assembleDebug")
 	apk.set(layout.buildDirectory.file("outputs/apk/debug/androidApp-debug.apk"))
 	requiredLibraries.set(
 		setOf(
 			"lib/arm64-v8a/libvnidrop.so",
 			"lib/x86_64/libvnidrop.so",
+			"lib/arm64-v8a/libzxingcpp_android.so",
+			"lib/x86_64/libzxingcpp_android.so",
 		),
 	)
 }

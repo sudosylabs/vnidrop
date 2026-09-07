@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,16 +32,19 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.DeviceRelationshipModel
 import com.vnidrop.app.core.DeviceRelationshipStateModel
 import com.vnidrop.app.core.PairingEligibilityModel
 import com.vnidrop.app.core.PendingTargetedOfferModel
 import com.vnidrop.app.core.SavedDeviceModel
+import com.vnidrop.app.ui.components.FeatureEmptyState
 import com.vnidrop.app.ui.components.PrimaryButton
 import com.vnidrop.app.ui.components.SecondaryButton
-import com.vnidrop.app.ui.components.FeatureEmptyState
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
+import com.vnidrop.app.ui.navigation.LocalRootScaffold
+import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import org.jetbrains.compose.resources.stringResource
 import vnidrop.shared.generated.resources.Res
@@ -75,7 +79,7 @@ internal fun CompactSavedDevicesHub(
 ) {
 	SavedDevicesHub(
 		state = state,
-		contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp),
+		contentPadding = if (LocalRootScaffold.current) PaddingValues(bottom = 96.dp) else PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp),
 		onRetry = onRetry,
 		onRememberEligible = onRememberEligible,
 		onDeclineEligible = onDeclineEligible,
@@ -158,7 +162,7 @@ private fun SavedDevicesHub(
 			item(key = "saved-devices") { SavedDeviceSection(state, onOpenDevice) }
 		}
 		if (showEmptyState) {
-			item(key = "empty") { SavedDevicesEmptyState(Modifier.fillParentMaxHeight(0.72f)) }
+			item(key = "empty") { SavedDevicesEmptyState(if (LocalRootScaffold.current) Modifier.fillParentMaxSize().padding(24.dp) else Modifier.fillParentMaxHeight(0.72f)) }
 		}
 	}
 }
@@ -324,6 +328,15 @@ private fun SavedDeviceSection(state: SavedDevicesState, onOpenDevice: (String) 
 
 @Composable
 private fun SavedDeviceRow(device: SavedDeviceModel, busy: Boolean, onOpen: () -> Unit) {
+	if (LocalUiPlatform.current == UiPlatform.Android) {
+		ListItem(
+			modifier = Modifier.testTag("saved-device-${device.endpointId}").clickable(onClick = onOpen),
+			headlineContent = { Text(device.displayName(), maxLines = 2, overflow = TextOverflow.Ellipsis) },
+			leadingContent = { PlatformIcon(AppIcon.Device, null) },
+			trailingContent = { if (busy) CircularProgressIndicator(Modifier.size(24.dp)) else PlatformIcon(AppIcon.ChevronRight, null) },
+		)
+		return
+	}
 	val colors = LocalVniDropColors.current
 	Row(
 		modifier = Modifier

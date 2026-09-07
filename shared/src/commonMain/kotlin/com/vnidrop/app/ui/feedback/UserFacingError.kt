@@ -16,7 +16,6 @@ import vnidrop.shared.generated.resources.error_repository
 import vnidrop.shared.generated.resources.error_selection_failed
 import vnidrop.shared.generated.resources.error_socket_bind
 import vnidrop.shared.generated.resources.error_camera
-import vnidrop.shared.generated.resources.error_nfc
 import vnidrop.shared.generated.resources.error_network
 import vnidrop.shared.generated.resources.error_share_empty
 import vnidrop.shared.generated.resources.error_starting_up
@@ -114,10 +113,6 @@ private fun reasonHints(detailRaw: String): UiText? {
 			UiText.Resource(Res.string.error_share_empty)
 		detail.contains("camera") ->
 			UiText.Resource(Res.string.error_camera)
-		detail.contains("nfc") || detail.contains("ndef") ||
-			(detail.contains("read-only") && detail.contains("tag")) ||
-			detail.contains("tag is too small") || detail.contains("no nfc tag") ->
-			UiText.Resource(Res.string.error_nfc)
 		detail.contains("native") && detail.contains("library") ->
 			UiText.Resource(Res.string.error_missing_native_library)
 		detail.contains("socket") || detail.contains("bind") ->

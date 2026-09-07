@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="scanner_allow_camera">Kamera erlauben</string>
+    <string name="scanner_open_settings">Einstellungen öffnen</string>
+    <string name="scanner_flash_on">Taschenlampe einschalten</string>
+    <string name="scanner_flash_off">Taschenlampe ausschalten</string>
+    <string name="scanner_unavailable">Die Kamera konnte nicht geöffnet werden. Schließe andere Kamera-Apps und versuche es erneut.</string>
+    <string name="appearance_dynamic_colors">Systemfarben verwenden</string>
+    <string name="appearance_dynamic_colors_description">Farben an dein Android-Hintergrundbild anpassen.</string>
     <string name="about_bug_report">Fehler melden</string>
     <string name="about_description">VniDrop überträgt Dateien und Ordner direkt von einem Gerät auf ein anderes über das Netzwerk, ohne sie auf einen Hosting-Dienst hochzuladen. Es muss kein Konto erstellt werden, und nach Abschluss verbleibt keine Kopie Ihrer Übertragung in der Cloud.</string>
     <string name="about_is_direct">Eine direkte Gerät-zu-Gerät-Übertragung – Ihre Dateien gehen direkt an den Empfänger.</string>
@@ -14,7 +21,7 @@
     <string name="about_isnt_title">Was VniDrop nicht ist</string>
     <string name="about_license_label">Lizenz</string>
     <string name="about_privacy">Datenschutzrichtlinie</string>
-    <string name="about_privacy_capability">Einladungen sind Zugangsschlüssel. Behandeln Sie einen QR-Code, ein NFC-Tag oder eine .vnd-Datei wie einen privaten Zugangslink und teilen Sie ihn nur mit den vorgesehenen Personen – insbesondere bei „Jeder mit dieser Übertragung“.</string>
+    <string name="about_invitation_privacy">Einladungen sind Zugangsschlüssel. Behandeln Sie einen QR-Code oder eine .vnd-Datei wie einen privaten Zugangslink und teilen Sie ihn nur mit den vorgesehenen Personen – insbesondere bei „Jeder mit dieser Übertragung“.</string>
     <string name="about_privacy_deny">Standardmäßig ablehnen – VniDrop stellt nur den Inhalt einer aktiven Freigabe bereit und weist unbekannte Anfragen ab.</string>
     <string name="about_privacy_local">Empfangene Dateien werden auf Ihrem Gerät gespeichert und überschreiben niemals eine vorhandene Datei.</string>
     <string name="about_privacy_policy_label">Datenschutzrichtlinie</string>
@@ -77,7 +84,6 @@
     <string name="button_share_file">Freigabe starten</string>
     <string name="button_sharing_file">Übertragung wird vorbereitet…</string>
     <string name="button_show_in_files">In „Dateien“ anzeigen</string>
-    <string name="button_write_nfc">Auf NFC-Tag schreiben</string>
     <string name="device_model_title">Gerätemodell</string>
     <string name="device_name_title">Gerätename</string>
     <string name="error_camera">Für das Scannen eines QR-Codes ist Kamerazugriff erforderlich.</string>
@@ -91,7 +97,6 @@
     <string name="error_invitation_empty">Diese Einladung ist leer. Versuchen Sie, sie erneut zu öffnen.</string>
     <string name="error_missing_native_library">Die native VniDrop-Bibliothek fehlt in diesem Build.</string>
     <string name="error_network">VniDrop konnte den Absender nicht erreichen. Prüfen Sie die Verbindung auf beiden Geräten und versuchen Sie es erneut.</string>
-    <string name="error_nfc">Dieses NFC-Tag konnte nicht verwendet werden. Versuchen Sie ein anderes.</string>
     <string name="error_permission">Der Absender hat diese Übertragung nicht genehmigt oder sie wurde abgelehnt.</string>
     <string name="error_repository">VniDrop konnte die Übertragungsdaten auf diesem Gerät nicht speichern.</string>
     <string name="error_selection_failed">Das ausgewählte Objekt konnte nicht geöffnet werden. Versuchen Sie, es erneut auszuwählen.</string>
@@ -165,18 +170,15 @@
     <string name="receive_delete_history_description">%1$s wird aus dem Verlauf von VniDrop entfernt. Die heruntergeladene Datei verbleibt auf diesem Gerät.</string>
     <string name="receive_delete_history_item">Aus Empfangsverlauf löschen</string>
     <string name="receive_delete_history_title">Aus dem Verlauf entfernen?</string>
-    <string name="receive_empty_body">Öffnen Sie eine VniDrop-Einladung, scannen Sie einen QR-Code oder halten Sie das Gerät an ein NFC-Tag.</string>
+    <string name="receive_invitation_body">Öffnen Sie eine VniDrop-Einladungsdatei oder scannen Sie einen QR-Code.</string>
     <string name="receive_empty_title">Noch nichts empfangen</string>
     <string name="receive_history_cleared">Empfangsverlauf gelöscht.</string>
     <string name="receive_history_title">Verlauf</string>
     <string name="receive_method_file">Eine .vnd-Einladung öffnen</string>
     <string name="receive_method_file_description">Wählen Sie eine auf diesem Gerät gespeicherte oder geteilte Einladung.</string>
-    <string name="receive_method_nfc">NFC-Tag lesen</string>
-    <string name="receive_method_nfc_description">Halten Sie dieses Gerät an das Einladungs-Tag des Absenders.</string>
     <string name="receive_method_scan">QR-Code scannen</string>
     <string name="receive_method_scan_description">Verwenden Sie die Kamera, um den VniDrop-Code des Absenders zu scannen.</string>
     <string name="receive_new_subtitle">Übertragungen, die Sie auf diesem Gerät empfangen haben.</string>
-    <string name="receive_nfc_waiting">Halten Sie das Gerät an das NFC-Tag…</string>
     <string name="receive_open_files_failed">VniDrop konnte in „Dateien“ nicht geöffnet werden.</string>
     <string name="receive_review_title">Übertragung prüfen</string>
     <string name="receive_title">Empfangen</string>
@@ -215,7 +217,7 @@
     <string name="send_access_title">Wer kann sie empfangen?</string>
     <string name="send_choose_file_body">Wählen Sie Dateien oder einen Ordner auf diesem Gerät aus. Sie können die Auswahl überprüfen, bevor Sie die Übertragung erstellen.</string>
     <string name="send_choose_file_title">Wählen Sie, was Sie teilen möchten</string>
-    <string name="send_empty_body">Erstellen Sie eine Übertragung, entscheiden Sie, wer sie empfangen darf, und laden Sie diese Personen dann mit einem QR-Code, einem NFC-Tag oder einer Einladungsdatei ein.</string>
+    <string name="send_invitation_body">Erstellen Sie eine Übertragung, entscheiden Sie, wer sie empfangen darf, und laden Sie diese Personen dann mit einem QR-Code oder einer Einladungsdatei ein.</string>
     <string name="send_empty_title">Noch nichts geteilt</string>
     <string name="send_file_size_unknown">Größe nicht verfügbar</string>
     <string name="send_folder_label">Ordner</string>
@@ -291,9 +293,6 @@
     <string name="transfer_event_updated">Übertragung aktualisiert</string>
     <string name="transfer_invitation_saved">Einladung gesichert.</string>
     <string name="transfer_nearby_device">Gerät in der Nähe</string>
-    <string name="transfer_nfc_unavailable">Das Beschreiben von NFC-Tags ist auf diesem Gerät nicht verfügbar.</string>
-    <string name="transfer_nfc_waiting">Halten Sie Ihr Gerät an ein beschreibbares NFC-Tag.</string>
-    <string name="transfer_nfc_written">Einladung auf das NFC-Tag geschrieben.</string>
     <string name="transfer_no_activity">Es gibt noch keine Aktivität anzuzeigen.</string>
     <string name="transfer_no_receivers">Noch niemand hat diese Übertragung angefragt.</string>
     <string name="transfer_receiver_accepted">Genehmigt – wartet auf Abschluss</string>

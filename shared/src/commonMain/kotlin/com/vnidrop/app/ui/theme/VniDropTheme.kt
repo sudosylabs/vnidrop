@@ -9,6 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import com.vnidrop.app.UiPlatform
+import com.vnidrop.app.ui.platform.LocalUiPlatform
 import kotlin.math.max
 import kotlin.math.min
 
@@ -80,6 +82,8 @@ data class VniDropColors(
 val LocalVniDropColors = staticCompositionLocalOf { VniDropThemeTokens.light }
 
 object VniDropThemeTokens {
+	val cameraOverlay = Color.White
+
 	// These values are a direct Compose port of the legacy Tauri theme tokens.
 	// The app uses these semantic tokens directly because Material3's ColorScheme
 	// cannot represent the full surface, border, and foreground stack.
@@ -181,20 +185,28 @@ object VniDropThemeTokens {
 @Composable
 fun VniDropTheme(
 	mode: ThemeMode,
+	useDynamicColors: Boolean = true,
 	content: @Composable () -> Unit,
 ) {
-	VniDropTheme(isDarkTheme = rememberResolvedDarkTheme(mode), content = content)
+	VniDropTheme(isDarkTheme = rememberResolvedDarkTheme(mode), useDynamicColors = useDynamicColors, content = content)
 }
 
 @Composable
 fun VniDropTheme(
 	isDarkTheme: Boolean,
+	useDynamicColors: Boolean = true,
 	content: @Composable () -> Unit,
 ) {
-	val tokens = if (isDarkTheme) VniDropThemeTokens.dark else VniDropThemeTokens.light
+	val base = if (isDarkTheme) VniDropThemeTokens.dark else VniDropThemeTokens.light
+	val scheme = if (LocalUiPlatform.current == UiPlatform.Android) {
+		platformColorScheme(isDarkTheme, useDynamicColors, androidColorScheme(isDarkTheme))
+	} else {
+		base.toMaterialColorScheme(isDarkTheme)
+	}
+	val tokens = if (LocalUiPlatform.current == UiPlatform.Android) base.withMaterialColors(scheme) else base
 	androidx.compose.runtime.CompositionLocalProvider(LocalVniDropColors provides tokens) {
 		MaterialTheme(
-			colorScheme = tokens.toMaterialColorScheme(isDarkTheme),
+			colorScheme = scheme,
 			content = content,
 		)
 	}

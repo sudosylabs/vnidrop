@@ -1,10 +1,6 @@
 package com.vnidrop.app.ui.navigation
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.Interaction
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.PressInteraction
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,12 +22,10 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -42,19 +36,6 @@ import com.vnidrop.app.ui.platform.DesktopNavigationWidthDp
 import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import org.jetbrains.compose.resources.stringResource
-
-internal class PresslessInteractionSource(
-	private val delegate: MutableInteractionSource = MutableInteractionSource(),
-) : MutableInteractionSource {
-	override val interactions = delegate.interactions
-
-	override suspend fun emit(interaction: Interaction) {
-		if (interaction !is PressInteraction) delegate.emit(interaction)
-	}
-
-	override fun tryEmit(interaction: Interaction): Boolean =
-		interaction is PressInteraction || delegate.tryEmit(interaction)
-}
 
 enum class NavigationStyle {
 	AndroidBottomBar,
@@ -97,7 +78,7 @@ private fun AndroidNavigationRail(
 	val colors = LocalVniDropColors.current
 	NavigationRail(
 		modifier = modifier.fillMaxHeight(),
-		containerColor = colors.backgroundSurface200,
+		containerColor = MaterialTheme.colorScheme.surfaceContainer,
 	) {
 		Spacer(Modifier.height(8.dp))
 		primaryNavigationItems.forEach { item ->
@@ -115,13 +96,12 @@ private fun AndroidNavigationRail(
 					)
 				},
 				colors = NavigationRailItemDefaults.colors(
-					selectedIconColor = colors.brandLink,
-					selectedTextColor = colors.brandLink,
-					indicatorColor = colors.backgroundSelection,
+					selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+					selectedTextColor = colors.foregroundLight,
+					indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
 					unselectedIconColor = colors.foregroundLight,
 					unselectedTextColor = colors.foregroundLight,
 				),
-				interactionSource = remember { PresslessInteractionSource() },
 			)
 		}
 	}
@@ -200,7 +180,7 @@ fun AppBottomNavigation(
 	val colors = LocalVniDropColors.current
 	NavigationBar(
 		modifier = modifier.fillMaxWidth(),
-		containerColor = colors.backgroundSurface200,
+		containerColor = MaterialTheme.colorScheme.surfaceContainer,
 	) {
 		primaryNavigationItems.forEach { item ->
 			val label = stringResource(item.label)
@@ -209,35 +189,16 @@ fun AppBottomNavigation(
 				selected = isSelected,
 				onClick = { onDestinationSelected(item.destination) },
 				icon = {
-					Box(
-						modifier = Modifier
-							.width(64.dp)
-							.height(32.dp)
-							.testTag("bottom-nav-indicator-${item.destination.name}")
-							.then(
-								if (isSelected) {
-									Modifier.background(
-										color = colors.brandDefault.copy(alpha = 0.14f),
-										shape = RoundedCornerShape(16.dp),
-									)
-								} else {
-									Modifier
-								},
-							),
-						contentAlignment = Alignment.Center,
-					) {
-						PlatformIcon(item.icon, contentDescription = label, modifier = Modifier.size(24.dp))
-					}
+					PlatformIcon(item.icon, contentDescription = null, modifier = Modifier.size(24.dp))
 				},
 				label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
 				colors = NavigationBarItemDefaults.colors(
-					selectedIconColor = colors.brandLink,
+					selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
 					selectedTextColor = colors.foregroundLight,
-					indicatorColor = Color.Transparent,
+					indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
 					unselectedIconColor = colors.foregroundLight,
 					unselectedTextColor = colors.foregroundLight,
 				),
-				interactionSource = remember { PresslessInteractionSource() },
 			)
 		}
 	}

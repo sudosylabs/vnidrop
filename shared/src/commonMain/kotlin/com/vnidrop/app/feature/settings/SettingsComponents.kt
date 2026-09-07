@@ -17,6 +17,8 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -32,9 +34,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.isDesktop
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
+import com.vnidrop.app.ui.navigation.LocalRootScaffold
 import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import org.jetbrains.compose.resources.stringResource
@@ -45,6 +49,7 @@ internal enum class SettingsIconTone { Brand, Neutral }
 
 @Composable
 internal fun SettingsTopBar(title: String, onBack: () -> Unit, showBack: Boolean) {
+	if (LocalRootScaffold.current) return
 	Row(
 		modifier = Modifier.fillMaxWidth(),
 		verticalAlignment = Alignment.CenterVertically,
@@ -82,6 +87,19 @@ internal fun SettingsRow(
 ) {
 	val colors = LocalVniDropColors.current
 	val desktop = LocalUiPlatform.current.isDesktop
+	if (LocalUiPlatform.current == UiPlatform.Android) {
+		ListItem(
+			modifier = Modifier.then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick)),
+			headlineContent = { Text(title) },
+			supportingContent = if (value != null || subtitle != null) ({
+				Column { value?.let { Text(it) }; subtitle?.let { Text(it) } }
+			}) else null,
+			leadingContent = { PlatformIcon(icon, null, modifier = Modifier.size(24.dp)) },
+			trailingContent = trailing ?: if (onClick != null && showsDisclosure) ({ PlatformIcon(AppIcon.ChevronRight, null) }) else null,
+			colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+		)
+		return
+	}
 	Row(
 		modifier = Modifier
 			.fillMaxWidth()
@@ -161,6 +179,17 @@ internal fun SettingsToggleRow(
 	enabled: Boolean,
 	onCheckedChange: (Boolean) -> Unit,
 ) {
+	if (LocalUiPlatform.current == UiPlatform.Android) {
+		ListItem(
+			modifier = Modifier.alpha(if (enabled) 1f else 0.55f).toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
+			headlineContent = { Text(title) },
+			supportingContent = { Text(description) },
+			leadingContent = { PlatformIcon(icon, null) },
+			trailingContent = { Switch(checked = checked, onCheckedChange = null, enabled = enabled) },
+		)
+		return
+	}
+
 	val colors = LocalVniDropColors.current
 	Row(
 		modifier = Modifier
@@ -186,7 +215,7 @@ internal fun SettingsToggleRow(
 			checked = checked,
 			onCheckedChange = null,
 			enabled = enabled,
-			colors = SwitchDefaults.colors(
+			colors = if (!LocalUiPlatform.current.isDesktop) SwitchDefaults.colors() else SwitchDefaults.colors(
 				checkedThumbColor = Color.White,
 				checkedTrackColor = colors.brandButton,
 			),

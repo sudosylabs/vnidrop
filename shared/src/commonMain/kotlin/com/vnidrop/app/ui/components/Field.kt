@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -39,7 +40,7 @@ fun Field(
 			modifier = Modifier.fillMaxWidth(),
 			minLines = minLines,
 			enabled = enabled,
-			shape = RoundedCornerShape(if (desktop) 5.dp else 8.dp),
+			shape = if (desktop) RoundedCornerShape(5.dp) else OutlinedTextFieldDefaults.shape,
 		)
 	}
 }

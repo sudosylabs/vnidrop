@@ -18,12 +18,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,27 +38,32 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.CoreState
 import com.vnidrop.app.core.FolderAccessStatus
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.isDesktop
-import com.vnidrop.app.ui.components.AppContextMenuItem
 import com.vnidrop.app.ui.components.AdaptiveDrawer
+import com.vnidrop.app.ui.components.AppContextMenuItem
 import com.vnidrop.app.ui.components.DestructiveButton
 import com.vnidrop.app.ui.components.DestructiveQuietButton
-import com.vnidrop.app.ui.components.Field
 import com.vnidrop.app.ui.components.FeatureEmptyState
+import com.vnidrop.app.ui.components.Field
+import com.vnidrop.app.ui.components.PlatformContextMenu
 import com.vnidrop.app.ui.components.PrimaryButton
 import com.vnidrop.app.ui.components.ProgressRow
-import com.vnidrop.app.ui.components.PlatformContextMenu
-import com.vnidrop.app.ui.components.emphasizedValueText
 import com.vnidrop.app.ui.components.QuietButton
 import com.vnidrop.app.ui.components.SecondaryButton
+import com.vnidrop.app.ui.components.emphasizedValueText
+import com.vnidrop.app.ui.feedback.UiMessageController
 import com.vnidrop.app.ui.feedback.UiText
+import com.vnidrop.app.ui.feedback.VniDropSnackbarHost
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
+import com.vnidrop.app.ui.navigation.LocalPageActive
+import com.vnidrop.app.ui.navigation.LocalRootScaffold
 import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.platform.usesMobilePresentation
 import com.vnidrop.app.ui.state.WindowClass
@@ -68,8 +79,8 @@ fun ReceiveFloatingAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
 	FloatingActionButton(
 		onClick = onClick,
 		modifier = modifier,
-		containerColor = LocalVniDropColors.current.brandButton,
-		contentColor = Color.White,
+		containerColor = MaterialTheme.colorScheme.primaryContainer,
+		contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
 	) { PlatformIcon(AppIcon.Download, stringResource(Res.string.button_receive_files)) }
 }
 
@@ -83,27 +94,29 @@ fun ReceiveScreen(
 	onDismissAcquisition: () -> Unit,
 	onReceiverNameChanged: (String) -> Unit,
 	onInvitationResult: (ReceiveMethod, Result<String>) -> Unit,
-	onWaitingForNfc: (Boolean) -> Unit,
 	onReceive: () -> Unit,
 	onCancelReceive: () -> Unit = {},
 	onRequestDeleteHistoryItem: (ULong) -> Unit,
 	onRequestClearHistory: () -> Unit,
 	onDismissHistoryDelete: () -> Unit,
 	onConfirmHistoryDelete: () -> Unit,
+	messages: UiMessageController? = null,
 ) {
 	val transfers = coreState.transfers.filter { it.direction == TransferDirection.Receive }
 	val deletableTransfers = transfers.filter { it.status.isTerminalReceiveHistory() }
+	val native = LocalUiPlatform.current == UiPlatform.Android
+	val rootScaffold = LocalRootScaffold.current
 	val usesFloatingAction = usesMobilePresentation(LocalUiPlatform.current, windowClass)
 	LazyColumn(
-		modifier = Modifier.fillMaxSize().statusBarsPadding(),
-		contentPadding = PaddingValues(16.dp),
-		verticalArrangement = Arrangement.spacedBy(14.dp),
+		modifier = Modifier.fillMaxSize().then(if (rootScaffold) Modifier else Modifier.statusBarsPadding()),
+		contentPadding = if (native) PaddingValues(bottom = 96.dp) else PaddingValues(16.dp),
+		verticalArrangement = Arrangement.spacedBy(if (native) 0.dp else 14.dp),
 	) {
-		item { ReceiveHeader(transfers.isNotEmpty() && !usesFloatingAction, onOpenAcquisition) }
-		if (transfers.isEmpty()) item { ReceiveEmptyState(onOpenAcquisition) }
+		if (!rootScaffold) item { ReceiveHeader(transfers.isNotEmpty() && !usesFloatingAction, onOpenAcquisition) }
+		if (transfers.isEmpty()) item { ReceiveEmptyState(onOpenAcquisition, if (native) Modifier.fillParentMaxSize().padding(24.dp) else Modifier.heightIn(min = 430.dp)) }
 		else {
 			item {
-				Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+				Row(Modifier.fillMaxWidth().then(if (native) Modifier.padding(horizontal = 16.dp) else Modifier), verticalAlignment = Alignment.CenterVertically) {
 					Text(stringResource(Res.string.receive_history_title), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
 					if (deletableTransfers.isNotEmpty()) DestructiveQuietButton(stringResource(Res.string.receive_clear_history), onClick = onRequestClearHistory)
 				}
@@ -118,14 +131,13 @@ fun ReceiveScreen(
 		}
 	}
 
-	if (state.isAcquisitionOpen) {
-		AdaptiveDrawer(windowClass, onDismissAcquisition) {
+	if (state.isAcquisitionOpen && LocalPageActive.current) {
+		if (native) AndroidReceiveAcquisition(coreState, state, actions, onDismissAcquisition, onReceiverNameChanged, onInvitationResult, onReceive, onCancelReceive, messages)
+		else AdaptiveDrawer(windowClass, onDismissAcquisition) {
 			if (state.ticket.isBlank()) {
 				ReceiveMethodPanel(
 					actions = actions,
-					isWaitingForNfc = state.isWaitingForNfc,
 					onResult = onInvitationResult,
-					onWaitingForNfc = onWaitingForNfc,
 				)
 			} else {
 				InvitationReviewPanel(
@@ -140,11 +152,23 @@ fun ReceiveScreen(
 		}
 	}
 
-	state.historyDeleteTarget?.let { target ->
+	state.historyDeleteTarget?.takeIf { LocalPageActive.current }?.let { target ->
 		val transferName = (target as? ReceiveHistoryDeleteTarget.Transfer)?.let { selected ->
 			transfers.firstOrNull { it.transferId == selected.transferId }?.transferName
 		}
-		AdaptiveDrawer(windowClass, onDismissHistoryDelete, dialogMaxWidth = 440.dp) {
+		if (native) AlertDialog(
+			onDismissRequest = onDismissHistoryDelete,
+			title = { Text(stringResource(if (target == ReceiveHistoryDeleteTarget.All) Res.string.receive_clear_history_title else Res.string.receive_delete_history_title)) },
+			text = {
+				if (target == ReceiveHistoryDeleteTarget.All) Text(stringResource(Res.string.receive_clear_history_description))
+				else {
+					val name = transferName ?: stringResource(Res.string.receive_unknown_transfer)
+					Text(emphasizedValueText(stringResource(Res.string.receive_delete_history_description, name), name))
+				}
+			},
+			confirmButton = { DestructiveQuietButton(stringResource(Res.string.button_delete_transfer), onConfirmHistoryDelete, enabled = !state.isDeletingHistory) },
+			dismissButton = { TextButton(onClick = onDismissHistoryDelete, enabled = !state.isDeletingHistory) { Text(stringResource(Res.string.button_cancel)) } },
+		) else AdaptiveDrawer(windowClass, onDismissHistoryDelete, dialogMaxWidth = 440.dp) {
 			ReceiveHistoryDeletePanel(
 				clearAll = target == ReceiveHistoryDeleteTarget.All,
 				transferName = transferName,
@@ -170,15 +194,15 @@ private fun ReceiveHeader(showAction: Boolean, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun ReceiveEmptyState(onOpen: () -> Unit) {
-	Box(Modifier.fillMaxWidth().heightIn(min = 430.dp), contentAlignment = Alignment.Center) {
+private fun ReceiveEmptyState(onOpen: () -> Unit, modifier: Modifier) {
+	Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
 		FeatureEmptyState(
 			icon = AppIcon.Download,
 			title = stringResource(Res.string.receive_empty_title),
-			description = stringResource(Res.string.receive_empty_body),
+			description = stringResource(Res.string.receive_invitation_body),
 			iconTestTag = "receive-empty-icon",
 		) {
-			PrimaryButton(
+			if (!LocalRootScaffold.current) PrimaryButton(
 				stringResource(Res.string.button_receive_files),
 				onClick = onOpen,
 				leadingIcon = {
@@ -196,9 +220,7 @@ private fun ReceiveEmptyState(onOpen: () -> Unit) {
 @Composable
 private fun ReceiveMethodPanel(
 	actions: ReceiveInvitationActions,
-	isWaitingForNfc: Boolean,
 	onResult: (ReceiveMethod, Result<String>) -> Unit,
-	onWaitingForNfc: (Boolean) -> Unit,
 ) {
 	Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
 		Text(stringResource(Res.string.receive_choose_method_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -211,15 +233,6 @@ private fun ReceiveMethodPanel(
 			AppIcon.Scan, stringResource(Res.string.receive_method_scan), stringResource(Res.string.receive_method_scan_description),
 			actions.qrAvailability,
 		) { actions.scanQrCode { onResult(ReceiveMethod.QrCode, it) } }
-		if (actions.nfcAvailability != ReceiveMethodAvailability.Hidden) ReceiveMethodRow(
-			AppIcon.Nfc,
-			if (isWaitingForNfc) stringResource(Res.string.receive_nfc_waiting) else stringResource(Res.string.receive_method_nfc),
-			stringResource(Res.string.receive_method_nfc_description),
-			if (isWaitingForNfc) ReceiveMethodAvailability.Unavailable else actions.nfcAvailability,
-		) {
-			onWaitingForNfc(true)
-			actions.readNfcInvitation { onResult(ReceiveMethod.Nfc, it) }
-		}
 	}
 }
 
@@ -312,6 +325,24 @@ private fun ReceiveTransferRow(
 	onDelete: () -> Unit,
 ) {
 	val terminal = transfer.status.isTerminalReceiveHistory()
+	if (LocalUiPlatform.current == UiPlatform.Android) {
+		var expanded by remember { mutableStateOf(false) }
+		ListItem(
+			headlineContent = { Text(transfer.transferName ?: stringResource(Res.string.receive_unknown_transfer), maxLines = 1, overflow = TextOverflow.MiddleEllipsis) },
+			supportingContent = { Column {
+				Text("${formatBytes(transfer.totalSize)} · ${displayNameForStatus(transfer.status)}")
+				if (transfer.status == TransferStatus.Receiving && progress != null) ProgressRow(progress.label, progress.progress, detail = progress.detail)
+			} },
+			leadingContent = { PlatformIcon(AppIcon.File, null) },
+			trailingContent = if (terminal) ({ Box {
+				IconButton(onClick = { expanded = true }) { PlatformIcon(AppIcon.MoreVertical, stringResource(Res.string.button_more_actions)) }
+				DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
+					DropdownMenuItem(text = { Text(stringResource(Res.string.receive_delete_history_item)) }, onClick = { expanded = false; onDelete() })
+				}
+			} }) else null,
+		)
+		return
+	}
 	val usesDesktopMenu = LocalUiPlatform.current.isDesktop
 	val contextMenuItems = if (usesDesktopMenu && terminal) {
 		listOf(AppContextMenuItem(stringResource(Res.string.receive_delete_history_item), onDelete))

@@ -19,7 +19,6 @@ import vnidrop.shared.generated.resources.error_repository
 import vnidrop.shared.generated.resources.error_selection_failed
 import vnidrop.shared.generated.resources.error_socket_bind
 import vnidrop.shared.generated.resources.error_camera
-import vnidrop.shared.generated.resources.error_nfc
 import vnidrop.shared.generated.resources.error_network
 import vnidrop.shared.generated.resources.error_share_empty
 import vnidrop.shared.generated.resources.error_starting_up
@@ -117,10 +116,6 @@ class UserFacingErrorTest {
 			IllegalStateException("VniDrop is still starting up").toUiText(),
 		)
 		assertEquals(
-			UiText.Resource(Res.string.error_nfc),
-			IllegalStateException("This NFC tag is read-only").toUiText(),
-		)
-		assertEquals(
 			UiText.Resource(Res.string.error_camera),
 			IllegalStateException("Camera access is required to scan QR codes").toUiText(),
 		)
@@ -141,7 +136,7 @@ class UserFacingErrorTest {
 	@Test
 	fun detectsUserCancellations() {
 		assertTrue(IllegalStateException("QR scanning was cancelled").isUserCancellation())
-		assertTrue(IllegalStateException("NFC writing was cancelled").isUserCancellation())
+		assertTrue(IllegalStateException("File selection was cancelled").isUserCancellation())
 		assertTrue(VnidropException.Transfer("transfer cancelled by user").isUserCancellation())
 		assertTrue(VnidropException.Cancelled("cancel requested").isUserCancellation())
 		assertFalse(IllegalStateException("sender refused").isUserCancellation())

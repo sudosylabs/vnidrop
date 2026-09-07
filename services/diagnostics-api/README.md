@@ -166,19 +166,23 @@ after the exact expiration time rather than synchronously at it.
 
 ## App wiring
 
-Keep the tracked root defaults empty. Configure release builds through the
-user-level `~/.gradle/gradle.properties` or secured CI Gradle project properties:
+Keep credentials out of tracked files. Configure local builds through
+`~/.gradle/gradle.properties`:
 
 ```properties
-vnidrop.diagnostics.included=true
 vnidrop.diagnostics.endpoint=https://vnidrop-diagnostics.<your-subdomain>.workers.dev
 vnidrop.diagnostics.ingestKey=<same value as INGEST_KEY>
 ```
 
-Both the endpoint and key are required. When both are empty the app uses its
-offline-safe no-op transport; configuring only one fails the Gradle build.
-`vnidrop.diagnostics.included=false` routes bug reports to that no-op transport
-(never sent); a configured endpoint accepts an explicit user-submitted bug report.
+Delivery is enabled automatically when credentials are configured. The environment
+variables `VNIDROP_DIAGNOSTICS_ENDPOINT` and `VNIDROP_DIAGNOSTICS_INGEST_KEY`
+override the Gradle properties; Android release CI uses the repository variable
+and secret with these names. Both values are required. With neither set, ordinary
+builds use the offline no-op transport. Partial configuration fails the build.
+`-Pvnidrop.diagnostics.included=false` explicitly disables delivery and omits the
+credentials from the generated app config. Official Android releases require
+`included=true` and fail if either value is missing. Only an explicit user-submitted
+bug report is sent.
 Treat the app-side key as an abuse-control token with the limitations described
 above.
 

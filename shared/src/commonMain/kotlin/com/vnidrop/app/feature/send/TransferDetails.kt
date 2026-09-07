@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -28,12 +27,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,6 +37,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.CoreEventModel
 import com.vnidrop.app.core.ReceiverDeliveryStatus
 import com.vnidrop.app.core.ReceiverRequestModel
@@ -50,26 +46,27 @@ import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.ui.components.AppCard
 import com.vnidrop.app.ui.components.DestructiveQuietButton
-import com.vnidrop.app.ui.components.emphasizedValueText
 import com.vnidrop.app.ui.components.PrimaryButton
-import com.vnidrop.app.ui.components.QuietButton
 import com.vnidrop.app.ui.components.ProgressRow
+import com.vnidrop.app.ui.components.QuietButton
 import com.vnidrop.app.ui.components.SecondaryButton
+import com.vnidrop.app.ui.components.emphasizedValueText
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
+import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.state.TransferProgress
 import com.vnidrop.app.ui.state.displayNameForStatus
 import com.vnidrop.app.ui.state.formatBytes
 import com.vnidrop.app.ui.state.progressForReceiver
 import com.vnidrop.app.ui.theme.LocalVniDropColors
-import org.jetbrains.compose.resources.decodeToImageBitmap
-import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.decodeToImageBitmap
+import org.jetbrains.compose.resources.stringResource
 import vnidrop.shared.generated.resources.*
 
-enum class InvitationAction { Export, Share, Nfc }
+enum class InvitationAction { Export, Share }
 
 private sealed interface TransferQrRenderState {
 	data object Loading : TransferQrRenderState
@@ -90,6 +87,10 @@ internal fun TransferDetails(
 	onStopSharing: () -> Unit,
 	onDelete: () -> Unit,
 ) {
+	if (LocalUiPlatform.current == UiPlatform.Android) {
+		AndroidTransferDetails(transfer, pendingReceivers, completedReceivers, onBack, onActivity, onReceivers, onShare, onStopSharing, onDelete)
+		return
+	}
 	LazyColumn(
 		modifier = Modifier.fillMaxSize().statusBarsPadding(),
 		contentPadding = PaddingValues(16.dp),
@@ -169,7 +170,7 @@ internal fun TransferDetails(
 }
 
 @Composable
-private fun receiversDescription(pending: Int, completed: Int): String = when {
+internal fun receiversDescription(pending: Int, completed: Int): String = when {
 	pending > 0 && completed > 0 ->
 		"${stringResource(Res.string.transfer_receivers_pending, pending)} · ${stringResource(Res.string.transfer_receivers_completed_count, completed)}"
 	pending > 0 -> stringResource(Res.string.transfer_receivers_pending, pending)
@@ -276,7 +277,6 @@ internal fun TransferSharePanel(
 	onQrRendered: (String, androidx.compose.ui.graphics.ImageBitmap) -> Unit,
 	onResult: (InvitationAction, Result<Unit>) -> Unit,
 ) {
-	DisposableEffect(actions) { onDispose(actions::cancelNfcWrite) }
 	val ticket = transfer.ticket
 	PanelContainer(stringResource(Res.string.transfer_share_title)) {
 		if (transfer.status == TransferStatus.Importing) {
@@ -343,24 +343,6 @@ internal fun TransferSharePanel(
 				color = LocalVniDropColors.current.foregroundLighter,
 				style = MaterialTheme.typography.bodySmall,
 			)
-		}
-		if (actions.nfcAvailability != NfcShareAvailability.Hidden) {
-			var writingNfc by remember(ticket) { mutableStateOf(false) }
-			SecondaryButton(
-				if (writingNfc) stringResource(Res.string.transfer_nfc_waiting) else stringResource(Res.string.button_write_nfc),
-				onClick = {
-					writingNfc = true
-					actions.writeInvitationToNfc(ticket) {
-						writingNfc = false
-						onResult(InvitationAction.Nfc, it)
-					}
-				},
-				modifier = Modifier.fillMaxWidth(),
-				enabled = actions.nfcAvailability == NfcShareAvailability.Available && !writingNfc,
-			)
-			if (actions.nfcAvailability == NfcShareAvailability.Unavailable) {
-				Text(stringResource(Res.string.transfer_nfc_unavailable), color = LocalVniDropColors.current.foregroundLighter, style = MaterialTheme.typography.bodySmall)
-			}
 		}
 		SecondaryButton(
 			stringResource(Res.string.button_download_invitation),

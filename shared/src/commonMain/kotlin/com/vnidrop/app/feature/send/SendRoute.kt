@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vnidrop.app.ui.feedback.UiMessageController
 import com.vnidrop.app.ui.state.WindowClass
 
 @Composable
@@ -14,6 +15,7 @@ internal fun SendRoute(
 	draftViewModel: TransferDraftViewModel,
 	defaultSenderName: String,
 	windowClass: WindowClass,
+	messages: UiMessageController,
 	onTransferCreated: (TransferDraftCreation) -> Unit,
 ) {
 	val state by viewModel.state.collectAsStateWithLifecycle()
@@ -53,7 +55,7 @@ internal fun SendRoute(
 		onDismissDelete = viewModel::dismissDeleteTransfer,
 		onConfirmDelete = viewModel::confirmDeleteTransfer,
 	)
-	TransferDraftHost(draftViewModel, windowClass) { creation ->
+	TransferDraftHost(draftViewModel, windowClass, messages) { creation ->
 		viewModel.onDraftCreated(creation)
 		onTransferCreated(creation)
 	}

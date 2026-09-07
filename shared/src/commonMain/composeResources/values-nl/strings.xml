@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="scanner_allow_camera">Camera toestaan</string>
+    <string name="scanner_open_settings">Instellingen openen</string>
+    <string name="scanner_flash_on">Zaklamp aan</string>
+    <string name="scanner_flash_off">Zaklamp uit</string>
+    <string name="scanner_unavailable">De camera kon niet worden geopend. Sluit andere camera-apps en probeer het opnieuw.</string>
+    <string name="appearance_dynamic_colors">Systeemkleuren gebruiken</string>
+    <string name="appearance_dynamic_colors_description">Stem de kleuren af op je Android-achtergrond.</string>
     <string name="about_bug_report">Een fout melden</string>
     <string name="about_description">VniDrop verplaatst bestanden en mappen rechtstreeks van het ene apparaat naar het andere via het netwerk, zonder ze naar een hostingdienst te uploaden. U hoeft geen account aan te maken en er blijft geen kopie van uw overdracht in de cloud achter zodra u klaar bent.</string>
     <string name="about_is_direct">Een directe overdracht van apparaat naar apparaat — uw bestanden gaan rechtstreeks naar de ontvanger.</string>
@@ -14,7 +21,7 @@
     <string name="about_isnt_title">Wat VniDrop niet is</string>
     <string name="about_license_label">Licentie</string>
     <string name="about_privacy">Privacybeleid</string>
-    <string name="about_privacy_capability">Uitnodigingen zijn toegangssleutels. Behandel een QR-code, NFC-tag of .vnd-bestand als een privétoegangslink en deel deze alleen met de bedoelde personen — vooral bij ‘Iedereen met deze overdracht’.</string>
+    <string name="about_invitation_privacy">Uitnodigingen zijn toegangssleutels. Behandel een QR-code of .vnd-bestand als een privétoegangslink en deel deze alleen met de bedoelde personen — vooral bij ‘Iedereen met deze overdracht’.</string>
     <string name="about_privacy_deny">Standaard weigeren — VniDrop levert alleen de inhoud van een actieve deling en wijst onbekende verzoeken af.</string>
     <string name="about_privacy_local">Ontvangen bestanden worden op uw apparaat bewaard en overschrijven nooit een bestaand bestand.</string>
     <string name="about_privacy_policy_label">Privacybeleid</string>
@@ -77,7 +84,6 @@
     <string name="button_share_file">Delen starten</string>
     <string name="button_sharing_file">Overdracht voorbereiden…</string>
     <string name="button_show_in_files">Toon in Bestanden</string>
-    <string name="button_write_nfc">Naar NFC-tag schrijven</string>
     <string name="device_model_title">Apparaatmodel</string>
     <string name="device_name_title">Apparaatnaam</string>
     <string name="error_camera">Voor het scannen van een QR-code is toegang tot de camera vereist.</string>
@@ -91,7 +97,6 @@
     <string name="error_invitation_empty">Die uitnodiging is leeg. Probeer deze opnieuw te openen.</string>
     <string name="error_missing_native_library">De native VniDrop-bibliotheek ontbreekt in deze build.</string>
     <string name="error_network">VniDrop kon de afzender niet bereiken. Controleer de verbinding op beide apparaten en probeer het opnieuw.</string>
-    <string name="error_nfc">Deze NFC-tag kon niet worden gebruikt. Probeer een andere.</string>
     <string name="error_permission">De afzender heeft deze overdracht niet goedgekeurd, of deze is geweigerd.</string>
     <string name="error_repository">VniDrop kon de overdrachtsgegevens niet op dit apparaat bewaren.</string>
     <string name="error_selection_failed">Het geselecteerde item kon niet worden geopend. Probeer het opnieuw te kiezen.</string>
@@ -165,18 +170,15 @@
     <string name="receive_delete_history_description">%1$s wordt uit de geschiedenis van VniDrop verwijderd. Het gedownloade bestand blijft op dit apparaat.</string>
     <string name="receive_delete_history_item">Uit ontvangstgeschiedenis verwijderen</string>
     <string name="receive_delete_history_title">Uit geschiedenis verwijderen?</string>
-    <string name="receive_empty_body">Open een VniDrop-uitnodiging, scan een QR-code of houd het apparaat bij een NFC-tag.</string>
+    <string name="receive_invitation_body">Open een VniDrop-uitnodigingsbestand of scan een QR-code.</string>
     <string name="receive_empty_title">Nog niets ontvangen</string>
     <string name="receive_history_cleared">Ontvangstgeschiedenis gewist.</string>
     <string name="receive_history_title">Geschiedenis</string>
     <string name="receive_method_file">Een .vnd-uitnodiging openen</string>
     <string name="receive_method_file_description">Kies een uitnodiging die op dit apparaat is bewaard of gedeeld.</string>
-    <string name="receive_method_nfc">NFC-tag lezen</string>
-    <string name="receive_method_nfc_description">Houd dit apparaat bij de uitnodigingstag van de afzender.</string>
     <string name="receive_method_scan">QR-code scannen</string>
     <string name="receive_method_scan_description">Gebruik de camera om de VniDrop-code van de afzender te scannen.</string>
     <string name="receive_new_subtitle">Overdrachten die u op dit apparaat hebt ontvangen.</string>
-    <string name="receive_nfc_waiting">Houd bij de NFC-tag…</string>
     <string name="receive_open_files_failed">VniDrop kon niet worden geopend in Bestanden.</string>
     <string name="receive_review_title">Overdracht controleren</string>
     <string name="receive_title">Ontvangen</string>
@@ -215,7 +217,7 @@
     <string name="send_access_title">Wie kan het ontvangen?</string>
     <string name="send_choose_file_body">Selecteer bestanden of een map op dit apparaat. U kunt de selectie controleren voordat u de overdracht aanmaakt.</string>
     <string name="send_choose_file_title">Kies wat u wilt delen</string>
-    <string name="send_empty_body">Maak een overdracht aan, bepaal wie deze kan ontvangen en nodig die personen vervolgens uit met een QR-code, NFC-tag of uitnodigingsbestand.</string>
+    <string name="send_invitation_body">Maak een overdracht aan, bepaal wie deze kan ontvangen en nodig die personen vervolgens uit met een QR-code of uitnodigingsbestand.</string>
     <string name="send_empty_title">Nog niets gedeeld</string>
     <string name="send_file_size_unknown">Grootte niet beschikbaar</string>
     <string name="send_folder_label">Map</string>
@@ -291,9 +293,6 @@
     <string name="transfer_event_updated">Overdracht bijgewerkt</string>
     <string name="transfer_invitation_saved">Uitnodiging bewaard.</string>
     <string name="transfer_nearby_device">Apparaat in de buurt</string>
-    <string name="transfer_nfc_unavailable">Het schrijven van NFC-tags is niet beschikbaar op dit apparaat.</string>
-    <string name="transfer_nfc_waiting">Houd uw apparaat bij een beschrijfbare NFC-tag.</string>
-    <string name="transfer_nfc_written">Uitnodiging naar de NFC-tag geschreven.</string>
     <string name="transfer_no_activity">Er is nog geen activiteit om weer te geven.</string>
     <string name="transfer_no_receivers">Nog niemand heeft deze overdracht aangevraagd.</string>
     <string name="transfer_receiver_accepted">Goedgekeurd — wachten op voltooiing</string>

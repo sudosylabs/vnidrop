@@ -36,29 +36,29 @@ Reference areas:
 
 | ID / reference | Capability | Native today | Required native behavior and acceptance |
 | --- | --- | --- | --- |
-| P01 / R1 | Editable file/folder draft | Invitation editor implemented and tested; targeted integration pending | Open an empty draft; add/remove/clear/replace sources; multiple files or one folder; cancel a picker without losing existing input; handle duplicate and stale picker results as the reference does. Never delete original files. |
-| P02 / R1 | Draft metadata | Invitation fields and automatic-name provenance implemented; targeted integration pending | Preserve automatic-name provenance versus user edits; editable invitation sender name; explicit public-access warning; correct field validation. Targeted drafts lock the receiver and omit invitation-only sender/access controls. |
-| P03 / R1 | Preparation, cancellation and retry | Invitation single-flight/retry model and native failure recovery tested; targeted flow pending | Show preparation state; single-flight submission; preserve valid draft after failure/cancellation; revalidate destination before targeted registration. Test cancellation both before registration and after its race with completion. |
-| P04 / R2 | Outgoing catalog and details | Partial: combined send/receive list and basic facts | Dedicated outgoing view with meaningful name, preview, count, size, status and active progress. Details retain metadata, files, sharing actions, receiver history and activity; all remain reachable at narrow widths. |
+| P01 / R1 | Editable file/folder draft | Invitation and saved-device drafts implemented and tested | Open an empty draft; add/remove/clear/replace sources; multiple files or one folder; cancel a picker without losing existing input; handle duplicate and stale picker results as the reference does. Never delete original files. |
+| P02 / R1 | Draft metadata | Invitation metadata and locked targeted recipient implemented | Preserve automatic-name provenance versus user edits; editable invitation sender name; explicit public-access warning; correct field validation. Targeted drafts lock the receiver and omit invitation-only sender/access controls. |
+| P03 / R1 | Preparation, cancellation and retry | Invitation and targeted preparation/cancellation/retry implemented and tested | Show preparation state; single-flight submission; preserve valid draft after failure/cancellation; revalidate destination before targeted registration. Test cancellation both before registration and after its race with completion. |
+| P04 / R2 | Outgoing catalog and details | Partial: combined send/receive list and basic facts | Keep the mixed Transfers view (user scope decision), with meaningful name, preview, count, size, status and active progress. Details retain metadata, files, sharing actions, receiver history and activity; all remain reachable at narrow widths. |
 | P05 / R2 | Invitation distribution | QR display and `.vnd` save implemented; copy removed by user decision | Include scannable QR display and invitation-file export; only expose valid active invitations; cancellation of export is neutral. Verify an exported invitation opens on another host and the QR encodes the same invitation. |
 | P06 / R2, R7 | Receiver delivery and transfer activity | Partial: bounded event history, byte/phase progress, receiver aggregation and activity dialog implemented; full progress acceptance remains | Per-receiver states and progress, distinct from sender availability; multi-file/multi-connection aggregation; actual transfer activity with useful timestamps. Preserve terminal outcomes and clear stale progress. |
-| P07 / R2 | File previews | Missing: generic icons only | Native file-type icons and bounded thumbnails where available; persistent outgoing preview cache compatible with existing `ui/previews`; restore after restart/source movement; fallback for old or unsupported files; cleanup and quotas. |
+| P07 / R2 | File previews | Native bounded PNG/JPEG/WebP thumbnails and KMP-compatible cache implemented; generic/type-icon fallbacks retained | Native file-type icons and bounded thumbnails where available; persistent outgoing preview cache compatible with existing `ui/previews`; restore after restart/source movement; fallback for old or unsupported files; cleanup and quotas. |
 | P08 / R3, R9 | Invitation acquisition and review | Partial: file picker and command-line file open | Bounded, validated UTF-8 `.vnd` import; cold/warm activation; queued review; metadata and receiver-name editing; writable destination validation; explicit receive consent. Invalid input never starts a transfer. |
 | P09 / R3, R7 | Receiving, recovery and completed files | Partial: blocking receive dispatched to worker, cancellation and artifact opening | Distinguish access request, connection, download, saving, completion, failure and cancellation. Show real progress and appropriate retry; preserve review input after recoverable failure. Open/reveal published files with missing/inaccessible-file feedback. |
-| P10 / R3 | Received history management | Partial: individual transfer removal | Dedicated incoming history, remove-one and clear-history confirmations; removing history does not imply deleting received files. Verify filesystem and durable history effects separately. |
+| P10 / R3 | Received history management | Partial: individual transfer removal | Existing mixed history and individual removal retained; additional history-management changes excluded by user. removing history does not imply deleting received files. Verify filesystem and durable history effects separately. |
 | P11 / R4 | Invitation approvals | Partial: banner and inline approve/refuse | App-wide pending queue with transfer/receiver context, per-request busy state, duplicate-response protection and remote withdrawal handling. Actionable while receive/preparation runs and while another view is selected. |
 | P12 / R5 | Pairing eligibility and consent | Native consent and pending states in a Devices split page; broader desktop acceptance pending | Remember/decline an eligible device, incoming accept/decline, pending outgoing state, dismissal without fabricated consent, retry and stale-request handling. Both sides must consent through the existing core contract. |
 | P13 / R5 | Saved-device management | Devices list/detail page, label/clear, forget, block/unblock implemented; full three-destination shell pending | Device list/details; local label, authenticated remote name, localized fallback; rename/clear label; forget/block with the reference consequences and confirmations; identity is secondary information, not the display name. |
 | P14 / R1, R5 | Targeted sending | Native locked-recipient draft, core preparation/cancellation and durable status wired; native↔KMP acceptance pending | Compose for one saved device, lock destination, prepare and register through the core, show offering/awaiting approval and subsequent outcomes. Distinguish abandonment of a newly registered transfer from durable cancellation and from failure. |
 | P15 / R5 | Targeted offers and receiving | Native offer review/accept/decline, receive/resume, progress, cancel and bounded per-device history wired; broader desktop acceptance pending | Pending-offer review with sender and contents; explicit accept/decline; receive approved offers; resume interrupted incoming transfers; cancellation/deletion only in allowed states; per-device history and verified-byte progress. |
-| P16 / R6 | Preferences and appearance | Partial: name, folder, system/light/dark | Preserve settings; folder selection, reset and access status; native theme behavior; errors that keep the displayed value consistent with persisted state. |
-| P17 / R6 | Network configuration | Partial: imported policy shown read-only | Edit all four modes and custom URL list; reference validation; keep inactive custom URLs; explicit Apply, busy guard, controlled restart, restoration on failure and actionable restore failure. No automatic fallback to a more permissive network mode. |
-| P18 / R6 | Storage management | Missing | Usage breakdown, reclaimable space, cleanup, clear transfer cache, delete transfer records, busy guards and distinct destructive confirmations. Explain and test retained versus removed files; preserve the protected identity. |
-| P19 / R8 | Notifications | Missing: preference imported but not used | Native notifications for the reference approval/transfer/device events, respecting preference, foreground state, deduplication and withdrawal. Clicking navigates to the relevant context; unsupported delivery has a truthful state. |
-| P20 / R6, R8 | About and diagnostics | Partial: basic About dialog | Product/version/device details; native bug-report form with required fields, optional contact/logs, bounded redaction, real configured transport, failure retry and success state. Saving a report alone does not replace submission parity. |
+| P16 / R6 | Preferences and appearance | Native name/theme/folder/reset/access check and notification preference; persistence regression tested | Preserve settings; folder selection, reset and access status; native theme behavior; errors that keep the displayed value consistent with persisted state. |
+| P17 / R6 | Network configuration | Native four-mode editor, validation, restart and rollback wired; real Local only restart and injected failure recovery tested | Edit all four modes and custom URL list; reference validation; keep inactive custom URLs; explicit Apply, busy guard, controlled restart, restoration on failure and actionable restore failure. No automatic fallback to a more permissive network mode. |
+| P18 / R6 | Storage management | Usage, guarded cache clearing and stale-part cleanup implemented; additional history deletion excluded by user | Usage breakdown, reclaimable space, cleanup, clear transfer cache, delete transfer records, busy guards and distinct destructive confirmations. Explain and test retained versus removed files; preserve the protected identity. |
+| P19 / R8 | Notifications | Native GIO delivery and targeted activation wired; policy regression tested, real desktop-server qualification pending | Native notifications for the reference approval/transfer/device events, respecting preference, foreground state, deduplication and withdrawal. Clicking navigates to the relevant context; unsupported delivery has a truthful state. |
+| P20 / R6, R8 | About and diagnostics | Native report form and bounded HTTPS transport with matching acknowledgement; local transport fixture tested, production configuration required | Product/version/device details; native bug-report form with required fields, optional contact/logs, bounded redaction, real configured transport, failure retry and success state. Saving a report alone does not replace submission parity. |
 | P21 / R6, R9 | Startup and lifecycle | Partial: initialization, retry and close confirmation | Preserve existing profile/identity, preferences and histories; distinguish keyring, persistence and network failures with recovery actions. Serialise restart/shutdown against active work; prevent stale worker completions from changing a replacement session. |
-| P22 / R10 | Localization and accessibility | Partial: generated catalog and native controls | All supported languages, plural rules, locale fallback, counts/dates/size formatting, keyboard reachability, named controls, focus restoration, screen-reader status, high contrast and scaling. Current string lookup is not a plural implementation. |
-| P23 / R9, R10 | Installed desktop behavior | Partial: application ID and `HANDLES_OPEN`, development binary | Desktop launcher, app icon/dock identity, `.vnd` MIME association, one instance per profile, notification activation, package dependencies and upgrades from published DEB/RPM. Do not call development command-line activation installed integration. |
+| P22 / R10 | Localization and accessibility | Generated catalog, plural lookup, named controls and keyboard-friendly editors; Orca/high-contrast/scaling acceptance pending | All supported languages, plural rules, locale fallback, counts/dates/size formatting, keyboard reachability, named controls, focus restoration, screen-reader status, high contrast and scaling. Plural lookup supports the nine catalog languages. |
+| P23 / R9, R10 | Installed desktop behavior | Native launcher/MIME/D-Bus activation and DEB/RPM recipes added; DEB payload smoke checks pass, installed upgrade acceptance pending | Desktop launcher, app icon/dock identity, `.vnd` MIME association, one instance per profile, notification activation, package dependencies and upgrades from published DEB/RPM. Do not call development command-line activation installed integration. |
 
 ### Explicit platform boundaries
 
@@ -301,3 +301,73 @@ Only the small manifest/checksum files were downloaded in this increment. These 
   Native↔KMP interoperability and packaged desktop acceptance remain release gates.
 - Verification: `make check-linux`, `make test-linux-ui`, `make check-localization`.
   Captures: `VNIDROP_UI_SCREENSHOTS=/tmp/vnidrop-native-direct-ui make test-linux-ui`.
+
+
+### Remaining feature implementation, preserving mixed Transfers
+
+The user explicitly retained the mixed Transfers page and excluded the proposed
+Navigation/history redesign. This overrides the three-destination proposal above.
+No additional clear-history action is added by this increment.
+
+- Settings now include native general preferences, receive-folder reset and a real
+  writable-folder probe, all four relay modes, retained inactive URL values,
+  validation and guarded Apply. Reconfiguration drains in-flight reads, refuses
+  active work and restores the previous policy on failure. A failed restoration
+  exposes the startup Retry view. The GTK regression caught and fixed storage reads
+  being mistaken for active transfer work.
+- Storage reads core usage and currently present received-file sizes. Clear cache
+  uses the core's shutdown-only API and reopens the same identity/profile. Free up
+  space removes recognized partial files older than one day without following
+  symlinks; delivered files, recent partials and history remain. This cleanup does
+  not recursively empty unrelated trash directories.
+- Notifications use GIO and one typed activation action. Pending notices are
+  withdrawn when resolved, foreground/disabled delivery is suppressed, repeated
+  snapshots do not duplicate notices, and historical completions are not replayed
+  on startup. Review opens the matching transfer/device approval controls. Real
+  desktop notification-server and installed cold-activation acceptance remain.
+- Native progress controls show sampled speed and remaining time, resetting on
+  phase changes, byte rewinds, completion and interruption. Preview generation is
+  limited by input size, decoded dimensions and output size; the cache uses the
+  existing KMP filenames and a 20 MiB quota. A regression restores previews after
+  removing the original image and prunes orphan/oversized entries.
+- Receive review edits the receiver name, verifies folder access before starting,
+  retains retry input in the current session and exposes retry for failed/cancelled
+  invitations. Plural-aware file counts use the source localization catalog.
+- Bug reports preserve unchanged-draft request IDs across retry and use the existing
+  `/v1/bugs` schema, required descriptions, optional contact and bounded event
+  summaries without sensitive event payloads. Local HTTP fixtures verify receipt
+  and rejection of mismatched acknowledgements; production endpoint/key are not
+  embedded in the repository or contacted by tests.
+- Native DEB/RPM packaging supplies a desktop entry, icon, `.vnd` MIME registration
+  and D-Bus service. Separate build/validation targets and package CI leave the
+  released KMP pipeline intact. DEB payload/MIME checks were exercised locally with
+  the development binary; release/RPM builds and installed upgrade acceptance are
+  separate gates. The GTK baseline requires Ubuntu 24.04+ for the current DEB recipe.
+
+Checks for this increment: `make check-linux`, `make test-linux-ui`,
+`make check-localization`, `cd localization && bun test`,
+`bash -n linux/packaging/{package,verify}.sh`, and the native DEB package verifier.
+Visual captures: `VNIDROP_UI_SCREENSHOTS=/tmp/vnidrop-port-settings-ui make test-linux-ui`.
+
+### Preferences, About, and preview follow-up
+
+- Theme selection applies immediately and persists independently of the general
+  preferences Save button; the GTK regression closes/reopens Preferences to check
+  both the displayed selection and GTK color scheme.
+- Dropdowns use wrapping subtitles and wrapping popup labels. Narrow-width coverage
+  checks every network option and verifies the longest choice is not ellipsized.
+- Four storage strings were missing their Linux target; the source catalog now
+  includes them. A catalog regression checks native references against generated
+  English fallback entries.
+- About now includes the KMP product/privacy explanation, native version/platform
+  information, canonical privacy link, license, and a working Report a bug action.
+- Native builds can reuse endpoint/key values from Gradle project/user properties,
+  with explicit native environment overrides. The build does not log credentials;
+  tests use a local fixture server and do not submit to the configured service.
+- Single-image invitation shares are exercised through the composer and details.
+  Thumbnails are applied after rebuilding list rows, fixing the generic-icon
+  replacement. The same regression verifies both the list and detail thumbnail.
+
+Verification: `make check-linux`, `xvfb-run -a make test-linux-ui`,
+`make check-localization`, `cd localization && bun test`.
+Captures: `VNIDROP_UI_SCREENSHOTS=/tmp/vnidrop-settings-fixes-ui` with the GTK suite.

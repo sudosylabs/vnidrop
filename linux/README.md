@@ -73,7 +73,23 @@ target/debug/vnidrop-gnome --profile /tmp/vnidrop-gnome-trial invitation.vnd
   transfers can resume, and active transfers can cancel. Finished transfers live in
   a bounded per-device history dialog with confirmed removal. History remains
   accessible after forgetting a device.
-- Native light/dark/system appearance, name and receive-folder preferences.
+- Native preferences for appearance, name, receive folder/reset and notifications.
+  Relay mode/URL editing validates input before a guarded network restart; failures
+  restore the previous configuration or expose startup recovery.
+- Storage usage includes cached transfer data, app data, received files still on
+  disk, and stale partial files. Cache clearing restarts the core without removing
+  received files, history or identity. Temporary cleanup removes VniDrop partials
+  older than one day, preserving current partials and following no directory links.
+- Native desktop notifications for approvals, incoming offers, pairing requests
+  and transfer outcomes. Activation selects the associated transfer/device and
+  focuses pending approval. Foreground suppression, deduplication and withdrawal
+  respect the saved preference.
+- Transfer speed/remaining-time estimates, bounded image previews in the existing
+  `ui/previews/<transfer-id>.preview` cache, and plural-aware file counts. Invitation
+  receive review supports an editable receiver name, folder access checks and retry.
+- Native bug reports with required descriptions, optional contact and bounded recent
+  activity summaries. Event payloads, file paths, invitations and peer identifiers
+  are excluded from automatic report activity.
 - Explicit confirmation before quitting with active work, followed by core shutdown
   and draining worker calls.
 
@@ -92,13 +108,35 @@ history and wake a coalesced snapshot refresh. Cancel, approval, and shutdown ca
 receive call is waiting. Native preference writes are serialized off the GTK
 thread.
 
-Remaining before replacing the released Linux app: dedicated destination navigation,
-transfer rates and remaining-time estimates,
-notifications and background operation, editable relay settings, diagnostics,
-and production desktop/MIME/Flatpak packaging. Relay policy is preserved and
-shown read-only in this slice. Closing the app stops sharing.
+The mixed Transfers page is intentionally retained at the user's request; separate
+Outgoing/Incoming navigation and additional history-management actions are excluded.
+Closing the app stops sharing. Background-after-close and Flatpak remain optional
+extensions, not requirements of the published KMP Linux baseline.
 
-The UI uses genuine Adwaita widgets without a custom CSS theme. Automated Xvfb
+Before replacing the released Linux app, native↔KMP interoperability, actual desktop
+notification activation, packaged upgrades and supported-distribution acceptance
+still need qualification. Native DEB/RPM recipes are available under `packaging/`;
+`make package-linux-native-deb` and `make package-linux-native-rpm` build release
+binaries and validate package identity and MIME integration. The DEB currently
+requires Ubuntu 24.04+ (GTK 4.10+/libadwaita 1.5+); it does not replace the existing
+Ubuntu 22.04-compatible KMP release pipeline. RPM builds run on Fedora in the native
+package CI workflow. Package recipes never edit the user's profile.
+
+Bug reporting uses `VNIDROP_DIAGNOSTICS_ENDPOINT` and
+`VNIDROP_DIAGNOSTICS_INGEST_KEY` at build time or runtime. When neither native
+build variable is set, the native build reuses `vnidrop.diagnostics.endpoint` and
+`vnidrop.diagnostics.ingestKey` from the repository's `gradle.properties`, overridden
+by `$GRADLE_USER_HOME/gradle.properties` (default `~/.gradle/gradle.properties`).
+The KMP `included` switch applies only to the KMP build. Native environment overrides
+are treated as a pair, so an endpoint is never combined with another deployment's
+saved key; set both to empty to build without reporting. Values are embedded in the
+binary, never printed by the build script. Configure both together,
+using the existing diagnostics service base URL. HTTPS is required except for local
+loopback test servers. Reports post to `/v1/bugs` and require an acknowledgement
+matching the report ID; retries retain that ID for an unchanged draft. Unconfigured
+builds explain that reporting is unavailable. No report is sent automatically.
+
+The UI uses genuine Adwaita widgets with small focus and layout styles. Automated Xvfb
 coverage and visual checks exercise GTK; a full GNOME Wayland session, desktop
 portals, fractional scaling, and Orca still need acceptance testing. Flatpak will
 also require deliberate Secret Service and profile migration work; the existing
@@ -122,7 +160,11 @@ composer, approves a receiver through the native controls, compares received
 bytes, checks narrow navigation and dark appearance, and closes the session. The
 saved-device workflow also sends through the native composer, approves and receives
 real bytes, cancels an offer, declines another, checks the core decline cooldown,
-and removes a history entry. Logic coverage includes interrupted receive/resume,
+and removes a history entry. Settings tests exercise preference persistence, network
+restart/identity preservation, cache clearing and the bounded report form. Preview
+coverage restores the KMP cache after deleting the original image. Logic tests also
+cover notification policy, plural rules, rate resets, stale-file cleanup and a local
+HTTP diagnostics fixture. Logic coverage includes interrupted receive/resume,
 stale consent, preparation cancellation, and retained history after forgetting.
 
 `linux/Containerfile` supplies an Ubuntu development environment for hosts that
@@ -137,3 +179,10 @@ docker run --rm -v "$PWD:/workspace" -v vnidrop-gnome-target:/workspace/target \
 The GUI is an explicit Cargo feature so ordinary Rust core builds and tests on
 other platforms do not acquire GTK system dependencies. Localization is generated
 from `localization/strings.json`; see the [localization guide](../localization/README.md).
+
+Appearance changes apply and persist when selected; Save preferences applies the
+name, receive destination, and notification settings. Preferences dropdowns wrap
+long choices. About includes the product, privacy, version/platform, license, and
+reporting information. Image thumbnails identify single-image invitation shares
+(PNG/JPEG/WebP); they are shown in Transfers and its details, not folders,
+multi-file shares, or direct device offers.

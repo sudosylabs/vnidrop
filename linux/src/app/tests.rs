@@ -104,8 +104,8 @@ fn render_window(window: &adw::ApplicationWindow) -> gtk::gdk::Texture {
         let snapshot = gtk::Snapshot::new();
         paintable.snapshot(
             &snapshot,
-            f64::from(window.width()),
-            f64::from(window.height()),
+            f64::from(paintable.intrinsic_width()),
+            f64::from(paintable.intrinsic_height()),
         );
         node.replace(snapshot.to_node());
         if node.borrow().is_none() {
@@ -118,6 +118,11 @@ fn render_window(window: &adw::ApplicationWindow) -> gtk::gdk::Texture {
     renderer.realize(None::<&gtk::gdk::Surface>).unwrap();
     let texture = renderer.render_texture(&node, None);
     renderer.unrealize();
+    assert_eq!(
+        (texture.width(), texture.height()),
+        (paintable.intrinsic_width(), paintable.intrinsic_height()),
+        "Window captures must preserve intrinsic pixels, including decorations"
+    );
     texture
 }
 

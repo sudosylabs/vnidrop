@@ -6,7 +6,10 @@
 use std::{path::Path, str::FromStr};
 
 use anyhow::{Context, Result};
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use sqlx::{
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+    SqlitePool,
+};
 
 use crate::{
     blocked_devices::{self, BlockStore},
@@ -39,15 +42,7 @@ pub(crate) struct AppDataStores {
 
 /// Create the profile pool, apply all domain schemas, return [`AppDataStores`].
 pub(crate) async fn open_all(app_data_dir: &Path) -> Result<AppDataStores> {
-    let db_path = app_data_dir.join("vnidrop.sqlite3");
-    let options = SqliteConnectOptions::from_str("sqlite://")?
-        .filename(db_path)
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(4)
-        .connect_with(options)
-        .await
-        .context("failed to open app data sqlite")?;
+    let pool = open_pool(app_data_dir).await?;
 
     // Unreleased device-history prototype tables — no migration path.
     for table in ["held_offers", "grants_held", "grants_issued", "contacts"] {
@@ -74,3 +69,21 @@ pub(crate) async fn open_all(app_data_dir: &Path) -> Result<AppDataStores> {
         invitation,
     })
 }
+
+async fn open_pool(app_data_dir: &Path) -> Result<SqlitePool> {
+    let db_path = app_data_dir.join("vnidrop.sqlite3");
+    let options = SqliteConnectOptions::from_str("sqlite://")?
+        .filename(db_path)
+        .create_if_missing(true);
+    // Queue event and domain transactions before SQLite so they cannot exhaust
+    // its busy timeout competing for the same profile's write lock.
+    SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(options)
+        .await
+        .context("failed to open app data sqlite")
+}
+
+#[cfg(test)]
+#[path = "tests/persistence_contention.rs"]
+mod contention_tests;

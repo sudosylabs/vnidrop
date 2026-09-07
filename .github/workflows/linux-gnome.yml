@@ -47,6 +47,8 @@ jobs:
       - name: Install Rust quality components
         run: rustup component add rustfmt clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - name: Check native host
         run: make check-linux
       - name: Exercise native draft, approval, receive, and shutdown

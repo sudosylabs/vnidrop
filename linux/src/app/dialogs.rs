@@ -2,11 +2,7 @@ use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use adw::prelude::*;
 use gtk::{gio, glib};
-use vnidrop::{ShareMetadataInput, TransferAccessMode};
-use vnidrop_gnome::{
-    draft::{self, Preparation},
-    invitation,
-};
+use vnidrop_gnome::invitation;
 
 use super::{i18n::text, App};
 
@@ -30,7 +26,7 @@ pub async fn confirm(
     dialog.choose_future(Some(parent)).await == "confirm"
 }
 
-fn content(title: &str) -> (adw::Dialog, gtk::Box, adw::HeaderBar) {
+pub(super) fn content(title: &str) -> (adw::Dialog, gtk::Box, adw::HeaderBar) {
     let header = adw::HeaderBar::new();
     let rows = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
@@ -56,6 +52,15 @@ fn content(title: &str) -> (adw::Dialog, gtk::Box, adw::HeaderBar) {
     (dialog, rows, header)
 }
 
+pub(super) fn scrollable_content(title: &str) -> (adw::Dialog, gtk::Box) {
+    let (dialog, rows, _) = content(title);
+    rows.ancestor(gtk::ScrolledWindow::static_type())
+        .and_downcast::<gtk::ScrolledWindow>()
+        .unwrap()
+        .set_propagate_natural_height(false);
+    (dialog, rows)
+}
+
 pub fn fact(title: &str, value: &str) -> adw::ActionRow {
     adw::ActionRow::builder()
         .title(text(title))
@@ -65,221 +70,6 @@ pub fn fact(title: &str, value: &str) -> adw::ActionRow {
 }
 
 impl App {
-    pub(super) fn pick_sources(self: &Rc<Self>, folder: bool) {
-        let app = self.clone();
-        glib::spawn_future_local(async move {
-            let picker = gtk::FileDialog::builder()
-                .title(text(if folder {
-                    "linux_send_folder"
-                } else {
-                    "linux_send_files"
-                }))
-                .build();
-            let result = if folder {
-                picker
-                    .select_folder_future(Some(&app.window))
-                    .await
-                    .map(|file| vec![file])
-            } else {
-                picker
-                    .open_multiple_future(Some(&app.window))
-                    .await
-                    .map(|files| {
-                        (0..files.n_items())
-                            .filter_map(|i| files.item(i).and_downcast::<gio::File>())
-                            .collect()
-                    })
-            };
-            match result {
-                Ok(files) => app.compose(files),
-                Err(error) if error.matches(gtk::DialogError::Dismissed) => (),
-                Err(_) => app.error("error_selection_failed"),
-            }
-        });
-    }
-
-    pub(super) fn compose(self: &Rc<Self>, files: Vec<gio::File>) {
-        let paths: Option<Vec<_>> = files.iter().map(gio::File::path).collect();
-        let Some(paths) = paths else {
-            self.error("linux_local_files_only");
-            return;
-        };
-        self.dispatch(
-            move |_| draft::sources(paths),
-            |app, result| {
-                let sources = match result {
-                    Ok(sources) => sources,
-                    Err(key) => {
-                        app.error(key);
-                        return;
-                    }
-                };
-                let (dialog, rows, header) = content("send_new_transfer_title");
-                let name = adw::EntryRow::builder()
-                    .title(text("field_transfer_name"))
-                    .build();
-                name.set_text(
-                    sources
-                        .first()
-                        .and_then(|source| source.display_name.as_deref())
-                        .filter(|_| sources.len() == 1)
-                        .unwrap_or(""),
-                );
-                let naming = adw::PreferencesGroup::new();
-                naming.add(&name);
-                rows.append(&naming);
-                let selection = adw::PreferencesGroup::builder()
-                    .title(text("metadata_files"))
-                    .build();
-                for source in &sources {
-                    let row = adw::ActionRow::builder()
-                        .title(glib::markup_escape_text(
-                            source.display_name.as_deref().unwrap_or(""),
-                        ))
-                        .build();
-                    row.add_prefix(&gtk::Image::from_icon_name(if source.is_directory {
-                        "folder-symbolic"
-                    } else {
-                        "text-x-generic-symbolic"
-                    }));
-                    selection.add(&row);
-                }
-                rows.append(&selection);
-                let access = adw::PreferencesGroup::new();
-                let choices = gtk::StringList::new(&[
-                    &text("send_access_approval"),
-                    &text("send_access_anyone"),
-                ]);
-                let policy = adw::ComboRow::builder()
-                    .title(text("send_access_title"))
-                    .model(&choices)
-                    .use_subtitle(true)
-                    .build();
-                let warning = gtk::Label::builder()
-                    .label(text("send_access_anyone_warning"))
-                    .wrap(true)
-                    .xalign(0.0)
-                    .visible(false)
-                    .build();
-                warning.add_css_class("caption");
-                let warning_clone = warning.clone();
-                policy.connect_selected_notify(move |policy| {
-                    warning_clone.set_visible(policy.selected() == 1)
-                });
-                access.add(&policy);
-                rows.append(&access);
-                rows.append(&warning);
-                let error = gtk::Label::builder()
-                    .wrap(true)
-                    .xalign(0.0)
-                    .visible(false)
-                    .build();
-                error.add_css_class("error");
-                rows.append(&error);
-                let create = gtk::Button::with_label(&text("linux_create_invitation"));
-                create.add_css_class("suggested-action");
-                header.pack_end(&create);
-                let cancel = gtk::Button::with_label(&text("button_cancel"));
-                cancel.set_visible(false);
-                header.pack_start(&cancel);
-                let current: Rc<RefCell<Option<std::sync::Arc<Preparation>>>> = Rc::default();
-                let weak = Rc::downgrade(&app);
-                let preparation = current.clone();
-                cancel.connect_clicked(move |button| {
-                    let (Some(app), Some(preparation)) =
-                        (weak.upgrade(), preparation.borrow().clone())
-                    else {
-                        return;
-                    };
-                    button.set_sensitive(false);
-                    preparation.request_cancel();
-                    app.dispatch(
-                        move |session| {
-                            preparation.cancel(&session);
-                            Ok(())
-                        },
-                        |app, _| app.refresh(),
-                    );
-                });
-                let weak = Rc::downgrade(&app);
-                let dialog_copy = dialog.downgrade();
-                create.connect_clicked(move |button| {
-                    let Some(app) = weak.upgrade() else {
-                        return;
-                    };
-                    let Some(dialog_copy) = dialog_copy.upgrade() else {
-                        return;
-                    };
-                    let preparation = Preparation::new();
-                    current.replace(Some(preparation.clone()));
-                    button.set_sensitive(false);
-                    cancel.set_visible(true);
-                    cancel.set_sensitive(true);
-                    dialog_copy.set_can_close(false);
-                    name.set_sensitive(false);
-                    policy.set_sensitive(false);
-                    error.set_visible(false);
-                    button.set_label(&text("button_sharing_file"));
-                    let sources = sources.clone();
-                    let metadata = ShareMetadataInput {
-                        transfer_id: preparation.id,
-                        transfer_name: (!name.text().trim().is_empty())
-                            .then(|| name.text().trim().to_owned()),
-                        sender_name: Some(app.preferences.borrow().username.clone()),
-                        access_mode: if policy.selected() == 0 {
-                            TransferAccessMode::ApprovalRequired
-                        } else {
-                            TransferAccessMode::Public
-                        },
-                    };
-                    let (dialog, button, error, cancel, name, policy, current) = (
-                        dialog_copy.clone(),
-                        button.clone(),
-                        error.clone(),
-                        cancel.clone(),
-                        name.clone(),
-                        policy.clone(),
-                        current.clone(),
-                    );
-                    let completion = preparation.clone();
-                    app.dispatch(
-                        move |session| preparation.run(&session, sources, metadata),
-                        move |app, result| {
-                            let result = if completion.is_cancelled() {
-                                Err("progress_cancelled")
-                            } else {
-                                result
-                            };
-                            current.replace(None);
-                            dialog.set_can_close(true);
-                            button.set_sensitive(true);
-                            button.set_label(&text("linux_create_invitation"));
-                            cancel.set_visible(false);
-                            name.set_sensitive(true);
-                            policy.set_sensitive(true);
-                            match result {
-                                Ok(share) => {
-                                    app.selected
-                                        .replace(Some((share.transfer_id, "send".into())));
-                                    dialog.close();
-                                    app.split.set_show_content(true);
-                                }
-                                Err(key) => {
-                                    #[cfg(test)]
-                                    eprintln!("GTK preparation: {key}");
-                                    error.set_text(&text(key));
-                                    error.set_visible(true);
-                                }
-                            }
-                            app.refresh();
-                        },
-                    );
-                });
-                dialog.present(Some(&app.window));
-            },
-        );
-    }
-
     pub(super) fn pick_invitation(self: &Rc<Self>) {
         let app = self.clone();
         glib::spawn_future_local(async move {
@@ -311,7 +101,12 @@ impl App {
     }
 
     pub(super) fn pump_invitations(self: &Rc<Self>) {
-        if self.reviewing.get() || self.session.borrow().is_none() || self.closing.get() {
+        if self.reviewing.get()
+            || self.session.borrow().is_none()
+            || self.closing.get()
+            || self.composer.borrow().is_some()
+            || self.window.visible_dialog().is_some()
+        {
             return;
         }
         let Some(file) = self.pending.borrow_mut().pop_front() else {
@@ -414,6 +209,7 @@ impl App {
                         },
                     );
                     dialog_copy.close();
+                    app.show_transfers();
                     app.split.set_show_content(true);
                     app.refresh();
                 });

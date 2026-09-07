@@ -1,13 +1,22 @@
+mod activity;
+mod composer;
 mod details;
+mod device_layout;
+mod device_transfers;
+mod devices;
 mod dialogs;
 mod i18n;
+mod navigation;
+mod qr;
+mod receivers;
+mod widgets;
 
 #[cfg(test)]
 mod tests;
 
 use std::{
     cell::{Cell, RefCell},
-    collections::VecDeque,
+    collections::{BTreeSet, HashMap, VecDeque},
     path::PathBuf,
     rc::Rc,
     sync::Arc,
@@ -48,6 +57,22 @@ pub(super) struct App {
     detail_fingerprint: RefCell<String>,
     preference_queue: RefCell<VecDeque<Preferences>>,
     saving_preferences: Cell<bool>,
+    composer: RefCell<Option<Rc<composer::Composer>>>,
+    activity: RefCell<Option<Rc<activity::Activity>>>,
+    receiver_history: RefCell<Option<Rc<receivers::ReceiverHistory>>>,
+    qr: RefCell<Option<Rc<qr::QrDialog>>>,
+    devices: RefCell<Option<Rc<devices::DevicesView>>>,
+    device_busy: RefCell<BTreeSet<String>>,
+    targeted_busy: RefCell<BTreeSet<String>>,
+    targeted_history: RefCell<Option<Rc<device_transfers::DeviceTransfers>>>,
+    device_expiry: RefCell<Option<(i64, glib::SourceId)>>,
+    showing_devices: Cell<bool>,
+    review_highlight: RefCell<Option<gtk::Widget>>,
+    reviewed_request: RefCell<Option<String>>,
+    reviewed_offer: RefCell<Option<String>>,
+    review_actions: RefCell<HashMap<String, gtk::Button>>,
+    detail_progress: RefCell<Option<widgets::ProgressView>>,
+    receiver_progress: RefCell<Vec<(String, widgets::ProgressView)>>,
 }
 
 pub fn run() -> glib::ExitCode {
@@ -130,6 +155,13 @@ pub fn run() -> glib::ExitCode {
 
 impl App {
     fn new(application: &adw::Application, profile: PathBuf) -> Rc<Self> {
+        let css = gtk::CssProvider::new();
+        css.load_from_data(include_str!("style.css"));
+        gtk::style_context_add_provider_for_display(
+            &gtk::gdk::Display::default().expect("GTK display"),
+            &css,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
         let builder = gtk::Builder::from_string(include_str!("window.ui"));
         let window: adw::ApplicationWindow = builder.object("window").unwrap();
         window.set_application(Some(application));
@@ -167,6 +199,22 @@ impl App {
             detail_fingerprint: RefCell::new(String::new()),
             preference_queue: RefCell::new(VecDeque::new()),
             saving_preferences: Cell::new(false),
+            composer: RefCell::new(None),
+            activity: RefCell::new(None),
+            receiver_history: RefCell::new(None),
+            qr: RefCell::new(None),
+            devices: RefCell::new(None),
+            device_busy: RefCell::new(BTreeSet::new()),
+            targeted_busy: RefCell::new(BTreeSet::new()),
+            targeted_history: RefCell::new(None),
+            device_expiry: RefCell::new(None),
+            showing_devices: Cell::new(false),
+            review_highlight: RefCell::new(None),
+            reviewed_request: RefCell::new(None),
+            reviewed_offer: RefCell::new(None),
+            review_actions: RefCell::new(HashMap::new()),
+            detail_progress: RefCell::new(None),
+            receiver_progress: RefCell::new(Vec::new()),
         });
         app.object::<adw::NavigationPage>("sidebar_page")
             .set_title(&text("linux_transfers"));
@@ -185,9 +233,35 @@ impl App {
         app.object::<gtk::MenuButton>("menu")
             .set_tooltip_text(Some(&text("button_more_actions")));
         app.actions();
-        let banner = app.object::<adw::Banner>("requests");
-        banner.set_button_label(Some(&text("linux_review_requests")));
-        banner.set_action_name(Some("app.review-requests"));
+        for (id, icon, action) in [
+            ("requests", "document-send-symbolic", "app.review-requests"),
+            ("device_requests", "computer-symbolic", "app.review-devices"),
+        ] {
+            let row = gtk::Box::builder()
+                .spacing(12)
+                .margin_start(12)
+                .margin_end(12)
+                .margin_top(8)
+                .margin_bottom(8)
+                .build();
+            row.append(&gtk::Image::from_icon_name(icon));
+            let title = gtk::Label::builder()
+                .xalign(0.0)
+                .wrap(true)
+                .hexpand(true)
+                .build();
+            title.add_css_class("heading");
+            row.append(&title);
+            let review = widgets::icon_button("linux_review_requests", "go-next-symbolic");
+            review.set_action_name(Some(action));
+            review.set_valign(gtk::Align::Center);
+            row.append(&review);
+            app.builder
+                .expose_object(&std::format!("{id}_title"), &title);
+            app.object::<gtk::Revealer>(id).set_child(Some(&row));
+        }
+        app.object::<gtk::Button>("devices")
+            .set_tooltip_text(Some(&text("nav_saved_devices")));
         let welcome_header = adw::HeaderBar::new();
         let welcome_menu = gtk::MenuButton::builder()
             .icon_name("open-menu-symbolic")
@@ -200,16 +274,12 @@ impl App {
             .spacing(12)
             .halign(gtk::Align::Center)
             .build();
-        let send = gtk::Button::builder()
-            .label(text("linux_send_files"))
-            .action_name("app.send")
-            .build();
+        let send = widgets::icon_button("linux_send_files", "document-send-symbolic");
+        send.set_action_name(Some("app.send"));
         send.add_css_class("suggested-action");
         send.add_css_class("pill");
-        let open = gtk::Button::builder()
-            .label(text("linux_open_invitation"))
-            .action_name("app.open")
-            .build();
+        let open = widgets::icon_button("linux_open_invitation", "document-open-symbolic");
+        open.set_action_name(Some("app.open"));
         open.add_css_class("pill");
         welcome_actions.append(&send);
         welcome_actions.append(&open);
@@ -232,6 +302,7 @@ impl App {
                     .as_ref()
                     .and_then(|snapshot| snapshot.transfers.get(row.index() as usize))
                     .map(|t| (t.transfer_id, t.direction.clone()));
+                app.clear_review_highlight();
                 app.selected.replace(key);
                 app.render_details();
                 app.split.set_show_content(true);
@@ -260,6 +331,14 @@ impl App {
             true
         });
         app.window.add_controller(drop_target);
+        let weak = Rc::downgrade(&app);
+        app.window.connect_visible_dialog_notify(move |window| {
+            if window.visible_dialog().is_none() {
+                if let Some(app) = weak.upgrade() {
+                    app.pump_invitations();
+                }
+            }
+        });
         app.render_details();
         app
     }
@@ -280,27 +359,19 @@ impl App {
     }
 
     fn actions(self: &Rc<Self>) {
-        self.action("review-requests", |app| {
-            let id = app
-                .snapshot
-                .borrow()
-                .as_ref()
-                .and_then(|snapshot| {
-                    snapshot
-                        .requests
-                        .iter()
-                        .find(|request| request.status == "requested")
-                })
-                .map(|request| request.transfer_id);
-            if let Some(id) = id {
-                app.selected.replace(Some((id, "send".into())));
-                app.render();
-                app.split.set_show_content(true);
+        self.action("review-requests", |app| app.review_transfer_request());
+        self.action("review-devices", |app| app.review_device_request());
+        self.action("transfers", |app| app.show_transfers());
+        self.action("send", |app| app.compose(Vec::new()));
+        self.action("send-folder", |app| {
+            app.compose(Vec::new());
+            let composer = app.composer.borrow().clone();
+            if let Some(composer) = composer {
+                composer.choose_folder();
             }
         });
-        self.action("send", |app| app.pick_sources(false));
-        self.action("send-folder", |app| app.pick_sources(true));
         self.action("open", |app| app.pick_invitation());
+        self.action("devices", |app| app.show_devices());
         self.action("preferences", |app| app.show_preferences());
         self.action("quit", |app| app.request_close());
         self.action("retry", |app| app.initialize());
@@ -327,6 +398,7 @@ impl App {
         files.append(Some(&text("linux_open_invitation")), Some("app.open"));
         menu.append_section(None, &files);
         let settings = gio::Menu::new();
+        settings.append(Some(&text("nav_saved_devices")), Some("app.devices"));
         settings.append(Some(&text("preferences_title")), Some("app.preferences"));
         settings.append(Some(&text("linux_about")), Some("app.about"));
         menu.append_section(None, &settings);
@@ -345,7 +417,7 @@ impl App {
     }
 
     fn set_ready(&self, ready: bool) {
-        for name in ["send", "send-folder", "open", "preferences"] {
+        for name in ["send", "send-folder", "open", "preferences", "devices"] {
             self.application
                 .lookup_action(name)
                 .and_downcast::<gio::SimpleAction>()

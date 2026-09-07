@@ -410,6 +410,13 @@
   <data name="windows_receive_empty" xml:space="preserve"><value>Abra ou arraste um convite .vnd para receber ficheiros de outro dispositivo.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Destinatários</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Introduza entre 1 e 8 URLs HTTPS de retransmissão distintos, sem credenciais nem fragmentos.</value></data>
+  <data name="windows_report_connection_failed" xml:space="preserve"><value>Não foi possível contactar o serviço de relatórios. Verifique a ligação e tente novamente. O rascunho foi mantido.</value></data>
+  <data name="windows_report_rate_limited" xml:space="preserve"><value>Foram enviados demasiados relatórios recentemente. Aguarde um minuto e tente novamente. O rascunho foi mantido.</value></data>
+  <data name="windows_report_service_configuration" xml:space="preserve"><value>Esta versão não conseguiu autenticar-se no serviço de relatórios. O rascunho foi mantido. Verifique se há atualizações da aplicação.</value></data>
+  <data name="windows_report_text_too_long" xml:space="preserve"><value>O texto é demasiado longo. Encurte as descrições ou os dados de contacto e tente novamente.</value></data>
+  <data name="windows_report_timeout" xml:space="preserve"><value>O serviço de relatórios demorou demasiado a responder. O rascunho foi mantido; tente novamente.</value></data>
+  <data name="windows_report_unconfigured" xml:space="preserve"><value>Os relatórios de erros não estão disponíveis nesta versão.</value></data>
+  <data name="windows_report_unconfirmed" xml:space="preserve"><value>Não foi possível confirmar o envio. O rascunho foi mantido; uma nova tentativa usará a mesma referência.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Rever pedidos</value></data>
   <data name="windows_save_invitation" xml:space="preserve"><value>Guardar</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Guardar preferências</value></data>

@@ -410,6 +410,13 @@
   <data name="windows_receive_empty" xml:space="preserve"><value>Откройте или перетащите приглашение .vnd, чтобы получить файлы с другого устройства.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Получатели</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Введите от 1 до 8 разных HTTPS-адресов ретрансляторов без учётных данных и фрагментов.</value></data>
+  <data name="windows_report_connection_failed" xml:space="preserve"><value>Не удалось подключиться к сервису отчётов. Проверьте соединение и повторите попытку. Черновик сохранён.</value></data>
+  <data name="windows_report_rate_limited" xml:space="preserve"><value>За последнее время отправлено слишком много отчётов. Подождите минуту и повторите попытку. Черновик сохранён.</value></data>
+  <data name="windows_report_service_configuration" xml:space="preserve"><value>Эта версия не прошла проверку подлинности в сервисе отчётов. Черновик сохранён. Проверьте обновления приложения.</value></data>
+  <data name="windows_report_text_too_long" xml:space="preserve"><value>Текст слишком длинный. Сократите описания или контактные данные и повторите попытку.</value></data>
+  <data name="windows_report_timeout" xml:space="preserve"><value>Сервис отчётов не ответил вовремя. Черновик сохранён; повторите попытку.</value></data>
+  <data name="windows_report_unconfigured" xml:space="preserve"><value>Отправка отчётов недоступна в этой сборке.</value></data>
+  <data name="windows_report_unconfirmed" xml:space="preserve"><value>Не удалось подтвердить отправку. Черновик сохранён; при повторной попытке будет использован тот же номер отчёта.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Просмотреть запросы</value></data>
   <data name="windows_save_invitation" xml:space="preserve"><value>Сохранить</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Сохранить настройки</value></data>

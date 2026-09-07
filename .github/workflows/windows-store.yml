@@ -87,6 +87,10 @@ jobs:
 
       - name: Test and publish native Release app
         shell: pwsh
+        env:
+          VNIDROP_DIAGNOSTICS_ENDPOINT: ${{ github.event_name != 'pull_request' && vars.VNIDROP_DIAGNOSTICS_ENDPOINT || '' }}
+          VNIDROP_DIAGNOSTICS_INGEST_KEY: ${{ github.event_name != 'pull_request' && secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY || '' }}
+          VNIDROP_DIAGNOSTICS_REQUIRED: ${{ github.event_name != 'pull_request' && '1' || '0' }}
         run: |
           ./windows/scripts/build.ps1 -Configuration Release -Test -Publish
           git diff --exit-code -- windows/VniDrop/Strings apple/VniDrop/Generated apple/VniDrop/Resources shared/src/commonMain/composeResources

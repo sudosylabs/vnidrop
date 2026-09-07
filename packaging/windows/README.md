@@ -48,6 +48,14 @@ envelope containing the x64 MSIX. The MSIX is intentionally unsigned and is not
 a public sideloading artifact. Do not attach it to a public GitHub Release
 unless an independent production-signing path is added.
 
+Manual and coordinated-release runs require the repository variable
+`VNIDROP_DIAGNOSTICS_ENDPOINT` and secret `VNIDROP_DIAGNOSTICS_INGEST_KEY`,
+shared with the other native clients. The release workflow forwards secrets to
+the Windows workflow, which embeds this configuration during the app build and
+fails if it is missing or invalid. Pull-request builds use no diagnostics key and
+leave report submission unavailable. Reports are sent only by an explicit user
+submission; package acceptance never sends a report to the production service.
+
 The `.exe` is the public direct installer. It is intentionally unsigned, so
 Windows SmartScreen is expected to show an unknown-publisher or potentially
 dangerous-app warning. Users should download it only from the official GitHub

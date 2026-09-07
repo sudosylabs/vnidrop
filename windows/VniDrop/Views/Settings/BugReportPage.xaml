@@ -6,17 +6,30 @@
     xmlns:settings="using:VniDrop.Views.Settings">
   <settings:SettingsPageLayout
       Title="{x:Bind p:Strings.Get('about_bug_report')}"
-      Subtitle="{x:Bind p:Strings.Get('windows_bug_report_description')}"
+      Subtitle="{x:Bind p:Strings.Get('bug_report_description')}"
       BackRequested="Back">
     <settings:SettingsPageLayout.PageContent>
       <StackPanel Spacing="20">
         <InfoBar
             x:Name="SubmitError"
             AutomationProperties.AutomationId="BugReportError"
+            Visibility="{x:Bind SubmitError.IsOpen, Mode=OneWay}"
+            AutomationProperties.LiveSetting="Assertive"
+            IsTabStop="True"
             IsOpen="False"
             IsClosable="True"
             Severity="Error"
-            Message="{x:Bind p:Strings.Get('windows_bug_report_share_failed')}" />
+            Message="{x:Bind p:Strings.Get('bug_report_submit_failed')}" />
+        <InfoBar
+            x:Name="SubmitSuccess"
+            AutomationProperties.AutomationId="BugReportSuccess"
+            Visibility="{x:Bind SubmitSuccess.IsOpen, Mode=OneWay}"
+            AutomationProperties.LiveSetting="Polite"
+            IsTabStop="True"
+            IsOpen="False"
+            IsClosable="True"
+            Severity="Success"
+            Message="{x:Bind p:Strings.Get('bug_report_submitted')}" />
 
         <Border Style="{StaticResource VniDropCardStyle}" Padding="16">
           <StackPanel x:Name="ReportForm" Spacing="16">
@@ -83,7 +96,7 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
             <StackPanel Spacing="4">
               <TextBlock Text="{x:Bind p:Strings.Get('bug_report_include_logs')}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-              <TextBlock Text="{x:Bind p:Strings.Get('windows_bug_report_include_logs_description')}" Style="{StaticResource VniDropCaptionTextStyle}" />
+              <TextBlock Text="{x:Bind p:Strings.Get('bug_report_include_logs_description')}" Style="{StaticResource VniDropCaptionTextStyle}" />
             </StackPanel>
             <ToggleSwitch
                 x:Name="BugLogs"
@@ -99,12 +112,12 @@
               x:Name="SubmitButton"
               AutomationProperties.AutomationId="SubmitBugReportButton"
               Style="{StaticResource VniDropPrimaryButtonStyle}"
-              Content="{x:Bind p:Strings.Get('windows_bug_report_share')}"
+              Content="{x:Bind p:Strings.Get('bug_report_submit')}"
               Click="SubmitBugReport" />
           <ProgressRing
               x:Name="Submitting"
               AutomationProperties.AutomationId="BugReportBusy"
-              AutomationProperties.Name="{x:Bind p:Strings.Get('windows_bug_report_preparing')}"
+              AutomationProperties.Name="{x:Bind p:Strings.Get('bug_report_submitting')}"
               AutomationProperties.LiveSetting="Polite"
               Width="24"
               Height="24"

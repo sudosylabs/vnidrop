@@ -410,6 +410,13 @@
   <data name="windows_receive_empty" xml:space="preserve"><value>Open een .vnd-uitnodiging of sleep deze hierheen om bestanden van een ander apparaat te ontvangen.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Ontvangers</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Voer 1 tot 8 verschillende HTTPS-relay-URL’s in, zonder inloggegevens of fragmenten.</value></data>
+  <data name="windows_report_connection_failed" xml:space="preserve"><value>Kan geen verbinding maken met de meldingsdienst. Controleer je verbinding en probeer het opnieuw. Je concept blijft bewaard.</value></data>
+  <data name="windows_report_rate_limited" xml:space="preserve"><value>Er zijn onlangs te veel meldingen verstuurd. Wacht een minuut en probeer het opnieuw. Je concept blijft bewaard.</value></data>
+  <data name="windows_report_service_configuration" xml:space="preserve"><value>Deze versie kon zich niet aanmelden bij de meldingsdienst. Je concept blijft bewaard. Controleer of er een app-update is.</value></data>
+  <data name="windows_report_text_too_long" xml:space="preserve"><value>De tekst is te lang. Kort de beschrijvingen of contactgegevens in en probeer het opnieuw.</value></data>
+  <data name="windows_report_timeout" xml:space="preserve"><value>De meldingsdienst reageerde niet op tijd. Je concept blijft bewaard; probeer het opnieuw.</value></data>
+  <data name="windows_report_unconfigured" xml:space="preserve"><value>Bugrapportage is niet beschikbaar in deze versie.</value></data>
+  <data name="windows_report_unconfirmed" xml:space="preserve"><value>De verzending kon niet worden bevestigd. Je concept blijft bewaard; een nieuwe poging gebruikt dezelfde referentie.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Verzoeken bekijken</value></data>
   <data name="windows_save_invitation" xml:space="preserve"><value>Opslaan</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Voorkeuren opslaan</value></data>

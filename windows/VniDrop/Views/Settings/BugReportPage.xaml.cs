@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Win32;
 using VniDrop.Core;
 using VniDrop.Platform;
@@ -12,14 +13,34 @@ namespace VniDrop.Views.Settings;
 public sealed partial class BugReportPage : Page
 {
     private bool submitting;
+    private readonly BugReportSubmission submission = new();
+    private BugReportConfiguration? configuration;
+    private CancellationTokenSource? cancellation;
 
-    public BugReportPage() => InitializeComponent();
+    public BugReportPage()
+    {
+        InitializeComponent();
+        try { configuration = BugReporting.Configuration(); }
+        catch { configuration = null; }
+        if (configuration is null)
+        {
+            SubmitError.Message = Strings.Get("windows_report_unconfigured");
+            SubmitError.IsOpen = true;
+            SubmitButton.IsEnabled = false;
+        }
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        cancellation?.Cancel();
+        base.OnNavigatedFrom(e);
+    }
 
     private void Back(object sender, RoutedEventArgs e) => App.Window.GoBack();
 
     private async void SubmitBugReport(object sender, RoutedEventArgs e)
     {
-        if (submitting) return;
+        if (submitting || configuration is null) return;
 
         var draft = new BugReportDraft(
             BugWhat.Text,
@@ -31,6 +52,7 @@ public sealed partial class BugReportPage : Page
         SetValidationError(BugWhat, BugWhatError, validation.MissingWhat);
         SetValidationError(BugExpected, BugExpectedError, validation.MissingExpected);
         SubmitError.IsOpen = false;
+        SubmitSuccess.IsOpen = false;
         if (!validation.IsValid)
         {
             (validation.MissingWhat ? BugWhat : BugExpected).Focus(FocusState.Programmatic);
@@ -38,23 +60,41 @@ public sealed partial class BugReportPage : Page
         }
 
         submitting = true;
+        using var attempt = new CancellationTokenSource();
+        cancellation = attempt;
         SetBusy(true);
         try
         {
             var context = CurrentEnvironment();
-            var profile = App.Window.Model.Session.ProfileDirectory;
-            var report = await Task.Run(() => BugReportComposer.Compose(draft, context, profile));
-            await App.Window.NativeShare.ShowTextAsync(
-                Strings.Get("about_bug_report"),
-                Strings.Get("windows_bug_report_description"),
-                report.Text);
+            var model = App.Window.Model;
+            var installId = model.Preferences.DiagnosticsInstallId;
+            if (!Guid.TryParseExact(installId, "D", out _))
+            {
+                installId = Guid.NewGuid().ToString("D");
+                await model.SavePreferencesAsync(model.Preferences with { DiagnosticsInstallId = installId },
+                    PreferenceWriteScope.DiagnosticsInstallId, attempt.Token);
+            }
+            var report = await Task.Run(() => submission.Prepare(draft, context, model.Session.ProfileDirectory, installId), attempt.Token);
+            await new BugReportTransport(configuration).SendAsync(report, attempt.Token);
+            submission.Clear();
+            BugWhat.Text = BugExpected.Text = BugSteps.Text = BugContact.Text = "";
+            SubmitSuccess.IsOpen = true;
+            Announce(SubmitSuccess);
         }
-        catch
+        catch (OperationCanceledException) when (attempt.IsCancellationRequested) { }
+        catch (Exception error)
         {
+            SubmitError.Message = Strings.Get(error is InvalidDataException && error.Message is
+                "windows_report_unconfigured" or "windows_report_text_too_long" or
+                "windows_report_service_configuration" or "windows_report_rate_limited" or
+                "windows_report_unconfirmed" or "windows_report_timeout" or "windows_report_connection_failed"
+                    ? error.Message : "bug_report_submit_failed");
             SubmitError.IsOpen = true;
+            Announce(SubmitError);
         }
         finally
         {
+            cancellation = null;
             submitting = false;
             SetBusy(false);
         }
@@ -78,7 +118,9 @@ public sealed partial class BugReportPage : Page
     private void SetBusy(bool busy)
     {
         BugWhat.IsEnabled = BugExpected.IsEnabled = BugSteps.IsEnabled = BugContact.IsEnabled = !busy;
-        BugLogs.IsEnabled = SubmitButton.IsEnabled = !busy;
+        BugLogs.IsEnabled = !busy;
+        SubmitButton.IsEnabled = !busy && configuration is not null;
+        SubmitButton.Content = Strings.Get(busy ? "bug_report_submitting" : "bug_report_submit");
         Submitting.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
         Submitting.IsActive = busy;
         Submitting.IsTabStop = busy;
@@ -87,9 +129,11 @@ public sealed partial class BugReportPage : Page
             Submitting.Focus(FocusState.Programmatic);
             Announce(Submitting);
         }
-        else
+        else if (IsLoaded)
         {
-            SubmitButton.Focus(FocusState.Programmatic);
+            Control feedback = SubmitSuccess.IsOpen ? SubmitSuccess : SubmitError.IsOpen ? SubmitError : SubmitButton;
+            feedback.Focus(FocusState.Programmatic);
+            feedback.StartBringIntoView();
         }
     }
 

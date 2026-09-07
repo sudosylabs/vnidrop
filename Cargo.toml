@@ -1,5 +1,6 @@
 [workspace]
-members = ["crates/vnidrop", "crates/uniffi-bindgen"]
+members = ["crates/vnidrop", "crates/uniffi-bindgen", "linux"]
+default-members = ["crates/vnidrop", "crates/uniffi-bindgen"]
 resolver = "2"
 
 [profile.dev]

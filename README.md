@@ -48,6 +48,10 @@ The native C# / WinUI 3 Windows app lives in [`windows/`](windows/README.md).
 The Windows release workflow packages this host for the Store and direct download;
 see its build instructions and remaining release acceptance work before publishing.
 
+The native Rust / GTK 4 / libadwaita Linux host is under development in
+[`linux/`](linux/README.md). Run it with `make run-linux`; the existing Compose
+host continues to supply Linux release packages during this migration.
+
 There is no account to create and no cloud copy of the transfer waiting after
 you are done. The sender remains in control and can stop sharing at any time.
 

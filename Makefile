@@ -12,6 +12,7 @@ include $(ROOT)/make/release.mk
 .PHONY: format test check check-rust audit-rust test-rust test-rust-all
 .PHONY: test-rust-transfer test-rust-approval test-rust-lifecycle test-rust-output-sink test-rust-saved-devices
 .PHONY: check-shared test-shared test-android-host check-android verify-android-libs build-android run-desktop
+.PHONY: build-linux run-linux check-linux test-linux-ui
 .PHONY: apple-core apple-version-config apple-app-config apple-project open-apple-project open-apple build-apple-macos build-apple-ios check-apple package-apple-core
 .PHONY: prepare-release check-version check-release check-localization localization localization-migrate
 .PHONY: check-docs run-docs check-diagnostics run-diagnostics diagnostics-db-local diagnostics-db-remote diagnostics-typegen deploy-diagnostics
@@ -137,6 +138,21 @@ build-android: ## Build the Android debug APK.
 run-desktop: ## Run the Windows/Linux Compose desktop app.
 	cd $(ROOT) && $(GRADLE) :desktopApp:run $(GRADLE_FLAGS)
 
+build-linux: ## Build the native GNOME application (Linux, GTK 4.10+, libadwaita 1.5+).
+	cd $(ROOT) && $(CARGO) build --locked -p vnidrop-gnome --features gui
+
+run-linux: ## Run the native GNOME application (optional LINUX_ARGS='--profile /absolute/path').
+	cd $(ROOT) && $(CARGO) run --locked -p vnidrop-gnome --features gui -- $(LINUX_ARGS)
+
+check-linux: ## Check native Linux formatting, lint, logic tests, and build.
+	cd $(ROOT) && $(CARGO) fmt --all -- --check
+	cd $(ROOT) && $(CARGO) clippy --locked -p vnidrop-gnome --all-targets --features gui -- -D warnings
+	cd $(ROOT) && $(CARGO) test --locked -p vnidrop-gnome --lib
+	$(MAKE) build-linux
+
+test-linux-ui: ## Exercise the GTK application with an isolated test profile (requires a display and Secret Service).
+	cd $(ROOT) && G_DEBUG=fatal-criticals $(CARGO) test --locked -p vnidrop-gnome --features gui --bin vnidrop-gnome -- --test-threads=1
+
 apple-core: ## Build the Rust XCFramework and generated Swift bindings.
 	@test "$(HOST_OS)" = macos || { printf 'Apple builds require macOS.\n' >&2; exit 1; }
 	cd $(ROOT) && apple/scripts/build-core.sh $(APPLE_PROFILE)
@@ -201,7 +217,7 @@ check-apple: apple-project ## Build the Apple core and run iOS simulator tests.
 check-localization: setup-localization ## Validate the localization source catalog.
 	cd $(ROOT)/localization && $(BUN) run validate
 
-localization: setup-localization ## Regenerate Apple and KMP localization resources.
+localization: setup-localization ## Regenerate all platform localization resources.
 	cd $(ROOT)/localization && $(BUN) run generate
 
 localization-migrate: setup-localization ## Rebuild strings.json from platform resources.
@@ -233,3 +249,15 @@ diagnostics-typegen: setup-diagnostics ## Regenerate diagnostics Worker binding 
 
 deploy-diagnostics: setup-diagnostics ## Check and deploy the diagnostics Worker to Cloudflare.
 	cd $(ROOT)/services/diagnostics-api && $(NPM) run deploy
+
+.PHONY: package-linux-native-deb package-linux-native-rpm
+VNIDROP_DIAGNOSTICS_REQUIRED ?= 1
+package-linux-native-deb: ## Build and validate the native GTK DEB (Ubuntu 24.04+).
+	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) $(CARGO) build --locked --release -p vnidrop-gnome --features gui
+	cd $(ROOT) && linux/packaging/package.sh deb
+	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) linux/packaging/verify.sh deb build/release/linux-native/vnidrop_$$(packaging/linux/resolve-version.sh)-1_amd64.deb
+
+package-linux-native-rpm: ## Build and validate the native GTK RPM on Fedora.
+	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) $(CARGO) build --locked --release -p vnidrop-gnome --features gui
+	cd $(ROOT) && linux/packaging/package.sh rpm
+	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) linux/packaging/verify.sh rpm build/release/linux-native/vnidrop-$$(packaging/linux/resolve-version.sh)-1.x86_64.rpm

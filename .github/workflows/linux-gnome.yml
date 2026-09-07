@@ -1,0 +1,72 @@
+name: Native GNOME
+
+on:
+  pull_request:
+    paths:
+      - "linux/**"
+      - "crates/vnidrop/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "Makefile"
+      - "make/with-secret-service.sh"
+      - "localization/**"
+      - "assets/linux/**"
+      - "version.properties"
+      - ".github/workflows/linux-gnome.yml"
+  push:
+    branches: [master]
+    paths:
+      - "linux/**"
+      - "crates/vnidrop/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "Makefile"
+      - "make/with-secret-service.sh"
+      - "localization/**"
+      - "assets/linux/**"
+      - "version.properties"
+      - ".github/workflows/linux-gnome.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-gnome-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GTK and isolated desktop test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libgtk-4-dev libadwaita-1-dev dbus-x11 gnome-keyring libsecret-tools xvfb xauth librsvg2-common at-spi2-core
+      - name: Install Rust quality components
+        run: rustup component add rustfmt clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Check native host
+        run: make check-linux
+      - name: Exercise native draft, approval, receive, and shutdown
+        env:
+          VNIDROP_UI_SCREENSHOTS: ${{ runner.temp }}/native-ui-screenshots
+        run: GSK_RENDERER=cairo xvfb-run -a make/with-secret-service.sh make test-linux-ui
+      - name: Upload native UI failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-ui-failure-screenshots
+          path: ${{ runner.temp }}/native-ui-screenshots
+          if-no-files-found: ignore
+      - uses: oven-sh/setup-bun@v2
+      - name: Verify generated localization
+        working-directory: localization
+        run: |
+          bun install --frozen-lockfile
+          bun test
+          bun run generate
+          git diff --exit-code -- ../linux/data/strings.json ../shared/src/commonMain/composeResources ../apple/VniDrop/Generated ../apple/VniDrop/Resources/Localizable.xcstrings ../windows/VniDrop/Strings

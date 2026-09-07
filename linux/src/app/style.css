@@ -1,0 +1,15 @@
+.review-target {
+  border-radius: 12px;
+}
+.review-highlight {
+  outline: 2px solid @accent_color;
+  outline-offset: -2px;
+}
+.device-decision.review-highlight {
+  padding: 12px;
+  background: alpha(@accent_bg_color, 0.08);
+}
+
+.device-transfer-header {
+  background: transparent;
+}

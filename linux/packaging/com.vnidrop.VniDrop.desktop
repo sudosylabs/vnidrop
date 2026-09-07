@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=VniDrop
+Comment=Send files directly between devices
+Exec=vnidrop %F
+Icon=com.vnidrop.VniDrop
+Terminal=false
+Categories=Network;FileTransfer;
+MimeType=application/vnd.vnidrop.transfer;
+StartupNotify=true
+StartupWMClass=com.vnidrop.VniDrop
+DBusActivatable=true

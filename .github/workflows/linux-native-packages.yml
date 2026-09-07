@@ -1,0 +1,60 @@
+name: Native Linux packages
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'linux/**'
+      - 'crates/vnidrop/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'assets/linux/**'
+      - 'version.properties'
+      - 'Makefile'
+      - 'gradle.properties'
+      - '.github/workflows/linux-native-packages.yml'
+permissions:
+  contents: read
+concurrency:
+  group: linux-native-packages-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  deb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libadwaita-1-dev desktop-file-utils shared-mime-info xdg-utils
+      - uses: Swatinem/rust-cache@v2
+      - name: Test headless MIME verification
+        run: bash linux/packaging/tests/test-verify-mime.sh
+      - name: Build native DEB
+        env:
+          VNIDROP_DIAGNOSTICS_REQUIRED: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+          VNIDROP_DIAGNOSTICS_ENDPOINT: ${{ github.event_name == 'workflow_dispatch' && vars.VNIDROP_DIAGNOSTICS_ENDPOINT || '' }}
+          VNIDROP_DIAGNOSTICS_INGEST_KEY: ${{ github.event_name == 'workflow_dispatch' && secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY || '' }}
+        run: make package-linux-native-deb
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: native-linux-deb
+          path: build/release/linux-native/*
+  rpm:
+    runs-on: ubuntu-latest
+    container: fedora:43
+    timeout-minutes: 45
+    steps:
+      - run: dnf install -y git gcc gcc-c++ cmake rust cargo gtk4-devel libadwaita-devel rpm-build desktop-file-utils shared-mime-info xdg-utils file cpio make clang perl openssl-devel
+      - uses: actions/checkout@v4
+      - name: Test headless MIME verification
+        run: bash linux/packaging/tests/test-verify-mime.sh
+      - name: Build native RPM
+        env:
+          VNIDROP_DIAGNOSTICS_REQUIRED: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+          VNIDROP_DIAGNOSTICS_ENDPOINT: ${{ github.event_name == 'workflow_dispatch' && vars.VNIDROP_DIAGNOSTICS_ENDPOINT || '' }}
+          VNIDROP_DIAGNOSTICS_INGEST_KEY: ${{ github.event_name == 'workflow_dispatch' && secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY || '' }}
+        run: make package-linux-native-rpm
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: native-linux-rpm
+          path: build/release/linux-native/*

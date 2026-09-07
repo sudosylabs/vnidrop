@@ -23,6 +23,7 @@ import { renderSwiftAccessors } from "../lib/swift-accessors";
 import { renderXcstrings, type XcCatalog, type XcEntry } from "../lib/xcstrings";
 import { targetsOf, type StringEntry, type StringsFile } from "../types";
 import { renderWindowsResources } from "../lib/windows-resources";
+import { renderLinuxResources } from "../lib/linux-resources";
 
 function render(entry: StringEntry, text: string, flavor: Flavor): string {
   return fromCanonical(text, entry.args ?? [], flavor);
@@ -114,6 +115,10 @@ async function syncInfoPlistLocalizations(langs: string[]) {
 
 export async function generate() {
   const doc = JSON.parse(await Bun.file(STRINGS_JSON).text()) as StringsFile;
+
+  const linuxDirectory = join(REPO_ROOT, "linux/data");
+  await mkdir(linuxDirectory, { recursive: true });
+  await Bun.write(join(linuxDirectory, "strings.json"), renderLinuxResources(doc));
 
   await Bun.write(APPLE_XCSTRINGS, renderXcstrings(buildXcstrings(doc)));
   console.log(`Wrote ${APPLE_XCSTRINGS}`);

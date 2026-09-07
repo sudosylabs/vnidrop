@@ -52,7 +52,7 @@ impl App {
             (
                 "about_privacy_title",
                 vec![
-                    ("qr-code-symbolic", "about_privacy_capability"),
+                    ("qr-code-symbolic", "about_invitation_privacy"),
                     ("action-unavailable-symbolic", "about_privacy_deny"),
                     ("network-transmit-receive-symbolic", "about_privacy_relay"),
                     ("drive-harddisk-symbolic", "about_privacy_local"),

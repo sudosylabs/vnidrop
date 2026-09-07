@@ -18,13 +18,17 @@ test("Linux catalogs preserve named arguments, plural categories and source fall
 });
 
 test("literal Linux UI resource references are present in the generated catalog", async () => {
-  const catalog = JSON.parse(renderLinuxResources(await Bun.file(STRINGS_JSON).json()));
+  const doc = await Bun.file(STRINGS_JSON).json();
+  const catalog = JSON.parse(renderLinuxResources(doc));
   let references = 0;
   for await (const path of new Bun.Glob("src/**/*.rs").scan(`${REPO_ROOT}/linux`)) {
     if (path.endsWith("preferences.rs")) continue;
     const source = await Bun.file(`${REPO_ROOT}/linux/${path}`).text();
-    for (const match of source.matchAll(/"((?:linux|button|error|progress|status|transfer|send|receive|preferences|field|approval|app)_[a-z_]+)"/g)) {
-      expect(catalog.languages.en[match[1]!], `${path}: ${match[1]}`).toBeDefined();
+    for (const match of source.matchAll(/"([a-z][a-z0-9_]*)"/g)) {
+      const key = match[1]!;
+      if (!Object.hasOwn(doc.strings, key)
+        && !/^(?:linux|button|error|progress|status|transfer|send|receive|preferences|field|approval|app)_/.test(key)) continue;
+      expect(catalog.languages[doc.sourceLanguage][key], `${path}: ${key}`).toBeDefined();
       references++;
     }
   }

@@ -35,7 +35,6 @@ grep -Fxq 'StartupWMClass=com.vnidrop.VniDrop' "$desktop"
 grep -Fxq 'MimeType=application/vnd.vnidrop.transfer;' "$desktop"
 grep -Fxq 'Name=com.vnidrop.VniDrop' "$stage/usr/share/dbus-1/services/com.vnidrop.VniDrop.service"
 [[ -s $stage/usr/share/icons/hicolor/scalable/apps/com.vnidrop.VniDrop.svg ]]
-update-mime-database "$stage/usr/share/mime"
-[[ $(XDG_DATA_DIRS="$stage/usr/share" xdg-mime query filetype "$root/linux/packaging/fixture.vnd") == application/vnd.vnidrop.transfer ]]
+bash "$root/linux/packaging/verify-mime.sh" "$stage/usr/share"
 [[ ! -e $stage/home && ! -e $stage/root ]]
 echo 'Native package identity, binary, activation, icon, and MIME checks passed.'

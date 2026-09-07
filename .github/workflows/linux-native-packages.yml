@@ -25,6 +25,8 @@ jobs:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libadwaita-1-dev desktop-file-utils shared-mime-info xdg-utils
       - uses: Swatinem/rust-cache@v2
+      - name: Test headless MIME verification
+        run: bash linux/packaging/tests/test-verify-mime.sh
       - name: Build native DEB
         env:
           VNIDROP_DIAGNOSTICS_REQUIRED: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
@@ -43,6 +45,8 @@ jobs:
     steps:
       - run: dnf install -y git gcc gcc-c++ cmake rust cargo gtk4-devel libadwaita-devel rpm-build desktop-file-utils shared-mime-info xdg-utils file cpio make clang perl openssl-devel
       - uses: actions/checkout@v4
+      - name: Test headless MIME verification
+        run: bash linux/packaging/tests/test-verify-mime.sh
       - name: Build native RPM
         env:
           VNIDROP_DIAGNOSTICS_REQUIRED: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}

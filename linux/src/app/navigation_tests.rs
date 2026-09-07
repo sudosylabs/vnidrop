@@ -130,3 +130,44 @@ pub(super) fn review_routes_to_the_pending_decision(app: &Rc<App>) {
     capture(&app.window, "devices-empty-narrow");
     app.snapshot.replace(Some(snapshot));
 }
+
+pub(super) fn notification_routes_after_modal_closes(app: &Rc<App>) {
+    use vnidrop_gnome::notifications::Target;
+    let saved = app.snapshot.borrow().clone().unwrap();
+    let mut fixture = saved.clone();
+    fixture.requests[0].status = "requested".into();
+    let request = fixture.requests[0].clone();
+    app.snapshot.replace(Some(fixture));
+    app.show_devices();
+    let (dialog, _, _) = super::super::dialogs::content("linux_about");
+    dialog.present(Some(&app.window));
+    render_window(&app.window);
+    let target = serde_json::to_string(&Target::Transfer(
+        request.transfer_id,
+        "send".into(),
+        Some(request.id.clone()),
+    ))
+    .unwrap()
+    .to_variant();
+    app.application
+        .activate_action("notification-open", Some(&target));
+    app.open_notification_target();
+    assert!(app.notification_target.borrow().is_some());
+    dialog.close();
+    until("notification target after modal", || {
+        app.notification_target.borrow().is_none()
+    });
+    render_window(&app.window);
+    assert_eq!(
+        *app.selected.borrow(),
+        Some((request.transfer_id, "send".into()))
+    );
+    assert!(app
+        .review_actions
+        .borrow()
+        .get(&request.id)
+        .unwrap()
+        .has_focus());
+    app.snapshot.replace(Some(saved));
+    app.render();
+}

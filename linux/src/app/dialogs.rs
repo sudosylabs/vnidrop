@@ -6,6 +6,13 @@ use vnidrop_gnome::invitation;
 
 use super::{i18n::text, App};
 
+#[derive(Clone)]
+pub(super) struct ReceiveDraft {
+    pub ticket: String,
+    pub folder: PathBuf,
+    pub name: String,
+}
+
 pub async fn confirm(
     parent: &impl IsA<gtk::Widget>,
     heading: &str,
@@ -131,101 +138,173 @@ impl App {
                         return;
                     }
                 };
-                let (dialog, rows, header) = content("receive_review_title");
-                let metadata = inspection.metadata;
-                let group = adw::PreferencesGroup::new();
-                group.add(&fact("field_transfer_name", &metadata.transfer_name));
-                if let Some(sender) = &metadata.sender_name {
-                    group.add(&fact("field_sender_name", sender));
-                }
-                group.add(&fact("metadata_files", &metadata.file_count.to_string()));
-                group.add(&fact(
-                    "metadata_size",
-                    &glib::format_size(metadata.total_size),
-                ));
-                rows.append(&group);
-                let folder: Rc<RefCell<PathBuf>> = Rc::new(RefCell::new(
-                    app.preferences.borrow().receive_directory.clone(),
-                ));
-                let destination = adw::PreferencesGroup::new();
-                let row = fact(
-                    "preferences_receive_folder_title",
-                    &folder.borrow().display().to_string(),
-                );
-                let choose = gtk::Button::from_icon_name("folder-open-symbolic");
-                choose.set_tooltip_text(Some(&text("linux_choose_destination")));
-                choose.set_valign(gtk::Align::Center);
-                row.add_suffix(&choose);
-                destination.add(&row);
-                rows.append(&destination);
-                let weak = Rc::downgrade(&app);
-                let selected_folder = folder.clone();
-                choose.connect_clicked(move |_| {
-                    let Some(app) = weak.upgrade() else {
-                        return;
-                    };
-                    let (folder, row) = (selected_folder.clone(), row.clone());
-                    glib::spawn_future_local(async move {
-                        if let Some(path) = app.choose_folder().await {
-                            row.set_subtitle(&glib::markup_escape_text(
-                                &path.display().to_string(),
-                            ));
-                            folder.replace(path);
-                        }
-                    });
-                });
-                let receive = gtk::Button::with_label(&text("button_receive_files"));
-                receive.add_css_class("suggested-action");
-                header.pack_end(&receive);
-                let weak = Rc::downgrade(&app);
-                let dialog_copy = dialog.downgrade();
-                receive.connect_clicked(move |button| {
-                    let Some(app) = weak.upgrade() else {
-                        return;
-                    };
-                    let Some(dialog_copy) = dialog_copy.upgrade() else {
-                        return;
-                    };
-                    let Some(path) = folder.borrow().to_str().map(str::to_owned) else {
-                        app.error("linux_local_files_only");
-                        return;
-                    };
-                    button.set_sensitive(false);
-                    let receiver = app.preferences.borrow().username.clone();
-                    let ticket = ticket.clone();
-                    app.selected
-                        .replace(Some((metadata.transfer_id, "receive".into())));
-                    app.dispatch(
-                        move |session| {
-                            session.call(|core| core.receive(ticket, path, Some(receiver)))
-                        },
-                        |app, result| {
-                            if let Err(key) = result {
-                                if key != "progress_cancelled" {
-                                    app.error(key);
-                                }
-                            }
-                            app.refresh();
-                        },
-                    );
-                    dialog_copy.close();
-                    app.show_transfers();
-                    app.split.set_show_content(true);
-                    app.refresh();
-                });
-                let weak = Rc::downgrade(&app);
-                dialog.connect_closed(move |_| {
-                    if let Some(app) = weak.upgrade() {
-                        app.reviewing.set(false);
-                        app.pump_invitations();
-                    }
-                });
-                dialog.present(Some(&app.window));
+                app.present_receive_review(ticket, inspection);
             },
         );
     }
 
-    async fn choose_folder(self: &Rc<Self>) -> Option<PathBuf> {
+    pub(super) fn review_saved_invitation(self: &Rc<Self>, ticket: String) {
+        if self.window.visible_dialog().is_some() || self.reviewing.replace(true) {
+            return;
+        }
+        self.dispatch(
+            move |session| {
+                let inspection = session.call(|core| core.inspect_ticket(ticket.clone()))?;
+                Ok((ticket, inspection))
+            },
+            |app, result| match result {
+                Ok((ticket, inspection)) => app.present_receive_review(ticket, inspection),
+                Err(key) => {
+                    app.reviewing.set(false);
+                    app.error(key);
+                }
+            },
+        );
+    }
+
+    fn present_receive_review(
+        self: &Rc<Self>,
+        ticket: String,
+        inspection: vnidrop::TicketInspection,
+    ) {
+        let app = self;
+        let (dialog, rows, header) = content("receive_review_title");
+        let metadata = inspection.metadata;
+        let previous = app
+            .receive_drafts
+            .borrow()
+            .get(&metadata.transfer_id)
+            .cloned();
+        let receiver_name = adw::EntryRow::builder()
+            .title(text("field_username"))
+            .text(
+                previous
+                    .as_ref()
+                    .map(|d| d.name.clone())
+                    .unwrap_or_else(|| app.preferences.borrow().username.clone()),
+            )
+            .build();
+        let receiver_group = adw::PreferencesGroup::new();
+        receiver_group.add(&receiver_name);
+        rows.append(&receiver_group);
+        let group = adw::PreferencesGroup::new();
+        group.add(&fact("field_transfer_name", &metadata.transfer_name));
+        if let Some(sender) = &metadata.sender_name {
+            group.add(&fact("field_sender_name", sender));
+        }
+        group.add(&fact("metadata_files", &metadata.file_count.to_string()));
+        group.add(&fact(
+            "metadata_size",
+            &glib::format_size(metadata.total_size),
+        ));
+        rows.append(&group);
+        let folder: Rc<RefCell<PathBuf>> = Rc::new(RefCell::new(
+            previous
+                .as_ref()
+                .map(|d| d.folder.clone())
+                .unwrap_or_else(|| app.preferences.borrow().receive_directory.clone()),
+        ));
+        let destination = adw::PreferencesGroup::new();
+        let row = fact(
+            "preferences_receive_folder_title",
+            &folder.borrow().display().to_string(),
+        );
+        let choose = gtk::Button::from_icon_name("folder-open-symbolic");
+        choose.set_tooltip_text(Some(&text("linux_choose_destination")));
+        choose.set_valign(gtk::Align::Center);
+        row.add_suffix(&choose);
+        destination.add(&row);
+        rows.append(&destination);
+        let weak = Rc::downgrade(app);
+        let selected_folder = folder.clone();
+        choose.connect_clicked(move |_| {
+            let Some(app) = weak.upgrade() else {
+                return;
+            };
+            let (folder, row) = (selected_folder.clone(), row.clone());
+            glib::spawn_future_local(async move {
+                if let Some(path) = app.choose_folder().await {
+                    row.set_subtitle(&glib::markup_escape_text(&path.display().to_string()));
+                    folder.replace(path);
+                }
+            });
+        });
+        let receive = gtk::Button::with_label(&text("button_receive_files"));
+        receive.add_css_class("suggested-action");
+        header.pack_end(&receive);
+        let weak = Rc::downgrade(app);
+        let dialog_copy = dialog.downgrade();
+        receive.connect_clicked(move |button| {
+            let Some(app) = weak.upgrade() else {
+                return;
+            };
+            let Some(dialog_copy) = dialog_copy.upgrade() else {
+                return;
+            };
+            let Some(path) = folder.borrow().to_str().map(str::to_owned) else {
+                app.error("linux_local_files_only");
+                return;
+            };
+            button.set_sensitive(false);
+            let receiver = receiver_name.text().trim().to_string();
+            if receiver.is_empty() {
+                button.set_sensitive(true);
+                app.error("error_invalid_input");
+                return;
+            }
+            let ticket = ticket.clone();
+            let button = button.clone();
+            dialog_copy.set_can_close(false);
+            glib::spawn_future_local(async move {
+                let destination = PathBuf::from(&path);
+                let result = gio::spawn_blocking(move || {
+                    vnidrop_gnome::settings::validate_folder(&destination)
+                })
+                .await
+                .unwrap_or(Err("error_filesystem"));
+                button.set_sensitive(true);
+                dialog_copy.set_can_close(true);
+                if let Err(key) = result {
+                    app.error(key);
+                    return;
+                }
+                app.receive_drafts.borrow_mut().insert(
+                    metadata.transfer_id,
+                    ReceiveDraft {
+                        ticket: ticket.clone(),
+                        folder: PathBuf::from(&path),
+                        name: receiver.clone(),
+                    },
+                );
+                app.selected
+                    .replace(Some((metadata.transfer_id, "receive".into())));
+                app.dispatch(
+                    move |session| session.call(|core| core.receive(ticket, path, Some(receiver))),
+                    |app, result| {
+                        if let Err(key) = result {
+                            if key != "progress_cancelled" {
+                                app.error(key);
+                            }
+                        }
+                        app.refresh();
+                    },
+                );
+                dialog_copy.close();
+                app.show_transfers();
+                app.split.set_show_content(true);
+                app.refresh();
+            });
+        });
+        let weak = Rc::downgrade(app);
+        dialog.connect_closed(move |_| {
+            if let Some(app) = weak.upgrade() {
+                app.reviewing.set(false);
+                app.pump_invitations();
+            }
+        });
+        dialog.present(Some(&app.window));
+    }
+    pub(super) async fn choose_folder(self: &Rc<Self>) -> Option<PathBuf> {
         let picker = gtk::FileDialog::builder()
             .title(text("linux_choose_destination"))
             .build();
@@ -245,96 +324,14 @@ impl App {
         }
     }
 
-    pub(super) fn show_preferences(self: &Rc<Self>) {
-        let dialog = adw::PreferencesDialog::builder()
-            .title(text("preferences_title"))
-            .build();
-        let page = adw::PreferencesPage::new();
-        let group = adw::PreferencesGroup::new();
-        let preferences = self.preferences.borrow().clone();
-        let username = adw::EntryRow::builder()
-            .title(text("field_username"))
-            .text(&preferences.username)
-            .show_apply_button(true)
-            .build();
-        let weak = Rc::downgrade(self);
-        username.connect_apply(move |entry| {
-            let Some(app) = weak.upgrade() else {
-                return;
-            };
-            let mut prefs = app.preferences.borrow().clone();
-            prefs.username = entry.text().trim().into();
-            app.save_preferences(prefs);
-        });
-        group.add(&username);
-        let folder = fact(
-            "preferences_receive_folder_title",
-            &preferences.receive_directory.display().to_string(),
-        );
-        folder.set_activatable(true);
-        folder.add_suffix(&gtk::Image::from_icon_name("folder-open-symbolic"));
-        let weak = Rc::downgrade(self);
-        folder.connect_activated(move |row| {
-            let Some(app) = weak.upgrade() else {
-                return;
-            };
-            let row = row.clone();
-            glib::spawn_future_local(async move {
-                if let Some(path) = app.choose_folder().await {
-                    let mut preferences = app.preferences.borrow().clone();
-                    preferences.receive_directory = path;
-                    row.set_subtitle(&glib::markup_escape_text(
-                        &preferences.receive_directory.display().to_string(),
-                    ));
-                    app.save_preferences(preferences);
-                }
-            });
-        });
-        group.add(&folder);
-        let themes = gtk::StringList::new(&[
-            &text("linux_system"),
-            &text("linux_light"),
-            &text("linux_dark"),
-        ]);
-        let theme = adw::ComboRow::builder()
-            .title(text("appearance_title"))
-            .model(&themes)
-            .selected(match preferences.theme.as_str() {
-                "Light" => 1,
-                "Dark" => 2,
-                _ => 0,
-            })
-            .build();
-        let weak = Rc::downgrade(self);
-        theme.connect_selected_notify(move |row| {
-            if let Some(app) = weak.upgrade() {
-                let mut prefs = app.preferences.borrow().clone();
-                prefs.theme = ["System", "Light", "Dark"][row.selected() as usize].into();
-                app.save_preferences(prefs);
-            }
-        });
-        group.add(&theme);
-        page.add(&group);
-        let network = adw::PreferencesGroup::new();
-        let mode = match preferences.network.mode {
-            vnidrop::CoreRelayMode::Automatic => "linux_network_automatic",
-            vnidrop::CoreRelayMode::LocalOnly => "relay_mode_local_only",
-            vnidrop::CoreRelayMode::StrictCustom => "relay_mode_custom",
-            vnidrop::CoreRelayMode::CustomWithDirectFallback => "relay_mode_custom_direct_fallback",
-        };
-        network.add(&fact("linux_network_policy", &text(mode)));
-        page.add(&network);
-        dialog.add(&page);
-        dialog.present(Some(&self.window));
-    }
-
-    fn save_preferences(self: &Rc<Self>, preferences: vnidrop_gnome::preferences::Preferences) {
+    pub(super) fn save_preferences(
+        self: &Rc<Self>,
+        preferences: vnidrop_gnome::preferences::Preferences,
+    ) {
         if preferences.username.trim().is_empty() {
             self.error("error_invalid_input");
             return;
         }
-        self.preferences.replace(preferences.clone());
-        self.apply_appearance();
         self.preference_queue.borrow_mut().push_back(preferences);
         if self.saving_preferences.replace(true) {
             return;
@@ -347,11 +344,20 @@ impl App {
                     break;
                 };
                 let path = app.profile.clone();
-                if let Err(key) = gio::spawn_blocking(move || preferences.save(&path))
+                let next = preferences.clone();
+                match gio::spawn_blocking(move || preferences.save(&path))
                     .await
                     .unwrap_or(Err("error_generic"))
                 {
-                    app.error(key);
+                    Ok(()) => {
+                        app.preferences.replace(next);
+                        app.apply_appearance();
+                        app.update_notifications();
+                    }
+                    Err(key) => {
+                        app.apply_appearance();
+                        app.error(key);
+                    }
                 }
             }
             app.saving_preferences.set(false);

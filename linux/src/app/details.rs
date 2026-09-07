@@ -15,11 +15,15 @@ pub(super) struct TransferRow {
     key: (u64, String),
     row: adw::ActionRow,
     spinner: gtk::Spinner,
+    icon: gtk::Image,
     bar: gtk::ProgressBar,
 }
 
 impl App {
     pub(super) fn render(self: &Rc<Self>) {
+        if self.reconfiguring.get() {
+            return;
+        }
         let snapshot = self.snapshot.borrow();
         let Some(snapshot) = snapshot.as_ref() else {
             return;
@@ -115,11 +119,13 @@ impl App {
                     .title_lines(1)
                     .subtitle_lines(2)
                     .build();
-                row.add_prefix(&gtk::Image::from_icon_name(if key.1 == "send" {
+                let icon = gtk::Image::from_icon_name(if key.1 == "send" {
                     "go-up-symbolic"
                 } else {
                     "go-down-symbolic"
-                }));
+                });
+                icon.set_pixel_size(32);
+                row.add_prefix(&icon);
                 let spinner = gtk::Spinner::new();
                 row.add_suffix(&spinner);
                 let bar = gtk::ProgressBar::builder()
@@ -132,11 +138,19 @@ impl App {
                     key,
                     row,
                     spinner,
+                    icon,
                     bar,
                 });
             }
         }
         for (row, transfer) in self.rows.borrow().iter().zip(&snapshot.transfers) {
+            if row.key.1 == "send" {
+                if let Some(texture) = self.previews.borrow().get(&row.key.0) {
+                    row.icon.set_paintable(Some(texture));
+                } else {
+                    row.icon.set_icon_name(Some("go-up-symbolic"));
+                }
+            }
             row.row.set_title(&glib::markup_escape_text(
                 transfer
                     .transfer_name
@@ -162,11 +176,15 @@ impl App {
             });
             row.row
                 .set_subtitle(&glib::markup_escape_text(&std::format!(
-                    "{} · {}",
+                    "{} · {} · {}",
                     text(
                         live.as_ref()
                             .map(|progress| progress.label)
                             .unwrap_or_else(|| presentation::status_key(&transfer.status))
+                    ),
+                    format(
+                        "transfer_file_count",
+                        &[("count", &transfer.file_count.to_string())]
                     ),
                     glib::format_size(transfer.total_size)
                 )));
@@ -293,6 +311,34 @@ impl App {
             return;
         };
         let id = transfer.transfer_id;
+        if transfer.direction == "receive"
+            && matches!(transfer.status.as_str(), "failed" | "cancelled")
+        {
+            if let Some(ticket) = transfer.ticket.clone().or_else(|| {
+                self.receive_drafts
+                    .borrow()
+                    .get(&id)
+                    .map(|d| d.ticket.clone())
+            }) {
+                let retry = super::widgets::icon_button("button_retry", "view-refresh-symbolic");
+                let weak = Rc::downgrade(self);
+                retry.connect_clicked(move |_| {
+                    if let Some(app) = weak.upgrade() {
+                        app.review_saved_invitation(ticket.clone());
+                    }
+                });
+                self.details.append(&retry);
+            }
+        }
+        if transfer.direction == "send" {
+            if let Some(texture) = self.previews.borrow().get(&id) {
+                let picture = gtk::Picture::for_paintable(texture);
+                picture.set_size_request(128, 128);
+                picture.set_halign(gtk::Align::Center);
+                picture.set_content_fit(gtk::ContentFit::Contain);
+                self.details.append(&picture);
+            }
+        }
         let title = gtk::Label::builder()
             .label(
                 transfer

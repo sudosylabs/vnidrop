@@ -467,6 +467,8 @@ impl Composer {
             self.submit_targeted(&app, target, submission);
             return;
         }
+        let preview_source = (submission.sources.len() == 1 && !submission.sources[0].is_directory)
+            .then(|| std::path::PathBuf::from(&submission.sources[0].value));
         let preparation = Preparation::new();
         let metadata = ShareMetadataInput {
             transfer_id: preparation.id,
@@ -495,6 +497,9 @@ impl Composer {
                 composer.cancel.set_sensitive(true);
                 match result {
                     Ok(share) => {
+                        if let Some(source) = preview_source {
+                            app.save_preview(share.transfer_id, source);
+                        }
                         app.selected
                             .replace(Some((share.transfer_id, "send".into())));
                         composer.dialog.set_can_close(true);

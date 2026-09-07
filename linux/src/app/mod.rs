@@ -1,14 +1,19 @@
+mod about;
 mod activity;
 mod composer;
 mod details;
 mod device_layout;
 mod device_transfers;
 mod devices;
+mod diagnostics;
 mod dialogs;
 mod i18n;
 mod navigation;
+mod notifications;
+mod previews;
 mod qr;
 mod receivers;
+mod settings;
 mod widgets;
 
 #[cfg(test)]
@@ -51,8 +56,16 @@ pub(super) struct App {
     busy: Cell<usize>,
     closing: Cell<bool>,
     confirming_close: Cell<bool>,
+    reconfiguring: Cell<bool>,
+    settings_reads: Cell<usize>,
+    notifications: RefCell<vnidrop_gnome::notifications::Tracker>,
+    previews: RefCell<std::collections::BTreeMap<u64, gtk::gdk::Texture>>,
+    preview_ids: RefCell<std::collections::BTreeSet<u64>>,
+    preview_loading: Cell<bool>,
+    notification_target: RefCell<Option<vnidrop_gnome::notifications::Target>>,
     reviewing: Cell<bool>,
     pending: RefCell<VecDeque<gio::File>>,
+    receive_drafts: RefCell<HashMap<u64, dialogs::ReceiveDraft>>,
     rows: RefCell<Vec<details::TransferRow>>,
     detail_fingerprint: RefCell<String>,
     preference_queue: RefCell<VecDeque<Preferences>>,
@@ -193,8 +206,16 @@ impl App {
             busy: Cell::new(0),
             closing: Cell::new(false),
             confirming_close: Cell::new(false),
+            reconfiguring: Cell::new(false),
+            settings_reads: Cell::new(0),
+            notifications: RefCell::new(Default::default()),
+            previews: RefCell::new(Default::default()),
+            preview_ids: RefCell::new(Default::default()),
+            preview_loading: Cell::new(false),
+            notification_target: RefCell::new(None),
             reviewing: Cell::new(false),
             pending: RefCell::new(VecDeque::new()),
+            receive_drafts: RefCell::new(HashMap::new()),
             rows: RefCell::new(Vec::new()),
             detail_fingerprint: RefCell::new(String::new()),
             preference_queue: RefCell::new(VecDeque::new()),
@@ -232,7 +253,10 @@ impl App {
             .set_label(&text("button_retry"));
         app.object::<gtk::MenuButton>("menu")
             .set_tooltip_text(Some(&text("button_more_actions")));
+        app.object::<gtk::Button>("report_error")
+            .set_label(&text("about_bug_report"));
         app.actions();
+        app.setup_notifications();
         for (id, icon, action) in [
             ("requests", "document-send-symbolic", "app.review-requests"),
             ("device_requests", "computer-symbolic", "app.review-devices"),
@@ -375,23 +399,8 @@ impl App {
         self.action("preferences", |app| app.show_preferences());
         self.action("quit", |app| app.request_close());
         self.action("retry", |app| app.initialize());
-        self.action("about", |app| {
-            adw::AboutDialog::builder()
-                .application_name("VniDrop")
-                .application_icon("com.vnidrop.VniDrop")
-                .developer_name("Sudosy Labs")
-                .version(
-                    include_str!("../../../version.properties")
-                        .lines()
-                        .find_map(|line| line.strip_prefix("PRODUCT_VERSION="))
-                        .unwrap_or(env!("CARGO_PKG_VERSION")),
-                )
-                .comments(text("linux_application_description"))
-                .website("https://github.com/vnidrop/vnidrop")
-                .license_type(gtk::License::Apache20)
-                .build()
-                .present(Some(&app.window));
-        });
+        self.action("bug-report", |app| app.show_bug_report());
+        self.action("about", |app| app.show_about());
         let menu = gio::Menu::new();
         let files = gio::Menu::new();
         files.append(Some(&text("linux_send_folder")), Some("app.send-folder"));
@@ -401,6 +410,7 @@ impl App {
         settings.append(Some(&text("nav_saved_devices")), Some("app.devices"));
         settings.append(Some(&text("preferences_title")), Some("app.preferences"));
         settings.append(Some(&text("linux_about")), Some("app.about"));
+        settings.append(Some(&text("about_bug_report")), Some("app.bug-report"));
         menu.append_section(None, &settings);
         menu.append(Some(&text("linux_quit")), Some("app.quit"));
         self.object::<gtk::MenuButton>("menu")
@@ -436,6 +446,8 @@ impl App {
             .set_description(Some(&text("app_starting")));
         self.object::<gtk::Spinner>("spinner").set_visible(true);
         self.object::<gtk::Button>("retry").set_visible(false);
+        self.object::<gtk::Button>("report_error")
+            .set_visible(false);
         self.busy.set(1);
         let profile = self.profile.clone();
         let defaults = self.preferences.borrow().clone();
@@ -455,23 +467,7 @@ impl App {
                 Ok((preferences, session)) => {
                     app.preferences.replace(preferences);
                     app.apply_appearance();
-                    let changes = session.changes();
-                    app.session.replace(Some(session));
-                    app.set_ready(true);
-                    app.refresh();
-                    let weak = Rc::downgrade(&app);
-                    glib::spawn_future_local(async move {
-                        while changes.recv().await.is_ok() {
-                            glib::timeout_future(Duration::from_millis(120)).await;
-                            let Some(app) = weak.upgrade() else {
-                                break;
-                            };
-                            if app.closing.get() {
-                                break;
-                            }
-                            app.refresh();
-                        }
-                    });
+                    app.attach_session(session);
                     app.pump_invitations();
                 }
                 Err(key) => app.startup_error(key),
@@ -481,12 +477,15 @@ impl App {
     }
 
     fn startup_error(&self, key: &str) {
+        self.object::<gtk::Stack>("root")
+            .set_visible_child_name("startup");
         self.object::<adw::StatusPage>("startup")
             .set_title(&text("linux_startup_error"));
         self.object::<adw::StatusPage>("startup")
             .set_description(Some(&text(key)));
         self.object::<gtk::Spinner>("spinner").set_visible(false);
         self.object::<gtk::Button>("retry").set_visible(true);
+        self.object::<gtk::Button>("report_error").set_visible(true);
     }
 
     fn dispatch<T: Send + 'static>(
@@ -497,7 +496,7 @@ impl App {
         let Some(session) = self.session.borrow().clone() else {
             return;
         };
-        if self.closing.get() {
+        if self.closing.get() || self.reconfiguring.get() {
             return;
         }
         self.busy.set(self.busy.get() + 1);
@@ -516,6 +515,9 @@ impl App {
     }
 
     fn refresh(self: &Rc<Self>) {
+        if self.reconfiguring.get() || self.session.borrow().is_none() {
+            return;
+        }
         if self.refreshing.replace(true) {
             self.refresh_again.set(true);
             return;
@@ -528,6 +530,9 @@ impl App {
                     Ok(snapshot) => {
                         app.snapshot.replace(Some(snapshot));
                         app.render();
+                        app.load_previews();
+                        app.update_notifications();
+                        app.open_notification_target();
                     }
                     Err(key) => app.error(key),
                 }
@@ -555,7 +560,7 @@ impl App {
     }
 
     fn request_close(self: &Rc<Self>) {
-        if self.closing.get() || self.confirming_close.replace(true) {
+        if self.reconfiguring.get() || self.closing.get() || self.confirming_close.replace(true) {
             return;
         }
         let app = self.clone();
@@ -586,6 +591,9 @@ impl App {
                 glib::timeout_future(Duration::from_millis(30)).await;
             }
             app.closing.set(true);
+            for id in app.notifications.borrow_mut().withdraw_pending() {
+                app.application.withdraw_notification(&id);
+            }
             app.set_ready(false);
             let session = app.session.borrow_mut().take();
             if let Some(session) = session {

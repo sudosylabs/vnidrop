@@ -7,6 +7,8 @@ pub(super) struct ProgressView {
     label: gtk::Label,
     bar: gtk::ProgressBar,
     spinner: gtk::Spinner,
+    statistics: gtk::Label,
+    rate: std::cell::RefCell<vnidrop_gnome::progress::Rate>,
 }
 
 impl ProgressView {
@@ -24,15 +26,40 @@ impl ProgressView {
         let bar = gtk::ProgressBar::new();
         root.append(&line);
         root.append(&bar);
+        let statistics = gtk::Label::builder().xalign(0.0).wrap(true).build();
+        statistics.add_css_class("dim-label");
+        root.append(&statistics);
         Self {
             root,
             label,
             bar,
             spinner,
+            statistics,
+            rate: Default::default(),
         }
     }
 
     pub fn update(&self, progress: Option<&vnidrop_gnome::progress::Progress>) {
+        let rate = self
+            .rate
+            .borrow_mut()
+            .update(gtk::glib::monotonic_time() as u64 / 1000, progress);
+        self.statistics.set_visible(rate.is_some());
+        if let Some((bytes, seconds)) = rate {
+            let speed = format!("{}/s", gtk::glib::format_size(bytes));
+            let value = seconds
+                .map(|seconds| {
+                    super::i18n::format(
+                        "linux_transfer_rate",
+                        &[
+                            ("rate", &speed),
+                            ("time", &format!("{}:{:02}", seconds / 60, seconds % 60)),
+                        ],
+                    )
+                })
+                .unwrap_or(speed);
+            self.statistics.set_label(&value);
+        }
         self.root.set_visible(progress.is_some());
         let Some(progress) = progress else {
             self.spinner.stop();

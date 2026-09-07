@@ -6,6 +6,8 @@ use super::*;
 mod device_transfers_tests;
 #[path = "navigation_tests.rs"]
 mod navigation_tests;
+#[path = "settings_ui_tests.rs"]
+mod settings_ui_tests;
 #[path = "transfer_details_tests.rs"]
 mod transfer_details_tests;
 
@@ -95,13 +97,21 @@ fn render_window(window: &adw::ApplicationWindow) -> gtk::gdk::Texture {
     window.queue_draw();
     until("screenshot frame", || frames.get() >= 5);
     let paintable = gtk::WidgetPaintable::new(Some(window));
-    let snapshot = gtk::Snapshot::new();
-    paintable.snapshot(
-        &snapshot,
-        f64::from(window.width()),
-        f64::from(window.height()),
-    );
-    let node = snapshot.to_node().expect("rendered window");
+    let node = RefCell::new(None);
+    until("rendered window", || {
+        let snapshot = gtk::Snapshot::new();
+        paintable.snapshot(
+            &snapshot,
+            f64::from(window.width()),
+            f64::from(window.height()),
+        );
+        node.replace(snapshot.to_node());
+        if node.borrow().is_none() {
+            window.queue_draw();
+        }
+        node.borrow().is_some()
+    });
+    let node = node.into_inner().unwrap();
     let renderer = gtk::gsk::CairoRenderer::new();
     renderer.realize(None::<&gtk::gdk::Surface>).unwrap();
     let texture = renderer.render_texture(&node, None);
@@ -130,6 +140,9 @@ fn assert_scannable(window: &adw::ApplicationWindow, ticket: &str) {
 #[test]
 fn native_draft_approval_receive_and_shutdown() {
     adw::init().expect("GTK display (use xvfb-run for headless testing)");
+    gio::resources_register_include!("icons.gresource").expect("compiled icon resources");
+    gtk::IconTheme::for_display(&gtk::gdk::Display::default().unwrap())
+        .add_resource_path("/com/vnidrop/VniDrop/icons");
     gtk::Settings::default()
         .unwrap()
         .set_gtk_enable_animations(false);
@@ -669,10 +682,8 @@ fn native_draft_approval_receive_and_shutdown() {
     preview.snapshot.replace(Some(fixture.clone()));
     preview.render();
     let progress_root = preview.receiver_progress.borrow()[0].1.root.clone();
-    let bar = progress_root
-        .last_child()
-        .unwrap()
-        .downcast::<gtk::ProgressBar>()
+    let bar = std::iter::successors(progress_root.first_child(), |widget| widget.next_sibling())
+        .find_map(|widget| widget.downcast::<gtk::ProgressBar>().ok())
         .unwrap();
     assert_eq!(bar.fraction(), 13.0 / transfer.total_size as f64);
     fixture.events.insert(0, event(3, "progress", 20));
@@ -752,6 +763,7 @@ fn native_draft_approval_receive_and_shutdown() {
     preview.window.visible_dialog().unwrap().close();
     until("fallback closed", || preview.qr.borrow().is_none());
     navigation_tests::review_routes_to_the_pending_decision(&preview);
+    navigation_tests::notification_routes_after_modal_closes(&preview);
     preview.window.destroy();
 
     app.window.set_default_size(390, 700);
@@ -778,4 +790,5 @@ fn native_draft_approval_receive_and_shutdown() {
     app.request_close();
     until("window closed", || !app.window.is_visible());
     assert!(app.session.borrow().is_none());
+    settings_ui_tests::settings_restart_and_preview_workflow(root.path());
 }

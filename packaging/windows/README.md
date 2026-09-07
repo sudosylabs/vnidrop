@@ -89,7 +89,8 @@ resource entries. The original app PRI and XAML files remain intact.
 The manifest declares VniDrop's notification activator and matching COM server.
 Packaging rejects missing or mismatched declarations. The MSIX acceptance script
 invokes the notification COM contract against the running app and after closing it;
-the extracted test manifest routes these activations to an isolated profile.
+only the latter check is skipped on GitHub-hosted runners, as described below.
+The test uses a clean account's default profile without changing the manifest.
 Actual notification delivery and user clicks remain interactive acceptance checks.
 
 ## First Store release
@@ -166,7 +167,8 @@ preferences, history, received files, uninstall and file-default preservation.
 Omitting `-LegacyInstaller` uses a small synthetic MSI for local diagnostics;
 the release workflow always supplies the published installer. The MSIX test uses
 Developer Mode to register its extracted payload temporarily, then verifies
-localized startup, warm/cold notification COM activation and removal.
+localized startup, warm notification COM activation and removal. Cold notification
+COM activation also runs outside GitHub-hosted runners.
 The MSIX test also requires an absent default VniDrop profile. It uses that profile
 for cold activation without changing the manifest's exact SDK activation argument,
 then moves its newly created profile under `build/windows/msix-test` for inspection.
@@ -180,12 +182,31 @@ Neither test signs or changes the release MSIX. Store-delivered upgrades, real
 notification delivery/clicks and existing user profiles on Windows 10/11 remain
 release acceptance checks.
 
-Cold notification activation is still a release blocker: the hosted-runner check
-currently returns `CO_E_SERVER_EXEC_FAILURE`. Verify the release package from a
-fully logged-in standard Windows test account with no existing VniDrop profile
-before treating notification activation as accepted. Launching a secondary account
-with credentials is insufficient: package activation requires its desktop logon
-session and otherwise returns `0x80070520`. The CI assertion remains enabled.
+The script skips only cold notification COM activation when both
+`GITHUB_ACTIONS=true` and `RUNNER_ENVIRONMENT=github-hosted`. It reports the skip in
+the log and job summary; all other package checks still fail normally. Local,
+self-hosted, and unrecognized environments retain the cold activation assertions.
+Run `powershell.exe -NoProfile -File .\packaging\windows\test-msix-runner-policy.ps1`
+to verify the environment gate without installing or launching an app.
+
+The [hosted-runner failure](https://github.com/sudosylabs/vnidrop/actions/runs/34055161962/attempts/2)
+is a DCOM registration timeout (`CO_E_SERVER_EXEC_FAILURE`, event 10010) after
+the app exits. Packaged startup and warm notification activation pass at medium
+integrity. GitHub's Windows runners run as administrators with UAC disabled;
+filtering the caller's token does not resolve this cold DCOM launch failure.
+Launching a secondary account with credentials also failed package activation
+with `0x80070520`, without that account's interactive desktop logon. The exact
+runner-side cause remains unresolved; the skip is based on these observed failures.
+
+Local verification on 7 September 2026, using commit `871eceb`, passed warm and
+cold COM activation and a real click on a previously delivered test notification
+after the app closed. This ran in an interactive medium-integrity session on
+Windows build `26200.9278` (25H2), with the production registration and an isolated
+profile selected by a build-only default-profile override. The resulting WinUI
+window responded to navigation. This supports an environment-specific runner
+limitation; it does not replace testing each release package on supported Windows
+versions. For release acceptance, run the full command above on a clean interactive
+test account and verify an actual notification click after closing the app.
 
 For diagnosing a failing bootstrapper, add `-MsiOnly` to the installer acceptance
 command. This tests the embedded MSI directly and explicitly leaves EXE
@@ -193,6 +214,9 @@ installation unverified. The release workflow always tests the full EXE.
 
 Microsoft references:
 
+- [GitHub-hosted runner privileges](https://docs.github.com/en/actions/reference/runners/github-hosted-runners#administrative-privileges)
+- [GitHub runner environment variables](https://docs.github.com/en/actions/reference/workflows-and-actions/variables#default-environment-variables)
+- [Windows App SDK notification requirements](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/app-notifications-quickstart)
 - [MSIX Store package requirements](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements)
 - [Manual desktop MSIX packaging](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-manual-conversion)
 - [MakeAppx](https://learn.microsoft.com/en-us/windows/msix/package/create-app-package-with-makeappx-tool)

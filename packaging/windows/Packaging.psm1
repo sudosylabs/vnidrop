@@ -41,6 +41,15 @@ function Assert-NotificationRegistration([xml]$Manifest) {
     }
 }
 
+function Get-ColdNotificationTestSkipReason(
+    [string]$GitHubActions = $env:GITHUB_ACTIONS,
+    [string]$RunnerEnvironment = $env:RUNNER_ENVIRONMENT
+) {
+    if ($GitHubActions -eq 'true' -and $RunnerEnvironment -eq 'github-hosted') {
+        return 'Cold notification COM activation is skipped on GitHub-hosted Windows runners: DCOM startup times out in that environment even with a restricted medium-integrity caller. Run test-msix.ps1 on a clean interactive Windows account for cold-start acceptance. See packaging/windows/README.md.'
+    }
+}
+
 function Get-PackagingDotnet {
     $command = Get-Command dotnet -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
@@ -74,4 +83,4 @@ function Get-PackagingWix {
     return @{ Executable = $wix; BalExtension = $extension }
 }
 
-Export-ModuleMember -Function Assert-NativeAppImage, Assert-NotificationRegistration, Get-PackagingDotnet, Get-PackagingWix
+Export-ModuleMember -Function Assert-NativeAppImage, Assert-NotificationRegistration, Get-ColdNotificationTestSkipReason, Get-PackagingDotnet, Get-PackagingWix

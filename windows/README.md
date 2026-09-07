@@ -180,11 +180,14 @@ the existing Store and MSI upgrade identities and registering `.vnd` at installa
 The separate Native Windows workflow still provides a development publish folder.
 The MSIX declares the app-specific notification COM activator. Package acceptance
 checks cover running-instance and cold-start notification activation through the
-Windows notification COM contract, alongside packaged startup. Real notification
+Windows notification COM contract, alongside packaged startup. GitHub-hosted
+runners skip only cold-start activation and report that limitation explicitly;
+local and self-hosted runs retain the check. Real notification
 delivery/clicks, Windows share-sheet integration, and the full Windows 10/11
 accessibility and cross-device acceptance matrix still require interactive testing.
-The hosted-runner cold-notification check is not yet passing; see the
-[package acceptance blocker](../packaging/windows/README.md) before releasing.
+Local cold activation and a real notification click passed on 7 September 2026;
+see the [package acceptance guidance](../packaging/windows/README.md) for evidence
+and the remaining release checks.
 Unpackaged native builds support double-click activation after the explicit registration above;
 command-line `.vnd` activation and the in-app picker also work without registration.
 

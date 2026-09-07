@@ -153,21 +153,30 @@ try {
     [void]$process.CloseMainWindow()
     if (!$process.WaitForExit(15000)) { throw 'Packaged WinUI app did not shut down cleanly' }
     $process = $null
-    Write-Host 'Testing notification activation after the app exits.'
-    [VniDropPackageTest]::Notify($notificationClsid, $appId)
-    $deadline.Restart()
-    do {
-        Start-Sleep -Milliseconds 200
-        $instances = @(Get-Process VniDrop -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq (Join-Path $layout 'VniDrop.exe') })
-        if ($instances.Count -eq 1) { $process = $instances[0] }
-    } while ((!$process -or $process.MainWindowHandle -eq 0) -and $deadline.Elapsed.TotalSeconds -lt 30)
-    if (!$process -or $instances.Count -ne 1 -or $process.MainWindowHandle -eq 0 -or !$process.Responding) { throw 'Cold notification activation did not open one responsive WinUI window' }
-    if ([StandardUserProcess]::IntegrityLevel($process.Id) -ne 0x2000) { throw 'Cold notification activation did not retain standard-user integrity' }
-    [VniDropPackageTest]::Notify($notificationClsid, $appId)
-    [void]$process.CloseMainWindow()
-    if (!$process.WaitForExit(15000)) { throw 'Notification-activated app did not shut down cleanly' }
-    $process = $null
-    Write-Host 'PASS: MSIX registration, Store identity, .vnd declaration, WinUI resources, localized startup, and warm/cold notification COM activation.'
+    Write-Host 'PASS: MSIX registration, Store identity, .vnd declaration, WinUI resources, localized startup, warm notification COM activation, and clean shutdown.'
+    $coldNotificationSkipReason = Get-ColdNotificationTestSkipReason
+    if ($coldNotificationSkipReason) {
+        Write-Warning $coldNotificationSkipReason
+        if ($env:GITHUB_STEP_SUMMARY) {
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- SKIPPED: $coldNotificationSkipReason"
+        }
+    } else {
+        Write-Host 'Testing notification activation after the app exits.'
+        [VniDropPackageTest]::Notify($notificationClsid, $appId)
+        $deadline.Restart()
+        do {
+            Start-Sleep -Milliseconds 200
+            $instances = @(Get-Process VniDrop -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq (Join-Path $layout 'VniDrop.exe') })
+            if ($instances.Count -eq 1) { $process = $instances[0] }
+        } while ((!$process -or $process.MainWindowHandle -eq 0) -and $deadline.Elapsed.TotalSeconds -lt 30)
+        if (!$process -or $instances.Count -ne 1 -or $process.MainWindowHandle -eq 0 -or !$process.Responding) { throw 'Cold notification activation did not open one responsive WinUI window' }
+        if ([StandardUserProcess]::IntegrityLevel($process.Id) -ne 0x2000) { throw 'Cold notification activation did not retain standard-user integrity' }
+        [VniDropPackageTest]::Notify($notificationClsid, $appId)
+        [void]$process.CloseMainWindow()
+        if (!$process.WaitForExit(15000)) { throw 'Notification-activated app did not shut down cleanly' }
+        $process = $null
+        Write-Host 'PASS: cold notification COM activation, single responsive window, standard-user integrity, and clean shutdown.'
+    }
 } catch {
     Get-Process VniDrop -ErrorAction SilentlyContinue | ForEach-Object {
         try { Write-Host "Activation failure app PID $($_.Id), integrity $([StandardUserProcess]::IntegrityLevel($_.Id))" }

@@ -44,35 +44,38 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.rememberPickedShareSourceAdapter
-import com.vnidrop.app.feature.app.AppViewModel
 import com.vnidrop.app.feature.app.AppGraphViewModel
+import com.vnidrop.app.feature.app.AppViewModel
 import com.vnidrop.app.feature.approvals.ApprovalModalHost
-import com.vnidrop.app.feature.receive.ReceiveRoute
 import com.vnidrop.app.feature.receive.ReceiveFloatingAction
-import com.vnidrop.app.feature.receive.ReceiveViewModel
 import com.vnidrop.app.feature.receive.ReceiveMethod
+import com.vnidrop.app.feature.receive.ReceiveRoute
+import com.vnidrop.app.feature.receive.ReceiveViewModel
 import com.vnidrop.app.feature.saveddevices.PairingPromptHost
 import com.vnidrop.app.feature.saveddevices.SavedDevicesRoute
 import com.vnidrop.app.feature.saveddevices.SavedDevicesViewModel
 import com.vnidrop.app.feature.saveddevices.TargetedOfferModalHost
-import com.vnidrop.app.feature.send.SendRoute
 import com.vnidrop.app.feature.send.SendFloatingAction
+import com.vnidrop.app.feature.send.SendRoute
 import com.vnidrop.app.feature.send.SendViewModel
-import com.vnidrop.app.feature.send.TransferDraftViewModel
 import com.vnidrop.app.feature.send.TransferDraftHost
+import com.vnidrop.app.feature.send.TransferDraftViewModel
 import com.vnidrop.app.feature.settings.SettingsRoute
+import com.vnidrop.app.feature.settings.SettingsSection
 import com.vnidrop.app.feature.settings.SettingsViewModel
+import com.vnidrop.app.feature.settings.title
 import com.vnidrop.app.platform.PlatformSystemAppearance
 import com.vnidrop.app.ui.feedback.VniDropSnackbarHost
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
+import com.vnidrop.app.ui.navigation.AndroidMainNavigation
 import com.vnidrop.app.ui.navigation.AppDestination
+import com.vnidrop.app.ui.navigation.primaryNavigationItems
 import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.platform.contentWindowClassFor
 import com.vnidrop.app.ui.platform.usesMobilePresentation
 import com.vnidrop.app.ui.shell.AppShell
 import com.vnidrop.app.ui.shell.ScreenScrollContainer
-import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import com.vnidrop.app.ui.theme.VniDropTheme
 import com.vnidrop.app.ui.theme.rememberResolvedDarkTheme
@@ -155,6 +158,8 @@ fun App(
 	}
 	val appState by appViewModel.state.collectAsStateWithLifecycle()
 	val sendState by sendViewModel.state.collectAsStateWithLifecycle()
+	val invitationDraftState by invitationDraftViewModel.state.collectAsStateWithLifecycle()
+	val targetedDraftState by targetedDraftViewModel.state.collectAsStateWithLifecycle()
 	val sendCoreState by sendViewModel.coreState.collectAsStateWithLifecycle()
 	val receiveState by receiveViewModel.state.collectAsStateWithLifecycle()
 	val receiveCoreState by receiveViewModel.coreState.collectAsStateWithLifecycle()
@@ -218,7 +223,7 @@ fun App(
 	}
 	PlatformSystemAppearance(darkTheme)
 	CompositionLocalProvider(LocalUiPlatform provides dependencies.environment.uiPlatform) {
-		VniDropTheme(isDarkTheme = darkTheme) {
+		VniDropTheme(isDarkTheme = darkTheme, useDynamicColors = appState.useDynamicColors) {
 			Box(
 				modifier = Modifier
 					.fillMaxSize()
@@ -244,55 +249,83 @@ fun App(
 						usesFloatingActions &&
 						!receiveState.isAcquisitionOpen &&
 						receiveCoreState.transfers.any { it.direction == TransferDirection.Receive }
+					val page: @Composable (AppDestination) -> Unit = { destination ->
+						when (destination) {
+							AppDestination.Send -> SendRoute(
+								sendViewModel,
+								invitationDraftViewModel,
+								username,
+								windowClass,
+								messages = graph.messages,
+								onTransferCreated = { creation ->
+									if (creation.awaitsRemoteApproval) settingsViewModel.promptForBackgroundNotifications()
+								},
+							)
+							AppDestination.Receive -> ReceiveRoute(receiveViewModel, windowClass, graph.messages)
+							AppDestination.SavedDevices -> SavedDevicesRoute(
+								savedDevicesViewModel,
+								targetedDraftViewModel,
+								windowClass,
+							)
+							AppDestination.Settings -> ScreenScrollContainer(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = if (dependencies.environment.uiPlatform == UiPlatform.Android && settingsState.selectedSection == SettingsSection.Overview) 0.dp else 16.dp, vertical = 12.dp)) {
+								SettingsRoute(settingsViewModel, windowClass)
+							}
+						}
+					}
+					if (dependencies.environment.uiPlatform == UiPlatform.Android) {
+						val details = appState.destination == AppDestination.Send && sendCoreState.transfers.any { it.transferId == sendState.selectedTransferId }
+						val settingsDetail = appState.destination == AppDestination.Settings && settingsState.selectedSection != SettingsSection.Overview
+						val draftOpen = invitationDraftState.isOpen || targetedDraftState.isOpen
+						AndroidMainNavigation(
+							selected = appState.destination,
+							title = if (settingsDetail) settingsState.selectedSection.title() else stringResource(primaryNavigationItems.first { it.destination == appState.destination }.label),
+							showTopBar = !details,
+							showNavigation = !details && !settingsDetail,
+							swipeEnabled = !details && !settingsDetail && !draftOpen && !receiveState.isAcquisitionOpen,
+							onBack = if (settingsDetail) ({ settingsViewModel.selectSection(if (settingsState.selectedSection == SettingsSection.BugReport) SettingsSection.About else SettingsSection.Overview) }) else null,
+							onSelected = appViewModel::selectDestination,
+							floatingAction = {
+								if (!details && appState.destination == AppDestination.Send) SendFloatingAction(onClick = { invitationDraftViewModel.openInvitation(username) })
+								if (appState.destination == AppDestination.Receive && !receiveState.isAcquisitionOpen) ReceiveFloatingAction(receiveViewModel::openAcquisition)
+							},
+							snackbarHost = { if (!draftOpen && !receiveState.isAcquisitionOpen) VniDropSnackbarHost(graph.messages) },
+							content = page,
+						)
+					} else {
 					AppShell(
 						modifier = Modifier.fillMaxSize(),
 						selectedDestination = appState.destination,
 						windowClass = windowClass,
 						uiPlatform = dependencies.environment.uiPlatform,
 						mainContentTopStartRadius = windowContentTopStartRadius,
+						showNavigation = !(appState.destination == AppDestination.Send && sendCoreState.transfers.any { it.transferId == sendState.selectedTransferId }),
 						useNativeWindowBackdrop = useNativeWindowBackdrop,
 						onDestinationSelected = appViewModel::selectDestination,
 						overlay = {
-							VniDropSnackbarHost(graph.messages, Modifier.align(Alignment.BottomCenter))
+							if (dependencies.environment.uiPlatform != UiPlatform.Android || (!invitationDraftState.isOpen && !targetedDraftState.isOpen)) {
+								VniDropSnackbarHost(graph.messages, Modifier.align(Alignment.BottomCenter))
+							}
 						},
 						floatingAction = if (showSendAction) {
 							{
 								SendFloatingAction(
 									onClick = { invitationDraftViewModel.openInvitation(username) },
-									modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+									modifier = Modifier.align(Alignment.BottomEnd),
 								)
 							}
 						} else if (showReceiveAction) {
 							{
 								ReceiveFloatingAction(
 									onClick = receiveViewModel::openAcquisition,
-									modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+									modifier = Modifier.align(Alignment.BottomEnd),
 								)
 							}
 						} else {
 							null
 						},
 					) {
-						when (appState.destination) {
-							AppDestination.Send -> SendRoute(
-								sendViewModel,
-								invitationDraftViewModel,
-								username,
-								windowClass,
-								onTransferCreated = { creation ->
-									if (creation.awaitsRemoteApproval) settingsViewModel.promptForBackgroundNotifications()
-								},
-							)
-							AppDestination.Receive -> ReceiveRoute(receiveViewModel, windowClass)
-							AppDestination.SavedDevices -> SavedDevicesRoute(
-								savedDevicesViewModel,
-								targetedDraftViewModel,
-								windowClass,
-							)
-							AppDestination.Settings -> ScreenScrollContainer {
-								SettingsRoute(settingsViewModel, windowClass)
-							}
-						}
+						page(appState.destination)
+					}
 					}
 					ApprovalModalHost(
 						state = approvalState,
@@ -316,7 +349,7 @@ fun App(
 							onEnableNotifications = settingsViewModel::enableNotificationsFromContext,
 						)
 					}
-					TransferDraftHost(targetedDraftViewModel, windowClass) { creation ->
+					TransferDraftHost(targetedDraftViewModel, windowClass, graph.messages) { creation ->
 						if (creation.awaitsRemoteApproval) settingsViewModel.promptForBackgroundNotifications()
 					}
 				}

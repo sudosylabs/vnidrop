@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="scanner_allow_camera">Разрешить камеру</string>
+    <string name="scanner_open_settings">Открыть настройки</string>
+    <string name="scanner_flash_on">Включить фонарик</string>
+    <string name="scanner_flash_off">Выключить фонарик</string>
+    <string name="scanner_unavailable">Не удалось открыть камеру. Закройте другие приложения камеры и повторите попытку.</string>
+    <string name="appearance_dynamic_colors">Использовать системные цвета</string>
+    <string name="appearance_dynamic_colors_description">Подбирать цвета по обоям Android.</string>
     <string name="about_bug_report">Сообщить об ошибке</string>
     <string name="about_description">VniDrop передаёт файлы и папки напрямую с одного устройства на другое по сети, не загружая их в какой-либо хостинг-сервис. Не нужно создавать учётную запись, и после завершения ни одна копия вашей передачи не остаётся в облаке.</string>
     <string name="about_is_direct">Прямая передача с устройства на устройство — ваши файлы попадают напрямую к получателю.</string>
@@ -14,7 +21,7 @@
     <string name="about_isnt_title">Чем VniDrop не является</string>
     <string name="about_license_label">Лицензия</string>
     <string name="about_privacy">Политика конфиденциальности</string>
-    <string name="about_privacy_capability">Приглашения — это ключи доступа. Относитесь к QR-коду, NFC-метке или файлу .vnd как к частной ссылке доступа и делитесь ими только с теми, для кого они предназначены, особенно при варианте «Любой, у кого есть эта передача».</string>
+    <string name="about_invitation_privacy">Приглашения — это ключи доступа. Относитесь к QR-коду или файлу .vnd как к частной ссылке доступа и делитесь ими только с теми, для кого они предназначены, особенно при варианте «Любой, у кого есть эта передача».</string>
     <string name="about_privacy_deny">Отказ по умолчанию — VniDrop предоставляет только содержимое активной передачи и отклоняет неизвестные запросы.</string>
     <string name="about_privacy_local">Полученные файлы сохраняются на вашем устройстве и никогда не перезаписывают существующий файл.</string>
     <string name="about_privacy_policy_label">Политика конфиденциальности</string>
@@ -77,7 +84,6 @@
     <string name="button_share_file">Начать общий доступ</string>
     <string name="button_sharing_file">Подготовка передачи…</string>
     <string name="button_show_in_files">Показать в Файлах</string>
-    <string name="button_write_nfc">Записать на NFC-метку</string>
     <string name="device_model_title">Модель устройства</string>
     <string name="device_name_title">Имя устройства</string>
     <string name="error_camera">Для сканирования QR-кода требуется доступ к камере.</string>
@@ -91,7 +97,6 @@
     <string name="error_invitation_empty">Это приглашение пустое. Попробуйте открыть его снова.</string>
     <string name="error_missing_native_library">В этой сборке отсутствует нативная библиотека VniDrop.</string>
     <string name="error_network">VniDrop не удалось связаться с отправителем. Проверьте подключение на обоих устройствах и повторите попытку.</string>
-    <string name="error_nfc">Не удалось использовать эту NFC-метку. Попробуйте другую.</string>
     <string name="error_permission">Отправитель не одобрил эту передачу, или она была отклонена.</string>
     <string name="error_repository">VniDrop не удалось сохранить данные передачи на этом устройстве.</string>
     <string name="error_selection_failed">Не удалось открыть выбранный объект. Попробуйте выбрать его снова.</string>
@@ -165,18 +170,15 @@
     <string name="receive_delete_history_description">%1$s будет удалён из истории VniDrop. Загруженный файл останется на этом устройстве.</string>
     <string name="receive_delete_history_item">Удалить из истории получения</string>
     <string name="receive_delete_history_title">Удалить из истории?</string>
-    <string name="receive_empty_body">Откройте приглашение VniDrop, отсканируйте QR-код или поднесите NFC-метку.</string>
+    <string name="receive_invitation_body">Откройте файл приглашения VniDrop или отсканируйте QR-код.</string>
     <string name="receive_empty_title">Пока ничего не получено</string>
     <string name="receive_history_cleared">История получения очищена.</string>
     <string name="receive_history_title">История</string>
     <string name="receive_method_file">Открыть приглашение .vnd</string>
     <string name="receive_method_file_description">Выберите приглашение, сохранённое или отправленное на это устройство.</string>
-    <string name="receive_method_nfc">Прочитать NFC-метку</string>
-    <string name="receive_method_nfc_description">Поднесите это устройство к метке приглашения отправителя.</string>
     <string name="receive_method_scan">Сканировать QR-код</string>
     <string name="receive_method_scan_description">Используйте камеру, чтобы отсканировать код VniDrop отправителя.</string>
     <string name="receive_new_subtitle">Передачи, полученные на этом устройстве.</string>
-    <string name="receive_nfc_waiting">Поднесите к NFC-метке…</string>
     <string name="receive_open_files_failed">Не удалось открыть VniDrop в Файлах.</string>
     <string name="receive_review_title">Проверить передачу</string>
     <string name="receive_title">Получить</string>
@@ -215,7 +217,7 @@
     <string name="send_access_title">Кто может это получить?</string>
     <string name="send_choose_file_body">Выберите файлы или папку на этом устройстве. Вы сможете проверить выбор перед созданием передачи.</string>
     <string name="send_choose_file_title">Выберите, чем поделиться</string>
-    <string name="send_empty_body">Создайте передачу, решите, кто может её получить, затем пригласите этих людей с помощью QR-кода, NFC-метки или файла приглашения.</string>
+    <string name="send_invitation_body">Создайте передачу, решите, кто может её получить, затем пригласите этих людей с помощью QR-кода или файла приглашения.</string>
     <string name="send_empty_title">Пока ничем не поделились</string>
     <string name="send_file_size_unknown">Размер недоступен</string>
     <string name="send_folder_label">Папка</string>
@@ -291,9 +293,6 @@
     <string name="transfer_event_updated">Передача обновлена</string>
     <string name="transfer_invitation_saved">Приглашение сохранено.</string>
     <string name="transfer_nearby_device">Устройство поблизости</string>
-    <string name="transfer_nfc_unavailable">Запись NFC-меток недоступна на этом устройстве.</string>
-    <string name="transfer_nfc_waiting">Поднесите устройство к записываемой NFC-метке.</string>
-    <string name="transfer_nfc_written">Приглашение записано на NFC-метку.</string>
     <string name="transfer_no_activity">Пока нет активности для отображения.</string>
     <string name="transfer_no_receivers">Никто ещё не запросил эту передачу.</string>
     <string name="transfer_receiver_accepted">Одобрено — ожидание завершения</string>

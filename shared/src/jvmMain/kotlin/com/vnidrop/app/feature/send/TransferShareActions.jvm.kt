@@ -12,7 +12,6 @@ import java.io.File
 actual fun rememberTransferShareActions(): TransferShareActions = remember {
 	object : TransferShareActions {
 		override val canUseNativeShare = false
-		override val nfcAvailability = NfcShareAvailability.Hidden
 
 		override fun exportInvitation(ticket: String, transferName: String, onResult: (Result<Unit>) -> Unit) {
 			EventQueue.invokeLater {
@@ -33,11 +32,6 @@ actual fun rememberTransferShareActions(): TransferShareActions = remember {
 		override fun shareInvitation(ticket: String, transferName: String, onResult: (Result<Unit>) -> Unit) {
 			onResult(Result.failure(UnsupportedOperationException("System sharing is unavailable on this desktop")))
 		}
-
-		override fun writeInvitationToNfc(ticket: String, onResult: (Result<Unit>) -> Unit) {
-			onResult(Result.failure(UnsupportedOperationException("NFC is unavailable on desktop")))
-		}
-		override fun cancelNfcWrite() = Unit
 	}
 }
 

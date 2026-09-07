@@ -2,9 +2,9 @@ package com.vnidrop.app.feature.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vnidrop.app.PlatformEnvironment
 import com.vnidrop.app.AppDependencies
 import com.vnidrop.app.AppGraph
+import com.vnidrop.app.PlatformEnvironment
 import com.vnidrop.app.core.CoreGateway
 import com.vnidrop.app.logging.AppLogger
 import com.vnidrop.app.preferences.PreferencesRepository
@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 data class AppState(
 	val destination: AppDestination = AppDestination.Send,
 	val themeMode: ThemeMode = ThemeMode.System,
+	val useDynamicColors: Boolean = false,
 	/** True after the first core initialize attempt finishes (success or failure). */
 	val startupSettled: Boolean = false,
 )
@@ -52,7 +53,7 @@ class AppViewModel(
 		}
 		viewModelScope.launch {
 			preferencesRepository.preferences.collect { preferences ->
-				_state.update { it.copy(themeMode = preferences.themeMode) }
+				_state.update { it.copy(useDynamicColors = preferences.useDynamicColors, themeMode = preferences.themeMode) }
 			}
 		}
 	}

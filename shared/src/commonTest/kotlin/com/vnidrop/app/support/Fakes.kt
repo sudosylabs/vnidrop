@@ -1,9 +1,9 @@
 package com.vnidrop.app.support
 
 import com.vnidrop.app.core.CoreGateway
-import com.vnidrop.app.core.CoreStorageUsageModel
 import com.vnidrop.app.core.CoreSignal
 import com.vnidrop.app.core.CoreState
+import com.vnidrop.app.core.CoreStorageUsageModel
 import com.vnidrop.app.core.DeviceRelationshipModel
 import com.vnidrop.app.core.FileSystemService
 import com.vnidrop.app.core.FolderAccessStatus
@@ -14,26 +14,26 @@ import com.vnidrop.app.core.PickedShareSourceAdapter
 import com.vnidrop.app.core.ReceiveFolder
 import com.vnidrop.app.core.ReceivedArtifactModel
 import com.vnidrop.app.core.ReceivedStorageInspection
+import com.vnidrop.app.core.ReceiverRequestModel
 import com.vnidrop.app.core.RelaySettings
 import com.vnidrop.app.core.RuntimeObligationFactsModel
-import com.vnidrop.app.core.ReceiverRequestModel
 import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.core.Share
 import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.TargetedOfferResponseModel
 import com.vnidrop.app.core.TargetedPreparationStopOutcomeModel
-import com.vnidrop.app.core.TargetedTransferPreparationGateway
 import com.vnidrop.app.core.TargetedTransferModel
+import com.vnidrop.app.core.TargetedTransferPreparationGateway
 import com.vnidrop.app.core.TicketInspectionModel
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.TransferStatus
+import com.vnidrop.app.feature.send.FilePreviewRepository
 import com.vnidrop.app.notifications.LocalNotification
 import com.vnidrop.app.notifications.LocalNotificationService
 import com.vnidrop.app.notifications.NotificationPermission
 import com.vnidrop.app.preferences.AppPreferences
 import com.vnidrop.app.preferences.PreferencesRepository
-import com.vnidrop.app.feature.send.FilePreviewRepository
 import com.vnidrop.app.ui.theme.ThemeMode
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -410,6 +410,7 @@ class FakePreferencesRepository(
 	}
 	override suspend fun setReceiveFolder(folder: ReceiveFolder) { mutablePreferences.value = mutablePreferences.value.copy(receiveFolder = folder) }
 	override suspend fun resetReceiveFolder() = Unit
+	override suspend fun setDynamicColors(enabled: Boolean) { mutablePreferences.value = mutablePreferences.value.copy(useDynamicColors = enabled) }
 	override suspend fun setThemeMode(mode: ThemeMode) { mutablePreferences.value = mutablePreferences.value.copy(themeMode = mode) }
 	override suspend fun setNotificationsEnabled(enabled: Boolean) { mutablePreferences.value = mutablePreferences.value.copy(notificationsEnabled = enabled) }
 	override suspend fun setRelaySettings(settings: RelaySettings) {

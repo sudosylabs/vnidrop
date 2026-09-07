@@ -9,23 +9,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vnidrop.app.core.RelayMode
 import com.vnidrop.app.ui.icons.AppIcon
+import com.vnidrop.app.ui.navigation.LocalRootScaffold
 import com.vnidrop.app.ui.theme.ThemeMode
 import org.jetbrains.compose.resources.stringResource
 import vnidrop.shared.generated.resources.Res
+import vnidrop.shared.generated.resources.about_title
+import vnidrop.shared.generated.resources.appearance_dark_mode
+import vnidrop.shared.generated.resources.appearance_light_mode
+import vnidrop.shared.generated.resources.appearance_system_mode
+import vnidrop.shared.generated.resources.appearance_title
 import vnidrop.shared.generated.resources.notifications_title
 import vnidrop.shared.generated.resources.preferences_title
 import vnidrop.shared.generated.resources.relay_mode_automatic
 import vnidrop.shared.generated.resources.relay_mode_custom
 import vnidrop.shared.generated.resources.relay_mode_custom_direct_fallback
 import vnidrop.shared.generated.resources.relay_mode_local_only
-import vnidrop.shared.generated.resources.settings_title
 import vnidrop.shared.generated.resources.settings_network_title
+import vnidrop.shared.generated.resources.settings_title
 import vnidrop.shared.generated.resources.storage_title
-import vnidrop.shared.generated.resources.about_title
-import vnidrop.shared.generated.resources.appearance_dark_mode
-import vnidrop.shared.generated.resources.appearance_light_mode
-import vnidrop.shared.generated.resources.appearance_system_mode
-import vnidrop.shared.generated.resources.appearance_title
 
 @Composable
 internal fun SettingsOverview(
@@ -33,7 +34,7 @@ internal fun SettingsOverview(
 	onSectionSelected: (SettingsSection) -> Unit,
 ) {
 	Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-		Text(
+		if (!LocalRootScaffold.current) Text(
 			stringResource(Res.string.settings_title),
 			style = MaterialTheme.typography.headlineSmall,
 			fontWeight = FontWeight.Bold,

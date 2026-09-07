@@ -1,12 +1,14 @@
 package com.vnidrop.app.feature.send
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -15,15 +17,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +41,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -40,6 +48,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.CoreEventModel
 import com.vnidrop.app.core.ReceiverDeliveryStatus
 import com.vnidrop.app.core.ReceiverRequestModel
@@ -47,14 +56,15 @@ import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.isDesktop
 import com.vnidrop.app.ui.components.AppContextMenuItem
-import com.vnidrop.app.ui.components.PillTone
 import com.vnidrop.app.ui.components.FeatureEmptyState
+import com.vnidrop.app.ui.components.PillTone
 import com.vnidrop.app.ui.components.PlatformContextMenu
 import com.vnidrop.app.ui.components.PrimaryButton
 import com.vnidrop.app.ui.components.ProgressRow
 import com.vnidrop.app.ui.components.StatusPill
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
+import com.vnidrop.app.ui.navigation.LocalRootScaffold
 import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.platform.usesMobilePresentation
 import com.vnidrop.app.ui.state.TransferProgress
@@ -64,18 +74,18 @@ import com.vnidrop.app.ui.state.displayNameForStatus
 import com.vnidrop.app.ui.state.formatBytes
 import com.vnidrop.app.ui.state.progressForTransfer
 import com.vnidrop.app.ui.theme.LocalVniDropColors
-import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.decodeToImageBitmap
+import org.jetbrains.compose.resources.stringResource
 import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.button_create_new_transfer
 import vnidrop.shared.generated.resources.button_delete_transfer
 import vnidrop.shared.generated.resources.button_more_actions
-import vnidrop.shared.generated.resources.send_empty_body
+import vnidrop.shared.generated.resources.send_invitation_body
 import vnidrop.shared.generated.resources.send_empty_title
 import vnidrop.shared.generated.resources.send_new_transfer_description
 import vnidrop.shared.generated.resources.send_new_transfer_title
-import vnidrop.shared.generated.resources.send_title
 import vnidrop.shared.generated.resources.send_stop_sharing
+import vnidrop.shared.generated.resources.send_title
 import vnidrop.shared.generated.resources.send_transfers_title
 import vnidrop.shared.generated.resources.transfer_share_title
 
@@ -84,13 +94,14 @@ internal fun SendFloatingAction(onClick: () -> Unit, modifier: Modifier = Modifi
 	FloatingActionButton(
 		onClick = onClick,
 		modifier = modifier,
-		containerColor = LocalVniDropColors.current.brandButton,
-		contentColor = Color.White,
+		containerColor = MaterialTheme.colorScheme.primaryContainer,
+		contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
 	) {
 		PlatformIcon(AppIcon.Add, contentDescription = stringResource(Res.string.send_new_transfer_description))
 	}
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TransferCatalog(
 	transfers: List<Transfer>,
@@ -103,55 +114,79 @@ internal fun TransferCatalog(
 	onShare: (ULong) -> Unit = {},
 	onStopSharing: (ULong) -> Unit = {},
 	onDelete: (ULong) -> Unit = {},
+	listState: LazyListState = rememberLazyListState(),
 ) {
 	val usesFloatingAction = usesMobilePresentation(LocalUiPlatform.current, windowClass)
-	LazyColumn(
-		modifier = Modifier.fillMaxSize().statusBarsPadding(),
-		contentPadding = PaddingValues(
-			start = 16.dp,
-			top = 16.dp,
-			end = 16.dp,
-			bottom = if (usesFloatingAction && transfers.isNotEmpty()) 96.dp else 24.dp,
-		),
-		verticalArrangement = Arrangement.spacedBy(12.dp),
-	) {
-		item { CatalogHeader(showAction = !usesFloatingAction && transfers.isNotEmpty(), onOpenComposer) }
-		if (transfers.isEmpty()) {
-			item { SendEmptyState(onOpenComposer) }
-		} else {
-			item {
-				Text(
-					stringResource(Res.string.send_transfers_title),
-					style = MaterialTheme.typography.titleMedium,
-					fontWeight = FontWeight.SemiBold,
-				)
-			}
-			items(transfers, key = Transfer::localId) { transfer ->
-				val activeReceiverEndpointIds = receiversByTransfer[transfer.transferId]
-					.orEmpty()
-					.filter { it.status == ReceiverDeliveryStatus.Accepted }
-					.mapTo(mutableSetOf()) { it.remoteEndpointId }
-				val progress = when (transfer.status) {
-					TransferStatus.Importing -> progressForTransfer(events, transfer.transferId)
-					TransferStatus.Sharing -> activeSendProgress(
-						events,
-						transfer.transferId,
-						activeReceiverEndpointIds,
-						transfer.totalSize,
-					)
-					else -> null
+	val android = LocalUiPlatform.current == UiPlatform.Android
+	val list: @Composable (PaddingValues) -> Unit = { insets ->
+		LazyColumn(
+			state = listState,
+			modifier = Modifier.testTag("send-transfer-list").fillMaxSize().padding(insets).consumeWindowInsets(insets)
+				.then(if (android) Modifier else Modifier.statusBarsPadding()),
+			contentPadding = PaddingValues(
+				start = if (android) 0.dp else 16.dp,
+				top = if (android) 0.dp else 16.dp,
+				end = if (android) 0.dp else 16.dp,
+				bottom = if (android || (usesFloatingAction && transfers.isNotEmpty())) 96.dp else 24.dp,
+			),
+			verticalArrangement = Arrangement.spacedBy(if (android) 0.dp else 12.dp),
+		) {
+			if (!android) item { CatalogHeader(showAction = !usesFloatingAction && transfers.isNotEmpty(), onOpenComposer) }
+			if (transfers.isEmpty()) {
+				item {
+					SendEmptyState(onOpenComposer, if (android) Modifier.fillParentMaxSize().padding(24.dp) else Modifier.heightIn(min = 430.dp))
 				}
-				TransferListItem(
-					transfer = transfer,
-					thumbnailBytes = transferThumbnails[transfer.transferId],
-					progress = progress,
-					onClick = { onTransferSelected(transfer.transferId) },
-					onShare = { onShare(transfer.transferId) },
-					onStopSharing = { onStopSharing(transfer.transferId) },
-					onDelete = { onDelete(transfer.transferId) },
-				)
+			} else {
+				if (!android) item {
+					Text(
+						stringResource(Res.string.send_transfers_title),
+						style = MaterialTheme.typography.titleMedium,
+						fontWeight = FontWeight.SemiBold,
+					)
+				}
+				items(transfers, key = Transfer::localId) { transfer ->
+					val activeReceiverEndpointIds = receiversByTransfer[transfer.transferId]
+						.orEmpty()
+						.filter { it.status == ReceiverDeliveryStatus.Accepted }
+						.mapTo(mutableSetOf()) { it.remoteEndpointId }
+					val progress = when (transfer.status) {
+						TransferStatus.Importing -> progressForTransfer(events, transfer.transferId)
+						TransferStatus.Sharing -> activeSendProgress(
+							events,
+							transfer.transferId,
+							activeReceiverEndpointIds,
+							transfer.totalSize,
+						)
+						else -> null
+					}
+					TransferListItem(
+						transfer = transfer,
+						thumbnailBytes = transferThumbnails[transfer.transferId],
+						progress = progress,
+						onClick = { onTransferSelected(transfer.transferId) },
+						onShare = { onShare(transfer.transferId) },
+						onStopSharing = { onStopSharing(transfer.transferId) },
+						onDelete = { onDelete(transfer.transferId) },
+					)
+				}
 			}
 		}
+	}
+	if (android && !LocalRootScaffold.current) {
+		Scaffold(
+			topBar = {
+				TopAppBar(
+					title = { Text(stringResource(Res.string.send_title)) },
+					actions = {
+						if (!usesFloatingAction && transfers.isNotEmpty()) IconButton(onClick = onOpenComposer) {
+							PlatformIcon(AppIcon.Add, stringResource(Res.string.button_create_new_transfer))
+						}
+					},
+				)
+			},
+		) { insets -> list(insets) }
+	} else {
+		list(PaddingValues(0.dp))
 	}
 }
 
@@ -179,15 +214,15 @@ private fun CatalogHeader(showAction: Boolean, onOpenComposer: () -> Unit) {
 }
 
 @Composable
-private fun SendEmptyState(onOpenComposer: () -> Unit) {
-	Box(Modifier.fillMaxWidth().heightIn(min = 430.dp), contentAlignment = Alignment.Center) {
+private fun SendEmptyState(onOpenComposer: () -> Unit, modifier: Modifier) {
+	Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
 		FeatureEmptyState(
 			icon = AppIcon.Send,
 			title = stringResource(Res.string.send_empty_title),
-			description = stringResource(Res.string.send_empty_body),
+			description = stringResource(Res.string.send_invitation_body),
 			iconTestTag = "send-empty-icon",
 		) {
-		PrimaryButton(
+		if (!LocalRootScaffold.current) PrimaryButton(
 			stringResource(Res.string.button_create_new_transfer),
 			onClick = onOpenComposer,
 			leadingIcon = {
@@ -212,6 +247,22 @@ private fun TransferListItem(
 	onStopSharing: () -> Unit,
 	onDelete: () -> Unit,
 ) {
+	if (LocalUiPlatform.current == UiPlatform.Android) {
+		ListItem(
+			modifier = Modifier.clickable(onClick = onClick),
+			headlineContent = { Text(transfer.transferName ?: stringResource(Res.string.send_new_transfer_title), maxLines = 2, overflow = TextOverflow.Ellipsis) },
+			supportingContent = {
+				Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+					Text("${formatBytes(transfer.totalSize)} · ${displayNameForStatus(transfer.status)}", style = MaterialTheme.typography.bodyMedium)
+					if (progress != null) ProgressRow(label = progress.label, progress = progress.progress, detail = progress.detail)
+				}
+			},
+			leadingContent = { FileArtwork(thumbnailBytes, Modifier.size(40.dp).clip(MaterialTheme.shapes.small)) },
+			trailingContent = { TransferActionsMenu(transfer, onShare, onStopSharing, onDelete) },
+			colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+		)
+		return
+	}
 	val colors = LocalVniDropColors.current
 	val usesDesktopMenu = LocalUiPlatform.current.isDesktop
 	val contextMenuItems = buildList {

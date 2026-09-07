@@ -3,14 +3,16 @@ package com.vnidrop.app.ui.shell
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -22,6 +24,7 @@ import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.ui.navigation.AppBottomNavigation
 import com.vnidrop.app.ui.navigation.AppDestination
 import com.vnidrop.app.ui.navigation.AppSidebarNavigation
+import com.vnidrop.app.ui.navigation.LocalRootScaffold
 import com.vnidrop.app.ui.navigation.NavigationStyle
 import com.vnidrop.app.ui.navigation.navigationStyleFor
 import com.vnidrop.app.ui.state.WindowClass
@@ -35,6 +38,7 @@ fun AppShell(
 	uiPlatform: UiPlatform,
 	mainContentTopStartRadius: Dp = 0.dp,
 	useNativeWindowBackdrop: Boolean = false,
+	showNavigation: Boolean = true,
 	onDestinationSelected: (AppDestination) -> Unit,
 	overlay: @Composable BoxScope.() -> Unit = {},
 	floatingAction: (@Composable BoxScope.() -> Unit)? = null,
@@ -54,6 +58,7 @@ fun AppShell(
 			PhoneShell(
 				selectedDestination = selectedDestination,
 				onDestinationSelected = onDestinationSelected,
+				showNavigation = showNavigation,
 				overlay = overlay,
 				floatingAction = floatingAction,
 				content = content,
@@ -127,34 +132,38 @@ private fun WideShell(
 private fun PhoneShell(
 	selectedDestination: AppDestination,
 	onDestinationSelected: (AppDestination) -> Unit,
+	showNavigation: Boolean,
 	overlay: @Composable BoxScope.() -> Unit,
 	floatingAction: (@Composable BoxScope.() -> Unit)?,
 	content: @Composable () -> Unit,
 ) {
-	Column(modifier = Modifier.fillMaxSize()) {
-		Box(modifier = Modifier.weight(1f).fillMaxSize()) {
-			content()
-			floatingAction?.invoke(this)
-			Box(Modifier.fillMaxSize().padding(bottom = if (floatingAction == null) 0.dp else 72.dp)) { overlay() }
-		}
-		AppBottomNavigation(
-			selected = selectedDestination,
-			onDestinationSelected = onDestinationSelected,
-		)
+	Scaffold(
+		containerColor = LocalVniDropColors.current.backgroundDashCanvas,
+		contentWindowInsets = WindowInsets(0, 0, 0, 0),
+		bottomBar = {
+			if (showNavigation) AppBottomNavigation(
+				selected = selectedDestination,
+				onDestinationSelected = onDestinationSelected,
+			)
+		},
+		floatingActionButton = { floatingAction?.let { Box(content = it) } },
+		snackbarHost = { Box(content = overlay) },
+	) { padding ->
+		Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) { content() }
 	}
 }
 
 @Composable
 fun ScreenScrollContainer(
 	modifier: Modifier = Modifier,
+	contentPadding: PaddingValues = PaddingValues(16.dp),
 	content: @Composable () -> Unit,
 ) {
 	LazyColumn(
 		modifier = modifier
 			.fillMaxSize()
-			.statusBarsPadding()
-			.padding(16.dp),
-		contentPadding = PaddingValues(bottom = 16.dp),
+			.then(if (LocalRootScaffold.current) Modifier else Modifier.statusBarsPadding()),
+		contentPadding = contentPadding,
 	) {
 		item {
 			content()

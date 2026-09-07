@@ -5,9 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.vnidrop.app.DeviceInfo
 import com.vnidrop.app.DeviceInfoProvider
 import com.vnidrop.app.PlatformEnvironment
-import com.vnidrop.app.core.FileSystemService
 import com.vnidrop.app.core.CoreGateway
 import com.vnidrop.app.core.CoreLifecycleBusyException
+import com.vnidrop.app.core.FileSystemService
 import com.vnidrop.app.core.FolderAccessStatus
 import com.vnidrop.app.core.ReceiveFolder
 import com.vnidrop.app.core.RelayMode
@@ -25,9 +25,9 @@ import com.vnidrop.app.ui.feedback.UiMessageTone
 import com.vnidrop.app.ui.feedback.UiText
 import com.vnidrop.app.ui.state.formatBytes
 import com.vnidrop.app.ui.theme.ThemeMode
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,17 +41,17 @@ import vnidrop.shared.generated.resources.bug_report_missing_what
 import vnidrop.shared.generated.resources.bug_report_submit_failed
 import vnidrop.shared.generated.resources.bug_report_submitted
 import vnidrop.shared.generated.resources.button_open_settings
-import vnidrop.shared.generated.resources.notifications_enabled_message
 import vnidrop.shared.generated.resources.notifications_enable_action
+import vnidrop.shared.generated.resources.notifications_enabled_message
 import vnidrop.shared.generated.resources.notifications_permission_denied
-import vnidrop.shared.generated.resources.notifications_sharing_prompt
 import vnidrop.shared.generated.resources.notifications_settings_open_failed
+import vnidrop.shared.generated.resources.notifications_sharing_prompt
 import vnidrop.shared.generated.resources.notifications_unsupported
 import vnidrop.shared.generated.resources.relay_settings_applied
-import vnidrop.shared.generated.resources.storage_transfer_cache_cleared
-import vnidrop.shared.generated.resources.storage_transfers_deleted
 import vnidrop.shared.generated.resources.storage_cleanup_busy
 import vnidrop.shared.generated.resources.storage_cleanup_freed
+import vnidrop.shared.generated.resources.storage_transfer_cache_cleared
+import vnidrop.shared.generated.resources.storage_transfers_deleted
 
 enum class SettingsSection {
 	Overview,
@@ -90,6 +90,7 @@ data class SettingsState(
 	val isValidatingFolder: Boolean = false,
 	val supportsCustomReceiveFolders: Boolean = true,
 	val themeMode: ThemeMode = ThemeMode.System,
+	val useDynamicColors: Boolean = false,
 	val savedRelaySettings: RelaySettings = RelaySettings(),
 	val relayMode: RelayMode = RelayMode.Automatic,
 	val relayUrls: List<String> = emptyList(),
@@ -164,7 +165,7 @@ class SettingsViewModel(
 					current.copy(
 						username = if (hasLocalUsernameDraft) current.username else preferences.username,
 						receiveFolder = receiveFolder,
-						themeMode = preferences.themeMode,
+						useDynamicColors = preferences.useDynamicColors, themeMode = preferences.themeMode,
 						notificationsEnabled = preferences.notificationsEnabled,
 						savedRelaySettings = preferences.relaySettings,
 						relayMode = if (hasLocalRelayDraft) current.relayMode else preferences.relaySettings.mode,
@@ -330,6 +331,10 @@ class SettingsViewModel(
 			delay(UsernamePersistDebounceMs)
 			preferencesRepository.setUsername(value)
 		}
+	}
+
+	fun setDynamicColors(enabled: Boolean) {
+		viewModelScope.launch { preferencesRepository.setDynamicColors(enabled) }
 	}
 
 	fun setThemeMode(mode: ThemeMode) {

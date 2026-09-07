@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Snackbar
+import com.vnidrop.app.UiPlatform
+import com.vnidrop.app.ui.platform.LocalUiPlatform
 import androidx.compose.material3.SnackbarData
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -62,6 +65,10 @@ fun VniDropSnackbarHost(
 	}
 
 	SnackbarHost(hostState = hostState, modifier = modifier) { data ->
+		if (LocalUiPlatform.current == UiPlatform.Android) {
+			Snackbar(data, actionOnNewLine = data.visuals.actionLabel != null, modifier = Modifier.padding(12.dp))
+			return@SnackbarHost
+		}
 		val colors = LocalVniDropColors.current
 		val accent = when (tone) {
 			UiMessageTone.Info -> colors.brandLink

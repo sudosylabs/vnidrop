@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -16,9 +18,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.ui.components.AdaptiveDrawer
 import com.vnidrop.app.ui.components.DestructiveQuietButton
@@ -38,10 +44,13 @@ import com.vnidrop.app.ui.components.PrimaryButton
 import com.vnidrop.app.ui.components.QuietButton
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
+import com.vnidrop.app.ui.platform.FullscreenDialog
+import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import org.jetbrains.compose.resources.stringResource
 import vnidrop.shared.generated.resources.Res
+import vnidrop.shared.generated.resources.button_back
 import vnidrop.shared.generated.resources.button_cancel
 import vnidrop.shared.generated.resources.saved_devices_authenticated_name
 import vnidrop.shared.generated.resources.saved_devices_block_action
@@ -59,6 +68,7 @@ import vnidrop.shared.generated.resources.saved_devices_transfers_title
 
 private enum class DeviceDestructiveAction { Forget, Block }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SavedDeviceDetailsDrawer(
 	device: SavedDeviceModel,
@@ -78,13 +88,14 @@ internal fun SavedDeviceDetailsDrawer(
 	val colors = LocalVniDropColors.current
 	val title = device.displayName()
 
-	AdaptiveDrawer(windowClass = windowClass, onDismissRequest = onDismiss) {
+	val native = LocalUiPlatform.current == UiPlatform.Android
+	val content: @Composable () -> Unit = {
 		LazyColumn(
-			modifier = Modifier.fillMaxWidth().heightIn(min = 320.dp, max = 720.dp),
+			modifier = if (native) Modifier.fillMaxSize() else Modifier.fillMaxWidth().heightIn(min = 320.dp, max = 720.dp),
 			contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 28.dp),
 			verticalArrangement = Arrangement.spacedBy(18.dp),
 		) {
-			item(key = "device-header") {
+			if (!native) item(key = "device-header") {
 				Row(Modifier.fillMaxWidth().padding(end = 44.dp), verticalAlignment = Alignment.CenterVertically) {
 					PlatformIcon(AppIcon.Device, contentDescription = null, modifier = Modifier.size(30.dp), tint = colors.foregroundLight)
 					Spacer(Modifier.width(14.dp))
@@ -180,6 +191,14 @@ internal fun SavedDeviceDetailsDrawer(
 			}
 		}
 	}
+
+	if (native) FullscreenDialog(onDismiss) {
+		Scaffold(topBar = {
+			TopAppBar(title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) }, navigationIcon = {
+				IconButton(onClick = onDismiss) { PlatformIcon(AppIcon.ArrowBack, stringResource(Res.string.button_back)) }
+			})
+		}) { padding -> Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) { content() } }
+	} else AdaptiveDrawer(windowClass = windowClass, onDismissRequest = onDismiss, content = content)
 
 	pendingAction?.let { action ->
 		val isBlock = action == DeviceDestructiveAction.Block

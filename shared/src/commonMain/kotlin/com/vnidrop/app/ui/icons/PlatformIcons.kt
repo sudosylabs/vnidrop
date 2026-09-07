@@ -46,7 +46,6 @@ internal enum class AppIcon(
 		Res.drawable.icon_lucide_more_vertical,
 	),
 	Moon(Res.drawable.icon_material_moon, Res.drawable.icon_fluent_moon, Res.drawable.icon_lucide_moon),
-	Nfc(Res.drawable.icon_material_nfc, Res.drawable.icon_fluent_nfc, Res.drawable.icon_lucide_nfc),
 	QrCode(Res.drawable.icon_material_qr_code, Res.drawable.icon_fluent_qr_code, Res.drawable.icon_lucide_qr_code),
 	Radio(Res.drawable.icon_material_radio, Res.drawable.icon_fluent_radio, Res.drawable.icon_lucide_radio),
 	Scan(Res.drawable.icon_material_scan, Res.drawable.icon_fluent_scan, Res.drawable.icon_lucide_scan),

@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,12 +29,14 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.ui.components.Field
 import com.vnidrop.app.ui.components.PrimaryButton
 import com.vnidrop.app.ui.components.QuietButton
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
+import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.state.formatBytes
 import com.vnidrop.app.ui.theme.LocalVniDropColors
@@ -49,6 +51,7 @@ import vnidrop.shared.generated.resources.button_share_file
 import vnidrop.shared.generated.resources.button_sharing_file
 import vnidrop.shared.generated.resources.field_sender_name
 import vnidrop.shared.generated.resources.field_transfer_name
+import vnidrop.shared.generated.resources.saved_devices_send_action
 import vnidrop.shared.generated.resources.send_access_anyone
 import vnidrop.shared.generated.resources.send_access_anyone_description
 import vnidrop.shared.generated.resources.send_access_anyone_warning
@@ -61,7 +64,6 @@ import vnidrop.shared.generated.resources.send_file_size_unknown
 import vnidrop.shared.generated.resources.send_folder_label
 import vnidrop.shared.generated.resources.send_review_title
 import vnidrop.shared.generated.resources.send_selected_files_count
-import vnidrop.shared.generated.resources.saved_devices_send_action
 
 @Composable
 internal fun TransferComposer(
@@ -76,7 +78,13 @@ internal fun TransferComposer(
 	onSenderNameChanged: (String) -> Unit,
 	onAccessPolicyChanged: (ShareAccessPolicy) -> Unit,
 	onSubmit: () -> Unit,
+	onDismiss: () -> Unit = {},
+	snackbarHost: @Composable () -> Unit = {},
 ) {
+	if (LocalUiPlatform.current == UiPlatform.Android) {
+		AndroidTransferComposer(coreInitialized, state, onSelectFile, onSelectFolder, onRemoveFile, onTransferNameChanged, onSenderNameChanged, onAccessPolicyChanged, onSubmit, onDismiss, snackbarHost)
+		return
+	}
 	Column(
 		modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp),
 		verticalArrangement = Arrangement.spacedBy(16.dp),

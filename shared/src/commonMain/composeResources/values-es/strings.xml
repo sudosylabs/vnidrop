@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="scanner_allow_camera">Permitir cámara</string>
+    <string name="scanner_open_settings">Abrir ajustes</string>
+    <string name="scanner_flash_on">Encender linterna</string>
+    <string name="scanner_flash_off">Apagar linterna</string>
+    <string name="scanner_unavailable">No se pudo abrir la cámara. Cierra otras aplicaciones de cámara e inténtalo de nuevo.</string>
+    <string name="appearance_dynamic_colors">Usar colores del sistema</string>
+    <string name="appearance_dynamic_colors_description">Usa los colores de tu fondo de pantalla de Android.</string>
     <string name="about_bug_report">Informar de un error</string>
     <string name="about_description">VniDrop transfiere archivos y carpetas directamente de un dispositivo a otro a través de la red, sin subirlos a ningún servicio de alojamiento. No hay que crear ninguna cuenta y no queda ninguna copia de su transferencia en la nube una vez que termina.</string>
     <string name="about_is_direct">Una transferencia directa entre dispositivos: sus archivos van directamente al destinatario.</string>
@@ -14,7 +21,7 @@
     <string name="about_isnt_title">Qué no es VniDrop</string>
     <string name="about_license_label">Licencia</string>
     <string name="about_privacy">Política de privacidad</string>
-    <string name="about_privacy_capability">Las invitaciones son claves de acceso. Trate un código QR, una etiqueta NFC o un archivo .vnd como un enlace de acceso privado y compártalo solo con las personas previstas, especialmente con «Cualquiera que tenga esta transferencia».</string>
+    <string name="about_invitation_privacy">Las invitaciones son claves de acceso. Trate un código QR o un archivo .vnd como un enlace de acceso privado y compártalo solo con las personas previstas, especialmente con «Cualquiera que tenga esta transferencia».</string>
     <string name="about_privacy_deny">Denegación por defecto: VniDrop solo sirve el contenido de un recurso compartido activo y rechaza las solicitudes desconocidas.</string>
     <string name="about_privacy_local">Los archivos recibidos se guardan en su dispositivo y nunca sobrescriben un archivo existente.</string>
     <string name="about_privacy_policy_label">Política de privacidad</string>
@@ -77,7 +84,6 @@
     <string name="button_share_file">Empezar a compartir</string>
     <string name="button_sharing_file">Preparando la transferencia…</string>
     <string name="button_show_in_files">Mostrar en Archivos</string>
-    <string name="button_write_nfc">Escribir en etiqueta NFC</string>
     <string name="device_model_title">Modelo del dispositivo</string>
     <string name="device_name_title">Nombre del dispositivo</string>
     <string name="error_camera">Se necesita acceso a la cámara para escanear un código QR.</string>
@@ -91,7 +97,6 @@
     <string name="error_invitation_empty">Esa invitación está vacía. Intente abrirla de nuevo.</string>
     <string name="error_missing_native_library">Falta la biblioteca nativa de VniDrop en esta versión.</string>
     <string name="error_network">VniDrop no pudo contactar con el remitente. Compruebe la conexión en ambos dispositivos e inténtelo de nuevo.</string>
-    <string name="error_nfc">No se pudo usar esta etiqueta NFC. Pruebe con otra.</string>
     <string name="error_permission">El remitente no ha aprobado esta transferencia, o fue rechazada.</string>
     <string name="error_repository">VniDrop no pudo guardar los datos de la transferencia en este dispositivo.</string>
     <string name="error_selection_failed">No se pudo abrir el elemento seleccionado. Intente elegirlo de nuevo.</string>
@@ -165,18 +170,15 @@
     <string name="receive_delete_history_description">%1$s se eliminará del historial de VniDrop. El archivo descargado permanecerá en este dispositivo.</string>
     <string name="receive_delete_history_item">Eliminar del historial de recepción</string>
     <string name="receive_delete_history_title">¿Quitar del historial?</string>
-    <string name="receive_empty_body">Abra una invitación de VniDrop, escanee un código QR o acerque una etiqueta NFC.</string>
+    <string name="receive_invitation_body">Abra un archivo de invitación de VniDrop o escanee un código QR.</string>
     <string name="receive_empty_title">Aún no se ha recibido nada</string>
     <string name="receive_history_cleared">Historial de recepción borrado.</string>
     <string name="receive_history_title">Historial</string>
     <string name="receive_method_file">Abrir una invitación .vnd</string>
     <string name="receive_method_file_description">Elija una invitación guardada o compartida en este dispositivo.</string>
-    <string name="receive_method_nfc">Leer etiqueta NFC</string>
-    <string name="receive_method_nfc_description">Acerque este dispositivo a la etiqueta de invitación del remitente.</string>
     <string name="receive_method_scan">Escanear código QR</string>
     <string name="receive_method_scan_description">Use la cámara para escanear el código de VniDrop del remitente.</string>
     <string name="receive_new_subtitle">Transferencias que ha recibido en este dispositivo.</string>
-    <string name="receive_nfc_waiting">Acerque a la etiqueta NFC…</string>
     <string name="receive_open_files_failed">No se pudo abrir VniDrop en Archivos.</string>
     <string name="receive_review_title">Revisar transferencia</string>
     <string name="receive_title">Recibir</string>
@@ -215,7 +217,7 @@
     <string name="send_access_title">¿Quién puede recibirla?</string>
     <string name="send_choose_file_body">Seleccione archivos o una carpeta de este dispositivo. Podrá revisar la selección antes de crear la transferencia.</string>
     <string name="send_choose_file_title">Elija qué compartir</string>
-    <string name="send_empty_body">Cree una transferencia, decida quién puede recibirla y luego invite a esas personas con un código QR, una etiqueta NFC o un archivo de invitación.</string>
+    <string name="send_invitation_body">Cree una transferencia, decida quién puede recibirla y luego invite a esas personas con un código QR o un archivo de invitación.</string>
     <string name="send_empty_title">Aún no se ha compartido nada</string>
     <string name="send_file_size_unknown">Tamaño no disponible</string>
     <string name="send_folder_label">Carpeta</string>
@@ -291,9 +293,6 @@
     <string name="transfer_event_updated">Transferencia actualizada</string>
     <string name="transfer_invitation_saved">Invitación guardada.</string>
     <string name="transfer_nearby_device">Dispositivo cercano</string>
-    <string name="transfer_nfc_unavailable">La escritura de etiquetas NFC no está disponible en este dispositivo.</string>
-    <string name="transfer_nfc_waiting">Acerque su dispositivo a una etiqueta NFC grabable.</string>
-    <string name="transfer_nfc_written">Invitación escrita en la etiqueta NFC.</string>
     <string name="transfer_no_activity">Todavía no hay actividad que mostrar.</string>
     <string name="transfer_no_receivers">Nadie ha solicitado aún esta transferencia.</string>
     <string name="transfer_receiver_accepted">Aprobado: esperando a que se complete</string>

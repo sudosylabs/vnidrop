@@ -18,6 +18,19 @@ import kotlinx.coroutines.runBlocking
 
 class AppPreferencesRepositoryTest {
 	@Test
+	fun systemColorsAreOptInAndPersistWithoutChangingThemeMode() = runBlocking {
+		val repository = repositoryForTest()
+		val original = repository.preferences.first()
+		assertEquals(false, original.useDynamicColors)
+		repository.setDynamicColors(true)
+		assertEquals(original.copy(useDynamicColors = true), repository.preferences.first())
+		repository.setThemeMode(ThemeMode.Dark)
+		assertEquals(original.copy(useDynamicColors = true, themeMode = ThemeMode.Dark), repository.preferences.first())
+		repository.setDynamicColors(false)
+		assertEquals(original.copy(themeMode = ThemeMode.Dark), repository.preferences.first())
+	}
+
+	@Test
 	fun preferencesUseDefaultsWhenNothingIsStored() = runBlocking {
 		val repository = repositoryForTest()
 

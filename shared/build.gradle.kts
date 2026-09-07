@@ -177,7 +177,10 @@ kotlin {
 		androidMain.dependencies {
 			implementation(libs.androidx.activity.compose)
 			implementation(libs.androidx.core.ktx)
-			implementation(libs.google.code.scanner)
+			implementation(libs.androidx.camera.camera2)
+			implementation(libs.androidx.camera.lifecycle)
+			implementation(libs.androidx.camera.view)
+			implementation(libs.zxing.cpp)
 			implementation(libs.compose.uiToolingPreview)
 		}
 		jvmMain.dependencies {
@@ -202,6 +205,14 @@ kotlin {
 			implementation(libs.kotlin.test)
 			implementation(libs.kotlinx.coroutinesTest)
 		}
+		androidUnitTest.dependencies {
+			implementation(libs.kotlin.testJunit)
+		}
+		androidInstrumentedTest.dependencies {
+			implementation(libs.androidx.test.runner)
+			implementation(libs.androidx.testExt.junit)
+			implementation(libs.kotlin.testJunit)
+		}
 		jvmTest.dependencies {
 			implementation(compose.desktop.currentOs)
 			implementation(libs.compose.uiTest)
@@ -219,6 +230,7 @@ android {
 
 	defaultConfig {
 		minSdk = libs.versions.android.minSdk.get().toInt()
+		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 	}
 
 	compileOptions {

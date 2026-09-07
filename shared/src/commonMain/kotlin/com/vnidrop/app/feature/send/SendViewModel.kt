@@ -23,7 +23,6 @@ import kotlinx.coroutines.launch
 import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.transfer_deleted
 import vnidrop.shared.generated.resources.transfer_invitation_saved
-import vnidrop.shared.generated.resources.transfer_nfc_written
 
 data class SendState(
 	val selectedTransferId: ULong? = null,
@@ -178,7 +177,6 @@ class SendViewModel(
 			onSuccess = {
 				val message = when (action) {
 					InvitationAction.Export -> Res.string.transfer_invitation_saved
-					InvitationAction.Nfc -> Res.string.transfer_nfc_written
 					// System share sheet already confirms the action on most platforms.
 					InvitationAction.Share -> null
 				}

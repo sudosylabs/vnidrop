@@ -50,7 +50,6 @@ data class ReceiveState(
 	val isReceiving: Boolean = false,
 	val activeReceiveTransferId: ULong? = null,
 	val lastReceiveError: UiText? = null,
-	val isWaitingForNfc: Boolean = false,
 	val historyDeleteTarget: ReceiveHistoryDeleteTarget? = null,
 	val isDeletingHistory: Boolean = false,
 ) {
@@ -107,7 +106,6 @@ class ReceiveViewModel(
 		if (!_state.value.isReceiving && !_state.value.isInspecting) resetAcquisition()
 	}
 	fun setReceiverName(value: String) = _state.update { it.copy(receiverName = value) }
-	fun setWaitingForNfc(waiting: Boolean) = _state.update { it.copy(isWaitingForNfc = waiting) }
 	fun requestDeleteHistoryItem(transferId: ULong) {
 		val canDelete = coreState.value.transfers.any { transfer ->
 			transfer.transferId == transferId && transfer.direction == TransferDirection.Receive && transfer.status.isTerminalReceiveHistory()
@@ -149,7 +147,6 @@ class ReceiveViewModel(
 	}
 
 	fun onInvitationResult(method: ReceiveMethod, result: Result<String>) {
-		_state.update { it.copy(isWaitingForNfc = false) }
 		result.fold(
 			onSuccess = { raw -> inspectInvitation(method, raw) },
 			onFailure = messages::error,
@@ -288,7 +285,6 @@ class ReceiveViewModel(
 			isReceiving = false,
 			activeReceiveTransferId = null,
 			lastReceiveError = null,
-			isWaitingForNfc = false,
 		)
 	}
 }

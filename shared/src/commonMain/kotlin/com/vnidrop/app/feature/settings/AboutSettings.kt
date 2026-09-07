@@ -38,7 +38,7 @@ import vnidrop.shared.generated.resources.about_isnt_public
 import vnidrop.shared.generated.resources.about_isnt_sync
 import vnidrop.shared.generated.resources.about_isnt_title
 import vnidrop.shared.generated.resources.about_license_label
-import vnidrop.shared.generated.resources.about_privacy_capability
+import vnidrop.shared.generated.resources.about_invitation_privacy
 import vnidrop.shared.generated.resources.about_privacy_deny
 import vnidrop.shared.generated.resources.about_privacy_local
 import vnidrop.shared.generated.resources.about_privacy_policy_label
@@ -100,7 +100,7 @@ internal fun AboutSettings(
 		AboutSection(
 			title = stringResource(Res.string.about_privacy_title),
 			points = listOf(
-				AppIcon.QrCode to stringResource(Res.string.about_privacy_capability),
+				AppIcon.QrCode to stringResource(Res.string.about_invitation_privacy),
 				AppIcon.Hand to stringResource(Res.string.about_privacy_deny),
 				AppIcon.Radio to stringResource(Res.string.about_privacy_relay),
 				AppIcon.Storage to stringResource(Res.string.about_privacy_local),

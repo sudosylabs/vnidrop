@@ -1,61 +1,37 @@
 package com.vnidrop.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.background
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.getUnclippedBoundsInRoot
-import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onAllNodesWithContentDescription
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performMouseInput
-import androidx.compose.ui.test.rightClick
-import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.v2.runComposeUiTest
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.mutableStateOf
-import com.vnidrop.app.feature.approvals.ApprovalModalHost
-import com.vnidrop.app.feature.approvals.ApprovalState
-import com.vnidrop.app.feature.approvals.PendingApproval
-import com.vnidrop.app.feature.saveddevices.TargetedOfferModalHost
-import com.vnidrop.app.feature.saveddevices.TargetedOfferState
-import com.vnidrop.app.feature.receive.ReceiveHistoryDeleteTarget
-import com.vnidrop.app.feature.receive.ReceiveInvitationActions
-import com.vnidrop.app.feature.receive.ReceiveMethodAvailability
-import com.vnidrop.app.feature.receive.ReceiveScreen
-import com.vnidrop.app.feature.receive.ReceiveState
-import com.vnidrop.app.feature.settings.SettingsScreen
-import com.vnidrop.app.feature.settings.SettingsSection
-import com.vnidrop.app.feature.settings.SettingsState
-import com.vnidrop.app.feature.settings.StorageBreakdown
-import com.vnidrop.app.feature.settings.SettingsOverview
-import com.vnidrop.app.feature.send.SendScreen
-import com.vnidrop.app.feature.send.SendState
-import com.vnidrop.app.feature.send.DraftSourceId
-import com.vnidrop.app.feature.send.TransferComposer
-import com.vnidrop.app.feature.send.TransferDraftDestination
-import com.vnidrop.app.feature.send.TransferDraftSource
-import com.vnidrop.app.feature.send.TransferDraftState
-import com.vnidrop.app.feature.send.TransferCatalog
+import androidx.compose.ui.unit.dp
 import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.CoreState
 import com.vnidrop.app.core.PendingTargetedOfferModel
@@ -63,22 +39,45 @@ import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.TransferStatus
+import com.vnidrop.app.feature.approvals.ApprovalModalHost
+import com.vnidrop.app.feature.approvals.ApprovalState
+import com.vnidrop.app.feature.approvals.PendingApproval
+import com.vnidrop.app.feature.receive.ReceiveHistoryDeleteTarget
+import com.vnidrop.app.feature.receive.ReceiveInvitationActions
+import com.vnidrop.app.feature.receive.ReceiveMethodAvailability
+import com.vnidrop.app.feature.receive.ReceiveScreen
+import com.vnidrop.app.feature.receive.ReceiveState
+import com.vnidrop.app.feature.saveddevices.TargetedOfferModalHost
+import com.vnidrop.app.feature.saveddevices.TargetedOfferState
+import com.vnidrop.app.feature.send.DraftSourceId
+import com.vnidrop.app.feature.send.SendScreen
+import com.vnidrop.app.feature.send.SendState
+import com.vnidrop.app.feature.send.TransferCatalog
+import com.vnidrop.app.feature.send.TransferComposer
+import com.vnidrop.app.feature.send.TransferDraftDestination
+import com.vnidrop.app.feature.send.TransferDraftSource
+import com.vnidrop.app.feature.send.TransferDraftState
+import com.vnidrop.app.feature.settings.SettingsOverview
+import com.vnidrop.app.feature.settings.SettingsScreen
+import com.vnidrop.app.feature.settings.SettingsSection
+import com.vnidrop.app.feature.settings.SettingsState
+import com.vnidrop.app.feature.settings.StorageBreakdown
 import com.vnidrop.app.notifications.NotificationPermission
 import com.vnidrop.app.ui.feedback.UiMessage
 import com.vnidrop.app.ui.feedback.UiMessageController
 import com.vnidrop.app.ui.feedback.UiText
 import com.vnidrop.app.ui.feedback.VniDropSnackbarHost
-import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.navigation.AppDestination
 import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.shell.AppShell
-import com.vnidrop.app.ui.theme.VniDropTheme
+import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.LocalVniDropColors
-import kotlinx.coroutines.runBlocking
+import com.vnidrop.app.ui.theme.VniDropTheme
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
 import vnidrop.shared.generated.resources.Res
@@ -92,7 +91,6 @@ import vnidrop.shared.generated.resources.button_approve
 import vnidrop.shared.generated.resources.button_cancel
 import vnidrop.shared.generated.resources.button_choose_files
 import vnidrop.shared.generated.resources.button_close
-import vnidrop.shared.generated.resources.button_create_new_transfer
 import vnidrop.shared.generated.resources.button_download_invitation
 import vnidrop.shared.generated.resources.button_more_actions
 import vnidrop.shared.generated.resources.button_open_settings
@@ -110,12 +108,12 @@ import vnidrop.shared.generated.resources.receive_choose_method_title
 import vnidrop.shared.generated.resources.receive_clear_history
 import vnidrop.shared.generated.resources.receive_clear_history_description
 import vnidrop.shared.generated.resources.receive_clear_history_title
-import vnidrop.shared.generated.resources.receive_delete_history_item
 import vnidrop.shared.generated.resources.receive_delete_history_description
+import vnidrop.shared.generated.resources.receive_delete_history_item
 import vnidrop.shared.generated.resources.receive_empty_title
 import vnidrop.shared.generated.resources.receive_method_file
+import vnidrop.shared.generated.resources.receive_method_scan
 import vnidrop.shared.generated.resources.receive_new_subtitle
-import vnidrop.shared.generated.resources.receive_title
 import vnidrop.shared.generated.resources.relay_add_url
 import vnidrop.shared.generated.resources.relay_apply
 import vnidrop.shared.generated.resources.relay_mode_automatic
@@ -124,10 +122,8 @@ import vnidrop.shared.generated.resources.relay_strict_warning
 import vnidrop.shared.generated.resources.send_access_anyone
 import vnidrop.shared.generated.resources.send_choose_file_title
 import vnidrop.shared.generated.resources.send_subtitle
-import vnidrop.shared.generated.resources.send_title
 import vnidrop.shared.generated.resources.settings_network_title
 import vnidrop.shared.generated.resources.settings_subtitle
-import vnidrop.shared.generated.resources.settings_title
 import vnidrop.shared.generated.resources.snackbar_dismiss
 import vnidrop.shared.generated.resources.status_available
 import vnidrop.shared.generated.resources.storage_calculating
@@ -137,10 +133,10 @@ import vnidrop.shared.generated.resources.storage_delete_transfers
 import vnidrop.shared.generated.resources.storage_delete_transfers_description
 import vnidrop.shared.generated.resources.storage_received_files
 import vnidrop.shared.generated.resources.storage_transfer_data
+import vnidrop.shared.generated.resources.transfer_delete_description
 import vnidrop.shared.generated.resources.transfer_qr_unavailable
 import vnidrop.shared.generated.resources.transfer_scan_qr
 import vnidrop.shared.generated.resources.transfer_share_title
-import vnidrop.shared.generated.resources.transfer_delete_description
 
 @OptIn(ExperimentalTestApi::class)
 class FoundationComposeTest {
@@ -511,7 +507,7 @@ class FoundationComposeTest {
 	}
 
 	@Test
-	fun compactSnackbarMovesActionBelowMessageAndClose() = runComposeUiTest {
+	fun nativeSnackbarKeepsActionBelowMessage() = runComposeUiTest {
 		val controller = UiMessageController()
 		controller.tryShow(
 			UiMessage(
@@ -527,10 +523,9 @@ class FoundationComposeTest {
 
 		val messageBottom = onNodeWithText("Notifications are turned off for VniDrop. You can enable them in Settings.")
 			.getUnclippedBoundsInRoot().bottom
-		val closeBottom = onNodeWithContentDescription(Res.string.snackbar_dismiss.value).getUnclippedBoundsInRoot().bottom
+		onNodeWithContentDescription(Res.string.snackbar_dismiss.value).assertIsDisplayed()
 		val actionTop = onNodeWithText("Open Settings").getUnclippedBoundsInRoot().top
 		assertTrue(messageBottom <= actionTop)
-		assertTrue(closeBottom <= actionTop)
 	}
 
 	@Test
@@ -582,7 +577,7 @@ class FoundationComposeTest {
 	}
 
 	@Test
-	fun androidBottomNavigationKeepsLabelColorStableWhenSelectionChanges() = runComposeUiTest {
+	fun androidBottomNavigationExposesSelectionAndSwitchesDestinations() = runComposeUiTest {
 		val selected = mutableStateOf(AppDestination.Send)
 		setContent {
 			VniDropTheme(isDarkTheme = false) {
@@ -591,31 +586,14 @@ class FoundationComposeTest {
 					windowClass = WindowClass.Phone,
 					uiPlatform = UiPlatform.Android,
 					onDestinationSelected = { selected.value = it },
-				) {
-					Text("Content")
-				}
+				) { Text("Content") }
 			}
 		}
-
-		val selectedLabel = onNodeWithText(Res.string.nav_send.value, useUnmergedTree = true).captureToImage().toPixelMap()
-		val selectedIndicator = onNodeWithTag("bottom-nav-indicator-Send", useUnmergedTree = true).captureToImage().toPixelMap()
-		runOnIdle { selected.value = AppDestination.Receive }
-		waitForIdle()
-		val unselectedLabel = onNodeWithText(Res.string.nav_send.value, useUnmergedTree = true).captureToImage().toPixelMap()
-		val unselectedIndicator = onNodeWithTag("bottom-nav-indicator-Send", useUnmergedTree = true).captureToImage().toPixelMap()
-
-		assertEquals(selectedLabel.width, unselectedLabel.width)
-		assertEquals(selectedLabel.height, unselectedLabel.height)
-		for (x in 0 until selectedLabel.width) {
-			for (y in 0 until selectedLabel.height) {
-				assertEquals(selectedLabel[x, y].toArgb(), unselectedLabel[x, y].toArgb())
-			}
-		}
-		assertFalse(selectedIndicator[2, selectedIndicator.height / 2].toArgb() == unselectedIndicator[2, unselectedIndicator.height / 2].toArgb())
-		assertEquals(
-			selectedIndicator[8, selectedIndicator.height / 2].toArgb(),
-			selectedIndicator[selectedIndicator.width - 9, selectedIndicator.height / 2].toArgb(),
-		)
+		onNodeWithText(Res.string.nav_send.value).assertIsSelected()
+		onNodeWithText(Res.string.nav_receive.value).assertIsNotSelected().performClick()
+		onNodeWithText(Res.string.nav_receive.value).assertIsSelected()
+		onNodeWithText(Res.string.nav_send.value).assertIsNotSelected()
+		runOnIdle { assertEquals(AppDestination.Receive, selected.value) }
 	}
 
 	@Test
@@ -708,10 +686,8 @@ class FoundationComposeTest {
 		val actions = object : ReceiveInvitationActions {
 			override val fileAvailability = ReceiveMethodAvailability.Hidden
 			override val qrAvailability = ReceiveMethodAvailability.Hidden
-			override val nfcAvailability = ReceiveMethodAvailability.Hidden
 			override fun pickInvitation(onResult: (Result<String>) -> Unit) = Unit
 			override fun scanQrCode(onResult: (Result<String>) -> Unit) = Unit
-			override fun readNfcInvitation(onResult: (Result<String>) -> Unit) = Unit
 			override fun cancel() = Unit
 		}
 		setContent {
@@ -737,7 +713,6 @@ class FoundationComposeTest {
 								onDismissAcquisition = {},
 								onReceiverNameChanged = {},
 								onInvitationResult = { _, _ -> },
-								onWaitingForNfc = {},
 								onReceive = {},
 								onRequestDeleteHistoryItem = {},
 								onRequestClearHistory = {},
@@ -761,12 +736,6 @@ class FoundationComposeTest {
 		assertEquals(36.dp, receiveIconBounds.bottom - receiveIconBounds.top)
 		onNodeWithTag("send-empty-action-icon", useUnmergedTree = true).assertIsDisplayed()
 		onNodeWithTag("receive-empty-action-icon", useUnmergedTree = true).assertIsDisplayed()
-		val sendTitleBounds = onNodeWithText(Res.string.send_title.value, useUnmergedTree = true).getUnclippedBoundsInRoot()
-		val receiveTitleBounds = onNodeWithText(Res.string.receive_title.value, useUnmergedTree = true).getUnclippedBoundsInRoot()
-		val settingsTitleBounds = onNodeWithText(Res.string.settings_title.value, useUnmergedTree = true).getUnclippedBoundsInRoot()
-		val titleHeight = sendTitleBounds.bottom - sendTitleBounds.top
-		assertEquals(titleHeight, receiveTitleBounds.bottom - receiveTitleBounds.top)
-		assertEquals(titleHeight, settingsTitleBounds.bottom - settingsTitleBounds.top)
 		onAllNodesWithText(Res.string.send_subtitle.value).assertCountEquals(0)
 		onAllNodesWithText(Res.string.receive_new_subtitle.value).assertCountEquals(0)
 		onAllNodesWithText(Res.string.settings_subtitle.value).assertCountEquals(0)
@@ -800,25 +769,27 @@ class FoundationComposeTest {
 	fun desktopTransferComposerReviewsFileAndAccessPolicy() = runComposeUiTest {
 		var selectedPolicy: ShareAccessPolicy? = null
 		setContent {
-			VniDropTheme(isDarkTheme = false) {
-				TransferComposer(
-					coreInitialized = true,
-					state = TransferDraftState(
-						destination = TransferDraftDestination.Invitation,
-						sources = listOf(TransferDraftSource(DraftSourceId("source-1"), "photos.zip", 1536UL, null, false)),
-						transferName = "photos.zip",
-						senderName = "Sender",
-					),
-					windowClass = WindowClass.Desktop,
-					onSelectFile = {},
-					onSelectFolder = {},
-					onClearFile = {},
-					onRemoveFile = {},
-					onTransferNameChanged = {},
-					onSenderNameChanged = {},
-					onAccessPolicyChanged = { selectedPolicy = it },
-					onSubmit = {},
-				)
+			CompositionLocalProvider(LocalUiPlatform provides UiPlatform.Linux) {
+				VniDropTheme(isDarkTheme = false) {
+					TransferComposer(
+						coreInitialized = true,
+						state = TransferDraftState(
+							destination = TransferDraftDestination.Invitation,
+							sources = listOf(TransferDraftSource(DraftSourceId("source-1"), "photos.zip", 1536UL, null, false)),
+							transferName = "photos.zip",
+							senderName = "Sender",
+						),
+						windowClass = WindowClass.Desktop,
+						onSelectFile = {},
+						onSelectFolder = {},
+						onClearFile = {},
+						onRemoveFile = {},
+						onTransferNameChanged = {},
+						onSenderNameChanged = {},
+						onAccessPolicyChanged = { selectedPolicy = it },
+						onSubmit = {},
+					)
+				}
 			}
 		}
 
@@ -924,15 +895,17 @@ class FoundationComposeTest {
 		val state = mutableStateOf(SendState(selectedTransferId = 9UL))
 		var destructiveColor = Color.Unspecified
 		setContent {
-			VniDropTheme(isDarkTheme = false) {
-				destructiveColor = LocalVniDropColors.current.destructiveDefault
-				SendScreen(
-					coreState = CoreState(isInitialized = true, transfers = listOf(outgoingTransfer())),
-					state = state.value,
-					windowClass = WindowClass.Desktop,
-					onOpenComposer = {}, onTransferSelected = {}, onCloseTransferDetails = {}, onCopyTicket = {},
-					onShare = { state.value = state.value.copy(detailPanel = com.vnidrop.app.feature.send.TransferDetailPanel.Share) },
-				)
+			CompositionLocalProvider(LocalUiPlatform provides UiPlatform.Linux) {
+				VniDropTheme(isDarkTheme = false) {
+					destructiveColor = LocalVniDropColors.current.destructiveDefault
+					SendScreen(
+						coreState = CoreState(isInitialized = true, transfers = listOf(outgoingTransfer())),
+						state = state.value,
+						windowClass = WindowClass.Desktop,
+						onOpenComposer = {}, onTransferSelected = {}, onCloseTransferDetails = {}, onCopyTicket = {},
+						onShare = { state.value = state.value.copy(detailPanel = com.vnidrop.app.feature.send.TransferDetailPanel.Share) },
+					)
+				}
 			}
 		}
 
@@ -1001,13 +974,12 @@ class FoundationComposeTest {
 	@Test
 	fun phoneReceiveEmptyStateOpensAcquisitionMethods() = runComposeUiTest {
 		val state = mutableStateOf(ReceiveState())
+		val selected = mutableListOf<com.vnidrop.app.feature.receive.ReceiveMethod>()
 		val actions = object : ReceiveInvitationActions {
 			override val fileAvailability = ReceiveMethodAvailability.Available
-			override val qrAvailability = ReceiveMethodAvailability.Hidden
-			override val nfcAvailability = ReceiveMethodAvailability.Hidden
-			override fun pickInvitation(onResult: (Result<String>) -> Unit) = Unit
-			override fun scanQrCode(onResult: (Result<String>) -> Unit) = Unit
-			override fun readNfcInvitation(onResult: (Result<String>) -> Unit) = Unit
+			override val qrAvailability = ReceiveMethodAvailability.Available
+			override fun pickInvitation(onResult: (Result<String>) -> Unit) = onResult(Result.success("file-invitation"))
+			override fun scanQrCode(onResult: (Result<String>) -> Unit) = onResult(Result.success("qr-invitation"))
 			override fun cancel() = Unit
 		}
 		setContent {
@@ -1020,8 +992,7 @@ class FoundationComposeTest {
 					onOpenAcquisition = { state.value = state.value.copy(isAcquisitionOpen = true) },
 					onDismissAcquisition = {},
 					onReceiverNameChanged = {},
-					onInvitationResult = { _, _ -> },
-					onWaitingForNfc = {},
+					onInvitationResult = { method, result -> assertTrue(result.isSuccess); selected += method },
 					onReceive = {},
 					onRequestDeleteHistoryItem = {},
 					onRequestClearHistory = {},
@@ -1033,8 +1004,12 @@ class FoundationComposeTest {
 
 		onNodeWithText(Res.string.receive_empty_title.value).assertIsDisplayed()
 		onNodeWithText(Res.string.button_receive_files.value).performClick()
-		onNodeWithText(Res.string.receive_choose_method_title.value).assertIsDisplayed()
-		onNodeWithText(Res.string.receive_method_file.value).assertIsDisplayed()
+		onNodeWithTag("receive-acquisition").assertIsDisplayed()
+		onNodeWithText(Res.string.receive_method_file.value).performClick()
+		onNodeWithText(Res.string.receive_method_scan.value).performClick()
+		runOnIdle {
+			assertEquals(listOf(com.vnidrop.app.feature.receive.ReceiveMethod.InvitationFile, com.vnidrop.app.feature.receive.ReceiveMethod.QrCode), selected)
+		}
 	}
 
 	@Test
@@ -1043,10 +1018,8 @@ class FoundationComposeTest {
 		val actions = object : ReceiveInvitationActions {
 			override val fileAvailability = ReceiveMethodAvailability.Available
 			override val qrAvailability = ReceiveMethodAvailability.Hidden
-			override val nfcAvailability = ReceiveMethodAvailability.Hidden
 			override fun pickInvitation(onResult: (Result<String>) -> Unit) = Unit
 			override fun scanQrCode(onResult: (Result<String>) -> Unit) = Unit
-			override fun readNfcInvitation(onResult: (Result<String>) -> Unit) = Unit
 			override fun cancel() = Unit
 		}
 		setContent {
@@ -1060,7 +1033,6 @@ class FoundationComposeTest {
 					onDismissAcquisition = {},
 					onReceiverNameChanged = {},
 					onInvitationResult = { _, _ -> },
-					onWaitingForNfc = {},
 					onReceive = {},
 					onRequestDeleteHistoryItem = { state.value = state.value.copy(historyDeleteTarget = ReceiveHistoryDeleteTarget.Transfer(it)) },
 					onRequestClearHistory = { state.value = state.value.copy(historyDeleteTarget = ReceiveHistoryDeleteTarget.All) },
@@ -1070,8 +1042,8 @@ class FoundationComposeTest {
 			}
 		}
 
-		onNodeWithContentDescription(Res.string.receive_delete_history_item.value).assertIsDisplayed()
-		onNodeWithContentDescription(Res.string.receive_delete_history_item.value).performClick()
+		onNodeWithContentDescription(Res.string.button_more_actions.value).performClick()
+		onNodeWithText(Res.string.receive_delete_history_item.value).performClick()
 		val itemDescription = Res.string.receive_delete_history_description.value("Holiday photos")
 		val itemText = onNodeWithText(itemDescription).fetchSemanticsNode().config[SemanticsProperties.Text].single()
 		assertTrue(itemText.spanStyles.any { range ->
@@ -1092,10 +1064,8 @@ class FoundationComposeTest {
 		val actions = object : ReceiveInvitationActions {
 			override val fileAvailability = ReceiveMethodAvailability.Hidden
 			override val qrAvailability = ReceiveMethodAvailability.Hidden
-			override val nfcAvailability = ReceiveMethodAvailability.Hidden
 			override fun pickInvitation(onResult: (Result<String>) -> Unit) = Unit
 			override fun scanQrCode(onResult: (Result<String>) -> Unit) = Unit
-			override fun readNfcInvitation(onResult: (Result<String>) -> Unit) = Unit
 			override fun cancel() = Unit
 		}
 		setContent {
@@ -1110,7 +1080,6 @@ class FoundationComposeTest {
 						onDismissAcquisition = {},
 						onReceiverNameChanged = {},
 						onInvitationResult = { _, _ -> },
-						onWaitingForNfc = {},
 						onReceive = {},
 						onRequestDeleteHistoryItem = { deletedTransferId = it },
 						onRequestClearHistory = {},

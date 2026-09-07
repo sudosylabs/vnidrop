@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import com.vnidrop.app.ui.components.SecondaryButton
 import com.vnidrop.app.ui.icons.AppIcon
 import com.vnidrop.app.ui.icons.PlatformIcon
+import com.vnidrop.app.ui.navigation.LocalPageActive
+import com.vnidrop.app.ui.navigation.LocalRootScaffold
 import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import org.jetbrains.compose.resources.stringResource
@@ -73,15 +75,15 @@ internal fun SavedDevicesScreen(
 		state.savedDevices.isNotEmpty() || state.targetedTransfers.isNotEmpty() ||
 		state.targetedOffers.pending.isNotEmpty()
 	Column(
-		modifier = modifier.fillMaxSize().statusBarsPadding().padding(top = 16.dp),
+		modifier = modifier.fillMaxSize().then(if (LocalRootScaffold.current) Modifier else Modifier.statusBarsPadding().padding(top = 16.dp)),
 	) {
-		Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+		if (!LocalRootScaffold.current) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
 			SavedDevicesHeader(
 				Modifier.fillMaxWidth().widthIn(max = 720.dp)
 					.padding(horizontal = if (windowClass == WindowClass.Desktop) 24.dp else 16.dp),
 			)
 		}
-		Spacer(Modifier.height(14.dp))
+		if (!LocalRootScaffold.current) Spacer(Modifier.height(14.dp))
 		when {
 			state.isLoading && !hasContent -> SavedDevicesLoading(Modifier.weight(1f))
 			state.loadFailed && !hasContent -> SavedDevicesLoadFailure(onRetry, Modifier.weight(1f))
@@ -109,7 +111,7 @@ internal fun SavedDevicesScreen(
 			)
 		}
 	}
-	if (selectedDevice != null) {
+	if (selectedDevice != null && LocalPageActive.current) {
 		SavedDeviceDetailsDrawer(
 			device = selectedDevice,
 			transfers = state.targetedTransfers.filter { it.peerEndpointId == selectedDevice.endpointId },
@@ -128,7 +130,7 @@ internal fun SavedDevicesScreen(
 		)
 	}
 	SavedDeviceLabelDialog(
-		visible = state.labelingPeerId != null,
+		visible = state.labelingPeerId != null && LocalPageActive.current,
 		label = state.labelDraft,
 		saving = state.isSavingLabel,
 		onLabelChanged = onLabelDraftChanged,

@@ -199,3 +199,23 @@ fn receiving_progress_handles_phases_unknown_totals_and_durable_terminal_state()
     transfer.status = "done".into();
     assert_eq!(for_transfer(&[receiving], &transfer), None);
 }
+
+#[test]
+fn rate_tracks_elapsed_time_and_resets_on_phase_change_or_byte_rewind() {
+    let mut rate = crate::progress::Rate::default();
+    let mut p = Progress {
+        label: "progress_downloading",
+        bytes: Some(0),
+        total: Some(5000),
+    };
+    assert_eq!(rate.update(0, Some(&p)), None);
+    p.bytes = Some(1000);
+    assert_eq!(rate.update(1000, Some(&p)), Some((1000, Some(4))));
+    p.bytes = Some(500);
+    assert_eq!(rate.update(1100, Some(&p)), None);
+    p.label = "progress_saving";
+    assert_eq!(rate.update(2000, Some(&p)), None);
+    p.bytes = Some(5000);
+    assert_eq!(rate.update(3000, Some(&p)), None);
+    assert_eq!(rate.update(4000, None), None);
+}

@@ -11,3 +11,10 @@ pub mod qr;
 pub mod session;
 
 pub mod targeted;
+
+pub mod diagnostics;
+pub mod localization;
+pub mod notifications;
+pub mod reconfiguration;
+pub mod settings;
+pub mod storage;

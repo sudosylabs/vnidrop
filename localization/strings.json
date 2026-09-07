@@ -3786,7 +3786,7 @@
     },
     "storage_clear_transfer_cache": {
       "context": "Settings > Storage: button that clears cached transfer content (KMP).",
-      "targets": ["kmp", "windows"],
+      "targets": ["kmp", "windows", "linux"],
       "translations": {
         "en": "Clear transfer cache",
         "fr": "Vider le cache des transferts",
@@ -3801,7 +3801,7 @@
     },
     "storage_clear_transfer_cache_description": {
       "context": "Settings > Storage: description under the clear-transfer-cache button (KMP).",
-      "targets": ["kmp", "windows"],
+      "targets": ["kmp", "windows", "linux"],
       "translations": {
         "en": "Removes cached transfer content after briefly restarting VniDrop. Finish ongoing transfers and stop active shares first. Received files and transfer history are not deleted.",
         "fr": "Supprime le contenu de transfert en cache qui n’est pas utilisé par une réception en cours ou un partage actif. Les fichiers reçus et l’historique ne sont pas supprimés.",
@@ -3816,7 +3816,7 @@
     },
     "storage_clearing_transfer_cache": {
       "context": "Settings > Storage: clear-transfer-cache button while clearing is in progress (KMP).",
-      "targets": ["kmp", "windows"],
+      "targets": ["kmp", "windows", "linux"],
       "translations": {
         "en": "Clearing cache…",
         "fr": "Vidage du cache…",
@@ -3873,7 +3873,7 @@
     },
     "storage_transfer_cache_cleared": {
       "context": "Settings > Storage: confirmation that the transfer cache was cleared (KMP).",
-      "targets": ["kmp", "windows"],
+      "targets": ["kmp", "windows", "linux"],
       "translations": {
         "en": "Transfer cache cleared",
         "fr": "Cache des transferts vidé",
@@ -7299,6 +7299,121 @@
         "pl": "Historia transferów",
         "nl": "Overdrachtsgeschiedenis",
         "ru": "История передач"
+      }
+    },
+    "linux_reset_receive_folder": {
+      "context": "Native Linux preferences action.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Reset to Downloads",
+        "fr": "Rétablir Téléchargements",
+        "es": "Restablecer Descargas",
+        "it": "Ripristina Download",
+        "de": "Auf Downloads zurücksetzen",
+        "pt": "Repor Transferências",
+        "pl": "Przywróć Pobrane",
+        "nl": "Herstel Downloads",
+        "ru": "Сбросить на Загрузки"
+      }
+    },
+    "linux_save_preferences": {
+      "context": "Native Linux preferences action.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Save preferences",
+        "fr": "Enregistrer les préférences",
+        "es": "Guardar preferencias",
+        "it": "Salva preferenze",
+        "de": "Einstellungen speichern",
+        "pt": "Guardar preferências",
+        "pl": "Zapisz preferencje",
+        "nl": "Voorkeuren opslaan",
+        "ru": "Сохранить настройки"
+      }
+    },
+    "linux_transfer_rate": {
+      "context": "Native Linux settings, diagnostics, or progress.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "{rate} · {time} remaining",
+        "fr": "{rate} · {time} restantes",
+        "es": "{rate} · quedan {time}",
+        "it": "{rate} · {time} rimanenti",
+        "de": "{rate} · noch {time}",
+        "pt": "{rate} · faltam {time}",
+        "pl": "{rate} · pozostało {time}",
+        "nl": "{rate} · nog {time}",
+        "ru": "{rate} · осталось {time}"
+      },
+      "args": [
+        {
+          "name": "rate",
+          "type": "string"
+        },
+        {
+          "name": "time",
+          "type": "string"
+        }
+      ]
+    },
+    "linux_temporary_cleanup_body": {
+      "context": "Native Linux settings, diagnostics, or progress.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Remove VniDrop partial files older than one day from your receive folder. Received files and history are kept.",
+        "fr": "Supprime les fichiers partiels VniDrop de plus d’un jour du dossier de réception. Les fichiers reçus et l’historique sont conservés.",
+        "es": "Elimina archivos parciales de VniDrop de más de un día. Se conservan los archivos recibidos y el historial.",
+        "it": "Rimuove i file parziali VniDrop più vecchi di un giorno. I file ricevuti e la cronologia vengono conservati.",
+        "de": "Entfernt unvollständige VniDrop-Dateien, die älter als ein Tag sind. Empfangene Dateien und Verlauf bleiben erhalten.",
+        "pt": "Remove ficheiros parciais VniDrop com mais de um dia. Os ficheiros recebidos e o histórico são mantidos.",
+        "pl": "Usuń częściowe pliki VniDrop starsze niż jeden dzień. Odebrane pliki i historia zostaną zachowane.",
+        "nl": "Verwijder gedeeltelijke VniDrop-bestanden ouder dan één dag. Ontvangen bestanden en geschiedenis blijven behouden.",
+        "ru": "Удалить незавершённые файлы VniDrop старше суток. Полученные файлы и история сохранятся."
+      }
+    },
+    "linux_storage_cleaned": {
+      "context": "Native Linux settings, diagnostics, or progress.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Temporary files cleaned up",
+        "fr": "Fichiers temporaires nettoyés",
+        "es": "Archivos temporales eliminados",
+        "it": "File temporanei rimossi",
+        "de": "Temporäre Dateien bereinigt",
+        "pt": "Ficheiros temporários limpos",
+        "pl": "Pliki tymczasowe usunięte",
+        "nl": "Tijdelijke bestanden opgeruimd",
+        "ru": "Временные файлы удалены"
+      }
+    },
+    "linux_diagnostics_unconfigured": {
+      "context": "Native Linux settings, diagnostics, or progress.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Bug reporting is unavailable in this build.",
+        "fr": "Le signalement de bugs n’est pas disponible dans cette version.",
+        "es": "Los informes de errores no están disponibles en esta versión.",
+        "it": "La segnalazione dei bug non è disponibile in questa versione.",
+        "de": "Fehlerberichte sind in dieser Version nicht verfügbar.",
+        "pt": "Os relatórios de erros não estão disponíveis nesta versão.",
+        "pl": "Zgłaszanie błędów jest niedostępne w tej wersji.",
+        "nl": "Bugrapportage is niet beschikbaar in deze versie.",
+        "ru": "Отправка отчётов недоступна в этой сборке."
+      }
+    },
+    "linux_report_logs_description": {
+      "context": "Native Linux settings, diagnostics, or progress.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Include recent activity timestamps and event types. File paths, tickets, and device identifiers are omitted.",
+        "fr": "Inclure les dates et types des événements récents, sans chemins de fichiers, invitations ni identifiants des appareils.",
+        "es": "Incluye fechas y tipos de eventos recientes, sin rutas, invitaciones ni identificadores de dispositivos.",
+        "it": "Include orari e tipi degli eventi recenti, senza percorsi, inviti o identificativi dei dispositivi.",
+        "de": "Enthält Zeitstempel und Ereignistypen, ohne Dateipfade, Einladungen oder Gerätekennungen.",
+        "pt": "Inclui datas e tipos de eventos recentes, sem caminhos, convites ou identificadores de dispositivos.",
+        "pl": "Dołącz czasy i typy ostatnich zdarzeń, bez ścieżek, zaproszeń i identyfikatorów urządzeń.",
+        "nl": "Voeg tijdstippen en typen van recente gebeurtenissen toe, zonder paden, uitnodigingen of apparaat-ID’s.",
+        "ru": "Добавить время и типы последних событий без путей, приглашений и идентификаторов устройств."
       }
     }
   }

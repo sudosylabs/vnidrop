@@ -556,3 +556,6 @@ fn native_pairing_decline_never_creates_saved_access() {
 
 #[path = "targeted_tests.rs"]
 mod targeted_tests;
+
+#[path = "settings_tests.rs"]
+mod settings_tests;

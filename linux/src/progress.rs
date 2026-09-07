@@ -225,3 +225,66 @@ fn identifier(value: &Value) -> Option<String> {
 #[cfg(test)]
 #[path = "progress_tests.rs"]
 mod tests;
+
+#[derive(Default)]
+pub struct Rate {
+    samples: std::collections::VecDeque<(u64, u64)>,
+    phase: String,
+}
+impl Rate {
+    pub fn update(
+        &mut self,
+        now_ms: u64,
+        progress: Option<&Progress>,
+    ) -> Option<(u64, Option<u64>)> {
+        let Some(progress) = progress else {
+            self.samples.clear();
+            return None;
+        };
+        let Some(bytes) = progress.bytes else {
+            self.samples.clear();
+            return None;
+        };
+        if self.phase != progress.label
+            || self
+                .samples
+                .back()
+                .is_some_and(|(time, last)| bytes < *last || now_ms < *time)
+        {
+            self.samples.clear();
+            self.phase = progress.label.into();
+        }
+        if progress.label == "progress_interrupted"
+            || progress.total.is_some_and(|total| bytes >= total)
+        {
+            self.samples.clear();
+            return None;
+        }
+        if self.samples.back().is_none_or(|(time, _)| now_ms > *time) {
+            self.samples.push_back((now_ms, bytes));
+        }
+        while self.samples.len() > 2
+            && self
+                .samples
+                .front()
+                .is_some_and(|(time, _)| now_ms.saturating_sub(*time) > 5000)
+        {
+            self.samples.pop_front();
+        }
+        let &(time, initial) = self.samples.front()?;
+        let elapsed = now_ms.saturating_sub(time);
+        if elapsed < 500 {
+            return None;
+        }
+        let rate = bytes.saturating_sub(initial).saturating_mul(1000) / elapsed;
+        if rate == 0 {
+            return None;
+        }
+        Some((
+            rate,
+            progress
+                .total
+                .map(|total| total.saturating_sub(bytes).div_ceil(rate)),
+        ))
+    }
+}

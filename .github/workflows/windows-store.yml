@@ -144,3 +144,8 @@ jobs:
           "- Architecture: x64" >> $env:GITHUB_STEP_SUMMARY
           "- Store signing: unsigned submission; Microsoft signs after certification" >> $env:GITHUB_STEP_SUMMARY
           "- Direct installer signing: unsigned; Windows SmartScreen warning expected" >> $env:GITHUB_STEP_SUMMARY
+          Import-Module ./packaging/windows/Packaging.psm1 -Force
+          $coldNotificationSkipReason = Get-ColdNotificationTestSkipReason
+          if ($coldNotificationSkipReason) {
+            "- SKIPPED: $coldNotificationSkipReason" >> $env:GITHUB_STEP_SUMMARY
+          }

@@ -157,9 +157,6 @@ try {
     $coldNotificationSkipReason = Get-ColdNotificationTestSkipReason
     if ($coldNotificationSkipReason) {
         Write-Warning $coldNotificationSkipReason
-        if ($env:GITHUB_STEP_SUMMARY) {
-            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- SKIPPED: $coldNotificationSkipReason"
-        }
     } else {
         Write-Host 'Testing notification activation after the app exits.'
         [VniDropPackageTest]::Notify($notificationClsid, $appId)

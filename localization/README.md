@@ -8,6 +8,7 @@ A Bun CLI generates the platform-native files from it:
 | `apple` | `apple/VniDrop/Resources/Localizable.xcstrings` | one catalog, all languages nested |
 | `kmp` | `shared/src/commonMain/composeResources/values[-lang]/strings.xml` | one file per language |
 | `windows` | `windows/VniDrop/Strings/<locale>/Resources.resw` | WinUI resource map, named arguments preserved |
+| `linux` | `linux/data/strings.json` | Embedded GNOME catalog, named arguments and plural categories preserved |
 
 ## Workflow
 
@@ -18,7 +19,7 @@ make localization            # regenerate .xcstrings + strings.xml from strings.
 make localization-migrate    # one-time: rebuild strings.json from platform files
 ```
 
-**Never edit the generated `.xcstrings` / `strings.xml` / `.resw` by hand** — edit `strings.json` and
+**Never edit the generated `.xcstrings` / `strings.xml` / `.resw` / Linux catalog by hand** — edit the source `localization/strings.json` and
 regenerate. Regenerated output is deterministic (sorted keys), so diffs stay small.
 
 ## `strings.json` format
@@ -50,7 +51,7 @@ regenerate. Regenerated output is deterministic (sorted keys), so diffs stay sma
 
 - **`context`** *(required)* — where the string appears and its purpose. Emitted as the
   `.xcstrings` comment and an XML comment; also the note translators see.
-- **`targets`** *(optional)* — any of `kmp`, `apple`, and `windows`. Omit to mean **all** targets.
+- **`targets`** *(optional)* — any of `kmp`, `apple`, `windows`, and `linux`. Omit to mean **all** targets.
 - **`args`** *(optional)* — ordered list of `{ name, type }`, `type` ∈ `string | int | double`.
   Referenced in text as `{name}`.
 - **`translations`** — flat text per language. **Mutually exclusive with `plural`.**

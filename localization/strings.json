@@ -6261,6 +6261,788 @@
         "nl": "Uit",
         "ru": "Выключены"
       }
+    },
+    "linux_transfers": {
+      "context": "Native GNOME application: transfers.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Transfers",
+        "fr": "Transferts",
+        "es": "Transferencias",
+        "it": "Trasferimenti",
+        "de": "Übertragungen",
+        "pt": "Transferências",
+        "pl": "Transfery",
+        "nl": "Overdrachten",
+        "ru": "Передачи"
+      }
+    },
+    "linux_empty_title": {
+      "context": "Native GNOME application: empty title.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "No Transfers Yet",
+        "fr": "Aucun transfert pour le moment",
+        "es": "Aún no hay transferencias",
+        "it": "Ancora nessun trasferimento",
+        "de": "Noch keine Übertragungen",
+        "pt": "Ainda não há transferências",
+        "pl": "Brak transferów",
+        "nl": "Nog geen overdrachten",
+        "ru": "Передач пока нет"
+      }
+    },
+    "linux_empty_body": {
+      "context": "Native GNOME application: empty body.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Send files to another device or open an invitation to receive them.",
+        "fr": "Envoyez des fichiers à un autre appareil ou ouvrez une invitation pour en recevoir.",
+        "es": "Envía archivos a otro dispositivo o abre una invitación para recibirlos.",
+        "it": "Invia file a un altro dispositivo o apri un invito per riceverli.",
+        "de": "Senden Sie Dateien an ein anderes Gerät oder öffnen Sie eine Einladung, um Dateien zu empfangen.",
+        "pt": "Envie ficheiros para outro dispositivo ou abra um convite para os receber.",
+        "pl": "Wyślij pliki na inne urządzenie lub otwórz zaproszenie, aby je odebrać.",
+        "nl": "Verstuur bestanden naar een ander apparaat of open een uitnodiging om ze te ontvangen.",
+        "ru": "Отправьте файлы на другое устройство или откройте приглашение, чтобы получить их."
+      }
+    },
+    "linux_select_transfer": {
+      "context": "Native GNOME application: select transfer.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Select a Transfer",
+        "fr": "Sélectionner un transfert",
+        "es": "Seleccionar una transferencia",
+        "it": "Seleziona un trasferimento",
+        "de": "Übertragung auswählen",
+        "pt": "Selecionar uma transferência",
+        "pl": "Wybierz transfer",
+        "nl": "Selecteer een overdracht",
+        "ru": "Выберите передачу"
+      }
+    },
+    "linux_select_transfer_body": {
+      "context": "Native GNOME application: select transfer body.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Choose a transfer to see its details and available actions.",
+        "fr": "Choisissez un transfert pour afficher ses détails et les actions disponibles.",
+        "es": "Elige una transferencia para ver sus detalles y las acciones disponibles.",
+        "it": "Scegli un trasferimento per visualizzarne i dettagli e le azioni disponibili.",
+        "de": "Wählen Sie eine Übertragung aus, um Details und verfügbare Aktionen anzuzeigen.",
+        "pt": "Escolha uma transferência para ver os detalhes e as ações disponíveis.",
+        "pl": "Wybierz transfer, aby zobaczyć szczegóły i dostępne działania.",
+        "nl": "Kies een overdracht om de details en beschikbare acties te bekijken.",
+        "ru": "Выберите передачу, чтобы увидеть подробности и доступные действия."
+      }
+    },
+    "linux_send_files": {
+      "context": "Native GNOME application: send files.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Send Files",
+        "fr": "Envoyer des fichiers",
+        "es": "Enviar archivos",
+        "it": "Invia file",
+        "de": "Dateien senden",
+        "pt": "Enviar ficheiros",
+        "pl": "Wyślij pliki",
+        "nl": "Bestanden versturen",
+        "ru": "Отправить файлы"
+      }
+    },
+    "linux_send_folder": {
+      "context": "Native GNOME application: send folder.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Send Folder",
+        "fr": "Envoyer un dossier",
+        "es": "Enviar carpeta",
+        "it": "Invia cartella",
+        "de": "Ordner senden",
+        "pt": "Enviar pasta",
+        "pl": "Wyślij folder",
+        "nl": "Map versturen",
+        "ru": "Отправить папку"
+      }
+    },
+    "linux_open_invitation": {
+      "context": "Native GNOME application: open invitation.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Open Invitation",
+        "fr": "Ouvrir une invitation",
+        "es": "Abrir invitación",
+        "it": "Apri invito",
+        "de": "Einladung öffnen",
+        "pt": "Abrir convite",
+        "pl": "Otwórz zaproszenie",
+        "nl": "Uitnodiging openen",
+        "ru": "Открыть приглашение"
+      }
+    },
+    "linux_about": {
+      "context": "Native GNOME application: about.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "About VniDrop",
+        "fr": "À propos de VniDrop",
+        "es": "Acerca de VniDrop",
+        "it": "Informazioni su VniDrop",
+        "de": "Info zu VniDrop",
+        "pt": "Sobre o VniDrop",
+        "pl": "O VniDrop",
+        "nl": "Over VniDrop",
+        "ru": "О VniDrop"
+      }
+    },
+    "linux_quit": {
+      "context": "Native GNOME application: quit.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Quit",
+        "fr": "Quitter",
+        "es": "Salir",
+        "it": "Esci",
+        "de": "Beenden",
+        "pt": "Sair",
+        "pl": "Zakończ",
+        "nl": "Afsluiten",
+        "ru": "Выйти"
+      }
+    },
+    "linux_close_title": {
+      "context": "Native GNOME application: close title.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Quit VniDrop?",
+        "fr": "Quitter VniDrop ?",
+        "es": "¿Salir de VniDrop?",
+        "it": "Uscire da VniDrop?",
+        "de": "VniDrop beenden?",
+        "pt": "Sair do VniDrop?",
+        "pl": "Zakończyć VniDrop?",
+        "nl": "VniDrop afsluiten?",
+        "ru": "Выйти из VniDrop?"
+      }
+    },
+    "linux_close_body": {
+      "context": "Native GNOME application: close body.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Active transfers and sharing will stop. Your history and received files will be kept.",
+        "fr": "Les transferts et les partages en cours seront arrêtés. Votre historique et les fichiers reçus seront conservés.",
+        "es": "Se detendrán las transferencias y los archivos dejarán de compartirse. Se conservarán el historial y los archivos recibidos.",
+        "it": "I trasferimenti e le condivisioni in corso verranno interrotti. La cronologia e i file ricevuti verranno conservati.",
+        "de": "Laufende Übertragungen und Freigaben werden beendet. Verlauf und empfangene Dateien bleiben erhalten.",
+        "pt": "As transferências e partilhas em curso serão interrompidas. O histórico e os ficheiros recebidos serão mantidos.",
+        "pl": "Aktywne transfery i udostępnianie zostaną zatrzymane. Historia i odebrane pliki zostaną zachowane.",
+        "nl": "Actieve overdrachten en het delen van bestanden worden gestopt. Je geschiedenis en ontvangen bestanden blijven behouden.",
+        "ru": "Активные передачи и раздачи будут остановлены. История и полученные файлы сохранятся."
+      }
+    },
+    "linux_quit_stop": {
+      "context": "Native GNOME application: quit stop.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Stop and Quit",
+        "fr": "Arrêter et quitter",
+        "es": "Detener y salir",
+        "it": "Interrompi ed esci",
+        "de": "Stoppen und beenden",
+        "pt": "Parar e sair",
+        "pl": "Zatrzymaj i zakończ",
+        "nl": "Stoppen en afsluiten",
+        "ru": "Остановить и выйти"
+      }
+    },
+    "linux_keyring_locked": {
+      "context": "Native GNOME application: keyring locked.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Unlock your login keyring, then try again.",
+        "fr": "Déverrouillez votre trousseau de connexion, puis réessayez.",
+        "es": "Desbloquea el depósito de claves de inicio de sesión y vuelve a intentarlo.",
+        "it": "Sblocca il portachiavi di accesso, quindi riprova.",
+        "de": "Entsperren Sie Ihren Anmeldeschlüsselbund und versuchen Sie es erneut.",
+        "pt": "Desbloqueie o chaveiro de início de sessão e tente novamente.",
+        "pl": "Odblokuj pęk kluczy logowania i spróbuj ponownie.",
+        "nl": "Ontgrendel je aanmeldsleutelbos en probeer het opnieuw.",
+        "ru": "Разблокируйте связку ключей входа и повторите попытку."
+      }
+    },
+    "linux_keyring_unavailable": {
+      "context": "Native GNOME application: keyring unavailable.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "VniDrop could not access the system keyring. Check that a Secret Service such as GNOME Keyring is running, then try again.",
+        "fr": "VniDrop n’a pas pu accéder au trousseau système. Vérifiez qu’un service Secret Service, tel que GNOME Keyring, est en cours d’exécution, puis réessayez.",
+        "es": "VniDrop no pudo acceder al depósito de claves del sistema. Comprueba que un servicio Secret Service, como GNOME Keyring, esté en ejecución y vuelve a intentarlo.",
+        "it": "VniDrop non ha potuto accedere al portachiavi di sistema. Verifica che un servizio Secret Service, come GNOME Keyring, sia in esecuzione, quindi riprova.",
+        "de": "VniDrop konnte nicht auf den Systemschlüsselbund zugreifen. Prüfen Sie, ob ein Secret Service wie GNOME Keyring läuft, und versuchen Sie es erneut.",
+        "pt": "O VniDrop não conseguiu aceder ao chaveiro do sistema. Verifique se um Secret Service, como o GNOME Keyring, está em execução e tente novamente.",
+        "pl": "VniDrop nie może uzyskać dostępu do systemowego pęku kluczy. Sprawdź, czy działa usługa Secret Service, taka jak GNOME Keyring, i spróbuj ponownie.",
+        "nl": "VniDrop kon de systeemsleutelbos niet openen. Controleer of een Secret Service zoals GNOME Keyring actief is en probeer het opnieuw.",
+        "ru": "VniDrop не удалось получить доступ к системной связке ключей. Убедитесь, что служба Secret Service, например GNOME Keyring, запущена, и повторите попытку."
+      }
+    },
+    "linux_identity_unavailable": {
+      "context": "Native GNOME application: identity unavailable.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "This profile’s protected identity could not be opened. Restore access to its original keyring before trying again.",
+        "fr": "L’identité protégée de ce profil n’a pas pu être ouverte. Rétablissez l’accès à son trousseau d’origine avant de réessayer.",
+        "es": "No se pudo abrir la identidad protegida de este perfil. Restablece el acceso a su depósito de claves original antes de volver a intentarlo.",
+        "it": "Impossibile aprire l’identità protetta di questo profilo. Ripristina l’accesso al portachiavi originale prima di riprovare.",
+        "de": "Die geschützte Identität dieses Profils konnte nicht geöffnet werden. Stellen Sie vor einem erneuten Versuch den Zugriff auf den ursprünglichen Schlüsselbund wieder her.",
+        "pt": "Não foi possível abrir a identidade protegida deste perfil. Restaure o acesso ao chaveiro original antes de tentar novamente.",
+        "pl": "Nie można otworzyć chronionej tożsamości tego profilu. Przywróć dostęp do oryginalnego pęku kluczy przed ponowną próbą.",
+        "nl": "De beveiligde identiteit van dit profiel kon niet worden geopend. Herstel de toegang tot de oorspronkelijke sleutelbos voordat je het opnieuw probeert.",
+        "ru": "Не удалось открыть защищённую идентификацию этого профиля. Восстановите доступ к исходной связке ключей перед повторной попыткой."
+      }
+    },
+    "linux_preferences_invalid": {
+      "context": "Native GNOME application: preferences invalid.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Your saved preferences could not be read. Restore the preferences file before starting VniDrop; your network policy has not been changed.",
+        "fr": "Vos préférences enregistrées n’ont pas pu être lues. Restaurez le fichier de préférences avant de démarrer VniDrop ; votre politique réseau n’a pas été modifiée.",
+        "es": "No se pudieron leer las preferencias guardadas. Restaura el archivo de preferencias antes de iniciar VniDrop; la política de red no se ha modificado.",
+        "it": "Impossibile leggere le preferenze salvate. Ripristina il file delle preferenze prima di avviare VniDrop; la politica di rete non è stata modificata.",
+        "de": "Die gespeicherten Einstellungen konnten nicht gelesen werden. Stellen Sie die Einstellungsdatei vor dem Start von VniDrop wieder her; die Netzwerkrichtlinie wurde nicht geändert.",
+        "pt": "Não foi possível ler as preferências guardadas. Restaure o ficheiro de preferências antes de iniciar o VniDrop; a política de rede não foi alterada.",
+        "pl": "Nie można odczytać zapisanych ustawień. Przywróć plik ustawień przed uruchomieniem VniDrop; zasady sieciowe nie zostały zmienione.",
+        "nl": "Je opgeslagen voorkeuren konden niet worden gelezen. Herstel het voorkeurenbestand voordat je VniDrop start; je netwerkbeleid is niet gewijzigd.",
+        "ru": "Не удалось прочитать сохранённые настройки. Восстановите файл настроек перед запуском VniDrop; сетевая политика не изменена."
+      }
+    },
+    "linux_session_closed": {
+      "context": "Native GNOME application: session closed.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "VniDrop is shutting down.",
+        "fr": "VniDrop est en cours de fermeture.",
+        "es": "VniDrop se está cerrando.",
+        "it": "VniDrop si sta chiudendo.",
+        "de": "VniDrop wird beendet.",
+        "pt": "O VniDrop está a encerrar.",
+        "pl": "VniDrop jest zamykany.",
+        "nl": "VniDrop wordt afgesloten.",
+        "ru": "VniDrop завершает работу."
+      }
+    },
+    "linux_local_files_only": {
+      "context": "Native GNOME application: local files only.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Choose a file or folder available on this device.",
+        "fr": "Choisissez un fichier ou un dossier disponible sur cet appareil.",
+        "es": "Elige un archivo o una carpeta disponible en este dispositivo.",
+        "it": "Scegli un file o una cartella disponibile su questo dispositivo.",
+        "de": "Wählen Sie eine Datei oder einen Ordner auf diesem Gerät.",
+        "pt": "Escolha um ficheiro ou uma pasta disponível neste dispositivo.",
+        "pl": "Wybierz plik lub folder dostępny na tym urządzeniu.",
+        "nl": "Kies een bestand of map op dit apparaat.",
+        "ru": "Выберите файл или папку на этом устройстве."
+      }
+    },
+    "linux_copy_invitation": {
+      "context": "Native GNOME application: copy invitation.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Copy Invitation",
+        "fr": "Copier l’invitation",
+        "es": "Copiar invitación",
+        "it": "Copia invito",
+        "de": "Einladung kopieren",
+        "pt": "Copiar convite",
+        "pl": "Kopiuj zaproszenie",
+        "nl": "Uitnodiging kopiëren",
+        "ru": "Копировать приглашение"
+      }
+    },
+    "linux_invitation_copied": {
+      "context": "Native GNOME application: invitation copied.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Invitation copied.",
+        "fr": "Invitation copiée.",
+        "es": "Invitación copiada.",
+        "it": "Invito copiato.",
+        "de": "Einladung kopiert.",
+        "pt": "Convite copiado.",
+        "pl": "Zaproszenie skopiowane.",
+        "nl": "Uitnodiging gekopieerd.",
+        "ru": "Приглашение скопировано."
+      }
+    },
+    "linux_save_invitation": {
+      "context": "Native GNOME application: save invitation.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Save Invitation",
+        "fr": "Enregistrer l’invitation",
+        "es": "Guardar invitación",
+        "it": "Salva invito",
+        "de": "Einladung speichern",
+        "pt": "Guardar convite",
+        "pl": "Zapisz zaproszenie",
+        "nl": "Uitnodiging opslaan",
+        "ru": "Сохранить приглашение"
+      }
+    },
+    "linux_direction": {
+      "context": "Native GNOME application: direction.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Direction",
+        "fr": "Sens",
+        "es": "Dirección",
+        "it": "Direzione",
+        "de": "Richtung",
+        "pt": "Direção",
+        "pl": "Kierunek",
+        "nl": "Richting",
+        "ru": "Направление"
+      }
+    },
+    "linux_outgoing": {
+      "context": "Native GNOME application: outgoing.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Outgoing",
+        "fr": "Sortant",
+        "es": "Saliente",
+        "it": "In uscita",
+        "de": "Ausgehend",
+        "pt": "Enviada",
+        "pl": "Wychodzący",
+        "nl": "Uitgaand",
+        "ru": "Исходящая"
+      }
+    },
+    "linux_incoming": {
+      "context": "Native GNOME application: incoming.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Incoming",
+        "fr": "Entrant",
+        "es": "Entrante",
+        "it": "In entrata",
+        "de": "Eingehend",
+        "pt": "Recebida",
+        "pl": "Przychodzący",
+        "nl": "Inkomend",
+        "ru": "Входящая"
+      }
+    },
+    "linux_invitation": {
+      "context": "Native GNOME application: invitation.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Invitation",
+        "fr": "Invitation",
+        "es": "Invitación",
+        "it": "Invito",
+        "de": "Einladung",
+        "pt": "Convite",
+        "pl": "Zaproszenie",
+        "nl": "Uitnodiging",
+        "ru": "Приглашение"
+      }
+    },
+    "linux_startup_error": {
+      "context": "Native GNOME application: startup error.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Could Not Start VniDrop",
+        "fr": "Impossible de démarrer VniDrop",
+        "es": "No se pudo iniciar VniDrop",
+        "it": "Impossibile avviare VniDrop",
+        "de": "VniDrop konnte nicht gestartet werden",
+        "pt": "Não foi possível iniciar o VniDrop",
+        "pl": "Nie można uruchomić VniDrop",
+        "nl": "VniDrop kon niet worden gestart",
+        "ru": "Не удалось запустить VniDrop"
+      }
+    },
+    "linux_system": {
+      "context": "Native GNOME application: system.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Follow System",
+        "fr": "Suivre le système",
+        "es": "Seguir el sistema",
+        "it": "Segui il sistema",
+        "de": "Systemeinstellung",
+        "pt": "Seguir o sistema",
+        "pl": "Zgodnie z systemem",
+        "nl": "Systeem volgen",
+        "ru": "Как в системе"
+      }
+    },
+    "linux_light": {
+      "context": "Native GNOME application: light.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Light",
+        "fr": "Clair",
+        "es": "Claro",
+        "it": "Chiaro",
+        "de": "Hell",
+        "pt": "Claro",
+        "pl": "Jasny",
+        "nl": "Licht",
+        "ru": "Светлая"
+      }
+    },
+    "linux_dark": {
+      "context": "Native GNOME application: dark.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Dark",
+        "fr": "Sombre",
+        "es": "Oscuro",
+        "it": "Scuro",
+        "de": "Dunkel",
+        "pt": "Escuro",
+        "pl": "Ciemny",
+        "nl": "Donker",
+        "ru": "Тёмная"
+      }
+    },
+    "linux_invalid_selection": {
+      "context": "Native GNOME application: invalid selection.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Select multiple files or one folder.",
+        "fr": "Sélectionnez plusieurs fichiers ou un seul dossier.",
+        "es": "Selecciona varios archivos o una sola carpeta.",
+        "it": "Seleziona più file o una sola cartella.",
+        "de": "Wählen Sie mehrere Dateien oder einen einzelnen Ordner.",
+        "pt": "Selecione vários ficheiros ou uma única pasta.",
+        "pl": "Wybierz wiele plików lub jeden folder.",
+        "nl": "Selecteer meerdere bestanden of één map.",
+        "ru": "Выберите несколько файлов или одну папку."
+      }
+    },
+    "linux_cancel_title": {
+      "context": "Native GNOME application: cancel title.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Stop This Transfer?",
+        "fr": "Arrêter ce transfert ?",
+        "es": "¿Detener esta transferencia?",
+        "it": "Interrompere questo trasferimento?",
+        "de": "Diese Übertragung stoppen?",
+        "pt": "Parar esta transferência?",
+        "pl": "Zatrzymać ten transfer?",
+        "nl": "Deze overdracht stoppen?",
+        "ru": "Остановить эту передачу?"
+      }
+    },
+    "linux_cancel_body": {
+      "context": "Native GNOME application: cancel body.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "The current transfer will stop. You can create a new transfer later.",
+        "fr": "Le transfert en cours sera arrêté. Vous pourrez en créer un nouveau plus tard.",
+        "es": "Se detendrá la transferencia actual. Puedes crear otra más adelante.",
+        "it": "Il trasferimento in corso verrà interrotto. Potrai crearne uno nuovo in seguito.",
+        "de": "Die aktuelle Übertragung wird gestoppt. Sie können später eine neue erstellen.",
+        "pt": "A transferência atual será interrompida. Pode criar uma nova mais tarde.",
+        "pl": "Bieżący transfer zostanie zatrzymany. Później możesz utworzyć nowy.",
+        "nl": "De huidige overdracht wordt gestopt. Je kunt later een nieuwe aanmaken.",
+        "ru": "Текущая передача будет остановлена. Позже вы сможете создать новую."
+      }
+    },
+    "linux_remove_history": {
+      "context": "Native GNOME application: remove history.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Remove from History",
+        "fr": "Retirer de l’historique",
+        "es": "Eliminar del historial",
+        "it": "Rimuovi dalla cronologia",
+        "de": "Aus Verlauf entfernen",
+        "pt": "Remover do histórico",
+        "pl": "Usuń z historii",
+        "nl": "Uit geschiedenis verwijderen",
+        "ru": "Удалить из истории"
+      }
+    },
+    "linux_remove_title": {
+      "context": "Native GNOME application: remove title.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Remove This Transfer?",
+        "fr": "Retirer ce transfert ?",
+        "es": "¿Eliminar esta transferencia?",
+        "it": "Rimuovere questo trasferimento?",
+        "de": "Diese Übertragung entfernen?",
+        "pt": "Remover esta transferência?",
+        "pl": "Usunąć ten transfer?",
+        "nl": "Deze overdracht verwijderen?",
+        "ru": "Удалить эту передачу?"
+      }
+    },
+    "linux_remove_body": {
+      "context": "Native GNOME application: remove body.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "This removes the transfer from VniDrop’s history. Received files stay on this device.",
+        "fr": "Ce transfert sera retiré de l’historique de VniDrop. Les fichiers reçus resteront sur cet appareil.",
+        "es": "Se eliminará la transferencia del historial de VniDrop. Los archivos recibidos permanecerán en este dispositivo.",
+        "it": "Il trasferimento verrà rimosso dalla cronologia di VniDrop. I file ricevuti rimarranno su questo dispositivo.",
+        "de": "Diese Übertragung wird aus dem VniDrop-Verlauf entfernt. Empfangene Dateien bleiben auf diesem Gerät.",
+        "pt": "Esta transferência será removida do histórico do VniDrop. Os ficheiros recebidos permanecerão neste dispositivo.",
+        "pl": "Transfer zostanie usunięty z historii VniDrop. Odebrane pliki pozostaną na tym urządzeniu.",
+        "nl": "Dit verwijdert de overdracht uit de geschiedenis van VniDrop. Ontvangen bestanden blijven op dit apparaat staan.",
+        "ru": "Передача будет удалена из истории VniDrop. Полученные файлы останутся на этом устройстве."
+      }
+    },
+    "linux_network_policy": {
+      "context": "Native GNOME application: network policy.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Network Policy",
+        "fr": "Politique réseau",
+        "es": "Política de red",
+        "it": "Politica di rete",
+        "de": "Netzwerkrichtlinie",
+        "pt": "Política de rede",
+        "pl": "Zasady sieciowe",
+        "nl": "Netwerkbeleid",
+        "ru": "Сетевая политика"
+      }
+    },
+    "linux_network_automatic": {
+      "context": "Native GNOME application: network automatic.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Automatic",
+        "fr": "Automatique",
+        "es": "Automática",
+        "it": "Automatica",
+        "de": "Automatisch",
+        "pt": "Automática",
+        "pl": "Automatycznie",
+        "nl": "Automatisch",
+        "ru": "Автоматически"
+      }
+    },
+    "linux_profile_arguments": {
+      "context": "Native GNOME application: profile arguments.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Use --profile followed by an absolute directory, and optionally one or more .vnd invitation files.",
+        "fr": "Utilisez --profile suivi d’un chemin de dossier absolu et, éventuellement, d’un ou plusieurs fichiers d’invitation .vnd.",
+        "es": "Usa --profile seguido de una ruta absoluta de directorio y, opcionalmente, uno o varios archivos de invitación .vnd.",
+        "it": "Usa --profile seguito da un percorso assoluto di directory e, facoltativamente, da uno o più file di invito .vnd.",
+        "de": "Verwenden Sie --profile mit einem absoluten Verzeichnispfad und optional einer oder mehreren .vnd-Einladungsdateien.",
+        "pt": "Use --profile seguido de um caminho absoluto de pasta e, opcionalmente, de um ou mais ficheiros de convite .vnd.",
+        "pl": "Użyj --profile, po nim podaj bezwzględną ścieżkę katalogu oraz opcjonalnie co najmniej jeden plik zaproszenia .vnd.",
+        "nl": "Gebruik --profile gevolgd door een absoluut mappad en eventueel een of meer .vnd-uitnodigingsbestanden.",
+        "ru": "Укажите после --profile абсолютный путь к каталогу и, при необходимости, один или несколько файлов приглашений .vnd."
+      }
+    },
+    "linux_open_failed": {
+      "context": "Native GNOME application: open failed.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "The selected file could not be opened.",
+        "fr": "Le fichier sélectionné n’a pas pu être ouvert.",
+        "es": "No se pudo abrir el archivo seleccionado.",
+        "it": "Impossibile aprire il file selezionato.",
+        "de": "Die ausgewählte Datei konnte nicht geöffnet werden.",
+        "pt": "Não foi possível abrir o ficheiro selecionado.",
+        "pl": "Nie można otworzyć wybranego pliku.",
+        "nl": "Het geselecteerde bestand kon niet worden geopend.",
+        "ru": "Не удалось открыть выбранный файл."
+      }
+    },
+    "linux_review_requests": {
+      "context": "GNOME banner action: open the first transfer with a pending receiver approval.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Review",
+        "fr": "Examiner",
+        "es": "Revisar",
+        "it": "Esamina",
+        "de": "Prüfen",
+        "pt": "Rever",
+        "pl": "Przejrzyj",
+        "nl": "Bekijken",
+        "ru": "Просмотреть"
+      }
+    },
+    "linux_pending_requests": {
+      "context": "Native GNOME application: pending requests.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Requests Waiting",
+        "fr": "Demandes en attente",
+        "es": "Solicitudes pendientes",
+        "it": "Richieste in attesa",
+        "de": "Wartende Anfragen",
+        "pt": "Pedidos pendentes",
+        "pl": "Oczekujące prośby",
+        "nl": "Wachtende verzoeken",
+        "ru": "Ожидающие запросы"
+      }
+    },
+    "linux_no_receivers": {
+      "context": "Native GNOME application: no receivers.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "No Receivers Yet",
+        "fr": "Aucun destinataire pour le moment",
+        "es": "Aún no hay destinatarios",
+        "it": "Ancora nessun destinatario",
+        "de": "Noch keine Empfänger",
+        "pt": "Ainda não há destinatários",
+        "pl": "Brak odbiorców",
+        "nl": "Nog geen ontvangers",
+        "ru": "Получателей пока нет"
+      }
+    },
+    "linux_create_invitation": {
+      "context": "Native GNOME application: create invitation.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Create Invitation",
+        "fr": "Créer une invitation",
+        "es": "Crear invitación",
+        "it": "Crea invito",
+        "de": "Einladung erstellen",
+        "pt": "Criar convite",
+        "pl": "Utwórz zaproszenie",
+        "nl": "Uitnodiging aanmaken",
+        "ru": "Создать приглашение"
+      }
+    },
+    "linux_choose_destination": {
+      "context": "Native GNOME application: choose destination.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Choose Destination",
+        "fr": "Choisir la destination",
+        "es": "Elegir destino",
+        "it": "Scegli destinazione",
+        "de": "Ziel auswählen",
+        "pt": "Escolher destino",
+        "pl": "Wybierz miejsce docelowe",
+        "nl": "Bestemming kiezen",
+        "ru": "Выбрать место сохранения"
+      }
+    },
+    "linux_application_description": {
+      "context": "Native GNOME application: application description.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Send files directly across your devices.",
+        "fr": "Envoyez des fichiers directement entre vos appareils.",
+        "es": "Envía archivos directamente entre tus dispositivos.",
+        "it": "Invia file direttamente tra i tuoi dispositivi.",
+        "de": "Senden Sie Dateien direkt zwischen Ihren Geräten.",
+        "pt": "Envie ficheiros diretamente entre os seus dispositivos.",
+        "pl": "Wysyłaj pliki bezpośrednio między swoimi urządzeniami.",
+        "nl": "Verstuur bestanden rechtstreeks tussen je apparaten.",
+        "ru": "Отправляйте файлы напрямую между своими устройствами."
+      }
     }
   }
 }

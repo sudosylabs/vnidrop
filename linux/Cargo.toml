@@ -1,0 +1,29 @@
+[package]
+name = "vnidrop-gnome"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[features]
+gui = ["dep:gtk", "dep:adw"]
+
+[[bin]]
+name = "vnidrop-gnome"
+required-features = ["gui"]
+
+[dependencies]
+vnidrop = { path = "../crates/vnidrop" }
+async-channel = "2.5.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+blake3 = "1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = { package = "gtk4", version = "0.10", features = ["v4_10"], optional = true }
+adw = { package = "libadwaita", version = "0.8", features = ["v1_5"], optional = true }
+
+[dev-dependencies]
+tempfile = "3"
+vnidrop = { path = "../crates/vnidrop", features = ["integration-test-store"] }

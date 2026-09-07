@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/com/vnidrop/VniDrop/icons">
+    <file alias="scalable/apps/com.vnidrop.VniDrop.svg">app-icon.svg</file>
+  </gresource>
+</gresources>

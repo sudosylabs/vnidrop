@@ -3,6 +3,7 @@ use std::{env, path::PathBuf, process::Command};
 
 fn main() {
     for name in [
+        "VNIDROP_DIAGNOSTICS_REQUIRED",
         "VNIDROP_DIAGNOSTICS_ENDPOINT",
         "VNIDROP_DIAGNOSTICS_INGEST_KEY",
         "GRADLE_USER_HOME",
@@ -27,6 +28,13 @@ fn main() {
         env::var("VNIDROP_DIAGNOSTICS_ENDPOINT").ok(),
         env::var("VNIDROP_DIAGNOSTICS_INGEST_KEY").ok(),
     );
+    let required = match env::var("VNIDROP_DIAGNOSTICS_REQUIRED").as_deref() {
+        Ok("1" | "true") => true,
+        Ok("0" | "false") | Err(_) => false,
+        _ => panic!("VNIDROP_DIAGNOSTICS_REQUIRED must be 0 or 1."),
+    };
+    build_config::validate_delivery(&endpoint, &key, required)
+        .unwrap_or_else(|message| panic!("{message}"));
     // Keep the embedded ingest key out of Cargo's build-script output.
     std::fs::write(
         PathBuf::from(env::var_os("OUT_DIR").unwrap()).join("diagnostics_config.rs"),

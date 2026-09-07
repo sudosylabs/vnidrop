@@ -6,6 +6,8 @@ use super::*;
 mod device_transfers_tests;
 #[path = "navigation_tests.rs"]
 mod navigation_tests;
+#[path = "reporting_ui_tests.rs"]
+mod reporting_ui_tests;
 #[path = "settings_ui_tests.rs"]
 mod settings_ui_tests;
 #[path = "transfer_details_tests.rs"]
@@ -791,4 +793,5 @@ fn native_draft_approval_receive_and_shutdown() {
     until("window closed", || !app.window.is_visible());
     assert!(app.session.borrow().is_none());
     settings_ui_tests::settings_restart_and_preview_workflow(root.path());
+    reporting_ui_tests::report_failure_retry_and_receipt(root.path());
 }

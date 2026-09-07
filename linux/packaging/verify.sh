@@ -22,6 +22,11 @@ case $format in
   *) exit 2 ;;
 esac
 file "$stage/usr/bin/vnidrop" | grep -q 'ELF 64-bit'
+case ${VNIDROP_DIAGNOSTICS_REQUIRED:-1} in
+  1|true) "$stage/usr/bin/vnidrop" --check-diagnostics ;;
+  0|false) ;;
+  *) echo 'VNIDROP_DIAGNOSTICS_REQUIRED must be 0 or 1.' >&2; exit 2 ;;
+esac
 desktop="$stage/usr/share/applications/com.vnidrop.VniDrop.desktop"
 desktop-file-validate "$desktop"
 grep -Fxq 'Exec=vnidrop %F' "$desktop"

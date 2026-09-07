@@ -36,9 +36,48 @@ pub fn diagnostics(
     )
 }
 
+pub fn validate_delivery(endpoint: &str, key: &str, required: bool) -> Result<(), &'static str> {
+    if endpoint.is_empty() && key.is_empty() {
+        return if required {
+            Err("Native release builds require a diagnostics endpoint and ingest key.")
+        } else {
+            Ok(())
+        };
+    }
+    let url = url::Url::parse(endpoint).map_err(|_| "Invalid diagnostics endpoint.")?;
+    let loopback = matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"));
+    if key.trim().is_empty()
+        || key.len() > 4096
+        || key.chars().any(char::is_control)
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || (url.scheme() != "https" && !(url.scheme() == "http" && loopback && !required))
+        || (required && loopback)
+    {
+        return Err(
+            "Diagnostics configuration must provide an HTTPS service and a valid ingest key.",
+        );
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn release_reporting_requires_complete_public_https_configuration() {
+        assert!(validate_delivery("", "", false).is_ok());
+        assert!(validate_delivery("", "", true).is_err());
+        assert!(validate_delivery("https://example.test", "", true).is_err());
+        assert!(validate_delivery("http://localhost", "fixture", true).is_err());
+        assert!(validate_delivery("http://localhost", "fixture", false).is_ok());
+        assert!(validate_delivery("https://example.test", "fixture", true).is_ok());
+        assert!(validate_delivery("https://user:pass@example.test", "fixture", true).is_err());
+        assert!(validate_delivery("https://example.test", "fixture\n", true).is_err());
+    }
     #[test]
     fn native_diagnostics_reuses_gradle_values_and_preserves_explicit_override() {
         let project = "vnidrop.diagnostics.endpoint=\nvnidrop.diagnostics.ingestKey=\n";

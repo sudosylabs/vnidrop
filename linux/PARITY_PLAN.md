@@ -371,3 +371,27 @@ Visual captures: `VNIDROP_UI_SCREENSHOTS=/tmp/vnidrop-port-settings-ui make test
 Verification: `make check-linux`, `xvfb-run -a make test-linux-ui`,
 `make check-localization`, `cd localization && bun test`.
 Captures: `VNIDROP_UI_SCREENSHOTS=/tmp/vnidrop-settings-fixes-ui` with the GTK suite.
+
+### Native bug reporting delivery
+
+- Unfinished report drafts survive closing and reopening the dialog within the app
+  session. An unchanged retry preserves the entire payload and request ID. Specific
+  connection, service, validation and acknowledgement failures keep the draft;
+  only a matching server receipt clears it and displays the receipt reference.
+- Native release packages require valid HTTPS endpoint/key configuration and verify
+  the embedded configuration using `--check-diagnostics`. Manual package CI uses
+  the repository endpoint variable and ingest-key secret; PR builds disable
+  reporting. The client ingest key is extractable from distributed binaries and
+  does not authorize administration or reading reports.
+- Local HTTP and GTK regressions cover failure, close/reopen, retry, identical
+  payloads and the final receipt. Localization includes all nine native languages.
+- An optimized DEB was built and verified. One explicitly marked live test report
+  was submitted through that extracted package with runtime configuration overrides
+  removed, logs disabled and contact empty. Its displayed receipt was independently
+  matched to the stored D1 row on 2026-09-07.
+
+Verification: `make check-linux`, `xvfb-run -a make test-linux-ui`,
+`make check-localization`, `cd localization && bun test`, and
+`make package-linux-native-deb`. RPM validation, installed upgrade acceptance and
+public release publication remain separate gates; the released KMP pipeline is
+unchanged.

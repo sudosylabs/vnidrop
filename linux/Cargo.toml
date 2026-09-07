@@ -31,3 +31,6 @@ adw = { package = "libadwaita", version = "0.8", features = ["v1_5"], optional =
 quircs = "0.10"
 tempfile = "3"
 vnidrop = { path = "../crates/vnidrop", features = ["integration-test-store"] }
+
+[build-dependencies]
+url = "2"

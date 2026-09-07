@@ -129,12 +129,36 @@ build variable is set, the native build reuses `vnidrop.diagnostics.endpoint` an
 by `$GRADLE_USER_HOME/gradle.properties` (default `~/.gradle/gradle.properties`).
 The KMP `included` switch applies only to the KMP build. Native environment overrides
 are treated as a pair, so an endpoint is never combined with another deployment's
-saved key; set both to empty to build without reporting. Values are embedded in the
+saved key. Development builds can set both to empty to disable reporting. Values are embedded in the
 binary, never printed by the build script. Configure both together,
 using the existing diagnostics service base URL. HTTPS is required except for local
 loopback test servers. Reports post to `/v1/bugs` and require an acknowledgement
 matching the report ID; retries retain that ID for an unchanged draft. Unconfigured
 builds explain that reporting is unavailable. No report is sent automatically.
+
+The native package targets require reporting configuration by default
+(`VNIDROP_DIAGNOSTICS_REQUIRED=1`). They reject missing, partial, non-HTTPS, or
+loopback release configuration. The package verifier runs the extracted binary's
+`--check-diagnostics` command, which checks embedded configuration without opening
+GTK or displaying the endpoint/key; runtime overrides cannot satisfy this check.
+For intentionally unconfigured development packages, explicitly set
+`VNIDROP_DIAGNOSTICS_REQUIRED=0`.
+
+The native package workflow supplies `vars.VNIDROP_DIAGNOSTICS_ENDPOINT` and
+`secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY` only to manual package builds. Pull-request
+builds explicitly disable reporting and receive neither value. The native workflow
+builds artifacts; it does not replace the existing KMP release pipeline or publish
+a GitHub Release. The client ingest key is designed to ship in binaries and is not
+an administrative or report-reading credential; see the diagnostics service's
+[security model](../services/diagnostics-api/README.md#security-model).
+
+The form retains failed drafts when closed/reopened during the same app session.
+An unchanged retry reuses the complete original payload and report ID; changing the
+report creates a new ID. Success is displayed only after a matching server receipt,
+with a selectable reference. Connection, timeout, authentication, rate-limit,
+server, and unconfirmed-delivery failures have distinct feedback. Optional activity
+summaries omit event payloads; no report is sent without pressing Submit.
+
 
 The UI uses genuine Adwaita widgets with small focus and layout styles. Automated Xvfb
 coverage and visual checks exercise GTK; a full GNOME Wayland session, desktop

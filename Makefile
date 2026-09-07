@@ -251,12 +251,13 @@ deploy-diagnostics: setup-diagnostics ## Check and deploy the diagnostics Worker
 	cd $(ROOT)/services/diagnostics-api && $(NPM) run deploy
 
 .PHONY: package-linux-native-deb package-linux-native-rpm
+VNIDROP_DIAGNOSTICS_REQUIRED ?= 1
 package-linux-native-deb: ## Build and validate the native GTK DEB (Ubuntu 24.04+).
-	cd $(ROOT) && $(CARGO) build --locked --release -p vnidrop-gnome --features gui
+	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) $(CARGO) build --locked --release -p vnidrop-gnome --features gui
 	cd $(ROOT) && linux/packaging/package.sh deb
-	cd $(ROOT) && linux/packaging/verify.sh deb build/release/linux-native/vnidrop_$$(packaging/linux/resolve-version.sh)-1_amd64.deb
+	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) linux/packaging/verify.sh deb build/release/linux-native/vnidrop_$$(packaging/linux/resolve-version.sh)-1_amd64.deb
 
 package-linux-native-rpm: ## Build and validate the native GTK RPM on Fedora.
-	cd $(ROOT) && $(CARGO) build --locked --release -p vnidrop-gnome --features gui
+	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) $(CARGO) build --locked --release -p vnidrop-gnome --features gui
 	cd $(ROOT) && linux/packaging/package.sh rpm
-	cd $(ROOT) && linux/packaging/verify.sh rpm build/release/linux-native/vnidrop-$$(packaging/linux/resolve-version.sh)-1.x86_64.rpm
+	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) linux/packaging/verify.sh rpm build/release/linux-native/vnidrop-$$(packaging/linux/resolve-version.sh)-1.x86_64.rpm

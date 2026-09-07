@@ -9,7 +9,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct Draft {
     pub what: String,
     pub expected: String,
@@ -17,6 +17,37 @@ pub struct Draft {
     pub contact: String,
     pub include_logs: bool,
 }
+#[derive(Default)]
+pub struct Submission {
+    pub draft: Draft,
+    cached: Option<(Draft, Value)>,
+}
+impl Submission {
+    pub fn prepare(
+        &mut self,
+        install_id: &str,
+        name: &str,
+        network: &str,
+        events: &[vnidrop::CoreEvent],
+    ) -> Result<Value> {
+        if let Some((draft, report)) = &self.cached {
+            if draft == &self.draft {
+                return Ok(report.clone());
+            }
+        }
+        let report = assemble(&self.draft, install_id, name, network, events)?;
+        self.cached = Some((self.draft.clone(), report.clone()));
+        Ok(report)
+    }
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
+}
+
+pub fn build_configured() -> bool {
+    Configuration::new(BUILD_ENDPOINT.into(), BUILD_KEY.into()).is_ok()
+}
+#[derive(Clone)]
 pub struct Configuration {
     endpoint: String,
     key: String,
@@ -35,7 +66,7 @@ impl Configuration {
             .unwrap_or_default();
         Self::new(endpoint, key)
     }
-    fn new(endpoint: String, key: String) -> Result<Self> {
+    pub fn new(endpoint: String, key: String) -> Result<Self> {
         let parsed = url::Url::parse(&endpoint).map_err(|_| "linux_diagnostics_unconfigured")?;
         let loopback = matches!(parsed.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"));
         if key.trim().is_empty()
@@ -53,7 +84,7 @@ impl Configuration {
             key,
         })
     }
-    pub fn send(&self, report: &Value) -> Result<()> {
+    pub fn send(&self, report: &Value) -> Result<String> {
         let bytes = serde_json::to_vec(report).map_err(|_| "bug_report_submit_failed")?;
         if bytes.len() > 256 * 1024 {
             return Err("error_invalid_input");
@@ -61,6 +92,7 @@ impl Configuration {
         let client = reqwest::blocking::Client::builder()
             .timeout(Duration::from_secs(30))
             .connect_timeout(Duration::from_secs(10))
+            .user_agent(concat!("VniDrop/Linux-native ", env!("CARGO_PKG_VERSION")))
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|_| "bug_report_submit_failed")?;
@@ -75,17 +107,30 @@ impl Configuration {
             .header("Content-Type", "application/json")
             .body(bytes)
             .send()
-            .map_err(|_| "bug_report_submit_failed")?;
-        if !response.status().is_success() {
-            return Err("bug_report_submit_failed");
+            .map_err(|error| {
+                if error.is_timeout() {
+                    "linux_report_timeout"
+                } else if error.is_connect() {
+                    "linux_report_connection_failed"
+                } else {
+                    "linux_report_unconfirmed"
+                }
+            })?;
+        match response.status().as_u16() {
+            200..=299 => {}
+            401 | 403 | 404 => return Err("linux_report_service_configuration"),
+            429 => return Err("linux_report_rate_limited"),
+            500..=599 => return Err("linux_report_server_error"),
+            400 | 413 | 415 | 422 => return Err("linux_report_invalid_payload"),
+            _ => return Err("linux_report_unconfirmed"),
         }
         let mut body = Vec::new();
         response
             .take(8193)
             .read_to_end(&mut body)
-            .map_err(|_| "bug_report_submit_failed")?;
+            .map_err(|_| "linux_report_unconfirmed")?;
         if body.len() > 8192 {
-            return Err("bug_report_submit_failed");
+            return Err("linux_report_unconfirmed");
         }
         #[derive(serde::Deserialize)]
         struct Acknowledgement {
@@ -93,11 +138,11 @@ impl Configuration {
             id: String,
         }
         let ack: Acknowledgement =
-            serde_json::from_slice(&body).map_err(|_| "bug_report_submit_failed")?;
+            serde_json::from_slice(&body).map_err(|_| "linux_report_unconfirmed")?;
         if !ack.ok || Some(ack.id.as_str()) != report["id"].as_str() {
-            return Err("bug_report_submit_failed");
+            return Err("linux_report_unconfirmed");
         }
-        Ok(())
+        Ok(ack.id)
     }
 }
 pub fn version() -> &'static str {
@@ -121,10 +166,10 @@ pub fn assemble(
     }
     if [&draft.what, &draft.expected, &draft.steps]
         .iter()
-        .any(|s| s.len() > 16000)
+        .any(|s| s.len() > 4000)
         || draft.contact.len() > 320
     {
-        return Err("error_invalid_input");
+        return Err("linux_report_text_too_long");
     }
     let safe = |value: &str| {
         value
@@ -247,3 +292,7 @@ mod privacy_tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "diagnostics_delivery_tests.rs"]
+mod delivery_tests;

@@ -9,6 +9,8 @@ on:
       - 'Cargo.lock'
       - 'assets/linux/**'
       - 'version.properties'
+      - 'Makefile'
+      - 'gradle.properties'
       - '.github/workflows/linux-native-packages.yml'
 permissions:
   contents: read
@@ -23,7 +25,12 @@ jobs:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libadwaita-1-dev desktop-file-utils shared-mime-info xdg-utils
       - uses: Swatinem/rust-cache@v2
-      - run: make package-linux-native-deb
+      - name: Build native DEB
+        env:
+          VNIDROP_DIAGNOSTICS_REQUIRED: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+          VNIDROP_DIAGNOSTICS_ENDPOINT: ${{ github.event_name == 'workflow_dispatch' && vars.VNIDROP_DIAGNOSTICS_ENDPOINT || '' }}
+          VNIDROP_DIAGNOSTICS_INGEST_KEY: ${{ github.event_name == 'workflow_dispatch' && secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY || '' }}
+        run: make package-linux-native-deb
       - uses: actions/upload-artifact@v4
         if: github.event_name == 'workflow_dispatch'
         with:
@@ -36,7 +43,12 @@ jobs:
     steps:
       - run: dnf install -y git gcc gcc-c++ cmake rust cargo gtk4-devel libadwaita-devel rpm-build desktop-file-utils shared-mime-info xdg-utils file cpio make clang perl openssl-devel
       - uses: actions/checkout@v4
-      - run: make package-linux-native-rpm
+      - name: Build native RPM
+        env:
+          VNIDROP_DIAGNOSTICS_REQUIRED: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+          VNIDROP_DIAGNOSTICS_ENDPOINT: ${{ github.event_name == 'workflow_dispatch' && vars.VNIDROP_DIAGNOSTICS_ENDPOINT || '' }}
+          VNIDROP_DIAGNOSTICS_INGEST_KEY: ${{ github.event_name == 'workflow_dispatch' && secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY || '' }}
+        run: make package-linux-native-rpm
       - uses: actions/upload-artifact@v4
         if: github.event_name == 'workflow_dispatch'
         with:

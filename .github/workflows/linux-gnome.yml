@@ -50,7 +50,16 @@ jobs:
       - name: Check native host
         run: make check-linux
       - name: Exercise native draft, approval, receive, and shutdown
+        env:
+          VNIDROP_UI_SCREENSHOTS: ${{ runner.temp }}/native-ui-screenshots
         run: GSK_RENDERER=cairo xvfb-run -a make/with-secret-service.sh make test-linux-ui
+      - name: Upload native UI failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-ui-failure-screenshots
+          path: ${{ runner.temp }}/native-ui-screenshots
+          if-no-files-found: ignore
       - uses: oven-sh/setup-bun@v2
       - name: Verify generated localization
         working-directory: localization

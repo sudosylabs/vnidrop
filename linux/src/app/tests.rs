@@ -123,6 +123,11 @@ fn render_window(window: &adw::ApplicationWindow) -> gtk::gdk::Texture {
 
 fn assert_scannable(window: &adw::ApplicationWindow, ticket: &str) {
     let texture = render_window(window);
+    if let Ok(directory) = std::env::var("VNIDROP_UI_SCREENSHOTS") {
+        texture
+            .save_to_png(std::path::Path::new(&directory).join("qr-decode.png"))
+            .unwrap();
+    }
     transfer_details_tests::assert_qr_background(window, &texture);
     let (width, height) = (texture.width() as usize, texture.height() as usize);
     let mut rgba = vec![0; width * height * 4];

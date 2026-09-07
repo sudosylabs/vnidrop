@@ -14,9 +14,10 @@ use crate::draft::Preparation;
 
 fn session(path: &Path) -> Arc<Session> {
     let (sender, changes) = async_channel::bounded(1);
+    let events = Arc::new(Mutex::new(EventHistory::default()));
     let core = VnidropCore::initialize_for_integration_test(
         path.to_str().unwrap().into(),
-        Arc::new(EventSink(sender)),
+        Arc::new(EventSink(sender, events.clone())),
         CoreLimits::default(),
         CoreNetworkConfig {
             mode: CoreRelayMode::LocalOnly,
@@ -24,7 +25,7 @@ fn session(path: &Path) -> Arc<Session> {
         },
     )
     .unwrap();
-    Session::with_core(core, changes)
+    Session::with_core(core, changes, events).unwrap()
 }
 
 fn metadata(id: u64) -> ShareMetadataInput {
@@ -100,6 +101,15 @@ fn approval_and_cancel_are_available_while_receive_blocks() {
     );
     assert_eq!(receiver.snapshot().unwrap().transfers[0].status, "done");
     assert_eq!(receiver.snapshot().unwrap().artifacts.len(), 1);
+    assert!(
+        receiver.snapshot().unwrap().events.iter().any(|event| {
+            event.transfer_id == Some(120)
+                && event.direction.as_deref() == Some("receive")
+                && event.phase == "lifecycle"
+                && event.kind == "done"
+        }),
+        "live callbacks retain completion history alongside durable state"
+    );
     let transfer = sender.snapshot().unwrap().transfers.remove(0);
     assert_eq!(
         crate::presentation::invitation(&transfer),
@@ -155,6 +165,17 @@ fn approval_and_cancel_are_available_while_receive_blocks() {
     );
     receiver.close();
     sender.close();
+    let restored = session(&root.path().join("sender"));
+    assert!(
+        restored
+            .snapshot()
+            .unwrap()
+            .events
+            .iter()
+            .any(|event| { event.transfer_id == Some(120) && event.kind == "share-stopped" }),
+        "persisted activity is restored before the first snapshot"
+    );
+    restored.close();
 }
 
 #[test]
@@ -242,3 +263,296 @@ fn cancelling_after_preparation_completes_revokes_the_published_invitation() {
     assert!(crate::presentation::invitation(&transfer).is_none());
     session.close();
 }
+
+fn wait_device(
+    session: &Session,
+    predicate: impl Fn(&crate::devices::Device) -> bool,
+) -> crate::devices::Device {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+        if let Some(device) = session
+            .snapshot()
+            .unwrap()
+            .devices
+            .list(now)
+            .into_iter()
+            .find(&predicate)
+        {
+            return device;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "device consent did not reach the expected state"
+        );
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+#[test]
+fn native_device_commands_require_mutual_consent_and_preserve_revocation() {
+    use crate::devices::{self, DeviceAction, DeviceState};
+    let now = || {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64
+    };
+    for revoke in [DeviceAction::Forget, DeviceAction::Block] {
+        let root = tempfile::tempdir().unwrap();
+        let sender = session(&root.path().join("sender"));
+        let receiver = session(&root.path().join("receiver"));
+        let source = root.path().join("pair.txt");
+        std::fs::write(&source, b"explicit consent").unwrap();
+        let output = root.path().join("output");
+        std::fs::create_dir(&output).unwrap();
+        let share = sender
+            .call(|core| {
+                core.share_files(
+                    vec![ShareSource {
+                        kind: SourceKind::Path,
+                        value: source.to_str().unwrap().into(),
+                        display_name: None,
+                        is_directory: false,
+                    }],
+                    metadata(220),
+                )
+            })
+            .unwrap();
+        let peer = receiver.clone();
+        let worker = thread::spawn(move || {
+            peer.call(|core| {
+                core.receive(
+                    share.ticket,
+                    output.to_str().unwrap().into(),
+                    Some("Other device".into()),
+                )
+            })
+        });
+        let request = wait_request(&sender, 220);
+        sender
+            .call(|core| core.respond_receiver_request(request.id, true, None))
+            .unwrap();
+        worker.join().unwrap().unwrap();
+        let eligible = wait_device(&sender, |d| matches!(d.state, DeviceState::Eligible { .. }));
+        sender
+            .call(|core| {
+                Ok(devices::execute(
+                    core,
+                    &eligible,
+                    DeviceAction::Remember,
+                    now(),
+                ))
+            })
+            .unwrap()
+            .unwrap();
+        wait_device(&sender, |d| matches!(d.state, DeviceState::Outgoing { .. }));
+        assert!(sender.snapshot().unwrap().devices.saved.is_empty());
+        let incoming = wait_device(&receiver, |d| {
+            matches!(d.state, DeviceState::Incoming { .. })
+        });
+        receiver
+            .call(|core| {
+                Ok(devices::execute(
+                    core,
+                    &incoming,
+                    DeviceAction::Accept,
+                    now(),
+                ))
+            })
+            .unwrap()
+            .unwrap();
+        let saved = wait_device(&sender, |d| matches!(d.state, DeviceState::Saved { .. }));
+        wait_device(&receiver, |d| matches!(d.state, DeviceState::Saved { .. }));
+        assert_eq!(
+            sender
+                .call(|core| Ok(devices::execute(
+                    core,
+                    &eligible,
+                    DeviceAction::Remember,
+                    now()
+                )))
+                .unwrap(),
+            Err("linux_device_changed")
+        );
+        sender
+            .call(|core| {
+                Ok(devices::execute(
+                    core,
+                    &saved,
+                    DeviceAction::Label("  Desk laptop  ".into()),
+                    now(),
+                ))
+            })
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            sender.snapshot().unwrap().devices.saved[0]
+                .local_label
+                .as_deref(),
+            Some("Desk laptop")
+        );
+        sender
+            .call(|core| {
+                Ok(devices::execute(
+                    core,
+                    &saved,
+                    DeviceAction::Label("  ".into()),
+                    now(),
+                ))
+            })
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            sender.snapshot().unwrap().devices.saved[0].local_label,
+            None
+        );
+        let blocked = matches!(revoke, DeviceAction::Block);
+        sender
+            .call(|core| Ok(devices::execute(core, &saved, revoke, now())))
+            .unwrap()
+            .unwrap();
+        assert!(sender.snapshot().unwrap().devices.saved.is_empty());
+        if blocked {
+            let denied = wait_device(&sender, |d| matches!(d.state, DeviceState::Blocked));
+            sender
+                .call(|core| {
+                    Ok(devices::execute(
+                        core,
+                        &denied,
+                        DeviceAction::Unblock,
+                        now(),
+                    ))
+                })
+                .unwrap()
+                .unwrap();
+            let state = sender.snapshot().unwrap().devices;
+            assert!(state.blocked.is_empty());
+            assert!(
+                state.list(now()).is_empty(),
+                "unblocked peers do not remain in device management"
+            );
+            assert!(
+                state.saved.is_empty(),
+                "unblocking must not restore consent"
+            );
+        }
+        assert_eq!(
+            sender
+                .call(|core| Ok(devices::execute(
+                    core,
+                    &saved,
+                    DeviceAction::Label("stale".into()),
+                    now()
+                )))
+                .unwrap(),
+            Err("linux_device_changed")
+        );
+        sender.close();
+        receiver.close();
+    }
+}
+
+#[test]
+fn native_pairing_decline_never_creates_saved_access() {
+    use crate::devices::{self, DeviceAction, DeviceState};
+    let now = || {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64
+    };
+    for incoming in [false, true] {
+        let root = tempfile::tempdir().unwrap();
+        let sender = session(&root.path().join("sender"));
+        let receiver = session(&root.path().join("receiver"));
+        let source = root.path().join("decline.txt");
+        std::fs::write(&source, b"decline consent").unwrap();
+        let output = root.path().join("output");
+        std::fs::create_dir(&output).unwrap();
+        let share = sender
+            .call(|core| {
+                core.share_files(
+                    vec![ShareSource {
+                        kind: SourceKind::Path,
+                        value: source.to_str().unwrap().into(),
+                        display_name: None,
+                        is_directory: false,
+                    }],
+                    metadata(320),
+                )
+            })
+            .unwrap();
+        let peer = receiver.clone();
+        let worker = thread::spawn(move || {
+            peer.call(|core| {
+                core.receive(
+                    share.ticket,
+                    output.to_str().unwrap().into(),
+                    Some("Other device".into()),
+                )
+            })
+        });
+        let request = wait_request(&sender, 320);
+        sender
+            .call(|core| core.respond_receiver_request(request.id, true, None))
+            .unwrap();
+        worker.join().unwrap().unwrap();
+        let eligible = wait_device(&sender, |d| matches!(d.state, DeviceState::Eligible { .. }));
+        let (actor, target) = if incoming {
+            sender
+                .call(|core| {
+                    Ok(devices::execute(
+                        core,
+                        &eligible,
+                        DeviceAction::Remember,
+                        now(),
+                    ))
+                })
+                .unwrap()
+                .unwrap();
+            let pending = wait_device(&receiver, |d| {
+                matches!(d.state, DeviceState::Incoming { .. })
+            });
+            (&receiver, pending)
+        } else {
+            (&sender, eligible)
+        };
+        actor
+            .call(|core| {
+                Ok(devices::execute(
+                    core,
+                    &target,
+                    DeviceAction::Decline,
+                    now(),
+                ))
+            })
+            .unwrap()
+            .unwrap();
+        assert!(sender.snapshot().unwrap().devices.saved.is_empty());
+        assert!(receiver.snapshot().unwrap().devices.saved.is_empty());
+        assert_eq!(
+            actor
+                .call(|core| Ok(devices::execute(
+                    core,
+                    &target,
+                    if incoming {
+                        DeviceAction::Accept
+                    } else {
+                        DeviceAction::Remember
+                    },
+                    now()
+                )))
+                .unwrap(),
+            Err("linux_device_changed")
+        );
+        sender.close();
+        receiver.close();
+    }
+}
+
+#[path = "targeted_tests.rs"]
+mod targeted_tests;

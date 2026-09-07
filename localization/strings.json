@@ -3404,7 +3404,7 @@
         "nl": "{count} bestanden",
         "ru": "Файлов: {count}"
       },
-      "targets": ["kmp", "windows"]
+      "targets": ["kmp", "windows", "linux"]
     },
     "send_selected_files_count": {
       "context": "Send flow: count of files chosen. {count} = selected files. NOTE: singular case reads '1 files' — should become a plural.",
@@ -6264,9 +6264,7 @@
     },
     "linux_transfers": {
       "context": "Native GNOME application: transfers.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Transfers",
         "fr": "Transferts",
@@ -6281,9 +6279,7 @@
     },
     "linux_empty_title": {
       "context": "Native GNOME application: empty title.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "No Transfers Yet",
         "fr": "Aucun transfert pour le moment",
@@ -6298,9 +6294,7 @@
     },
     "linux_empty_body": {
       "context": "Native GNOME application: empty body.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Send files to another device or open an invitation to receive them.",
         "fr": "Envoyez des fichiers à un autre appareil ou ouvrez une invitation pour en recevoir.",
@@ -6315,9 +6309,7 @@
     },
     "linux_select_transfer": {
       "context": "Native GNOME application: select transfer.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Select a Transfer",
         "fr": "Sélectionner un transfert",
@@ -6332,9 +6324,7 @@
     },
     "linux_select_transfer_body": {
       "context": "Native GNOME application: select transfer body.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Choose a transfer to see its details and available actions.",
         "fr": "Choisissez un transfert pour afficher ses détails et les actions disponibles.",
@@ -6347,11 +6337,24 @@
         "ru": "Выберите передачу, чтобы увидеть подробности и доступные действия."
       }
     },
+    "linux_add_files": {
+      "context": "Native Linux transfer draft: add files to the current selection.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Add files",
+        "fr": "Ajouter des fichiers",
+        "es": "Añadir archivos",
+        "it": "Aggiungi file",
+        "de": "Dateien hinzufügen",
+        "pt": "Adicionar ficheiros",
+        "pl": "Dodaj pliki",
+        "nl": "Bestanden toevoegen",
+        "ru": "Добавить файлы"
+      }
+    },
     "linux_send_files": {
       "context": "Native GNOME application: send files.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Send Files",
         "fr": "Envoyer des fichiers",
@@ -6366,9 +6369,7 @@
     },
     "linux_send_folder": {
       "context": "Native GNOME application: send folder.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Send Folder",
         "fr": "Envoyer un dossier",
@@ -6383,9 +6384,7 @@
     },
     "linux_open_invitation": {
       "context": "Native GNOME application: open invitation.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Open Invitation",
         "fr": "Ouvrir une invitation",
@@ -6400,9 +6399,7 @@
     },
     "linux_about": {
       "context": "Native GNOME application: about.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "About VniDrop",
         "fr": "À propos de VniDrop",
@@ -6417,9 +6414,7 @@
     },
     "linux_quit": {
       "context": "Native GNOME application: quit.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Quit",
         "fr": "Quitter",
@@ -6434,9 +6429,7 @@
     },
     "linux_close_title": {
       "context": "Native GNOME application: close title.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Quit VniDrop?",
         "fr": "Quitter VniDrop ?",
@@ -6451,9 +6444,7 @@
     },
     "linux_close_body": {
       "context": "Native GNOME application: close body.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Active transfers and sharing will stop. Your history and received files will be kept.",
         "fr": "Les transferts et les partages en cours seront arrêtés. Votre historique et les fichiers reçus seront conservés.",
@@ -6468,9 +6459,7 @@
     },
     "linux_quit_stop": {
       "context": "Native GNOME application: quit stop.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Stop and Quit",
         "fr": "Arrêter et quitter",
@@ -6485,9 +6474,7 @@
     },
     "linux_keyring_locked": {
       "context": "Native GNOME application: keyring locked.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Unlock your login keyring, then try again.",
         "fr": "Déverrouillez votre trousseau de connexion, puis réessayez.",
@@ -6502,9 +6489,7 @@
     },
     "linux_keyring_unavailable": {
       "context": "Native GNOME application: keyring unavailable.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "VniDrop could not access the system keyring. Check that a Secret Service such as GNOME Keyring is running, then try again.",
         "fr": "VniDrop n’a pas pu accéder au trousseau système. Vérifiez qu’un service Secret Service, tel que GNOME Keyring, est en cours d’exécution, puis réessayez.",
@@ -6519,9 +6504,7 @@
     },
     "linux_identity_unavailable": {
       "context": "Native GNOME application: identity unavailable.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "This profile’s protected identity could not be opened. Restore access to its original keyring before trying again.",
         "fr": "L’identité protégée de ce profil n’a pas pu être ouverte. Rétablissez l’accès à son trousseau d’origine avant de réessayer.",
@@ -6536,9 +6519,7 @@
     },
     "linux_preferences_invalid": {
       "context": "Native GNOME application: preferences invalid.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Your saved preferences could not be read. Restore the preferences file before starting VniDrop; your network policy has not been changed.",
         "fr": "Vos préférences enregistrées n’ont pas pu être lues. Restaurez le fichier de préférences avant de démarrer VniDrop ; votre politique réseau n’a pas été modifiée.",
@@ -6553,9 +6534,7 @@
     },
     "linux_session_closed": {
       "context": "Native GNOME application: session closed.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "VniDrop is shutting down.",
         "fr": "VniDrop est en cours de fermeture.",
@@ -6570,9 +6549,7 @@
     },
     "linux_local_files_only": {
       "context": "Native GNOME application: local files only.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Choose a file or folder available on this device.",
         "fr": "Choisissez un fichier ou un dossier disponible sur cet appareil.",
@@ -6585,45 +6562,9 @@
         "ru": "Выберите файл или папку на этом устройстве."
       }
     },
-    "linux_copy_invitation": {
-      "context": "Native GNOME application: copy invitation.",
-      "targets": [
-        "linux"
-      ],
-      "translations": {
-        "en": "Copy Invitation",
-        "fr": "Copier l’invitation",
-        "es": "Copiar invitación",
-        "it": "Copia invito",
-        "de": "Einladung kopieren",
-        "pt": "Copiar convite",
-        "pl": "Kopiuj zaproszenie",
-        "nl": "Uitnodiging kopiëren",
-        "ru": "Копировать приглашение"
-      }
-    },
-    "linux_invitation_copied": {
-      "context": "Native GNOME application: invitation copied.",
-      "targets": [
-        "linux"
-      ],
-      "translations": {
-        "en": "Invitation copied.",
-        "fr": "Invitation copiée.",
-        "es": "Invitación copiada.",
-        "it": "Invito copiato.",
-        "de": "Einladung kopiert.",
-        "pt": "Convite copiado.",
-        "pl": "Zaproszenie skopiowane.",
-        "nl": "Uitnodiging gekopieerd.",
-        "ru": "Приглашение скопировано."
-      }
-    },
     "linux_save_invitation": {
       "context": "Native GNOME application: save invitation.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Save Invitation",
         "fr": "Enregistrer l’invitation",
@@ -6638,9 +6579,7 @@
     },
     "linux_direction": {
       "context": "Native GNOME application: direction.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Direction",
         "fr": "Sens",
@@ -6655,9 +6594,7 @@
     },
     "linux_outgoing": {
       "context": "Native GNOME application: outgoing.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Outgoing",
         "fr": "Sortant",
@@ -6672,9 +6609,7 @@
     },
     "linux_incoming": {
       "context": "Native GNOME application: incoming.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Incoming",
         "fr": "Entrant",
@@ -6689,9 +6624,7 @@
     },
     "linux_invitation": {
       "context": "Native GNOME application: invitation.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Invitation",
         "fr": "Invitation",
@@ -6706,9 +6639,7 @@
     },
     "linux_startup_error": {
       "context": "Native GNOME application: startup error.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Could Not Start VniDrop",
         "fr": "Impossible de démarrer VniDrop",
@@ -6723,9 +6654,7 @@
     },
     "linux_system": {
       "context": "Native GNOME application: system.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Follow System",
         "fr": "Suivre le système",
@@ -6740,9 +6669,7 @@
     },
     "linux_light": {
       "context": "Native GNOME application: light.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Light",
         "fr": "Clair",
@@ -6757,9 +6684,7 @@
     },
     "linux_dark": {
       "context": "Native GNOME application: dark.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Dark",
         "fr": "Sombre",
@@ -6774,9 +6699,7 @@
     },
     "linux_invalid_selection": {
       "context": "Native GNOME application: invalid selection.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Select multiple files or one folder.",
         "fr": "Sélectionnez plusieurs fichiers ou un seul dossier.",
@@ -6791,9 +6714,7 @@
     },
     "linux_cancel_title": {
       "context": "Native GNOME application: cancel title.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Stop This Transfer?",
         "fr": "Arrêter ce transfert ?",
@@ -6808,9 +6729,7 @@
     },
     "linux_cancel_body": {
       "context": "Native GNOME application: cancel body.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "The current transfer will stop. You can create a new transfer later.",
         "fr": "Le transfert en cours sera arrêté. Vous pourrez en créer un nouveau plus tard.",
@@ -6825,9 +6744,7 @@
     },
     "linux_remove_history": {
       "context": "Native GNOME application: remove history.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Remove from History",
         "fr": "Retirer de l’historique",
@@ -6842,9 +6759,7 @@
     },
     "linux_remove_title": {
       "context": "Native GNOME application: remove title.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Remove This Transfer?",
         "fr": "Retirer ce transfert ?",
@@ -6859,9 +6774,7 @@
     },
     "linux_remove_body": {
       "context": "Native GNOME application: remove body.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "This removes the transfer from VniDrop’s history. Received files stay on this device.",
         "fr": "Ce transfert sera retiré de l’historique de VniDrop. Les fichiers reçus resteront sur cet appareil.",
@@ -6876,9 +6789,7 @@
     },
     "linux_network_policy": {
       "context": "Native GNOME application: network policy.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Network Policy",
         "fr": "Politique réseau",
@@ -6893,9 +6804,7 @@
     },
     "linux_network_automatic": {
       "context": "Native GNOME application: network automatic.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Automatic",
         "fr": "Automatique",
@@ -6910,9 +6819,7 @@
     },
     "linux_profile_arguments": {
       "context": "Native GNOME application: profile arguments.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Use --profile followed by an absolute directory, and optionally one or more .vnd invitation files.",
         "fr": "Utilisez --profile suivi d’un chemin de dossier absolu et, éventuellement, d’un ou plusieurs fichiers d’invitation .vnd.",
@@ -6927,9 +6834,7 @@
     },
     "linux_open_failed": {
       "context": "Native GNOME application: open failed.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "The selected file could not be opened.",
         "fr": "Le fichier sélectionné n’a pas pu être ouvert.",
@@ -6944,9 +6849,7 @@
     },
     "linux_review_requests": {
       "context": "GNOME banner action: open the first transfer with a pending receiver approval.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Review",
         "fr": "Examiner",
@@ -6961,9 +6864,7 @@
     },
     "linux_pending_requests": {
       "context": "Native GNOME application: pending requests.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Requests Waiting",
         "fr": "Demandes en attente",
@@ -6978,9 +6879,7 @@
     },
     "linux_no_receivers": {
       "context": "Native GNOME application: no receivers.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "No Receivers Yet",
         "fr": "Aucun destinataire pour le moment",
@@ -6995,9 +6894,7 @@
     },
     "linux_create_invitation": {
       "context": "Native GNOME application: create invitation.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Create Invitation",
         "fr": "Créer une invitation",
@@ -7012,9 +6909,7 @@
     },
     "linux_choose_destination": {
       "context": "Native GNOME application: choose destination.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Choose Destination",
         "fr": "Choisir la destination",
@@ -7029,9 +6924,7 @@
     },
     "linux_application_description": {
       "context": "Native GNOME application: application description.",
-      "targets": [
-        "linux"
-      ],
+      "targets": ["linux"],
       "translations": {
         "en": "Send files directly across your devices.",
         "fr": "Envoyez des fichiers directement entre vos appareils.",
@@ -7042,6 +6935,370 @@
         "pl": "Wysyłaj pliki bezpośrednio między swoimi urządzeniami.",
         "nl": "Verstuur bestanden rechtstreeks tussen je apparaten.",
         "ru": "Отправляйте файлы напрямую между своими устройствами."
+      }
+    },
+    "linux_show_qr": {
+      "context": "Native Linux invitation action and QR dialog title.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Show QR code",
+        "fr": "Afficher le code QR",
+        "es": "Mostrar código QR",
+        "de": "QR-Code anzeigen",
+        "it": "Mostra codice QR",
+        "pt": "Mostrar código QR",
+        "pl": "Pokaż kod QR",
+        "nl": "QR-code tonen",
+        "ru": "Показать QR-код"
+      }
+    },
+    "linux_qr_unavailable": {
+      "context": "Native Linux QR encoding failure; the save invitation action remains available in transfer details.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "QR unavailable for this invitation. Save the invitation file instead.",
+        "fr": "Code QR indisponible pour cette invitation. Enregistrez le fichier d’invitation.",
+        "es": "QR no disponible para esta invitación. Guarda el archivo de invitación.",
+        "de": "Für diese Einladung ist kein QR-Code verfügbar. Speichere die Einladungsdatei.",
+        "it": "QR non disponibile per questo invito. Salva il file di invito.",
+        "pt": "QR indisponível para este convite. Guarde o ficheiro de convite.",
+        "pl": "Kod QR jest niedostępny dla tego zaproszenia. Zapisz plik zaproszenia.",
+        "nl": "Geen QR-code beschikbaar voor deze uitnodiging. Sla het uitnodigingsbestand op.",
+        "ru": "QR-код недоступен для этого приглашения. Сохраните файл приглашения."
+      }
+    },
+    "linux_blocked_devices": {
+      "context": "Native Linux blocked device list heading.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Blocked devices",
+        "fr": "Appareils bloqués",
+        "es": "Dispositivos bloqueados",
+        "it": "Dispositivi bloccati",
+        "de": "Blockierte Geräte",
+        "pt": "Dispositivos bloqueados",
+        "pl": "Zablokowane urządzenia",
+        "nl": "Geblokkeerde apparaten",
+        "ru": "Заблокированные устройства"
+      }
+    },
+    "linux_unblock_device": {
+      "context": "Native Linux unblock action.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Unblock",
+        "fr": "Débloquer",
+        "es": "Desbloquear",
+        "it": "Sblocca",
+        "de": "Entsperren",
+        "pt": "Desbloquear",
+        "pl": "Odblokuj",
+        "nl": "Deblokkeren",
+        "ru": "Разблокировать"
+      }
+    },
+    "linux_device_identity": {
+      "context": "Native Linux expandable authenticated device identity.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Device identity",
+        "fr": "Identité de l’appareil",
+        "es": "Identidad del dispositivo",
+        "it": "Identità del dispositivo",
+        "de": "Geräteidentität",
+        "pt": "Identidade do dispositivo",
+        "pl": "Tożsamość urządzenia",
+        "nl": "Apparaatidentiteit",
+        "ru": "Идентификатор устройства"
+      }
+    },
+    "linux_device_changed": {
+      "context": "A native device action refers to expired eligibility or a changed consent generation.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "This device’s state changed. Review its current status and try again.",
+        "fr": "L’état de cet appareil a changé. Vérifiez son état actuel et réessayez.",
+        "es": "El estado de este dispositivo ha cambiado. Revisa su estado actual e inténtalo de nuevo.",
+        "it": "Lo stato del dispositivo è cambiato. Controlla lo stato attuale e riprova.",
+        "de": "Der Gerätestatus hat sich geändert. Prüfe den aktuellen Status und versuche es erneut.",
+        "pt": "O estado deste dispositivo mudou. Verifique o estado atual e tente novamente.",
+        "pl": "Stan tego urządzenia się zmienił. Sprawdź aktualny stan i spróbuj ponownie.",
+        "nl": "De status van dit apparaat is gewijzigd. Controleer de huidige status en probeer opnieuw.",
+        "ru": "Состояние устройства изменилось. Проверьте его текущий статус и повторите попытку."
+      }
+    },
+    "linux_unblock_description": {
+      "context": "Unblocking removes a deny rule, without restoring saved-device grants.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Unblocking lets this device request access again. It does not restore saved access.",
+        "fr": "Le déblocage permet à cet appareil de redemander l’accès, sans rétablir l’accès enregistré.",
+        "es": "Desbloquear permite que este dispositivo vuelva a solicitar acceso. No restaura el acceso guardado.",
+        "it": "Lo sblocco consente al dispositivo di richiedere nuovamente l’accesso. Non ripristina l’accesso salvato.",
+        "de": "Nach dem Entsperren kann dieses Gerät erneut Zugriff anfragen. Gespeicherter Zugriff wird nicht wiederhergestellt.",
+        "pt": "Desbloquear permite que este dispositivo volte a pedir acesso. Não restaura o acesso guardado.",
+        "pl": "Odblokowanie pozwala urządzeniu ponownie poprosić o dostęp. Nie przywraca zapisanego dostępu.",
+        "nl": "Na deblokkeren kan dit apparaat opnieuw toegang vragen. Opgeslagen toegang wordt niet hersteld.",
+        "ru": "После разблокировки устройство сможет снова запросить доступ. Сохранённый доступ не восстанавливается."
+      }
+    },
+    "linux_block_device_body": {
+      "context": "Identity-wide blocking confirmation; cancels direct transfers and rejects invitations too.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Block {device}? Active direct transfers will stop, and future invitations and pairing requests from this device will be rejected.",
+        "fr": "Bloquer {device} ? Les transferts directs actifs seront arrêtés et les prochaines invitations et demandes d’association de cet appareil seront refusées.",
+        "es": "¿Bloquear {device}? Se detendrán las transferencias directas activas y se rechazarán las futuras invitaciones y solicitudes de vinculación de este dispositivo.",
+        "it": "Bloccare {device}? I trasferimenti diretti attivi verranno interrotti e gli inviti e le richieste di abbinamento futuri del dispositivo verranno rifiutati.",
+        "de": "{device} blockieren? Aktive direkte Übertragungen werden gestoppt. Künftige Einladungen und Kopplungsanfragen dieses Geräts werden abgelehnt.",
+        "pt": "Bloquear {device}? As transferências diretas ativas serão interrompidas e os futuros convites e pedidos de emparelhamento deste dispositivo serão rejeitados.",
+        "pl": "Zablokować {device}? Aktywne transfery bezpośrednie zostaną zatrzymane, a przyszłe zaproszenia i prośby o sparowanie z tego urządzenia będą odrzucane.",
+        "nl": "{device} blokkeren? Actieve directe overdrachten stoppen en toekomstige uitnodigingen en koppelverzoeken van dit apparaat worden geweigerd.",
+        "ru": "Заблокировать {device}? Активные прямые передачи будут остановлены, а новые приглашения и запросы сопряжения от этого устройства будут отклонены."
+      },
+      "args": [
+        {
+          "name": "device",
+          "type": "string"
+        }
+      ]
+    },
+    "linux_select_device": {
+      "context": "Native Linux device list-detail empty selection.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Select a device",
+        "fr": "Sélectionnez un appareil",
+        "es": "Selecciona un dispositivo",
+        "it": "Seleziona un dispositivo",
+        "de": "Wähle ein Gerät",
+        "pt": "Selecione um dispositivo",
+        "pl": "Wybierz urządzenie",
+        "nl": "Selecteer een apparaat",
+        "ru": "Выберите устройство"
+      }
+    },
+    "linux_manage_device": {
+      "context": "Linux device page: open the management dialog.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Manage device",
+        "fr": "Gérer l’appareil",
+        "es": "Gestionar dispositivo",
+        "it": "Gestisci dispositivo",
+        "de": "Gerät verwalten",
+        "pt": "Gerir dispositivo",
+        "pl": "Zarządzaj urządzeniem",
+        "nl": "Apparaat beheren",
+        "ru": "Управление устройством"
+      }
+    },
+    "linux_transfer_attention": {
+      "context": "Linux notification: count of transfer requests awaiting a decision.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Transfer requests · {count}",
+        "fr": "Demandes de transfert · {count}",
+        "es": "Solicitudes de transferencia · {count}",
+        "it": "Richieste di trasferimento · {count}",
+        "de": "Übertragungsanfragen · {count}",
+        "pt": "Pedidos de transferência · {count}",
+        "pl": "Prośby o transfer · {count}",
+        "nl": "Overdrachtsverzoeken · {count}",
+        "ru": "Запросы на передачу · {count}"
+      },
+      "args": [
+        {
+          "name": "count",
+          "type": "int"
+        }
+      ]
+    },
+    "linux_device_attention": {
+      "context": "Linux notification: count of devices awaiting a decision.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Devices to review · {count}",
+        "fr": "Appareils à examiner · {count}",
+        "es": "Dispositivos por revisar · {count}",
+        "it": "Dispositivi da esaminare · {count}",
+        "de": "Zu prüfende Geräte · {count}",
+        "pt": "Dispositivos a rever · {count}",
+        "pl": "Urządzenia do sprawdzenia · {count}",
+        "nl": "Te beoordelen apparaten · {count}",
+        "ru": "Устройства для проверки · {count}"
+      },
+      "args": [
+        {
+          "name": "count",
+          "type": "int"
+        }
+      ]
+    },
+    "linux_receiver_history": {
+      "context": "Linux transfer details: finished receiver requests in a scrollable history dialog.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Receiver history",
+        "fr": "Historique des destinataires",
+        "es": "Historial de destinatarios",
+        "it": "Cronologia destinatari",
+        "de": "Empfängerverlauf",
+        "pt": "Histórico de destinatários",
+        "pl": "Historia odbiorców",
+        "nl": "Ontvangergeschiedenis",
+        "ru": "История получателей"
+      }
+    },
+    "linux_receiver_history_count": {
+      "context": "Linux transfer details: finished receiver requests in a scrollable history dialog.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Finished requests · {count}",
+        "fr": "Demandes terminées · {count}",
+        "es": "Solicitudes finalizadas · {count}",
+        "it": "Richieste concluse · {count}",
+        "de": "Abgeschlossene Anfragen · {count}",
+        "pt": "Pedidos concluídos · {count}",
+        "pl": "Zakończone prośby · {count}",
+        "nl": "Afgeronde verzoeken · {count}",
+        "ru": "Завершённые запросы · {count}"
+      },
+      "args": [
+        {
+          "name": "count",
+          "type": "int"
+        }
+      ]
+    },
+    "linux_targeted_recipient": {
+      "context": "Native Linux saved-device direct transfer workflow.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Receiver",
+        "fr": "Destinataire",
+        "es": "Destinatario",
+        "it": "Destinatario",
+        "de": "Empfänger",
+        "pt": "Destinatário",
+        "pl": "Odbiorca",
+        "nl": "Ontvanger",
+        "ru": "Получатель"
+      }
+    },
+    "linux_device_unavailable": {
+      "context": "Native Linux saved-device direct transfer workflow.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "No longer saved",
+        "fr": "N’est plus enregistré",
+        "es": "Ya no está guardado",
+        "it": "Non più salvato",
+        "de": "Nicht mehr gespeichert",
+        "pt": "Já não está guardado",
+        "pl": "Już niezapisane",
+        "nl": "Niet meer opgeslagen",
+        "ru": "Больше не сохранено"
+      }
+    },
+    "linux_targeted_offering": {
+      "context": "Native Linux saved-device direct transfer workflow.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Sending offer",
+        "fr": "Envoi de la proposition",
+        "es": "Enviando propuesta",
+        "it": "Invio della proposta",
+        "de": "Angebot wird gesendet",
+        "pt": "A enviar proposta",
+        "pl": "Wysyłanie propozycji",
+        "nl": "Aanbod verzenden",
+        "ru": "Отправка предложения"
+      }
+    },
+    "linux_targeted_transferring": {
+      "context": "Native Linux saved-device direct transfer workflow.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Transferring",
+        "fr": "Transfert en cours",
+        "es": "Transfiriendo",
+        "it": "Trasferimento in corso",
+        "de": "Übertragung läuft",
+        "pt": "A transferir",
+        "pl": "Przesyłanie",
+        "nl": "Bezig met overdragen",
+        "ru": "Передача"
+      }
+    },
+    "linux_targeted_deleted": {
+      "context": "Native Linux saved-device direct transfer workflow.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Deleted",
+        "fr": "Supprimé",
+        "es": "Eliminado",
+        "it": "Eliminato",
+        "de": "Gelöscht",
+        "pt": "Eliminado",
+        "pl": "Usunięto",
+        "nl": "Verwijderd",
+        "ru": "Удалено"
+      }
+    },
+    "linux_cancel_direct_transfer": {
+      "context": "Destructive confirmation action for cancelling a direct transfer, distinct from dismissing the dialog.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Cancel transfer",
+        "fr": "Annuler le transfert",
+        "es": "Cancelar transferencia",
+        "it": "Annulla trasferimento",
+        "de": "Übertragung abbrechen",
+        "pt": "Cancelar transferência",
+        "pl": "Anuluj transfer",
+        "nl": "Overdracht annuleren",
+        "ru": "Отменить передачу"
+      }
+    },
+    "linux_direct_transfer_files": {
+      "context": "Native Linux saved device transfer details.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Files: {count} · {size}",
+        "fr": "Fichiers : {count} · {size}",
+        "es": "Archivos: {count} · {size}",
+        "it": "File: {count} · {size}",
+        "de": "Dateien: {count} · {size}",
+        "pt": "Ficheiros: {count} · {size}",
+        "pl": "Pliki: {count} · {size}",
+        "nl": "Bestanden: {count} · {size}",
+        "ru": "Файлы: {count} · {size}"
+      },
+      "args": [
+        {
+          "name": "count",
+          "type": "int"
+        },
+        {
+          "name": "size",
+          "type": "string"
+        }
+      ]
+    },
+    "linux_device_transfer_history": {
+      "context": "Native Linux saved device transfer details.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Transfer history",
+        "fr": "Historique des transferts",
+        "es": "Historial de transferencias",
+        "it": "Cronologia trasferimenti",
+        "de": "Übertragungsverlauf",
+        "pt": "Histórico de transferências",
+        "pl": "Historia transferów",
+        "nl": "Overdrachtsgeschiedenis",
+        "ru": "История передач"
       }
     }
   }

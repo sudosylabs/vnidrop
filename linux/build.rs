@@ -3,6 +3,7 @@ use std::{env, path::PathBuf, process::Command};
 fn main() {
     println!("cargo:rerun-if-changed=data/resources.xml");
     println!("cargo:rerun-if-changed=../assets/linux/app-icon.svg");
+    println!("cargo:rerun-if-changed=../assets/linux/qr-code-symbolic.svg");
     if env::var_os("CARGO_FEATURE_GUI").is_none()
         || env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("linux")
     {

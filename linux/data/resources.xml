@@ -2,5 +2,6 @@
 <gresources>
   <gresource prefix="/com/vnidrop/VniDrop/icons">
     <file alias="scalable/apps/com.vnidrop.VniDrop.svg">app-icon.svg</file>
+    <file alias="scalable/actions/qr-code-symbolic.svg">qr-code-symbolic.svg</file>
   </gresource>
 </gresources>

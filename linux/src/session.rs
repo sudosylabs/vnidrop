@@ -7,12 +7,18 @@ use vnidrop::{
 };
 
 use crate::error::{message_key, Result};
+use crate::events::EventHistory;
 
+#[derive(Clone)]
 pub struct Snapshot {
     pub transfers: Vec<StoredTransfer>,
     pub requests: Vec<ReceiverRequest>,
     pub artifacts: Vec<ReceivedArtifact>,
     pub obligations: RuntimeObligationFacts,
+    pub events: Vec<CoreEvent>,
+    pub devices: crate::devices::Devices,
+    pub targeted: Vec<vnidrop::TargetedTransfer>,
+    pub offers: Vec<vnidrop::PendingTargetedOffer>,
 }
 
 impl Snapshot {
@@ -37,13 +43,15 @@ pub struct Session {
     state: Mutex<State>,
     drained: Condvar,
     changes: Receiver<()>,
+    events: Arc<Mutex<EventHistory>>,
 }
 
-struct EventSink(Sender<()>);
+struct EventSink(Sender<()>, Arc<Mutex<EventHistory>>);
 
 impl CoreEventSink for EventSink {
-    fn on_event(&self, _: CoreEvent) {
-        // Events only invalidate the read model. Never block a core worker on GTK.
+    fn on_event(&self, event: CoreEvent) {
+        self.1.lock().unwrap().merge([event]);
+        // Wakeups coalesce, but event details survive the interval between GTK refreshes.
         let _ = self.0.try_send(());
     }
 }
@@ -51,17 +59,24 @@ impl CoreEventSink for EventSink {
 impl Session {
     pub fn open(profile: String, network: CoreNetworkConfig) -> Result<Arc<Self>> {
         let (sender, changes) = async_channel::bounded(1);
+        let events = Arc::new(Mutex::new(EventHistory::default()));
         let core = VnidropCore::initialize_with_network_config(
             profile,
-            Arc::new(EventSink(sender)),
+            Arc::new(EventSink(sender, events.clone())),
             network,
         )
         .map_err(message_key)?;
-        Ok(Self::with_core(core, changes))
+        Self::with_core(core, changes, events)
     }
 
-    fn with_core(core: Arc<VnidropCore>, changes: Receiver<()>) -> Arc<Self> {
-        Arc::new(Self {
+    fn with_core(
+        core: Arc<VnidropCore>,
+        changes: Receiver<()>,
+        events: Arc<Mutex<EventHistory>>,
+    ) -> Result<Arc<Self>> {
+        let history = core.list_events(None).map_err(message_key)?;
+        events.lock().unwrap().merge(history);
+        Ok(Arc::new(Self {
             state: Mutex::new(State {
                 core: Some(core),
                 closing: false,
@@ -69,7 +84,8 @@ impl Session {
             }),
             drained: Condvar::new(),
             changes,
-        })
+            events,
+        }))
     }
 
     pub fn changes(&self) -> Receiver<()> {
@@ -103,11 +119,27 @@ impl Session {
                     requests.extend(core.list_receiver_requests(transfer.transfer_id)?);
                 }
             }
+            let artifacts = core.list_received_artifacts()?;
+            let obligations = core.runtime_obligation_facts()?;
+            let targeted = core.list_targeted_transfers()?;
+            let offers = core.list_pending_targeted_offers();
+            let mut devices = crate::devices::Devices::read(core)?;
+            devices.history_peers = targeted
+                .iter()
+                .filter(|t| t.state != vnidrop::TargetedTransferState::Deleted)
+                .map(|t| crate::targeted::peer(t).to_owned())
+                .collect();
+            // Core reads can overlap synchronous event callbacks; never retain the event lock across them.
+            let events = self.events.lock().unwrap().snapshot();
             Ok(Snapshot {
                 transfers,
                 requests,
-                artifacts: core.list_received_artifacts()?,
-                obligations: core.runtime_obligation_facts()?,
+                artifacts,
+                obligations,
+                events,
+                devices,
+                targeted,
+                offers,
             })
         })
     }

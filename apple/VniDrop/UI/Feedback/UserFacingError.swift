@@ -11,6 +11,7 @@ enum OfferRefusal {
 
 extension Error {
 	func toUiText() -> UiText {
+		if let report = self as? BugReportError { return report.uiText }
 		if let invitation = self as? InvitationError {
 			return invitation.uiText
 		}
@@ -118,6 +119,23 @@ extension Error {
 			 .SecureStorageUnavailable:
 			return false
 		default: return true
+		}
+	}
+}
+
+extension BugReportError {
+	var uiText: UiText {
+		switch self {
+		case .notConfigured, .serviceConfiguration: return .resource(L10n.Apple.reportServiceConfiguration)
+		case .missingWhat: return .resource(L10n.Bug.reportMissingWhat)
+		case .missingExpected: return .resource(L10n.Bug.reportMissingExpected)
+		case .textTooLong: return .resource(L10n.Apple.reportTextTooLong)
+		case .invalidPayload: return .resource(L10n.Apple.reportInvalidPayload)
+		case .rateLimited: return .resource(L10n.Apple.reportRateLimited)
+		case .serverError: return .resource(L10n.Apple.reportServerError)
+		case .unconfirmed: return .resource(L10n.Apple.reportUnconfirmed)
+		case .timedOut: return .resource(L10n.Apple.reportTimeout)
+		case .connectionFailed: return .resource(L10n.Apple.reportConnectionFailed)
 		}
 	}
 }

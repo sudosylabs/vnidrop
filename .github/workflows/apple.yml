@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "apple/**"
+      - ".github/workflows/apple-release.yml"
+      - ".github/workflows/apple-appstore.yml"
       - "version.properties"
       - "packaging/version/**"
       - "crates/vnidrop/**"
@@ -20,6 +22,8 @@ on:
       - master
     paths:
       - "apple/**"
+      - ".github/workflows/apple-release.yml"
+      - ".github/workflows/apple-appstore.yml"
       - "version.properties"
       - "packaging/version/**"
       - "crates/vnidrop/**"
@@ -78,10 +82,21 @@ jobs:
         # generated from localization/strings.json at build time, not tracked.
         uses: oven-sh/setup-bun@v2
 
+      - name: Test diagnostics build configuration
+        run: apple/scripts/tests/test-generate-appconfig.sh
+
       - name: Build and test Apple app
+        env:
+          VNIDROP_DIAGNOSTICS_ENDPOINT: https://diagnostics.example.test
+          VNIDROP_DIAGNOSTICS_INGEST_KEY: apple-ci-fixture
+          VNIDROP_REQUIRE_DIAGNOSTICS: "1"
         run: make check-apple
 
       - name: Build direct-download macOS target (Sparkle, unsigned)
         # Keeps the VniDropDirect (.dmg/Sparkle) target compiling; signing and
         # notarization happen only in apple-release.yml on a tag.
+        env:
+          VNIDROP_DIAGNOSTICS_ENDPOINT: https://diagnostics.example.test
+          VNIDROP_DIAGNOSTICS_INGEST_KEY: apple-ci-fixture
+          VNIDROP_REQUIRE_DIAGNOSTICS: "1"
         run: make build-apple-macos-direct

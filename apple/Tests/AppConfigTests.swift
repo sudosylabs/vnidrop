@@ -4,6 +4,17 @@ import XCTest
 /// Verifies the build-time `AppConfig` (generated from the shared `app.properties`)
 /// exposes the expected, well-formed values to the app.
 final class AppConfigTests: XCTestCase {
+	func testGeneratedDiagnosticsConfigurationCanBeUsedForSubmission() throws {
+		if AppConfig.diagnosticsEndpoint.isEmpty && AppConfig.diagnosticsIngestKey.isEmpty {
+			throw XCTSkip("Development build without diagnostics configuration")
+		}
+		let configuration = try BugReportConfiguration(
+			endpoint: AppConfig.diagnosticsEndpoint, ingestKey: AppConfig.diagnosticsIngestKey
+		)
+		XCTAssertEqual(configuration.submissionURL.scheme, "https")
+		XCTAssertTrue(configuration.submissionURL.path.hasSuffix("/v1/bugs"))
+	}
+
 	func testPrivacyPolicyURLIsTheExpectedHTTPSEndpoint() {
 		let url = AppConfig.privacyPolicyURL
 		XCTAssertEqual(url.scheme, "https", "Privacy policy URL must be https")

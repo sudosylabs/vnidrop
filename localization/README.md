@@ -15,7 +15,7 @@ A Bun CLI generates the platform-native files from it:
 ```bash
 # From the repository root:
 make check-localization      # structural checks (run before committing)
-make localization            # regenerate .xcstrings + strings.xml from strings.json
+make localization            # regenerate resources for all four frontend targets
 make localization-migrate    # one-time: rebuild strings.json from platform files
 ```
 

@@ -223,7 +223,7 @@ final class AppPreferencesRepository: ObservableObject {
 	@discardableResult
 	func ensureDiagnosticsInstallId() -> String {
 		let existing = preferences.diagnosticsInstallId
-		if !existing.isEmpty { return existing }
+		if UUID(uuidString: existing) != nil { return existing }
 		let created = UUID().uuidString
 		defaults.set(created, forKey: Key.diagnosticsInstallId)
 		reload()

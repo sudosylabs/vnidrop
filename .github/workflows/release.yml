@@ -61,6 +61,7 @@ jobs:
     name: Linux packages
     needs: preflight
     uses: ./.github/workflows/linux-packages.yml
+    secrets: inherit
 
   windows:
     name: Windows packages

@@ -59,8 +59,9 @@ struct SettingsState: Equatable {
 	var bugExpected = ""
 	var bugSteps = ""
 	var bugContact = ""
-	var bugIncludeLogs = true
+	var bugIncludeLogs = false
 	var isSubmittingBugReport = false
+	var bugReportError: UiText?
 	var bugLogPreviewBytes = 0
 	var storage: StorageBreakdown?
 	var isCalculatingStorage = false
@@ -87,6 +88,7 @@ struct SettingsState: Equatable {
 			&& lhs.bugWhatHappened == rhs.bugWhatHappened && lhs.bugExpected == rhs.bugExpected
 			&& lhs.bugSteps == rhs.bugSteps && lhs.bugContact == rhs.bugContact
 			&& lhs.bugIncludeLogs == rhs.bugIncludeLogs && lhs.isSubmittingBugReport == rhs.isSubmittingBugReport
+			&& lhs.bugReportError == rhs.bugReportError
 			&& lhs.bugLogPreviewBytes == rhs.bugLogPreviewBytes
 			&& lhs.storage == rhs.storage && lhs.isCalculatingStorage == rhs.isCalculatingStorage
 			&& lhs.storageLoadFailed == rhs.storageLoadFailed
@@ -117,6 +119,7 @@ final class SettingsModel: ObservableObject {
 	private var cancellables = Set<AnyCancellable>()
 	/// In-flight automatic trash purge, so overlapping foregrounds don't stack.
 	private var trashPurgeTask: Task<Void, Never>?
+	private var bugReportTask: Task<Void, Never>?
 
 	init(
 		environment: PlatformEnvironment,
@@ -178,10 +181,11 @@ final class SettingsModel: ObservableObject {
 
 
 	func selectSection(_ section: SettingsSection) {
+		if state.selectedSection == .bugReport && section != .bugReport { cancelBugReport() }
 		state.selectedSection = section
 		if section == .about || section == .bugReport {
 			loadDeviceInfo()
-			if section == .bugReport { refreshBugLogPreview() }
+			if section == .bugReport && state.bugIncludeLogs { refreshBugLogPreview() }
 		}
 	}
 
@@ -345,45 +349,52 @@ final class SettingsModel: ObservableObject {
 	func setBugExpected(_ value: String) { state.bugExpected = value }
 	func setBugSteps(_ value: String) { state.bugSteps = value }
 	func setBugContact(_ value: String) { state.bugContact = value }
-	func setBugIncludeLogs(_ value: Bool) { state.bugIncludeLogs = value }
+	func setBugIncludeLogs(_ value: Bool) {
+		state.bugIncludeLogs = value
+		if value { refreshBugLogPreview() } else { state.bugLogPreviewBytes = 0 }
+	}
 
 	func submitBugReport(onSuccess: @escaping () -> Void = {}) {
-		if state.isSubmittingBugReport { return }
-		Task {
-			let snapshot = state
-			let what = snapshot.bugWhatHappened.trimmingCharacters(in: .whitespacesAndNewlines)
-			let expected = snapshot.bugExpected.trimmingCharacters(in: .whitespacesAndNewlines)
-			if what.isEmpty {
-				messages.show(UiMessage(text: .resource(L10n.Bug.reportMissingWhat), tone: .warning))
-				return
+		guard !state.isSubmittingBugReport else { return }
+		let draft = BugReportDraft(
+			whatHappened: state.bugWhatHappened, expected: state.bugExpected,
+			steps: state.bugSteps, contact: state.bugContact, includeLogs: state.bugIncludeLogs
+		)
+		do {
+			try BugReportPayload.validate(draft)
+		} catch {
+			state.bugReportError = error.toUiText()
+			return
+		}
+		state.bugReportError = nil
+		state.isSubmittingBugReport = true
+		let deviceInfo = state.deviceInfo
+		bugReportTask = Task {
+			defer {
+				state.isSubmittingBugReport = false
+				bugReportTask = nil
 			}
-			if expected.isEmpty {
-				messages.show(UiMessage(text: .resource(L10n.Bug.reportMissingExpected), tone: .warning))
-				return
-			}
-			state.isSubmittingBugReport = true
-			let result = await bugReports.submit(
-				BugReportDraft(
-					whatHappened: what, expected: expected, steps: snapshot.bugSteps,
-					contact: snapshot.bugContact, includeLogs: snapshot.bugIncludeLogs
-				),
-				deviceInfo: snapshot.deviceInfo
-			)
+			let result = await bugReports.submit(draft, deviceInfo: deviceInfo)
+			guard !Task.isCancelled else { return }
 			switch result {
 			case .success:
-				state.isSubmittingBugReport = false
 				state.bugWhatHappened = ""
 				state.bugExpected = ""
 				state.bugSteps = ""
 				state.bugContact = ""
-				state.bugIncludeLogs = true
+				state.bugIncludeLogs = false
+				state.bugLogPreviewBytes = 0
 				messages.show(UiMessage(text: .resource(L10n.Bug.reportSubmitted), tone: .success))
 				onSuccess()
-			case .failure:
-				state.isSubmittingBugReport = false
-				messages.show(UiMessage(text: .resource(L10n.Bug.reportSubmitFailed), tone: .error))
+			case .failure(let error):
+				if error is CancellationError { return }
+				state.bugReportError = (error as? BugReportError)?.uiText ?? .resource(L10n.Bug.reportSubmitFailed)
 			}
 		}
+	}
+
+	func cancelBugReport() {
+		bugReportTask?.cancel()
 	}
 
 	func openNotificationSettings() {
@@ -618,7 +629,7 @@ final class SettingsModel: ObservableObject {
 	private func refreshBugLogPreview() {
 		Task {
 			let bytes = await bugReports.previewLogBytes()
-			state.bugLogPreviewBytes = bytes
+			if state.bugIncludeLogs { state.bugLogPreviewBytes = bytes }
 		}
 	}
 

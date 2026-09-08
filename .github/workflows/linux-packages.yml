@@ -4,21 +4,17 @@ on:
   pull_request:
     paths:
       - ".github/workflows/linux-packages.yml"
+      - "linux/**"
       - "packaging/linux/**"
       - "packaging/version/**"
+      - "localization/**"
       - "version.properties"
       - "assets/linux/**"
-      - "desktopApp/**"
-      - "shared/**"
       - "crates/vnidrop/**"
       - "Cargo.toml"
       - "Cargo.lock"
       - "LICENSE"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
       - "gradle.properties"
-      - "gradle/**"
-      - "gradlew"
       - "Makefile"
       - "config.mk"
       - "make/**"
@@ -38,8 +34,8 @@ defaults:
 
 jobs:
   build-deb:
-    name: Build Debian package (x64)
-    runs-on: ubuntu-22.04
+    name: Build GTK Debian package (x64)
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
       CARGO_TERM_COLOR: always
@@ -50,26 +46,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install packaging tools
+      - name: Install GTK and packaging tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes \
-            dbus-x11 \
-            fakeroot \
-            gnome-keyring \
-            libsecret-tools \
-            unzip
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
-        with:
-          distribution: temurin
-          java-version: "21.0.11+10.0.LTS"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
-        with:
-          gradle-home-cache-strict-match: true
+          sudo apt-get install --yes build-essential pkg-config cmake clang perl \
+            libgtk-4-dev libadwaita-1-dev librsvg2-common libssl-dev \
+            desktop-file-utils shared-mime-info xdg-utils file
 
       - name: Set up Rust 1.91
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # v1
@@ -83,9 +65,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: linux-deb-x64-cargo-1.91.0-${{ hashFiles('Cargo.lock') }}
+          key: linux-gtk-deb-x64-cargo-1.91.0-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            linux-deb-x64-cargo-1.91.0-
+            linux-gtk-deb-x64-cargo-1.91.0-
 
       - name: Resolve canonical version
         id: version
@@ -93,8 +75,22 @@ jobs:
           version=$(packaging/linux/resolve-version.sh)
           echo "app=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Test and build Debian package
-        run: make/with-secret-service.sh make package-deb
+      - name: Test headless MIME verification
+        run: bash linux/packaging/tests/test-verify-mime.sh
+
+      - name: Test native Linux logic
+        env:
+          VNIDROP_DIAGNOSTICS_REQUIRED: '0'
+          VNIDROP_DIAGNOSTICS_ENDPOINT: ''
+          VNIDROP_DIAGNOSTICS_INGEST_KEY: ''
+        run: cargo test --locked -p vnidrop-gnome --lib
+
+      - name: Build and verify GTK Debian package
+        env:
+          VNIDROP_DIAGNOSTICS_REQUIRED: ${{ github.event_name != 'pull_request' && '1' || '0' }}
+          VNIDROP_DIAGNOSTICS_ENDPOINT: ${{ github.event_name != 'pull_request' && vars.VNIDROP_DIAGNOSTICS_ENDPOINT || '' }}
+          VNIDROP_DIAGNOSTICS_INGEST_KEY: ${{ github.event_name != 'pull_request' && secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY || '' }}
+        run: make package-deb
 
       - name: Upload Debian artifact
         if: github.event_name != 'pull_request'
@@ -108,71 +104,32 @@ jobs:
 
       - name: Summarize Debian package
         run: |
-          echo "### Debian package" >> "$GITHUB_STEP_SUMMARY"
+          echo "### GTK Debian package" >> "$GITHUB_STEP_SUMMARY"
           echo "- Version: ${{ steps.version.outputs.app }}-1" >> "$GITHUB_STEP_SUMMARY"
           echo "- Architecture: amd64" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Build baseline: Ubuntu 22.04" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build baseline: Ubuntu 24.04 (GTK 4.10+, libadwaita 1.5+)" >> "$GITHUB_STEP_SUMMARY"
 
   build-rpm:
-    name: Build RPM package (x64)
+    name: Build GTK RPM package (x64)
     runs-on: ubuntu-24.04
     container:
       image: registry.fedoraproject.org/fedora:43
-      volumes:
-        - /usr/local/lib/android/sdk:/usr/local/lib/android/sdk
     timeout-minutes: 90
     env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
       CARGO_TERM_COLOR: always
 
     steps:
-      - name: Install build and packaging tools
+      - name: Install GTK and packaging tools
         run: |
-          dnf install --assumeyes \
-            alsa-lib \
-            cpio \
-            curl \
-            cups-libs \
-            desktop-file-utils \
-            findutils \
-            fontconfig \
-            freetype \
-            gcc \
-            gcc-c++ \
-            git \
-            gzip \
-            gtk3 \
-            libX11 \
-            libXext \
-            libXi \
-            libXrandr \
-            libXrender \
-            libXtst \
-            make \
-            mesa-libGL \
-            rpm-build \
-            tar \
-            unzip \
-            which \
-            xz \
-            zstd
+          dnf install --assumeyes git gcc gcc-c++ cmake curl pkgconf-pkg-config \
+            gtk4-devel libadwaita-devel librsvg2 rpm-build desktop-file-utils \
+            shared-mime-info xdg-utils file cpio make clang perl openssl-devel \
+            tar gzip which
 
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
-        with:
-          distribution: temurin
-          java-version: "21.0.11+10.0.LTS"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
-        with:
-          gradle-home-cache-strict-match: true
 
       - name: Set up Rust 1.91
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # v1
@@ -186,9 +143,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: linux-rpm-x64-cargo-1.91.0-${{ hashFiles('Cargo.lock') }}
+          key: linux-gtk-rpm-x64-cargo-1.91.0-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            linux-rpm-x64-cargo-1.91.0-
+            linux-gtk-rpm-x64-cargo-1.91.0-
 
       - name: Resolve canonical version
         id: version
@@ -196,7 +153,14 @@ jobs:
           version=$(packaging/linux/resolve-version.sh)
           echo "app=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Build RPM package
+      - name: Test headless MIME verification
+        run: bash linux/packaging/tests/test-verify-mime.sh
+
+      - name: Build and verify GTK RPM package
+        env:
+          VNIDROP_DIAGNOSTICS_REQUIRED: ${{ github.event_name != 'pull_request' && '1' || '0' }}
+          VNIDROP_DIAGNOSTICS_ENDPOINT: ${{ github.event_name != 'pull_request' && vars.VNIDROP_DIAGNOSTICS_ENDPOINT || '' }}
+          VNIDROP_DIAGNOSTICS_INGEST_KEY: ${{ github.event_name != 'pull_request' && secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY || '' }}
         run: make package-rpm
 
       - name: Upload RPM artifact
@@ -211,7 +175,7 @@ jobs:
 
       - name: Summarize RPM package
         run: |
-          echo "### RPM package" >> "$GITHUB_STEP_SUMMARY"
+          echo "### GTK RPM package" >> "$GITHUB_STEP_SUMMARY"
           echo "- Version: ${{ steps.version.outputs.app }}-1" >> "$GITHUB_STEP_SUMMARY"
           echo "- Architecture: x86_64" >> "$GITHUB_STEP_SUMMARY"
           echo "- Build environment: Fedora 43" >> "$GITHUB_STEP_SUMMARY"

@@ -7772,6 +7772,142 @@
         }
       ]
     },
+    "apple_report_timeout": {
+      "context": "Native Apple bug-report delivery feedback.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "The reporting service took too long to respond. Your draft is kept; try again.",
+        "fr": "Le service de signalement met trop de temps à répondre. Votre brouillon est conservé ; réessayez.",
+        "es": "El servicio de informes tardó demasiado en responder. Se conserva el borrador; inténtalo de nuevo.",
+        "it": "Il servizio di segnalazione ha impiegato troppo tempo a rispondere. La bozza è conservata; riprova.",
+        "de": "Der Meldedienst hat zu lange für die Antwort gebraucht. Dein Entwurf bleibt erhalten; versuche es erneut.",
+        "pt": "O serviço de relatórios demorou demasiado a responder. O rascunho foi mantido; tente novamente.",
+        "pl": "Usługa zgłoszeń nie odpowiedziała na czas. Wersja robocza została zachowana; spróbuj ponownie.",
+        "nl": "De meldingsdienst reageerde niet op tijd. Je concept blijft bewaard; probeer het opnieuw.",
+        "ru": "Сервис отчётов не ответил вовремя. Черновик сохранён; повторите попытку."
+      }
+    },
+    "apple_report_connection_failed": {
+      "context": "Native Apple bug-report delivery feedback.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "Could not connect to the reporting service. Check your connection and try again. Your draft is kept.",
+        "fr": "Impossible de joindre le service de signalement. Vérifiez votre connexion et réessayez. Votre brouillon est conservé.",
+        "es": "No se pudo conectar con el servicio de informes. Comprueba tu conexión e inténtalo de nuevo. Se conserva el borrador.",
+        "it": "Impossibile contattare il servizio di segnalazione. Controlla la connessione e riprova. La bozza è conservata.",
+        "de": "Der Meldedienst ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut. Dein Entwurf bleibt erhalten.",
+        "pt": "Não foi possível contactar o serviço de relatórios. Verifique a ligação e tente novamente. O rascunho foi mantido.",
+        "pl": "Nie można połączyć się z usługą zgłoszeń. Sprawdź połączenie i spróbuj ponownie. Wersja robocza została zachowana.",
+        "nl": "Kan geen verbinding maken met de meldingsdienst. Controleer je verbinding en probeer het opnieuw. Je concept blijft bewaard.",
+        "ru": "Не удалось подключиться к сервису отчётов. Проверьте соединение и повторите попытку. Черновик сохранён."
+      }
+    },
+    "apple_report_unconfirmed": {
+      "context": "Native Apple bug-report delivery feedback.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "Delivery could not be confirmed. Your draft is kept; retrying will use the same report reference.",
+        "fr": "L’envoi n’a pas pu être confirmé. Votre brouillon est conservé ; une nouvelle tentative utilisera la même référence.",
+        "es": "No se pudo confirmar el envío. Se conserva el borrador; al reintentar se usará la misma referencia.",
+        "it": "Impossibile confermare l’invio. La bozza è conservata; un nuovo tentativo userà lo stesso riferimento.",
+        "de": "Der Versand konnte nicht bestätigt werden. Dein Entwurf bleibt erhalten; beim erneuten Versuch wird dieselbe Referenz verwendet.",
+        "pt": "Não foi possível confirmar o envio. O rascunho foi mantido; uma nova tentativa usará a mesma referência.",
+        "pl": "Nie udało się potwierdzić wysłania. Wersja robocza została zachowana; ponowna próba użyje tego samego numeru zgłoszenia.",
+        "nl": "De verzending kon niet worden bevestigd. Je concept blijft bewaard; een nieuwe poging gebruikt dezelfde referentie.",
+        "ru": "Не удалось подтвердить отправку. Черновик сохранён; при повторной попытке будет использован тот же номер отчёта."
+      }
+    },
+    "apple_report_service_configuration": {
+      "context": "Native Apple bug-report delivery feedback.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "This build could not authenticate with the reporting service. Your draft is kept. Please check for an app update.",
+        "fr": "Cette version n’a pas pu s’authentifier auprès du service de signalement. Votre brouillon est conservé. Vérifiez les mises à jour de l’application.",
+        "es": "Esta versión no pudo autenticarse con el servicio de informes. Se conserva el borrador. Comprueba si hay actualizaciones de la aplicación.",
+        "it": "Questa versione non è riuscita ad autenticarsi con il servizio di segnalazione. La bozza è conservata. Verifica gli aggiornamenti dell’app.",
+        "de": "Diese Version konnte sich beim Meldedienst nicht authentifizieren. Dein Entwurf bleibt erhalten. Prüfe, ob ein App-Update verfügbar ist.",
+        "pt": "Esta versão não conseguiu autenticar-se no serviço de relatórios. O rascunho foi mantido. Verifique se há atualizações da aplicação.",
+        "pl": "Ta wersja nie mogła uwierzytelnić się w usłudze zgłoszeń. Wersja robocza została zachowana. Sprawdź aktualizacje aplikacji.",
+        "nl": "Deze versie kon zich niet aanmelden bij de meldingsdienst. Je concept blijft bewaard. Controleer of er een app-update is.",
+        "ru": "Эта версия не прошла проверку подлинности в сервисе отчётов. Черновик сохранён. Проверьте обновления приложения."
+      }
+    },
+    "apple_report_rate_limited": {
+      "context": "Native Apple bug-report delivery feedback.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "Too many reports were sent recently. Please wait a minute and try again. Your draft is kept.",
+        "fr": "Trop de signalements ont été envoyés récemment. Attendez une minute puis réessayez. Votre brouillon est conservé.",
+        "es": "Se han enviado demasiados informes recientemente. Espera un minuto e inténtalo de nuevo. Se conserva el borrador.",
+        "it": "Sono state inviate troppe segnalazioni di recente. Attendi un minuto e riprova. La bozza è conservata.",
+        "de": "In letzter Zeit wurden zu viele Berichte gesendet. Warte eine Minute und versuche es erneut. Dein Entwurf bleibt erhalten.",
+        "pt": "Foram enviados demasiados relatórios recentemente. Aguarde um minuto e tente novamente. O rascunho foi mantido.",
+        "pl": "Ostatnio wysłano zbyt wiele zgłoszeń. Poczekaj minutę i spróbuj ponownie. Wersja robocza została zachowana.",
+        "nl": "Er zijn onlangs te veel meldingen verstuurd. Wacht een minuut en probeer het opnieuw. Je concept blijft bewaard.",
+        "ru": "За последнее время отправлено слишком много отчётов. Подождите минуту и повторите попытку. Черновик сохранён."
+      }
+    },
+    "apple_report_server_error": {
+      "context": "Native Apple bug-report delivery feedback.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "The reporting service is temporarily unavailable. Your draft is kept; try again later.",
+        "fr": "Le service de signalement est temporairement indisponible. Votre brouillon est conservé ; réessayez plus tard.",
+        "es": "El servicio de informes no está disponible temporalmente. Se conserva el borrador; inténtalo más tarde.",
+        "it": "Il servizio di segnalazione è temporaneamente indisponibile. La bozza è conservata; riprova più tardi.",
+        "de": "Der Meldedienst ist vorübergehend nicht verfügbar. Dein Entwurf bleibt erhalten; versuche es später erneut.",
+        "pt": "O serviço de relatórios está temporariamente indisponível. O rascunho foi mantido; tente mais tarde.",
+        "pl": "Usługa zgłoszeń jest tymczasowo niedostępna. Wersja robocza została zachowana; spróbuj później.",
+        "nl": "De meldingsdienst is tijdelijk niet beschikbaar. Je concept blijft bewaard; probeer het later opnieuw.",
+        "ru": "Сервис отчётов временно недоступен. Черновик сохранён; повторите попытку позже."
+      }
+    },
+    "apple_report_invalid_payload": {
+      "context": "Native Apple bug-report delivery feedback.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "The reporting service rejected this report. Check the report details and try again.",
+        "fr": "Le service a refusé ce signalement. Vérifiez les informations et réessayez.",
+        "es": "El servicio rechazó este informe. Revisa los detalles e inténtalo de nuevo.",
+        "it": "Il servizio ha rifiutato questa segnalazione. Controlla i dettagli e riprova.",
+        "de": "Der Dienst hat diesen Bericht abgelehnt. Prüfe die Angaben und versuche es erneut.",
+        "pt": "O serviço rejeitou este relatório. Verifique os detalhes e tente novamente.",
+        "pl": "Usługa odrzuciła to zgłoszenie. Sprawdź jego szczegóły i spróbuj ponownie.",
+        "nl": "De dienst heeft deze melding geweigerd. Controleer de gegevens en probeer het opnieuw.",
+        "ru": "Сервис отклонил этот отчёт. Проверьте его данные и повторите попытку."
+      }
+    },
+    "apple_report_text_too_long": {
+      "context": "Native Apple bug-report delivery feedback.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "The report text is too long. Shorten the descriptions or contact information and try again.",
+        "fr": "Le texte est trop long. Raccourcissez les descriptions ou les coordonnées, puis réessayez.",
+        "es": "El texto es demasiado largo. Acorta las descripciones o los datos de contacto e inténtalo de nuevo.",
+        "it": "Il testo è troppo lungo. Accorcia le descrizioni o i recapiti e riprova.",
+        "de": "Der Text ist zu lang. Kürze die Beschreibungen oder Kontaktangaben und versuche es erneut.",
+        "pt": "O texto é demasiado longo. Encurte as descrições ou os dados de contacto e tente novamente.",
+        "pl": "Tekst jest zbyt długi. Skróć opisy lub dane kontaktowe i spróbuj ponownie.",
+        "nl": "De tekst is te lang. Kort de beschrijvingen of contactgegevens in en probeer het opnieuw.",
+        "ru": "Текст слишком длинный. Сократите описания или контактные данные и повторите попытку."
+      }
+    },
     "windows_report_unconfigured": {
       "context": "Native Windows bug-report submission feedback.",
       "targets": [

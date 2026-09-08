@@ -3,24 +3,24 @@
 ## Shape of the system
 
 ```text
-Android / Windows / Linux UI          Apple SwiftUI
-            |                              |
-    platform file adapters        platform file adapters
-            |                              |
-       Kotlin/UniFFI facade  <---->  Swift/UniFFI facade
-                         |
-                     Rust core
-        +----------------+----------------+
-        |                |                |
-  transfer modules   persistence       Iroh endpoint
-  and policy         + secrets         + protocols
-        |                                 |
-        +---------- filesystem -----------+
+Android / Linux Compose    Windows WinUI    Apple SwiftUI    Linux GTK
+           |                     |               |              |
+     Kotlin/UniFFI          C#/UniFFI        Swift/UniFFI     Rust API
+           |                     |               |              |
+           +---------------------+---------------+--------------+
+                                 |
+                             Rust core
+                +----------------+----------------+
+                |                |                |
+          transfer modules   persistence       Iroh endpoint
+          and policy         + secrets         + protocols
+                |                                 |
+                +---------- filesystem -----------+
 ```
 
-The generated UniFFI boundary exposes coarse application operations and durable
-read models. It must not become the owner of lifecycle rules or a transport for
-file payloads.
+Each frontend owns platform file adapters. The generated UniFFI boundary exposes
+coarse application operations and durable read models. It must not become the
+owner of lifecycle rules or a transport for file payloads.
 
 ## Ownership
 
@@ -29,7 +29,13 @@ file payloads.
 | Rust core | Transfer identity and lifecycle, approval and access policy, Iroh endpoint and protocols, SQLite state, recovery, payload streaming | Pickers, UI navigation, platform background-service APIs |
 | Shared KMP | Android/desktop presentation, ViewModels, navigation, platform-neutral UI state | Transfer authority, duplicated durable lifecycle state |
 | Apple app | SwiftUI presentation and Apple platform integration | Transfer authority, a separate transfer state machine |
+| Windows app | WinUI presentation, native file access, activation, notifications, and preferences | Transfer authority or managed payload streaming |
+| Native Linux app | GTK/libadwaita presentation, native file access, desktop integration, and preferences | A separate transfer engine or durable transfer store |
 | Platform adapters | Opening paths or descriptors, security-scoped/SAF leases, receive destinations, process-retention mechanisms | Protocol decisions or payload buffering as the default path |
+
+Windows release builds use WinUI and Linux release builds use GTK/libadwaita.
+The Compose desktop hosts remain available for migration checks. See
+[Platforms](platforms.md) for source locations.
 
 ## Module boundaries
 

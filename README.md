@@ -48,9 +48,10 @@ The native C# / WinUI 3 Windows app lives in [`windows/`](windows/README.md).
 The Windows release workflow packages this host for the Store and direct download;
 see its build instructions and remaining release acceptance work before publishing.
 
-The native Rust / GTK 4 / libadwaita Linux host is under development in
-[`linux/`](linux/README.md). Run it with `make run-linux`; the existing Compose
-host continues to supply Linux release packages during this migration.
+The Linux release workflow packages the Rust / GTK 4 / libadwaita app in
+[`linux/`](linux/README.md). Run it with `make run-linux`. DEB builds target
+Ubuntu 24.04 or newer; RPM builds target Fedora 43. See the
+[Linux packaging guide](packaging/linux/README.md) for installation and upgrades.
 
 There is no account to create and no cloud copy of the transfer waiting after
 you are done. The sender remains in control and can stop sharing at any time.
@@ -191,8 +192,8 @@ The security and lifecycle rules are documented in
 - Saved devices with mutual consent, and targeted transfers that need no new
   invitation
 - Safe receive destinations that do not silently overwrite existing files
-- Native SwiftUI apps on iOS, iPadOS, and macOS; WinUI on Windows; Compose on
-  Android and Linux
+- Native SwiftUI apps on iOS, iPadOS, and macOS; WinUI on Windows; GTK/libadwaita
+  on Linux; Compose on Android
 - Strict custom HTTPS relay profiles with safe apply and rollback
 - Optional user-submitted bug reports with transfer contents, invitations, and
   file paths excluded
@@ -226,18 +227,30 @@ cd vnidrop
 make help
 make doctor
 
-# Windows/Linux desktop
+# Legacy Compose desktop host for migration checks
 make run-desktop
+
+# Native Linux app
+make run-linux
 
 # Android debug build
 make build-android
 
-# Build and launch the macOS app
-make open-apple
+# Build and launch macOS after configuring apple/Local.xcconfig
+make open-apple APPLE_CODE_SIGNING=YES
 
 # Open the native project for iOS, iPadOS, or Xcode development
 make open-apple-project
 ```
+
+For the native Windows app, run from PowerShell:
+
+```powershell
+pwsh windows/scripts/build.ps1 -Test -Run
+```
+
+See the [Windows](windows/README.md), [Apple](apple/README.md), and
+[native Linux](linux/README.md) guides for host prerequisites and setup.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for prerequisites, development setup,
 testing, and pull request guidance.

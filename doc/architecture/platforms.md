@@ -2,9 +2,18 @@
 
 ## Shared boundary
 
-VniDrop has a shared Kotlin/Compose application for Android, Windows, and Linux,
-plus a native SwiftUI application for Apple platforms. Both call the same Rust
-core through generated UniFFI bindings.
+All frontends use the same Rust transfer core:
+
+| Frontend | Source | Core access |
+|---|---|---|
+| Android Compose app | `androidApp/` and `shared/` | Generated Kotlin/UniFFI bindings |
+| Legacy Linux Compose host | `desktopApp/` and `shared/` | Generated Kotlin/UniFFI bindings |
+| Windows WinUI app | `windows/` | Generated C#/UniFFI bindings |
+| Apple SwiftUI app | `apple/` | Generated Swift/UniFFI bindings |
+| Native Linux GTK/libadwaita app | `linux/` | Direct Rust calls |
+
+The Compose Windows/Linux hosts remain available for migration checks.
+Windows release packages use WinUI; Linux release packages use GTK/libadwaita.
 
 The platform/core boundary is capability-oriented: the platform obtains access
 to a file or destination; Rust owns the transfer and streams bytes through that
@@ -45,12 +54,12 @@ Kotlin, without requiring identical presentation code.
 
 ## Saved Devices read models
 
-**Target:** deepen one in-process Saved Devices read-model module per platform.
-It combines durable relationship and transfer reads into stable UI facts,
+Kotlin and Swift each implement an in-process Saved Devices read model.
+Each combines durable relationship and transfer reads into stable UI facts,
 including which actions are currently meaningful. Views consume those facts
 instead of re-deriving lifecycle rules.
 
-The two platform modules should share contract scenarios for:
+The two platform modules share contract scenarios for:
 
 - pending, accepted, blocked, forgotten, and reset relationships;
 - active, cancelled, abandoned, failed, and retried Targeted transfers;

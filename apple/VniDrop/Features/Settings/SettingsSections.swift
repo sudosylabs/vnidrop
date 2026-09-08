@@ -441,11 +441,15 @@ struct BugReportSheet: View {
 			#endif
 			.toolbar {
 				ToolbarItem(placement: .cancellationAction) {
-					Button(String(localized: L10n.Button.cancel)) { dismiss() }
+					Button(String(localized: L10n.Button.cancel)) {
+						model.cancelBugReport()
+						dismiss()
+					}
 				}
 			}
 		}
 		.interactiveDismissDisabled(!isEmpty)
+		.onDisappear { model.cancelBugReport() }
 	}
 }
 
@@ -475,38 +479,55 @@ struct BugReportSettings: View {
 	var onSubmitted: () -> Void = {}
 
 	var body: some View {
-		Section(String(localized: L10n.Bug.reportWhatLabel)) {
-			TextField("", text: Binding(get: { model.state.bugWhatHappened }, set: { model.setBugWhatHappened($0) }),
-					  prompt: Text(String(localized: L10n.Bug.reportWhatHint)), axis: .vertical)
-				.lineLimit(3, reservesSpace: true)
-				.labelsHidden()
-		}
-		Section(String(localized: L10n.Bug.reportExpectedLabel)) {
-			TextField("", text: Binding(get: { model.state.bugExpected }, set: { model.setBugExpected($0) }),
-					  prompt: Text(String(localized: L10n.Bug.reportExpectedHint)), axis: .vertical)
-				.lineLimit(3, reservesSpace: true)
-				.labelsHidden()
-		}
-		Section(String(localized: L10n.Bug.reportStepsLabel)) {
-			TextField("", text: Binding(get: { model.state.bugSteps }, set: { model.setBugSteps($0) }),
-					  prompt: Text(String(localized: L10n.Bug.reportStepsHint)), axis: .vertical)
-				.lineLimit(3, reservesSpace: true)
-				.labelsHidden()
-		}
-		Section(String(localized: L10n.Bug.reportContactLabel)) {
-			TextField("", text: Binding(get: { model.state.bugContact }, set: { model.setBugContact($0) }),
-					  prompt: Text(String(localized: L10n.Bug.reportContactHint)))
-				.labelsHidden()
-		}
-		Section {
-			Toggle(isOn: Binding(get: { model.state.bugIncludeLogs }, set: { model.setBugIncludeLogs($0) })) {
-				Text(String(localized: L10n.Bug.reportIncludeLogs))
+		Group {
+			Section {
+				TextField("", text: Binding(get: { model.state.bugWhatHappened }, set: { model.setBugWhatHappened($0) }),
+						  prompt: Text(String(localized: L10n.Bug.reportWhatHint)), axis: .vertical)
+					.lineLimit(3, reservesSpace: true)
+					.labelsHidden()
+			} header: {
+				Text(String(localized: L10n.Bug.reportWhatLabel))
+			} footer: {
+				Text(String(localized: L10n.Bug.reportDescription))
 			}
-			Button(action: { model.submitBugReport(onSuccess: onSubmitted) }) {
-				Text(model.state.isSubmittingBugReport
-					 ? String(localized: L10n.Bug.reportSubmitting) : String(localized: L10n.Bug.reportSubmit))
+			Section(String(localized: L10n.Bug.reportExpectedLabel)) {
+				TextField("", text: Binding(get: { model.state.bugExpected }, set: { model.setBugExpected($0) }),
+						  prompt: Text(String(localized: L10n.Bug.reportExpectedHint)), axis: .vertical)
+					.lineLimit(3, reservesSpace: true)
+					.labelsHidden()
 			}
-			.disabled(model.state.isSubmittingBugReport)
+			Section(String(localized: L10n.Bug.reportStepsLabel)) {
+				TextField("", text: Binding(get: { model.state.bugSteps }, set: { model.setBugSteps($0) }),
+						  prompt: Text(String(localized: L10n.Bug.reportStepsHint)), axis: .vertical)
+					.lineLimit(3, reservesSpace: true)
+					.labelsHidden()
+			}
+			Section(String(localized: L10n.Bug.reportContactLabel)) {
+				TextField("", text: Binding(get: { model.state.bugContact }, set: { model.setBugContact($0) }),
+						  prompt: Text(String(localized: L10n.Bug.reportContactHint)))
+					.labelsHidden()
+			}
+			Section {
+				Toggle(isOn: Binding(get: { model.state.bugIncludeLogs }, set: { model.setBugIncludeLogs($0) })) {
+					Text(String(localized: L10n.Bug.reportIncludeLogs))
+				}
+				Text(String(localized: L10n.Bug.reportIncludeLogsDescription))
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+				if model.state.bugIncludeLogs {
+					LabeledContent(String(localized: L10n.Bug.reportLogsSize)) {
+						Text(verbatim: ByteCountFormatter.string(fromByteCount: Int64(model.state.bugLogPreviewBytes), countStyle: .file))
+					}
+				}
+				if let error = model.state.bugReportError {
+					Text(error.resolved()).foregroundStyle(.red)
+				}
+				Button(action: { model.submitBugReport(onSuccess: onSubmitted) }) {
+					Text(model.state.isSubmittingBugReport
+						 ? String(localized: L10n.Bug.reportSubmitting) : String(localized: L10n.Bug.reportSubmit))
+				}
+			}
 		}
+		.disabled(model.state.isSubmittingBugReport)
 	}
 }

@@ -45,7 +45,14 @@ struct RootView: View {
 			preferences: graph.preferencesRepository,
 			notifications: dependencies.notificationService,
 			messages: graph.messages,
-			bugReports: NoopBugReportService()
+			bugReports: DiagnosticsBugReportService(
+				configuration: try? BugReportConfiguration(
+					endpoint: AppConfig.diagnosticsEndpoint, ingestKey: AppConfig.diagnosticsIngestKey
+				),
+				environment: dependencies.environment,
+				preferences: graph.preferencesRepository,
+				logs: CoreBugReportLogs(dataDirectory: dependencies.environment.defaultCoreDataDir)
+			)
 		))
 		let savedDevices = SavedDevicesModel(
 			repository: graph.coreRepository,

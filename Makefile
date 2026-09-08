@@ -72,7 +72,7 @@ check-version: ## Validate the canonical version and its platform mappings.
 	cd $(ROOT) && $(GRADLE) verifyVersion $(GRADLE_FLAGS)
 
 check-release: ## Validate coordinated release scripts and workflow YAML.
-	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh make/tests/test-open-apple.sh make/tests/test-with-secret-service.sh make/with-secret-service.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/linux/ensure-desktop-identity.sh packaging/linux/patch-deb-desktop-entry.sh packaging/linux/verify-package.sh packaging/linux/tests/test-ensure-desktop-identity.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh
+	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh make/tests/test-open-apple.sh make/tests/test-with-secret-service.sh make/with-secret-service.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/linux/ensure-desktop-identity.sh packaging/linux/patch-deb-desktop-entry.sh packaging/linux/verify-package.sh packaging/linux/tests/test-ensure-desktop-identity.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh linux/packaging/package.sh linux/packaging/verify.sh linux/packaging/verify-mime.sh linux/packaging/tests/test-verify-mime.sh
 	cd $(ROOT) && apple/scripts/tests/test-notarize.sh
 	cd $(ROOT) && apple/scripts/tests/test-generate-appconfig.sh
 	cd $(ROOT) && apple/scripts/tests/test-sign-exported-app.sh
@@ -180,7 +180,7 @@ open-apple-project: apple-project ## Generate and open the native Apple Xcode pr
 build-apple-macos: apple-project ## Build the native macOS app (unsigned by default).
 	cd $(ROOT)/apple && $(XCODEBUILD) -project VniDrop.xcodeproj -scheme VniDrop -configuration $(APPLE_CONFIGURATION) -derivedDataPath "$(APPLE_DERIVED_DATA)" -destination 'platform=macOS' CODE_SIGNING_ALLOWED=$(APPLE_CODE_SIGNING) CODE_SIGNING_REQUIRED=$(APPLE_CODE_SIGNING) build
 
-build-apple-macos-direct: apple-project ## Build the direct-download macOS target (Sparkle, unsigned) — CI compile check.
+build-apple-macos-direct: apple-project ## Build the direct-download macOS target (Sparkle, unsigned) â€” CI compile check.
 	cd $(ROOT)/apple && $(XCODEBUILD) -project VniDrop.xcodeproj -scheme VniDropDirect -configuration Release-Direct -derivedDataPath "$(APPLE_DERIVED_DATA)" -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
 
 build-apple-dmg: localization ## Build the signed/notarized direct-download .dmg (see apple/RELEASE-MACOS.md for required env).
@@ -253,11 +253,13 @@ deploy-diagnostics: setup-diagnostics ## Check and deploy the diagnostics Worker
 .PHONY: package-linux-native-deb package-linux-native-rpm
 VNIDROP_DIAGNOSTICS_REQUIRED ?= 1
 package-linux-native-deb: ## Build and validate the native GTK DEB (Ubuntu 24.04+).
+	@test "$(HOST_OS)" = linux || { printf 'Debian packaging requires Linux.\n' >&2; exit 1; }
 	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) $(CARGO) build --locked --release -p vnidrop-gnome --features gui
 	cd $(ROOT) && linux/packaging/package.sh deb
-	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) linux/packaging/verify.sh deb build/release/linux-native/vnidrop_$$(packaging/linux/resolve-version.sh)-1_amd64.deb
+	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) linux/packaging/verify.sh deb build/release/linux/deb/vnidrop_$$(packaging/linux/resolve-version.sh)-1_amd64.deb
 
 package-linux-native-rpm: ## Build and validate the native GTK RPM on Fedora.
+	@test "$(HOST_OS)" = linux || { printf 'RPM packaging requires Linux.\n' >&2; exit 1; }
 	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) $(CARGO) build --locked --release -p vnidrop-gnome --features gui
 	cd $(ROOT) && linux/packaging/package.sh rpm
-	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) linux/packaging/verify.sh rpm build/release/linux-native/vnidrop-$$(packaging/linux/resolve-version.sh)-1.x86_64.rpm
+	cd $(ROOT) && VNIDROP_DIAGNOSTICS_REQUIRED=$(VNIDROP_DIAGNOSTICS_REQUIRED) linux/packaging/verify.sh rpm build/release/linux/rpm/vnidrop-$$(packaging/linux/resolve-version.sh)-1.x86_64.rpm

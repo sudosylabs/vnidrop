@@ -94,8 +94,10 @@ A literal `%` in text is emitted as `%%` whenever the string has args.
 ## Adding a language
 
 Add its code to `supportedLanguages`, fill in `translations` / `plural` for each key, then
-`generate`. KMP gets a new `values-<lang>/strings.xml`; Apple gets the language inside the
-single catalog. `validate` warns about any key still missing that language.
+`generate`. KMP gets a new `values-<lang>/strings.xml`; Apple gets the language
+inside its catalog; Windows gets a locale resource map; and Linux gets the
+language inside its embedded catalog. Each key's `targets` controls where it is
+emitted. `validate` warns about any key still missing that language.
 
 ## Migration notes (from the initial import)
 

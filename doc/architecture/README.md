@@ -21,7 +21,7 @@ Architecture statements use these labels:
 | [Iroh](iroh.md) | What does Iroh provide and how is it constrained? |
 | [Persistence](persistence.md) | Which state is durable and authoritative? |
 | [Security](security.md) | Where are trust, authorization, and file safety enforced? |
-| [Platforms](platforms.md) | What belongs in Rust, Kotlin, Swift, and platform adapters? |
+| [Platforms](platforms.md) | How do Android Compose, Apple SwiftUI, Windows WinUI, and Linux GTK use the Rust core? |
 | [Saved Devices scenario matrix](saved-devices-scenario-matrix.md) | Which relationship, transfer, and action facts must platform read models agree on? |
 | [Migration plan](migration-plan.md) | In what order can the target architecture land safely? |
 

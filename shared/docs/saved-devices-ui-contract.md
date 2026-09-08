@@ -3,7 +3,10 @@
 Product UI for saved devices and targeted transfers. Rust UniFFI is the source
 of behaviour; this document keeps Apple and KMP interaction semantics aligned.
 
-Status: production, top-level product surface.
+Status: implemented, top-level product surface. KMP covers Android and the
+retained legacy desktop hosts. Windows and Linux releases use separate native
+WinUI and GTK implementations; see the
+[platform overview](../../doc/architecture/platforms.md).
 
 ## Vocabulary
 
@@ -11,7 +14,7 @@ Use **saved device**, **device relationship**, **targeted transfer**, **invitati
 
 ## Product surface
 
-- KMP Android, Windows, and Linux expose Saved Devices as a top-level
+- Android and the legacy Compose desktop hosts expose Saved Devices as a top-level
   destination. It is not controlled by an experimental preference.
 - Apple exposes Saved Devices in the native iOS tab bar and macOS sidebar.
 - The populated main screen lists saved devices and outstanding consent
@@ -45,7 +48,7 @@ After a completed invitation transfer, eligibility may exist. The user may accep
 3. Never accept or display authorization/grant strings across the public binding.
 4. Pull / resume with **transfer id + destination** (path or output sink).
    - Android KMP: the MediaStore Downloads sink used by Invitation receives.
-   - Windows / Linux KMP: configured filesystem receive folder path when no output sink is provided.
+   - Legacy Windows / Linux KMP hosts: configured filesystem receive folder path when no output sink is provided.
 
 ## Targeted lifecycle
 

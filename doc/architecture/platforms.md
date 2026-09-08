@@ -7,10 +7,10 @@ All frontends use the same Rust transfer core:
 | Frontend | Source | Core access |
 |---|---|---|
 | Android Compose app | `androidApp/` and `shared/` | Generated Kotlin/UniFFI bindings |
-| Legacy Linux Compose host | `desktopApp/` and `shared/` | Generated Kotlin/UniFFI bindings |
 | Windows WinUI app | `windows/` | Generated C#/UniFFI bindings |
 | Apple SwiftUI app | `apple/` | Generated Swift/UniFFI bindings |
 | Native Linux GTK/libadwaita app | `linux/` | Direct Rust calls |
+| Legacy Windows/Linux Compose hosts | `desktopApp/` and `shared/` | Generated Kotlin/UniFFI bindings |
 
 The Compose Windows/Linux hosts remain available for migration checks.
 Windows release packages use WinUI; Linux release packages use GTK/libadwaita.
@@ -32,14 +32,14 @@ access.
 
 ## Kotlin and Compose
 
-Shared presentation follows MVVM-style ViewModels with state flows and named
-methods. The application graph owns application-lifetime services and read
+Android and the retained legacy desktop presentation follow MVVM-style
+ViewModels with state flows and named methods. The application graph owns application-lifetime services and read
 models. A composable must not become the authority for Runtime obligations merely
 because it observes transfer UI state.
 
 Android source adapters open file descriptors for files. Folder sharing walks a
-SAF tree in Kotlin and supplies per-file descriptors and relative names. Desktop
-adapters use paths and let Rust walk directories.
+SAF tree in Kotlin and supplies per-file descriptors and relative names.
+Legacy desktop adapters use paths and let Rust walk directories.
 
 Android receive output defaults to MediaStore Downloads; custom destinations use
 SAF sinks. The retention adapter must be idempotent and teardown-safe because
@@ -53,6 +53,10 @@ destination. Apple read models use the same domain terms and scenario matrix as
 Kotlin, without requiring identical presentation code.
 
 ## Saved Devices read models
+
+Windows and Linux have separate native presentation implementations. The
+Kotlin/Swift contract below records their shared scenario reference, not a
+requirement to use KMP for desktop builds.
 
 Kotlin and Swift each implement an in-process Saved Devices read model.
 Each combines durable relationship and transfer reads into stable UI facts,
@@ -78,7 +82,7 @@ or production evidence demonstrate an unsolved torn-read problem.
 Events wake platform observers, which then refresh authoritative reads.
 
 **Current (domain contract v2):** the preparation interface returns durable
-Targeted identity directly, and neither platform parses event JSON for identity.
+Targeted identity directly, and neither Kotlin nor Swift parses event JSON for identity.
 Targeted events are payload-independent refresh hints.
 
 Retention consumes neutral Runtime obligation facts from the core and is owned
@@ -96,3 +100,19 @@ Most lifecycle tests target the deep Rust module interface with private fault
 adapters for network, store, and timing failures. A smaller public UniFFI suite
 protects the cross-language contract. Kotlin and Swift tests protect their read
 models and platform mappings, using the same canonical lifecycle scenarios.
+
+## Native Windows and Linux
+
+WinUI owns Windows navigation, activation, file pickers, notifications, and
+preferences. C#/UniFFI bindings call the same Rust core; managed code does not
+stream transfer payloads. Build and run with
+`pwsh windows/scripts/build.ps1 -Test -Run`. See the
+[Windows guide](../../windows/README.md) for .NET and Windows SDK prerequisites.
+
+The Linux app uses GTK 4/libadwaita and calls Rust directly. It owns native file
+access, desktop integration, notifications, and Secret Service-backed
+credentials. `make run-linux` starts it; `make package-deb` and
+`make package-rpm` package it. See the [Linux guide](../../linux/README.md).
+
+Neither native desktop build uses Gradle or bundles a JVM. The retained
+`make run-desktop` command starts the legacy Compose host for migration checks.

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import styles from "./page.module.css";
-import { PrivacyToc } from "./privacy-toc";
+import styles from "@/components/document-page.module.css";
+import { DocumentToc } from "@/components/document-toc";
 
 export const metadata: Metadata = {
   title: "Privacy policy",
@@ -25,24 +25,24 @@ const sections = [
 
 export default function PrivacyPage() {
   return (
-    <main id="main-content" className={styles.privacyPage}>
-      <section className={styles.privacyHero}>
-        <div className={`${styles.privacyHeroInner} page-shell`}>
+    <main id="main-content" className={styles.page}>
+      <section className={styles.hero}>
+        <div className={`${styles.heroInner} page-shell`}>
           <h1>Privacy policy</h1>
           <p>
             This policy explains what moves between devices, what stays local, and what is sent
             only when you choose to submit a bug report.
           </p>
-          <p className={styles.privacyMeta}>Effective August 23, 2026 · Version 1.3</p>
+          <p className={styles.meta}>Effective September 8, 2026 · Version 1.4</p>
         </div>
       </section>
 
-      <section className={styles.privacyDocumentSection}>
-        <div className={`${styles.privacyDocumentLayout} page-shell`}>
-          <PrivacyToc sections={sections} />
+      <section className={styles.body}>
+        <div className={`${styles.layout} page-shell`}>
+          <DocumentToc sections={sections} label="Privacy policy sections" />
 
-          <article className={styles.privacyDocument}>
-            <div className={styles.privacyCallout}>
+          <article className={styles.article}>
+            <div className={styles.callout}>
               <strong>The short version</strong>
               <p>
                 VniDrop has no user accounts and does not upload your transfer to a VniDrop file
@@ -51,7 +51,7 @@ export default function PrivacyPage() {
               </p>
             </div>
 
-            <section id="scope" className={styles.policySection}>
+            <section id="scope" className={styles.section}>
               <h2>Scope and who “VniDrop” means</h2>
               <p>
                 This policy covers the official VniDrop website, the VniDrop applications for
@@ -68,7 +68,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="transfers" className={styles.policySection}>
+            <section id="transfers" className={styles.section}>
               <h2>What happens during a transfer</h2>
               <h3>File contents</h3>
               <p>
@@ -94,7 +94,7 @@ export default function PrivacyPage() {
                 addresses, connection time, and the amount of relayed data, but cannot read the
                 encrypted transfer contents.
               </p>
-              <div className={styles.policyNote}>
+              <div className={styles.note}>
                 <p>
                   Approval is required by default. If the sender selects “Anyone with this transfer,”
                   anyone holding the invitation may receive the files until sharing stops.
@@ -102,7 +102,7 @@ export default function PrivacyPage() {
               </div>
             </section>
 
-            <section id="local-data" className={styles.policySection}>
+            <section id="local-data" className={styles.section}>
               <h2>Information kept on your device</h2>
               <p>VniDrop stores the information needed to operate the app locally, including:</p>
               <ul>
@@ -120,7 +120,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="bug-reports" className={styles.policySection}>
+            <section id="bug-reports" className={styles.section}>
               <h2>Optional bug reports</h2>
               <p>
                 VniDrop has no automatic telemetry, usage analytics, or crash auto-reporting.
@@ -144,7 +144,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="website" className={styles.policySection}>
+            <section id="website" className={styles.section}>
               <h2>The VniDrop website</h2>
               <p>
                 This website is a static product site. It does not provide an account, contact form,
@@ -158,11 +158,17 @@ export default function PrivacyPage() {
                 information—such as IP address, time, requested page, referrer, and browser user
                 agent—to deliver the site, maintain reliability, and prevent abuse.
               </p>
+              <p>
+                The download page requests public release information directly from GitHub’s API
+                to show recent previews. GitHub receives ordinary web request metadata, including
+                your IP address. This request contains no app identity, transfer information, or
+                file contents. Download links also lead to GitHub or the relevant app store.
+              </p>
             </section>
 
-            <section id="permissions" className={styles.policySection}>
+            <section id="permissions" className={styles.section}>
               <h2>Device permissions</h2>
-              <dl className={styles.permissionList}>
+              <dl className={styles.detailList}>
                 <div>
                   <dt>Files &amp; folders</dt>
                   <dd>Choose what to send and where received files are saved.</dd>
@@ -181,15 +187,16 @@ export default function PrivacyPage() {
                 </div>
               </dl>
               <p>
-                VniDrop requests a platform permission only for the related feature. On Android, QR
-                scanning may be provided through Google Play services Code Scanner. Platform-level
-                permission prompts and service-provider terms also apply.
+                VniDrop requests a platform permission only for the related feature. Current Android
+                builds use an on-device QR scanner with camera permission. Older releases may use
+                Google Play services Code Scanner. Platform-level permission prompts and any
+                applicable service-provider terms also apply.
               </p>
             </section>
 
-            <section id="providers" className={styles.policySection}>
+            <section id="providers" className={styles.section}>
               <h2>Infrastructure and external services</h2>
-              <dl className={styles.providerList}>
+              <dl className={styles.detailList}>
                 <div>
                   <dt>Iroh / public relay operators</dt>
                   <dd>
@@ -208,15 +215,15 @@ export default function PrivacyPage() {
                 <div>
                   <dt>Google Play services</dt>
                   <dd>
-                    May provide the QR code scanner on supported Android devices when you choose to
-                    scan an invitation.
+                    Older Android releases may use its QR code scanner when you choose to scan an
+                    invitation. Current source builds decode QR codes on the device without it.
                   </dd>
                 </div>
                 <div>
                   <dt>GitHub / GitHub Pages</dt>
                   <dd>
-                    Hosts the source repository, issue tracker, static VniDrop website, and external
-                    pages linked from this site.
+                    Hosts the source repository, issue tracker, static VniDrop website, and release
+                    downloads. Its public API supplies preview download metadata to your browser.
                   </dd>
                 </div>
               </dl>
@@ -253,7 +260,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="retention" className={styles.policySection}>
+            <section id="retention" className={styles.section}>
               <h2>Retention and deletion</h2>
               <div className={styles.retentionTableWrap}>
                 <table className={styles.retentionTable}>
@@ -288,7 +295,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="choices" className={styles.policySection}>
+            <section id="choices" className={styles.section}>
               <h2>Your choices and rights</h2>
               <ul>
                 <li>
@@ -314,7 +321,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="security" className={styles.policySection}>
+            <section id="security" className={styles.section}>
               <h2>Security</h2>
               <p>
                 VniDrop uses authenticated end-to-end encrypted connections, content verification,
@@ -336,7 +343,7 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="changes" className={styles.policySection}>
+            <section id="changes" className={styles.section}>
               <h2>Changes to this policy</h2>
               <p>
                 VniDrop is in early development. Features and data practices may change. When this
@@ -346,14 +353,14 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section id="contact" className={`${styles.policySection} ${styles.policyContact}`}>
+            <section id="contact" className={`${styles.section} ${styles.lastSection}`}>
               <h2>Contact</h2>
               <p>
                 For a privacy question, rights request, or support request, email
                 support@sudosy.fr. Do not put an invitation, file content, credentials, or other
                 sensitive information in a public issue.
               </p>
-              <a className={styles.privacyContactLink} href="mailto:support@sudosy.fr">
+              <a className={styles.contactLink} href="mailto:support@sudosy.fr">
                 Email support@sudosy.fr
               </a>
             </section>

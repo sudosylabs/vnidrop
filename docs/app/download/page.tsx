@@ -1,30 +1,22 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { CopyCommand } from "@/components/copy-command";
 import {
-  formatBytes,
   githubLatestUrl,
   githubRepoUrl,
   homebrewInstall,
   loadLatestRelease,
   windowsStoreUrl,
-  type ReleaseAsset,
 } from "@/lib/release";
+import { FileLink } from "./file-link";
+import { PreviewDownloads } from "./preview-downloads";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
   title: "Download",
   description:
-    "Beta builds of VniDrop for macOS, Linux, Android, and Windows. Early development; iOS is not in a public store yet.",
+    "Download VniDrop for macOS, Windows, Linux, and Android. Choose the current release or a preview for early testing, with installation help and checksums.",
 };
-
-function FileLink({ asset }: { asset: ReleaseAsset }) {
-  return (
-    <a className="file-link" href={asset.url} rel="noreferrer">
-      {asset.name}
-      <span className={styles.downloadMeta}> {formatBytes(asset.bytes)}</span>
-    </a>
-  );
-}
 
 export default async function DownloadPage() {
   const release = await loadLatestRelease();
@@ -45,8 +37,9 @@ export default async function DownloadPage() {
             </p>
             <p>
               Public builds come from GitHub Releases. Windows is available through the Microsoft
-              Store or as an unsigned direct installer. iOS is available from source for now.
+              Store or as an unsigned direct installer. For earlier changes, try a preview below.
             </p>
+            <p className={styles.channelLinks}><a className="text-link" href="#preview">Preview downloads ↓</a><Link className="text-link" href="/guide/">Installation and help</Link></p>
           </div>
         </div>
       </section>
@@ -60,7 +53,7 @@ export default async function DownloadPage() {
                 <span>Download</span>
               </div>
               <div className={styles.platformDetails}>
-                <p>Notarized disk image. The app can update itself after install.</p>
+                <p>Signed and notarized disk image for Apple Silicon. The direct app checks for release updates after installation.</p>
                 <p className={styles.downloadActions}>
                   {release.dmg ? <FileLink asset={release.dmg} /> : <span>No disk image in this release.</span>}
                 </p>
@@ -75,7 +68,7 @@ export default async function DownloadPage() {
                 <span>Packages</span>
               </div>
               <div className={styles.platformDetails}>
-                <p>64-bit GTK packages for Ubuntu 24.04 or newer and Fedora 43.</p>
+                <p>64-bit DEB and RPM packages. Check this release&apos;s notes for its supported distributions.</p>
                 <p className={styles.downloadActions}>
                   {release.deb ? <FileLink asset={release.deb} /> : null}
                   {release.rpm ? <FileLink asset={release.rpm} /> : null}
@@ -114,9 +107,8 @@ export default async function DownloadPage() {
                 </p>
                 {release.windowsExe ? (
                   <p className={styles.downloadWarning}>
-                    The direct installer is intentionally unsigned. Windows SmartScreen will warn
-                    that the publisher is unknown or the app might be dangerous. Verify the file
-                    against the SHA256 checksums below before running it.
+                    The direct installer is unsigned, so SmartScreen may warn about its publisher.
+                    Verify it against this release&apos;s SHA256 checksums before running it.
                   </p>
                 ) : null}
               </div>
@@ -127,10 +119,10 @@ export default async function DownloadPage() {
                 <span>Source only</span>
               </div>
               <div className={styles.platformDetails}>
-                <p>Native app, not in a public store yet. Build from source if you need it today.</p>
+                <p>The native SwiftUI app can be built with Xcode. iOS is not included in direct preview downloads.</p>
                 <p className={styles.downloadActions}>
-                  <a className="text-link" href={githubRepoUrl} target="_blank" rel="noreferrer">
-                    View source on GitHub
+                  <a className="text-link" href={`${githubRepoUrl}/blob/master/apple/README.md`} target="_blank" rel="noreferrer">
+                    Apple build guide
                   </a>
                 </p>
               </div>
@@ -152,6 +144,7 @@ export default async function DownloadPage() {
           </p>
         </div>
       </section>
+      <PreviewDownloads />
     </main>
   );
 }

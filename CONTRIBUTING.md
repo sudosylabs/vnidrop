@@ -23,7 +23,7 @@ By participating, you agree to follow the project
 Clone the repository and create a branch from an up-to-date `master`:
 
 ```bash
-git clone https://github.com/vnidrop/vnidrop.git
+git clone https://github.com/sudosylabs/vnidrop.git
 cd vnidrop
 git switch master
 git pull --ff-only
@@ -36,14 +36,14 @@ Use a branch name that describes the outcome, such as
 Install the tools needed for the area you plan to change:
 
 - GNU Make and Bash for the root command interface
-- JDK 17 or newer for Gradle and application builds
+- JDK 17 or newer for Android and shared KMP Gradle builds (release CI uses 21)
 - Rust stable with `rustfmt` and Clippy for the transfer core
 - Bun for localization generation
 - Android SDK and NDK for Android builds
 - Xcode, XcodeGen, and SwiftLint on macOS for native Apple builds and simulator tests
 - .NET 10 SDK, Visual Studio C++ Build Tools, and the Windows SDK for WinUI
 - GTK 4.10+, libadwaita 1.5+, and a session Secret Service for native Linux
-- Node.js 22.12 or newer for the optional diagnostics service
+- Node.js 22.12 or newer for the website and optional diagnostics service
 
 The first Rust and Gradle builds may take several minutes while dependencies are
 downloaded and native components are compiled.
@@ -64,7 +64,7 @@ make check      # portable Rust, shared, localization, docs, and service checks
 ```
 
 Configuration can be passed on the command line, for example
-`make package-deb VERSION=1.2.0`, or placed in an ignored
+`make run-linux LINUX_ARGS='--profile /tmp/vnidrop-trial'`, or placed in an ignored
 `config.override.mk`. Windows use requires GNU Make in a Bash environment; the
 underlying Gradle and PowerShell entry points remain available when Make is not
 installed.
@@ -74,7 +74,7 @@ installed.
 | Path | Purpose |
 |------|---------|
 | `crates/vnidrop/` | Rust transfer core, persistence, approval, and streaming |
-| `shared/` | Compose UI, ViewModels, and bridges for Android and Compose desktop hosts |
+| `shared/` | Compose UI, ViewModels, and bridges for Android and retained legacy desktop hosts |
 | `androidApp/` | Android application shell |
 | `desktopApp/` | Retained legacy Windows/Linux Compose host |
 | `apple/` | Native SwiftUI application and Rust/UniFFI integration for Apple platforms |
@@ -82,6 +82,8 @@ installed.
 | `linux/` | Linux release application using GTK/libadwaita |
 | `localization/` | Source strings and generators for all four frontend targets |
 | `services/diagnostics-api/` | Optional Cloudflare diagnostics service |
+| `docs/` | Product website and user guide; Next.js static export |
+| `packaging/` | Native packaging, versioning, and normal/preview release guides |
 
 Read the nearest contributor guidance before editing:
 

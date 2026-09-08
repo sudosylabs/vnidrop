@@ -97,7 +97,7 @@ public static class BugReportComposer
         return result;
     }
 
-    private static string ReadRecentCoreLogs(string profileDirectory)
+    internal static string ReadRecentCoreLogs(string profileDirectory)
     {
         DirectoryInfo logDirectory;
         try
@@ -160,7 +160,7 @@ public static class BugReportComposer
         return TakeUtf8Tail(RedactLogs(string.Join(Environment.NewLine, chunks)), MaxLogBytes);
     }
 
-    private static string TakeUtf8Tail(string value, int maximumBytes)
+    internal static string TakeUtf8Tail(string value, int maximumBytes)
     {
         var bytes = Utf8.GetBytes(value);
         if (bytes.Length <= maximumBytes) return value;

@@ -22,6 +22,12 @@
     <PackageReference Include="QRCoder" Version="1.6.0" />
     <Content Include="../../assets/windows/app-icon.ico" Link="Assets/app-icon.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <Target Name="GenerateDiagnosticsConfiguration" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(VniDropRoot)/windows/scripts/generate-diagnostics-config.ps1&quot; -OutputPath &quot;$(IntermediateOutputPath)diagnostics.json&quot;" />
+    <ItemGroup>
+      <EmbeddedResource Include="$(IntermediateOutputPath)diagnostics.json" LogicalName="VniDrop.Diagnostics.json" />
+    </ItemGroup>
+  </Target>
   <Target Name="PublishXamlAssets" AfterTargets="ComputeFilesToPublish">
     <ItemGroup>
       <_NativeXamlAsset Include="$(TargetDir)**/*.xbf;$(TargetDir)VniDrop.pri" />

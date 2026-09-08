@@ -410,6 +410,13 @@
   <data name="windows_receive_empty" xml:space="preserve"><value>Ouvrez ou déposez une invitation .vnd pour recevoir des fichiers d’un autre appareil.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Destinataires</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Saisissez entre 1 et 8 URL HTTPS de relais distinctes, sans identifiants ni fragments.</value></data>
+  <data name="windows_report_connection_failed" xml:space="preserve"><value>Impossible de joindre le service de signalement. Vérifiez votre connexion et réessayez. Votre brouillon est conservé.</value></data>
+  <data name="windows_report_rate_limited" xml:space="preserve"><value>Trop de signalements ont été envoyés récemment. Attendez une minute puis réessayez. Votre brouillon est conservé.</value></data>
+  <data name="windows_report_service_configuration" xml:space="preserve"><value>Cette version n’a pas pu s’authentifier auprès du service de signalement. Votre brouillon est conservé. Vérifiez les mises à jour de l’application.</value></data>
+  <data name="windows_report_text_too_long" xml:space="preserve"><value>Le texte est trop long. Raccourcissez les descriptions ou les coordonnées, puis réessayez.</value></data>
+  <data name="windows_report_timeout" xml:space="preserve"><value>Le service de signalement met trop de temps à répondre. Votre brouillon est conservé ; réessayez.</value></data>
+  <data name="windows_report_unconfigured" xml:space="preserve"><value>Le signalement de bugs n’est pas disponible dans cette version.</value></data>
+  <data name="windows_report_unconfirmed" xml:space="preserve"><value>L’envoi n’a pas pu être confirmé. Votre brouillon est conservé ; une nouvelle tentative utilisera la même référence.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Examiner les demandes</value></data>
   <data name="windows_save_invitation" xml:space="preserve"><value>Enregistrer</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Enregistrer les préférences</value></data>

@@ -410,6 +410,13 @@
   <data name="windows_receive_empty" xml:space="preserve"><value>Öffnen Sie eine .vnd-Einladung oder ziehen Sie sie hierher, um Dateien von einem anderen Gerät zu empfangen.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Empfänger</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Geben Sie 1 bis 8 verschiedene HTTPS-Relay-URLs ohne Zugangsdaten oder Fragmente ein.</value></data>
+  <data name="windows_report_connection_failed" xml:space="preserve"><value>Der Meldedienst ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut. Dein Entwurf bleibt erhalten.</value></data>
+  <data name="windows_report_rate_limited" xml:space="preserve"><value>In letzter Zeit wurden zu viele Berichte gesendet. Warte eine Minute und versuche es erneut. Dein Entwurf bleibt erhalten.</value></data>
+  <data name="windows_report_service_configuration" xml:space="preserve"><value>Diese Version konnte sich beim Meldedienst nicht authentifizieren. Dein Entwurf bleibt erhalten. Prüfe, ob ein App-Update verfügbar ist.</value></data>
+  <data name="windows_report_text_too_long" xml:space="preserve"><value>Der Text ist zu lang. Kürze die Beschreibungen oder Kontaktangaben und versuche es erneut.</value></data>
+  <data name="windows_report_timeout" xml:space="preserve"><value>Der Meldedienst hat zu lange für die Antwort gebraucht. Dein Entwurf bleibt erhalten; versuche es erneut.</value></data>
+  <data name="windows_report_unconfigured" xml:space="preserve"><value>Fehlerberichte sind in dieser Version nicht verfügbar.</value></data>
+  <data name="windows_report_unconfirmed" xml:space="preserve"><value>Der Versand konnte nicht bestätigt werden. Dein Entwurf bleibt erhalten; beim erneuten Versuch wird dieselbe Referenz verwendet.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Anfragen prüfen</value></data>
   <data name="windows_save_invitation" xml:space="preserve"><value>Speichern</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Einstellungen speichern</value></data>

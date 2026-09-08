@@ -410,6 +410,13 @@
   <data name="windows_receive_empty" xml:space="preserve"><value>Abra o arrastre una invitación .vnd para recibir archivos de otro dispositivo.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Destinatarios</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Introduzca entre 1 y 8 URL HTTPS de retransmisión distintas, sin credenciales ni fragmentos.</value></data>
+  <data name="windows_report_connection_failed" xml:space="preserve"><value>No se pudo conectar con el servicio de informes. Comprueba tu conexión e inténtalo de nuevo. Se conserva el borrador.</value></data>
+  <data name="windows_report_rate_limited" xml:space="preserve"><value>Se han enviado demasiados informes recientemente. Espera un minuto e inténtalo de nuevo. Se conserva el borrador.</value></data>
+  <data name="windows_report_service_configuration" xml:space="preserve"><value>Esta versión no pudo autenticarse con el servicio de informes. Se conserva el borrador. Comprueba si hay actualizaciones de la aplicación.</value></data>
+  <data name="windows_report_text_too_long" xml:space="preserve"><value>El texto es demasiado largo. Acorta las descripciones o los datos de contacto e inténtalo de nuevo.</value></data>
+  <data name="windows_report_timeout" xml:space="preserve"><value>El servicio de informes tardó demasiado en responder. Se conserva el borrador; inténtalo de nuevo.</value></data>
+  <data name="windows_report_unconfigured" xml:space="preserve"><value>Los informes de errores no están disponibles en esta versión.</value></data>
+  <data name="windows_report_unconfirmed" xml:space="preserve"><value>No se pudo confirmar el envío. Se conserva el borrador; al reintentar se usará la misma referencia.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Revisar solicitudes</value></data>
   <data name="windows_save_invitation" xml:space="preserve"><value>Guardar</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Guardar preferencias</value></data>

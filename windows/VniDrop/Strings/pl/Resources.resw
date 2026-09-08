@@ -410,6 +410,13 @@
   <data name="windows_receive_empty" xml:space="preserve"><value>Otwórz lub upuść zaproszenie .vnd, aby odebrać pliki z innego urządzenia.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Odbiorcy</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Wpisz od 1 do 8 różnych adresów HTTPS serwerów pośredniczących, bez danych logowania i fragmentów.</value></data>
+  <data name="windows_report_connection_failed" xml:space="preserve"><value>Nie można połączyć się z usługą zgłoszeń. Sprawdź połączenie i spróbuj ponownie. Wersja robocza została zachowana.</value></data>
+  <data name="windows_report_rate_limited" xml:space="preserve"><value>Ostatnio wysłano zbyt wiele zgłoszeń. Poczekaj minutę i spróbuj ponownie. Wersja robocza została zachowana.</value></data>
+  <data name="windows_report_service_configuration" xml:space="preserve"><value>Ta wersja nie mogła uwierzytelnić się w usłudze zgłoszeń. Wersja robocza została zachowana. Sprawdź aktualizacje aplikacji.</value></data>
+  <data name="windows_report_text_too_long" xml:space="preserve"><value>Tekst jest zbyt długi. Skróć opisy lub dane kontaktowe i spróbuj ponownie.</value></data>
+  <data name="windows_report_timeout" xml:space="preserve"><value>Usługa zgłoszeń nie odpowiedziała na czas. Wersja robocza została zachowana; spróbuj ponownie.</value></data>
+  <data name="windows_report_unconfigured" xml:space="preserve"><value>Zgłaszanie błędów jest niedostępne w tej wersji.</value></data>
+  <data name="windows_report_unconfirmed" xml:space="preserve"><value>Nie udało się potwierdzić wysłania. Wersja robocza została zachowana; ponowna próba użyje tego samego numeru zgłoszenia.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Przejrzyj prośby</value></data>
   <data name="windows_save_invitation" xml:space="preserve"><value>Zapisz</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Zapisz preferencje</value></data>

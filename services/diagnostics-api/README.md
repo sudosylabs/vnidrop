@@ -173,9 +173,9 @@ Configuration depends on the frontend:
 | Android and Compose desktop | Gradle properties or environment variables; see below. Unconfigured builds use the offline no-op transport. |
 | Apple | Build-time environment variables generate `AppConfig.swift`. Official builds set `VNIDROP_REQUIRE_DIAGNOSTICS=1`; unconfigured development builds show an error on submission. See the [Apple guide](../../apple/README.md#bug-reporting). |
 | Native Linux | Build-time or runtime environment variables, with a Gradle-properties fallback during builds. Packages require embedded configuration through `VNIDROP_DIAGNOSTICS_REQUIRED=1`. The KMP inclusion switch does not apply. See the [Linux guide](../../linux/README.md). |
-| Native Windows | The current Settings form opens the Windows share sheet with report text; it does not submit to this API. |
+| Native Windows | Build-time environment variables or Gradle properties generate an embedded configuration resource; runtime overrides support local tests. Official packages set `VNIDROP_DIAGNOSTICS_REQUIRED=1`. Unconfigured development builds explain why submission is unavailable. See the [Windows guide](../../windows/README.md#bug-reporting). |
 
-The Apple and Linux environment variables are `VNIDROP_DIAGNOSTICS_ENDPOINT`
+The native app environment variables are `VNIDROP_DIAGNOSTICS_ENDPOINT`
 and `VNIDROP_DIAGNOSTICS_INGEST_KEY`. Configure both together. Only explicit
 user-submitted reports are sent.
 

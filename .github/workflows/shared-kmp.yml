@@ -111,6 +111,9 @@ jobs:
       - name: Verify bug-report build configuration
         run: python3 packaging/android/tests/test_diagnostics_config.py
 
+      - name: Verify preview and store package identities
+        run: python3 packaging/android/tests/test_preview_config.py
+
       - name: Run shared JVM tests
         run: make/with-secret-service.sh make check-shared
 

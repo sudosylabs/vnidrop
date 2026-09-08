@@ -72,18 +72,21 @@ check-version: ## Validate the canonical version and its platform mappings.
 	cd $(ROOT) && $(GRADLE) verifyVersion $(GRADLE_FLAGS)
 
 check-release: ## Validate coordinated release scripts and workflow YAML.
+	cd $(ROOT) && bash -n apple/scripts/build-core.sh apple/scripts/tests/test-build-core.sh
 	cd $(ROOT) && bash -n apple/scripts/build-dmg.sh apple/scripts/tests/test-build-dmg.sh packaging/android/tests/test-build-release.sh
 	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh make/tests/test-open-apple.sh make/tests/test-with-secret-service.sh make/with-secret-service.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/linux/ensure-desktop-identity.sh packaging/linux/patch-deb-desktop-entry.sh packaging/linux/verify-package.sh packaging/linux/tests/test-ensure-desktop-identity.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh linux/packaging/package.sh linux/packaging/verify.sh linux/packaging/verify-mime.sh linux/packaging/tests/test-verify-mime.sh
 	cd $(ROOT) && apple/scripts/tests/test-notarize.sh
 	cd $(ROOT) && apple/scripts/tests/test-generate-appconfig.sh
 	cd $(ROOT) && apple/scripts/tests/test-sign-exported-app.sh
 	cd $(ROOT) && bash apple/scripts/tests/test-build-dmg.sh
+	cd $(ROOT) && bash apple/scripts/tests/test-build-core.sh
 	cd $(ROOT) && bash packaging/android/tests/test-build-release.sh
 	cd $(ROOT) && packaging/android/tests/test_verify_apk_signature.sh
 	cd $(ROOT) && packaging/linux/tests/test-ensure-desktop-identity.sh
 	cd $(ROOT) && packaging/release/test-assemble-release.sh
 	cd $(ROOT) && packaging/release/test-release-config.sh
 	cd $(ROOT) && ruby packaging/release/test-workflows.rb
+	cd $(ROOT) && python3 -B -m unittest discover -s packaging/release -p 'test_preview.py' -v
 	cd $(ROOT) && make/tests/test-open-apple.sh
 	cd $(ROOT) && make/tests/test-with-secret-service.sh
 	cd $(ROOT) && python3 -m unittest discover -s packaging/android/tests -p 'test_publish_play.py' -v

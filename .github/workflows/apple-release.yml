@@ -14,13 +14,17 @@ name: Apple release (macOS DMG)
 
 on:
   workflow_call:
+    inputs:
+      preview:
+        type: boolean
+        default: false
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: apple-release-${{ github.ref }}
+  group: apple-release-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 defaults:
@@ -77,6 +81,7 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
       - name: Download Sparkle tools
+        if: ${{ !inputs.preview }}
         # generate_appcast + sign_update ship in the Sparkle release tarball.
         run: |
           set -euo pipefail
@@ -138,6 +143,7 @@ jobs:
           echo "DEVELOPER_ID_PROFILE=$profile" >> "$GITHUB_ENV"
 
       - name: Write Sparkle signing key
+        if: ${{ !inputs.preview }}
         env:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
@@ -146,12 +152,14 @@ jobs:
 
       - name: Build, sign & notarize DMG
         env:
+          VNIDROP_APPLE_IOS: ${{ inputs.preview && '0' || '1' }}
           VNIDROP_DIAGNOSTICS_ENDPOINT: ${{ vars.VNIDROP_DIAGNOSTICS_ENDPOINT }}
           VNIDROP_DIAGNOSTICS_INGEST_KEY: ${{ secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY }}
           VNIDROP_REQUIRE_DIAGNOSTICS: "1"
         run: make build-apple-dmg
 
       - name: Package prebuilt core
+        if: ${{ !inputs.preview }}
         # build-apple-dmg builds the release Rust core + Swift bindings; bundle them
         # (xcframework + Vnidrop.swift + checksum) as a release asset so consumers can
         # skip building the core. See apple/scripts/package-core.sh.
@@ -167,9 +175,16 @@ jobs:
           retention-days: 14
 
       - name: Generate appcast
+        if: ${{ !inputs.preview }}
         env:
           RELEASE_REPO: ${{ github.repository }}
         run: apple/scripts/generate-appcast.sh
+
+      - name: Checksum preview DMG
+        if: inputs.preview
+        run: |
+          cd apple/dist
+          shasum -a 256 VniDrop-*.dmg > preview-dmg.sha256
 
       - name: Upload artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -178,6 +193,7 @@ jobs:
           path: |
             apple/dist/VniDrop-*.dmg
             apple/dist/VniDrop-*.build-info.json
+            apple/dist/preview-dmg.sha256
             apple/dist/appcast.xml
             apple/dist/VnidropCore-*.zip
             apple/dist/VnidropCore-*.zip.sha256

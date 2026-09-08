@@ -39,6 +39,12 @@ plugins {
 
 val appVersion = rootProject.extra["vnidrop.productVersion"] as String
 val androidVersionCode = rootProject.extra["vnidrop.androidVersionCode"] as Int
+val previewNumber = providers.gradleProperty("vnidrop.preview.number").orNull?.let { value ->
+	require(value.matches(Regex("[1-9][0-9]{0,9}"))) { "Preview number must be a positive integer" }
+	value.toIntOrNull().also {
+		require(it != null && it <= 2100000000) { "Preview number exceeds Android's version code limit" }
+	}
+}
 val releaseKeystorePath = providers.environmentVariable("VNIDROP_ANDROID_KEYSTORE_PATH").orNull
 val releaseKeystorePassword = providers.environmentVariable("VNIDROP_ANDROID_KEYSTORE_PASSWORD").orNull
 val releaseKeyAlias = providers.environmentVariable("VNIDROP_ANDROID_KEY_ALIAS").orNull
@@ -86,12 +92,12 @@ android {
 	}
 
 	defaultConfig {
-		applicationId = "com.vnidrop.app"
+		applicationId = if (previewNumber != null) "com.vnidrop.app.preview" else "com.vnidrop.app"
 		ndk { abiFilters += setOf("arm64-v8a", "x86_64") }
 		minSdk = libs.versions.android.minSdk.get().toInt()
 		targetSdk = libs.versions.android.targetSdk.get().toInt()
-		versionCode = androidVersionCode
-		versionName = appVersion
+		versionCode = previewNumber ?: androidVersionCode
+		versionName = if (previewNumber != null) "$appVersion-preview.$previewNumber" else appVersion
 	}
 	packaging {
 		resources {
@@ -106,6 +112,7 @@ android {
 	}
 	buildTypes {
 		getByName("release") {
+			isDebuggable = false
 			isMinifyEnabled = false
 			signingConfig = signingConfigs.findByName("release")
 		}

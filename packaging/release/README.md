@@ -1,5 +1,7 @@
 # Coordinated releases
 
+For direct downloads without store submission, see [Preview releases](PREVIEW.md).
+
 Only `.github/workflows/release.yml` responds to version tags. It verifies that
 the tag matches `version.properties` and points to a commit on `master`, then
 calls the platform build workflows in parallel. Windows builds WinUI, Apple

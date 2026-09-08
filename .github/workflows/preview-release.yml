@@ -1,0 +1,166 @@
+name: Preview release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vnidrop-preview-release
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Prepare preview
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      number: ${{ steps.version.outputs.number }}
+      label: ${{ steps.version.outputs.label }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Resolve preview identity
+        id: version
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != refs/heads/master ]; then
+            echo 'Run previews from master so every package uses reviewed source.' >&2
+            exit 1
+          fi
+          packaging/version/resolve-version.sh verify >/dev/null
+          version=$(packaging/version/resolve-version.sh product)
+          if ! [[ $GITHUB_RUN_NUMBER =~ ^[1-9][0-9]{0,9}$ ]] || (( GITHUB_RUN_NUMBER > 2100000000 )); then
+            echo 'Preview number must be between 1 and 2100000000.' >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "number=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "label=$version-preview.$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "tag=preview-$version-$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Check preview configuration
+        env:
+          ANDROID_PREVIEW_KEYSTORE_BASE64: ${{ secrets.ANDROID_PREVIEW_KEYSTORE_BASE64 }}
+          ANDROID_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_PREVIEW_KEYSTORE_PASSWORD }}
+          ANDROID_PREVIEW_KEY_ALIAS: ${{ secrets.ANDROID_PREVIEW_KEY_ALIAS }}
+          ANDROID_PREVIEW_KEY_PASSWORD: ${{ secrets.ANDROID_PREVIEW_KEY_PASSWORD }}
+          ANDROID_PREVIEW_CERT_SHA256: ${{ vars.ANDROID_PREVIEW_CERT_SHA256 }}
+          DEVELOPER_ID_CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+          DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+          DEVELOPER_ID_PROFILE: ${{ secrets.DEVELOPER_ID_PROFILE }}
+          APPLE_ASC_KEY_P8: ${{ secrets.APPLE_ASC_KEY_P8 }}
+          APPLE_ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          APPLE_ASC_ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+          VNIDROP_DIAGNOSTICS_ENDPOINT: ${{ vars.VNIDROP_DIAGNOSTICS_ENDPOINT }}
+          VNIDROP_DIAGNOSTICS_INGEST_KEY: ${{ secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY }}
+        run: |
+          for name in ANDROID_PREVIEW_KEYSTORE_BASE64 ANDROID_PREVIEW_KEYSTORE_PASSWORD \
+            ANDROID_PREVIEW_KEY_ALIAS ANDROID_PREVIEW_KEY_PASSWORD ANDROID_PREVIEW_CERT_SHA256 \
+            DEVELOPER_ID_CERT_P12 DEVELOPER_ID_CERT_PASSWORD DEVELOPER_ID_PROFILE \
+            APPLE_ASC_KEY_P8 APPLE_ASC_KEY_ID APPLE_ASC_ISSUER_ID \
+            VNIDROP_DIAGNOSTICS_ENDPOINT VNIDROP_DIAGNOSTICS_INGEST_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing preview configuration: $name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Refuse an existing preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Preview $TAG already exists; start a new run for a new preview." >&2
+            exit 1
+          fi
+
+  linux:
+    needs: preflight
+    uses: ./.github/workflows/linux-packages.yml
+    secrets: inherit
+
+  windows:
+    needs: preflight
+    uses: ./.github/workflows/windows-store.yml
+    with:
+      direct_only: true
+    secrets: inherit
+
+  macos:
+    needs: preflight
+    uses: ./.github/workflows/apple-release.yml
+    with:
+      preview: true
+    secrets: inherit
+
+  android:
+    needs: preflight
+    uses: ./.github/workflows/android-release.yml
+    with:
+      preview_number: ${{ needs.preflight.outputs.number }}
+    secrets: inherit
+
+  publish:
+    name: Publish GitHub prerelease
+    needs: [preflight, linux, windows, macos, android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Download preview packages
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          pattern: vnidrop-${{ needs.preflight.outputs.version }}-*
+          path: build/preview/downloads
+
+      - name: Assemble verified preview assets
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+          PREVIEW_NUMBER: ${{ needs.preflight.outputs.number }}
+        run: |
+          python3 packaging/release/assemble-preview.py \
+            --version "$VERSION" --number "$PREVIEW_NUMBER" --commit "$GITHUB_SHA" \
+            --input build/preview/downloads --output build/preview/final
+
+      - name: Publish preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          LABEL: ${{ needs.preflight.outputs.label }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/preview-notes.md" <<'NOTES'
+          Preview for early testing, built in Release configuration with bug reporting enabled.
+
+          - macOS: Apple Silicon DMG, Developer ID signed and notarized. Uses the existing app identity and stable update feed.
+          - Windows: x64 unsigned EXE installer. SmartScreen may warn. Uses the existing direct-install app identity.
+          - Linux: x64 DEB (Ubuntu 24.04+) and RPM (Fedora 43). Replaces the installed VniDrop package.
+          - Android: installable APK for arm64-v8a and x86_64, signed with the dedicated preview key. Uses `com.vnidrop.app.preview` and can coexist with the Play Store app.
+
+          Desktop package versions remain the base product version; the preview number is in download names and `preview-manifest.json`. Close the desktop app before installing. Switching between previews of the same version may require reinstalling the desktop package. Android preview data is separate from the store app.
+
+          No Microsoft Store, App Store, or Play Store submission is made. Stable downloads, Homebrew, and the Sparkle appcast are unchanged. `SHA256SUMS` covers every download.
+          NOTES
+          printf '\nSource commit: `%s`\nBuild: %s/%s/actions/runs/%s\n' \
+            "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" \
+            >> "$RUNNER_TEMP/preview-notes.md"
+          # A failed asset upload leaves a draft rather than a partial public preview.
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --draft --prerelease --latest=false --title "VniDrop $LABEL" \
+            --notes-file "$RUNNER_TEMP/preview-notes.md" build/preview/final/*
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --latest=false
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url >> "$GITHUB_STEP_SUMMARY"

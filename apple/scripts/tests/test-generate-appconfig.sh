@@ -4,6 +4,7 @@
 # correctly, values are emitted as valid escaped Swift, and a missing key fails.
 
 set -euo pipefail
+unset VNIDROP_DIAGNOSTICS_ENDPOINT VNIDROP_DIAGNOSTICS_INGEST_KEY VNIDROP_REQUIRE_DIAGNOSTICS
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 generator="$script_dir/../generate-appconfig.sh"
@@ -55,5 +56,39 @@ expect_failure generate
 # 5. The real committed app.properties produces an https URL.
 VNIDROP_APPLE_GENERATED_DIR="$scratch/real" "$generator"
 assert_contains "$scratch/real/AppConfig.swift" 'URL(string: "https://'
+assert_contains "$scratch/real/AppConfig.swift" 'static let diagnosticsEndpoint = ""'
+assert_contains "$scratch/real/AppConfig.swift" 'static let diagnosticsIngestKey = ""'
+
+printf 'PRIVACY_POLICY_URL=https://example.test/privacy/\n' > "$scratch/app.properties"
+export VNIDROP_REQUIRE_DIAGNOSTICS=1
+expect_failure generate
+export VNIDROP_DIAGNOSTICS_ENDPOINT=https://reports.example.test
+expect_failure generate
+export VNIDROP_DIAGNOSTICS_INGEST_KEY='test-"key"\value'
+generate
+assert_contains "$out" 'static let diagnosticsEndpoint = "https://reports.example.test"'
+assert_contains "$out" 'static let diagnosticsIngestKey = "test-\"key\"\\value"'
+
+for endpoint in 'http://reports.example.test' 'https://' 'https://user@reports.example.test' \
+	'https://reports.example.test?key=value' 'https://reports.example.test/#fragment' \
+	$'https://reports.example.test/\ninvalid' 'https://reports.example.test:bad'; do
+	export VNIDROP_DIAGNOSTICS_ENDPOINT="$endpoint"
+	expect_failure generate
+done
+export VNIDROP_DIAGNOSTICS_ENDPOINT=https://reports.example.test/prefix/
+for key in '' ' ' $'key\nheader' $'key\rheader' $'key\theader' 'clé'; do
+	export VNIDROP_DIAGNOSTICS_INGEST_KEY="$key"
+	expect_failure generate
+done
+export VNIDROP_DIAGNOSTICS_INGEST_KEY=fixture
+generate
+assert_contains "$out" 'https://reports.example.test/prefix/'
+
+# Partial configuration must also fail outside official release builds.
+unset VNIDROP_REQUIRE_DIAGNOSTICS VNIDROP_DIAGNOSTICS_INGEST_KEY
+expect_failure generate
+
+# A failed generation leaves the last valid output intact.
+assert_contains "$out" 'static let diagnosticsIngestKey = "fixture"'
 
 printf 'generate-appconfig tests passed.\n'

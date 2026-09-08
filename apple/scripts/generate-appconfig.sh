@@ -27,6 +27,17 @@ swift_escape() {
 }
 
 privacy_url="$(read_property PRIVACY_POLICY_URL)"
+diagnostics_endpoint="${VNIDROP_DIAGNOSTICS_ENDPOINT:-}"
+diagnostics_key="${VNIDROP_DIAGNOSTICS_INGEST_KEY:-}"
+
+# Validate without printing the ingestion key or inserting unchecked build input into Swift.
+if [[ -n "$diagnostics_endpoint" || -n "$diagnostics_key" || "${VNIDROP_REQUIRE_DIAGNOSTICS:-0}" == 1 ]]; then
+	if [[ ! "$diagnostics_endpoint" =~ ^https://[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?(:[0-9]+)?(/[^?#[:space:]]*)?$ ]] ||
+		[[ -z "$diagnostics_key" || "$diagnostics_key" == *[!\!-\~]* ]]; then
+		printf 'Bug reporting requires an HTTPS VNIDROP_DIAGNOSTICS_ENDPOINT and a printable VNIDROP_DIAGNOSTICS_INGEST_KEY.\n' >&2
+		exit 1
+	fi
+fi
 
 mkdir -p "$output_dir"
 tmp="$(mktemp "$output_dir/.AppConfig.swift.XXXXXX")"
@@ -39,6 +50,8 @@ import Foundation
 /// App-wide constants injected at build time from the shared \`app.properties\`.
 enum AppConfig {
 	static let privacyPolicyURL = URL(string: "$(swift_escape "$privacy_url")")!
+	static let diagnosticsEndpoint = "$(swift_escape "$diagnostics_endpoint")"
+	static let diagnosticsIngestKey = "$(swift_escape "$diagnostics_key")"
 }
 EOF
 mv "$tmp" "$output_dir/AppConfig.swift"

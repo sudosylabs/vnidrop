@@ -22,6 +22,23 @@ final class AppPreferencesRepositoryTests: XCTestCase {
 		XCTAssertEqual(repo.preferences.relayConfiguration, .automatic)
 	}
 
+	func testDiagnosticsInstallIdIsStableAcrossRepositoryReloads() {
+		let store = defaults()
+		let first = AppPreferencesRepository(defaults: store, fallback: fallback()).ensureDiagnosticsInstallId()
+		let second = AppPreferencesRepository(defaults: store, fallback: fallback()).ensureDiagnosticsInstallId()
+		XCTAssertNotNil(UUID(uuidString: first))
+		XCTAssertEqual(first, second)
+	}
+
+	func testInvalidDiagnosticsInstallIdIsRepairedBeforeSubmission() {
+		let store = defaults()
+		store.set("not-a-uuid", forKey: "diagnostics_install_id")
+		let repo = AppPreferencesRepository(defaults: store, fallback: fallback())
+		let repaired = repo.ensureDiagnosticsInstallId()
+		XCTAssertNotNil(UUID(uuidString: repaired))
+		XCTAssertEqual(repo.preferences.diagnosticsInstallId, repaired)
+	}
+
 	func testValuesPersistAndReload() {
 		let store = defaults()
 		let fb = fallback()

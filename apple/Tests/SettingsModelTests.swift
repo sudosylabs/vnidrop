@@ -10,7 +10,8 @@ final class SettingsModelTests: XCTestCase {
 		_ core: FakeCoreGateway,
 		preferences: AppPreferencesRepository,
 		fileSystem: FakeFileSystemService = FakeFileSystemService(),
-		dataDir: String = NSTemporaryDirectory()
+		dataDir: String = NSTemporaryDirectory(),
+		bugReports: BugReportService = FakeBugReportService()
 	) -> SettingsModel {
 		SettingsModel(
 			environment: PlatformEnvironment(name: "Test", appVersion: "0.1.0", defaultCoreDataDir: dataDir),
@@ -20,7 +21,7 @@ final class SettingsModelTests: XCTestCase {
 			preferences: preferences,
 			notifications: LocalNotificationService(),
 			messages: UiMessageController(),
-			bugReports: NoopBugReportService()
+			bugReports: bugReports
 		)
 	}
 
@@ -32,6 +33,72 @@ final class SettingsModelTests: XCTestCase {
 		XCTAssertEqual(model.state.username, "Alice") // immediate local echo
 		await waitUntil { prefs.preferences.username == "Alice" } // persisted after debounce
 		XCTAssertEqual(prefs.preferences.username, "Alice")
+	}
+
+	func testBugReportRequiresDescriptionsBeforeCallingService() {
+		let service = FakeBugReportService()
+		let model = makeModel(FakeCoreGateway(), preferences: Fixtures.preferences(), bugReports: service)
+		model.submitBugReport()
+		XCTAssertEqual(model.state.bugReportError, .resource(L10n.Bug.reportMissingWhat))
+		model.setBugWhatHappened("The transfer failed")
+		model.submitBugReport()
+		XCTAssertEqual(model.state.bugReportError, .resource(L10n.Bug.reportMissingExpected))
+		XCTAssertTrue(service.drafts.isEmpty)
+		XCTAssertFalse(model.state.isSubmittingBugReport)
+	}
+
+	func testBugReportDoesNotSubmitTwiceAndClearsOnlyAfterSuccess() async {
+		let service = FakeBugReportService()
+		service.suspend = true
+		let model = makeModel(FakeCoreGateway(), preferences: Fixtures.preferences(), bugReports: service)
+		XCTAssertFalse(model.state.bugIncludeLogs)
+		model.setBugWhatHappened("The transfer failed")
+		model.setBugExpected("The transfer completes")
+		model.setBugIncludeLogs(true)
+		var completions = 0
+		model.submitBugReport { completions += 1 }
+		model.submitBugReport { completions += 1 }
+		XCTAssertTrue(model.state.isSubmittingBugReport)
+		await waitUntil { service.continuation != nil }
+		XCTAssertEqual(service.drafts.count, 1)
+		XCTAssertEqual(model.state.bugWhatHappened, "The transfer failed")
+		service.continuation?.resume(returning: .success(()))
+		await waitUntil { !model.state.isSubmittingBugReport }
+		XCTAssertEqual(completions, 1)
+		XCTAssertTrue(model.state.bugWhatHappened.isEmpty)
+		XCTAssertTrue(model.state.bugExpected.isEmpty)
+		XCTAssertFalse(model.state.bugIncludeLogs)
+		XCTAssertNil(model.state.bugReportError)
+	}
+
+	func testFailedBugReportKeepsDraftAndShowsActionableError() async {
+		let service = FakeBugReportService()
+		service.result = .failure(BugReportError.rateLimited)
+		let model = makeModel(FakeCoreGateway(), preferences: Fixtures.preferences(), bugReports: service)
+		model.setBugWhatHappened("The transfer failed")
+		model.setBugExpected("The transfer completes")
+		model.setBugContact("tester@example.test")
+		model.submitBugReport { XCTFail("A failed report must not dismiss the form") }
+		await waitUntil { !model.state.isSubmittingBugReport }
+		XCTAssertEqual(model.state.bugWhatHappened, "The transfer failed")
+		XCTAssertEqual(model.state.bugExpected, "The transfer completes")
+		XCTAssertEqual(model.state.bugContact, "tester@example.test")
+		XCTAssertEqual(model.state.bugReportError, .resource(L10n.Apple.reportRateLimited))
+	}
+
+	func testClosingBugReportIgnoresLateSuccessAndKeepsDraft() async {
+		let service = FakeBugReportService()
+		service.suspend = true
+		let model = makeModel(FakeCoreGateway(), preferences: Fixtures.preferences(), bugReports: service)
+		model.setBugWhatHappened("The transfer failed")
+		model.setBugExpected("The transfer completes")
+		model.submitBugReport { XCTFail("A closed form must not react to late success") }
+		await waitUntil { service.continuation != nil }
+		model.cancelBugReport()
+		service.continuation?.resume(returning: .success(()))
+		await waitUntil { !model.state.isSubmittingBugReport }
+		XCTAssertEqual(model.state.bugWhatHappened, "The transfer failed")
+		XCTAssertNil(model.state.bugReportError)
 	}
 
 	func testDeleteAllTransfersDeletesEveryTransfer() async {

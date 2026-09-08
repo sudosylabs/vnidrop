@@ -211,6 +211,10 @@ jobs:
 
       - name: Generate the Xcode project
         # Reuses the installed core rather than invoking apple-core.
+        env:
+          VNIDROP_DIAGNOSTICS_ENDPOINT: ${{ vars.VNIDROP_DIAGNOSTICS_ENDPOINT }}
+          VNIDROP_DIAGNOSTICS_INGEST_KEY: ${{ secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY }}
+          VNIDROP_REQUIRE_DIAGNOSTICS: "1"
         run: make apple-project-prebuilt
 
       - name: Import signing certificates

@@ -150,6 +150,10 @@ jobs:
           echo "SPARKLE_ED_KEY_FILE=$RUNNER_TEMP/sparkle_ed_private_key" >> "$GITHUB_ENV"
 
       - name: Build, sign & notarize DMG
+        env:
+          VNIDROP_DIAGNOSTICS_ENDPOINT: ${{ vars.VNIDROP_DIAGNOSTICS_ENDPOINT }}
+          VNIDROP_DIAGNOSTICS_INGEST_KEY: ${{ secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY }}
+          VNIDROP_REQUIRE_DIAGNOSTICS: "1"
         run: make build-apple-dmg
 
       - name: Package prebuilt core

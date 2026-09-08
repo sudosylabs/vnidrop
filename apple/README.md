@@ -119,10 +119,30 @@ The Rust core (iroh network stack) links `SystemConfiguration`, `Security`, and
 
 ## Parity & scope
 
-Screens mirror the Compose UI in `shared/`. Two deliberate simplifications:
+Screens mirror the Compose UI in `shared/`. One deliberate simplification:
 - Empty-state Lottie animations are rendered as SF Symbols (no `lottie-ios`
   dependency); swap in `lottie-ios` if exact-parity animation is required.
-- Bug reporting is stubbed behind `BugReportService` (`NoopBugReportService`) and
-  a real transport lands in a later phase. There is no telemetry or crash
-  auto-reporting.
-```
+
+## Bug reporting
+
+The Settings report form submits to the existing diagnostics API on iOS and macOS.
+Reports include the entered description, app/device information, and an anonymous
+installation ID. Recent Rust core logs are optional and off by default; tickets,
+endpoint IDs, paths, and addresses are redacted before upload. There is no telemetry
+or automatic crash reporting. Failed submissions keep the draft and reuse the same
+report ID when retried during the app session.
+
+`apple/scripts/generate-appconfig.sh` embeds `VNIDROP_DIAGNOSTICS_ENDPOINT` (the
+HTTPS service base URL) and `VNIDROP_DIAGNOSTICS_INGEST_KEY` in the ignored
+`VniDrop/Generated/AppConfig.swift`. The key is the distributable ingestion key,
+not an administrative credential. Do not commit the generated configuration.
+Unconfigured development builds show a configuration error when a report is sent.
+
+Both `apple-release.yml` (DMG) and `apple-appstore.yml` (iOS/macOS App Store and
+TestFlight) read the endpoint repository variable and ingestion-key secret, and
+set `VNIDROP_REQUIRE_DIAGNOSTICS=1` so missing configuration fails the build.
+Generate the project again after changing either value. Apple CI uses fixture
+configuration and intercepted HTTP requests; it never sends production reports.
+
+Validation: `apple/scripts/tests/test-generate-appconfig.sh`, `make check-apple`
+(iOS simulator tests), and `make build-apple-macos-direct` (direct macOS target).

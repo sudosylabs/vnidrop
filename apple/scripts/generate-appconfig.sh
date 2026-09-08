@@ -6,6 +6,9 @@
 
 set -euo pipefail
 
+# Configuration validation uses ASCII bytes, independent of the build host's collation.
+export LC_ALL=C
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 config_file="${VNIDROP_APP_PROPERTIES:-$repo_root/app.properties}"
@@ -33,7 +36,7 @@ diagnostics_key="${VNIDROP_DIAGNOSTICS_INGEST_KEY:-}"
 # Validate without printing the ingestion key or inserting unchecked build input into Swift.
 if [[ -n "$diagnostics_endpoint" || -n "$diagnostics_key" || "${VNIDROP_REQUIRE_DIAGNOSTICS:-0}" == 1 ]]; then
 	if [[ ! "$diagnostics_endpoint" =~ ^https://[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?(:[0-9]+)?(/[^?#[:space:]]*)?$ ]] ||
-		[[ -z "$diagnostics_key" || "$diagnostics_key" == *[!\!-\~]* ]]; then
+		[[ -z "$diagnostics_key" || "$diagnostics_key" == *[![:graph:]]* ]]; then
 		printf 'Bug reporting requires an HTTPS VNIDROP_DIAGNOSTICS_ENDPOINT and a printable VNIDROP_DIAGNOSTICS_INGEST_KEY.\n' >&2
 		exit 1
 	fi

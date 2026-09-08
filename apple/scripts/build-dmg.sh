@@ -83,7 +83,7 @@ EXPORT_DIR="$BUILD_DIR/export"
 
 # --- Archive + export (Developer ID) ----------------------------------------
 echo "==> Archiving $SCHEME ($CONFIG)"
-xcodebuild archive \
+xcodebuild -quiet archive \
 	-project "$PROJECT" \
 	-scheme "$SCHEME" \
 	-configuration "$CONFIG" \
@@ -92,8 +92,7 @@ xcodebuild archive \
 	MARKETING_VERSION="$VERSION" \
 	DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
 	CODE_SIGN_STYLE=Manual \
-	CODE_SIGN_IDENTITY="$DEVELOPER_ID_APP" \
-	| xcbeautify 2>/dev/null || true
+	CODE_SIGN_IDENTITY="$DEVELOPER_ID_APP"
 [ -d "$ARCHIVE" ] || { echo "error: archive failed" >&2; exit 1; }
 
 echo "==> Exporting Developer ID app"

@@ -1,7 +1,7 @@
 # Coordinated releases
 
 Only `.github/workflows/release.yml` responds to version tags. It verifies that
-the tag matches `version.properties` and points at the current `master`, then
+the tag matches `version.properties` and points to a commit on `master`, then
 calls the platform build workflows in parallel. Windows builds WinUI, Apple
 builds SwiftUI, Linux builds GTK/libadwaita, and Android uses Compose. Linux
 packages build on Ubuntu 24.04 and Fedora 43; the release workflow passes the
@@ -12,21 +12,31 @@ The tag workflow runs only when the repository variable
 `false` to disable all coordinated releases, including Play uploads, without
 disabling release validation on pull requests.
 
-Platform workflows upload private workflow artifacts. After every platform build
-passes, the release pipeline:
+Platform workflows upload workflow artifacts. After every platform build passes,
+three independent publication paths start, retaining their protected environments:
 
-1. stages the signed AAB as a draft on the configured Play closed-test track;
-2. downloads the universal APK signed by Play;
-3. submits the unsigned `.msixupload` package to Microsoft Store certification;
-4. verifies and assembles the public artifacts;
-5. generates checksums and GitHub build-provenance attestations;
-6. creates exactly one GitHub Release;
-7. starts Apple App Store Connect uploads, website deployment, and the Homebrew
-   cask update as separate jobs after publication.
+- Play stages the signed AAB as a draft on the configured closed-test track and
+  downloads the universal APK signed by Play.
+- Microsoft submits the unsigned `.msixupload` package for Store certification.
+- Apple reuses this run's core bundle and uploads iOS and macOS builds through
+  the protected `apple-appstore` environment.
 
-The Apple job reuses the published core bundle and uploads iOS and macOS builds
-through the protected `apple-appstore` environment. Uploading a build makes it
-available to App Store Connect; store review and public availability are separate.
+Once the Play-signed APK is available, the GitHub job verifies and assembles the
+public artifacts, generates checksums and provenance attestations, and creates
+one GitHub Release. It does not wait for Microsoft or Apple. Website deployment
+and the Homebrew cask update follow GitHub publication. Store review and public
+availability are separate from uploading a build.
+
+A manual Apple run with `release_tag` checks out that tag, verifies its version,
+and downloads its published core. Both app builds use the resolved commit SHA.
+A missing or invalid core download fails the run; leave `release_tag` blank to
+explicitly build a core from the selected workflow revision instead.
+
+Android release packaging lints the Release variant and verifies native libraries
+and signatures in the APK and AAB. Shared KMP CI runs the app's full `check` task,
+including debug unit tests and debug APK verification, alongside the Gradle
+diagnostics tests. `make check-release` exercises packaging and publication
+scripts without repeating those Gradle builds.
 
 Public GitHub Release assets are the DEB, RPM, notarized DMG, Sparkle appcast,
 Play-signed universal APK, unsigned Windows direct installer,
@@ -60,11 +70,12 @@ git tag -s v0.2.1 -m "VniDrop 0.2.1"
 git push origin v0.2.1
 ```
 
-The tag must point at the current `origin/master` commit. A failure before the
-Create GitHub Release step leaves no GitHub Release, but Play may already contain
-a draft and Microsoft Store may already have received a submission. Check those
-services before retrying. Play draft reuse requires the same version, configured
-track, draft status, and app-signing certificate.
+The tagged commit must be an ancestor of `origin/master`; later merges do not
+invalidate the tag or its retries. A failure before the Create GitHub Release
+step leaves no GitHub Release, but Play, Microsoft Store, or App Store Connect
+may already have received a submission. Check those services before retrying.
+Play draft reuse requires the same version, configured track, draft status, and
+app-signing certificate.
 
 If the Create GitHub Release step itself fails, check whether it created a release
 or uploaded partial assets before choosing which jobs to rerun.

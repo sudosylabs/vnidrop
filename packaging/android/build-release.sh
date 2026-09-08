@@ -9,10 +9,14 @@ output_dir="$repo_root/build/release/android"
 required_apk_libraries=(
 	"lib/arm64-v8a/libvnidrop.so"
 	"lib/x86_64/libvnidrop.so"
+	"lib/arm64-v8a/libzxingcpp_android.so"
+	"lib/x86_64/libzxingcpp_android.so"
 )
 required_aab_libraries=(
 	"base/lib/arm64-v8a/libvnidrop.so"
 	"base/lib/x86_64/libvnidrop.so"
+	"base/lib/arm64-v8a/libzxingcpp_android.so"
+	"base/lib/x86_64/libzxingcpp_android.so"
 )
 
 require_environment() {
@@ -41,15 +45,14 @@ verify_archive_entries() {
 	local entry
 	local size
 	for entry in "$@"; do
-		size="$(
+		if ! size="$(
 			unzip -l "$archive" "$entry" |
 				awk -v expected="$entry" '$4 == expected {print $1; exit}'
-		)"
-		[[ -n $size && $size -gt 0 ]] || {
+		)" || [[ -z $size || $size -le 0 ]]; then
 			printf 'Missing or empty Android native library %s in %s\n' \
 				"$entry" "$archive" >&2
 			exit 1
-		}
+		fi
 	done
 }
 
@@ -73,7 +76,7 @@ version_code="$("$resolver" android-code)"
 
 cd "$repo_root"
 ./gradlew \
-	:androidApp:check \
+	:androidApp:lintRelease \
 	:androidApp:assembleRelease \
 	:androidApp:bundleRelease \
 	-Pvnidrop.diagnostics.included=true \

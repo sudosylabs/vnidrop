@@ -29,16 +29,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify canonical beta tag on current master
+      - name: Verify canonical beta tag on master
         id: version
         run: |
           set -euo pipefail
           packaging/version/resolve-version.sh verify >/dev/null
           version="$(packaging/version/resolve-version.sh product)"
           channel="$(packaging/version/resolve-version.sh channel)"
-          master_sha="$(git rev-parse origin/master)"
-          if [ "$GITHUB_SHA" != "$master_sha" ]; then
-            echo "Release tags must point at the current master commit" >&2
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "Release tags must point to a commit on master" >&2
             exit 1
           fi
           if [ "$channel" != "beta" ]; then
@@ -236,7 +235,7 @@ jobs:
       - linux
       - windows
       - macos
-      - play-closed-testing
+      - android
     runs-on: windows-2025
     timeout-minutes: 30
     environment: microsoft-store
@@ -345,7 +344,6 @@ jobs:
       - windows
       - macos
       - play-closed-testing
-      - publish-microsoft-store
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -410,15 +408,17 @@ jobs:
 
   apple-appstore:
     name: Apple App Store (iOS + macOS)
-    # Runs after the release exists so it can download the prebuilt core asset
-    # instead of rebuilding it. Gated on the apple-appstore environment, so it
-    # waits for a reviewer before anything reaches App Store Connect — uploads
-    # there cannot be undone.
+    # Reuse this run's core; store approvals do not depend on another store's API.
     needs:
-      - publish-github
+      - preflight
+      - linux
+      - windows
+      - macos
+      - android
     uses: ./.github/workflows/apple-appstore.yml
     with:
       release_tag: ${{ github.ref_name }}
+      core_artifact: vnidrop-${{ needs.preflight.outputs.version }}-macos-dmg
     secrets: inherit
 
   deploy-docs:

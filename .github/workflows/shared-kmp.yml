@@ -60,6 +60,8 @@ jobs:
     # Host Rust embedding is enabled only for the current Gobley host target.
     runs-on: ubuntu-latest
     timeout-minutes: 75
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,15 +81,9 @@ jobs:
           targets: aarch64-linux-android,x86_64-linux-android
 
       - name: Cache Cargo
-        uses: actions/cache@v4
+        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-shared-kmp-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-shared-kmp-
+          shared-key: android
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -118,5 +114,5 @@ jobs:
       - name: Run shared JVM tests
         run: make/with-secret-service.sh make check-shared
 
-      - name: Verify Android native libraries
-        run: make verify-android-libs
+      - name: Check Android app and native libraries
+        run: ./gradlew :androidApp:check --no-daemon --stacktrace

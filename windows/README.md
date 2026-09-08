@@ -43,6 +43,28 @@ tool directories used by `build.ps1`. They are development prerequisites, not
 checked-in binaries. Native bindings are also generated into ignored `build/`;
 `windows/uniffi.toml` and the generator commit in `build-core.ps1` define the ABI.
 
+## Bug reporting
+
+Settings > About > Report a bug sends a report to the diagnostics service only
+when the user submits the form. Contact details and redacted recent logs are
+optional; logs default to off. The form preserves its draft on failure and reuses
+the report ID when retrying unchanged content. Success requires a matching server
+acknowledgement.
+
+Builds read `VNIDROP_DIAGNOSTICS_ENDPOINT` and `VNIDROP_DIAGNOSTICS_INGEST_KEY`
+from the environment, or fall back to `vnidrop.diagnostics.endpoint` and
+`vnidrop.diagnostics.ingestKey` in repository/user Gradle properties. Setting
+either environment variable replaces the whole pair. Configuration is embedded
+in the app through an ignored intermediate resource; do not commit keys.
+Runtime environment overrides support local testing against a loopback server.
+
+Official package builds set `VNIDROP_DIAGNOSTICS_REQUIRED=1` and fail if the
+HTTPS service configuration is missing or invalid. Development builds may omit
+it, in which case the form explains why submission is unavailable. Loopback HTTP
+is allowed only for development. The ingest key is the existing distributable
+client key, not an administrative credential; see the
+[diagnostics service](../services/diagnostics-api/README.md).
+
 ## Invitation file association
 
 Register the unpackaged native app as a `.vnd` handler for the current Windows user:

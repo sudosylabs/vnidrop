@@ -410,6 +410,13 @@
   <data name="windows_receive_empty" xml:space="preserve"><value>Apri o trascina un invito .vnd per ricevere file da un altro dispositivo.</value></data>
   <data name="windows_receivers" xml:space="preserve"><value>Destinatari</value></data>
   <data name="windows_relay_invalid" xml:space="preserve"><value>Inserisci da 1 a 8 URL HTTPS di relay distinti, senza credenziali né frammenti.</value></data>
+  <data name="windows_report_connection_failed" xml:space="preserve"><value>Impossibile contattare il servizio di segnalazione. Controlla la connessione e riprova. La bozza è conservata.</value></data>
+  <data name="windows_report_rate_limited" xml:space="preserve"><value>Sono state inviate troppe segnalazioni di recente. Attendi un minuto e riprova. La bozza è conservata.</value></data>
+  <data name="windows_report_service_configuration" xml:space="preserve"><value>Questa versione non è riuscita ad autenticarsi con il servizio di segnalazione. La bozza è conservata. Verifica gli aggiornamenti dell’app.</value></data>
+  <data name="windows_report_text_too_long" xml:space="preserve"><value>Il testo è troppo lungo. Accorcia le descrizioni o i recapiti e riprova.</value></data>
+  <data name="windows_report_timeout" xml:space="preserve"><value>Il servizio di segnalazione ha impiegato troppo tempo a rispondere. La bozza è conservata; riprova.</value></data>
+  <data name="windows_report_unconfigured" xml:space="preserve"><value>La segnalazione dei bug non è disponibile in questa versione.</value></data>
+  <data name="windows_report_unconfirmed" xml:space="preserve"><value>Impossibile confermare l’invio. La bozza è conservata; un nuovo tentativo userà lo stesso riferimento.</value></data>
   <data name="windows_review_requests" xml:space="preserve"><value>Esamina richieste</value></data>
   <data name="windows_save_invitation" xml:space="preserve"><value>Salva</value></data>
   <data name="windows_save_preferences" xml:space="preserve"><value>Salva preferenze</value></data>

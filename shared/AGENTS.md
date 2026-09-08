@@ -8,11 +8,10 @@ still applies; this file wins for UI/KMP work.
 ## Purpose
 
 `shared` contains Compose UI, feature ViewModels, and `expect`/`actual` bridges
-for Android, the released Linux app, and the retained Compose Windows host.
+for Android and the retained Compose Windows/Linux hosts.
 Transfer work goes through UniFFI `VnidropCore` (see `crates/vnidrop`). Windows
 releases use the separate WinUI app under `windows/`; Apple uses SwiftUI under
-`apple/`. The native GTK/libadwaita Linux frontend under `linux/` has separate
-package recipes and release qualification gates.
+`apple/`. Linux release packages use the GTK/libadwaita frontend under `linux/`.
 
 ---
 

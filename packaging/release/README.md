@@ -3,8 +3,9 @@
 Only `.github/workflows/release.yml` responds to version tags. It verifies that
 the tag matches `version.properties` and points at the current `master`, then
 calls the platform build workflows in parallel. Windows builds WinUI, Apple
-builds SwiftUI, and Android and the released Linux packages use Compose.
-The native GNOME package workflow remains separate.
+builds SwiftUI, Linux builds GTK/libadwaita, and Android uses Compose. Linux
+packages build on Ubuntu 24.04 and Fedora 43; the release workflow passes the
+diagnostics configuration to both package jobs.
 
 The tag workflow runs only when the repository variable
 `RELEASE_PIPELINE_ENABLED` is exactly `true`. Leave it unset or set it to

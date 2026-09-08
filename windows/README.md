@@ -198,8 +198,8 @@ verifies preservation after the new app runs and again after uninstall. The
 fixture creates a real core profile and Compose-format preferences; it does not
 replace testing an actual user's migrated profile on supported Windows versions.
 
-Android/Linux continue using Compose, and Apple continues using SwiftUI. All
-hosts share the Rust transfer core.
+Android uses Compose, Apple uses SwiftUI, and Linux release builds use
+GTK/libadwaita. All hosts share the Rust transfer core.
 
 Windows platform references: [WinUI 3](https://learn.microsoft.com/windows/apps/winui/winui3/),
 [app activation](https://learn.microsoft.com/windows/apps/develop/launch/multi-instance-apps),

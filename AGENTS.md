@@ -19,10 +19,10 @@ VniDrop is a cross-platform **local P2P file transfer** app.
 |-------|------|----------------|
 | Rust core | `crates/vnidrop/` | Iroh endpoint, blobs, SQLite, tickets, approval, streaming |
 | Shared KMP | `shared/` | Compose UI, ViewModels, and bridges for Android and the Compose desktop hosts |
-| Compose hosts | `androidApp/`, `desktopApp/` | Android app and released Linux app; retained legacy Windows host |
+| Compose hosts | `androidApp/`, `desktopApp/` | Android app and retained legacy Windows/Linux desktop hosts |
 | Apple app | `apple/` | Native SwiftUI UI using generated Rust/UniFFI Swift bindings |
 | Windows app | `windows/` | Released WinUI app using generated Rust/UniFFI C# bindings |
-| Native Linux app | `linux/` | GTK/libadwaita frontend calling Rust directly; release qualification pending |
+| Native Linux app | `linux/` | Linux release frontend using GTK/libadwaita and direct Rust calls |
 
 **Invariant:** UI/platform opens files and handles pickers; **Rust streams bytes**.
 Do not design features that move transfer payloads through Kotlin heap by default.

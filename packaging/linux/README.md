@@ -1,75 +1,89 @@
 # Linux packaging
 
-VniDrop ships native x64 packages for the two common Linux package families:
+The Linux release workflow builds the Rust GTK 4/libadwaita app in `linux/`:
 
-- Debian/Ubuntu: `.deb`
-- Current Fedora systems: `.rpm`
+- `.deb` on Ubuntu 24.04, for Ubuntu 24.04 or newer
+- `.rpm` on Fedora 43, for systems meeting that build's RPM dependencies
 
-Both packages contain the application, its release Rust library, and a private
-Java runtime. Users do not need to install Java separately. The packages are
-currently distributed as direct GitHub Release downloads, so they use SHA-256
-checksums rather than a Linux repository signing key. A future APT or RPM
-repository should add repository metadata signing and its own update channel.
+Packages contain the native executable and desktop integration files. GTK,
+libadwaita, and other system libraries are package-manager dependencies. No JVM
+is bundled or required. Downloads use SHA-256 checksums; an APT or RPM repository
+with signed metadata is not configured.
 
 ## GitHub Actions
 
-The Linux packages workflow runs for relevant pull requests and manual
-dispatches. The coordinated release workflow also calls it for a canonical
-`vMAJOR.MINOR.PATCH` tag. Each native package is built and validated on its
-matching distribution family:
+[Linux packages](../../.github/workflows/linux-packages.yml) runs for relevant
+pull requests, manual dispatches, and calls from the coordinated release workflow.
+Both jobs build GTK, test headless MIME verification, and validate the package.
+The Debian job also runs the native Linux logic tests. GTK interaction tests run
+in the separate [Native GNOME workflow](../../.github/workflows/linux-gnome.yml).
 
-- `.deb` on Ubuntu 22.04 for a conservative glibc baseline
-- `.rpm` inside Fedora 43 so `jpackage` can discover normal RPM dependencies
+Manual and coordinated-release builds require the repository variable
+`VNIDROP_DIAGNOSTICS_ENDPOINT` and secret `VNIDROP_DIAGNOSTICS_INGEST_KEY`.
+The release caller passes them to the reusable workflow. Build and payload
+verification both require embedded diagnostics configuration. Pull-request builds
+explicitly disable reporting and receive neither value.
 
-The shared JVM suite runs inside the Debian build job. Package construction and
-payload validation happen in both build jobs, so there is no separate test
-runner. Pull requests build and verify both packages but do not retain
-artifacts. Manual and coordinated-release runs retain build artifacts. The
-central release workflow creates the single GitHub Release only after every
-platform build and Play closed-testing stage succeeds.
+Artifacts retain the names expected by the release assembler:
 
-The legacy `v1.0.0` tag predates canonical versioning and does not define the
-current product version. New release tags must match `version.properties`.
+| Package | Output directory | Workflow artifact |
+|---|---|---|
+| DEB | `build/release/linux/deb/` | `vnidrop-<version>-linux-deb-x64` |
+| RPM | `build/release/linux/rpm/` | `vnidrop-<version>-linux-rpm-x64` |
 
-## Install a downloaded package
+Each directory contains its package and SHA-256 checksum. Manual and release runs
+upload artifacts; pull requests only build and verify them. The coordinated
+[release workflow](../release/README.md) publishes the GitHub Release.
 
-Verify downloads from the directory containing all three release files:
+## Install or upgrade
+
+Verify the downloaded files against the release's `SHA256SUMS`:
 
 ```bash
 sha256sum -c SHA256SUMS
 ```
 
-On Debian or Ubuntu:
+Quit VniDrop before installing or upgrading. On Ubuntu 24.04 or newer:
 
 ```bash
 sudo apt install ./vnidrop_VERSION-1_amd64.deb
 ```
 
-On Fedora:
+On Fedora 43:
 
 ```bash
 sudo dnf install ./vnidrop-VERSION-1.x86_64.rpm
 ```
 
-The package manager installs declared system-library dependencies and creates
-the VniDrop desktop launcher. Uninstall with `sudo apt remove vnidrop` or
+The package name remains `vnidrop`, so the package manager replaces the previous
+Compose package. The native app uses the existing `~/.vnidrop` profile and reads
+Compose preferences on first launch when native preferences are absent. It writes
+subsequent preferences to a separate JSON file. Package recipes leave the profile
+and received files in place. See the [native app guide](../../linux/README.md)
+for identity storage and profile handling.
+
+The GTK DEB raises the minimum baseline from Ubuntu 22.04 to 24.04. Ubuntu 22.04
+users need an OS upgrade before installing it; the package manager enforces the
+new library dependencies. Uninstall with `sudo apt remove vnidrop` or
 `sudo dnf remove vnidrop`.
 
-## Manual native builds
+## Build locally
 
-Use JDK 21 and Rust 1.91. Build DEB packages on Debian/Ubuntu with `dpkg` and
-`fakeroot`; build RPM packages on Fedora with `rpm-build`. Building an RPM on
-Ubuntu prevents `jpackage` from discovering normal RPM dependencies.
+Install Rust and the GTK/libadwaita development tools listed in the
+[native app guide](../../linux/README.md). Build DEB on Ubuntu 24.04 or newer and
+RPM on Fedora 43 with `rpm-build`. The workflow records the complete tool lists.
 
-Set the release in `version.properties`. From the repository root on the
-matching Linux family, run one of:
+Configure diagnostics as described above, then run from the repository root:
 
 ```bash
 make package-deb
 make package-rpm
 ```
 
-The Make targets collect the Compose output under `build/release/linux/`, then
-validate package identity, version, architecture, dependencies, bundled JVM,
-and release Rust payload before generating a SHA-256 checksum. The Debian
-target also validates the desktop-window association used by Linux docks.
+The existing `make package-linux-native-deb` and `make package-linux-native-rpm`
+commands select the same builds. For an intentionally unconfigured development
+package, pass `VNIDROP_DIAGNOSTICS_REQUIRED=0`. Official builds require reporting.
+
+Legacy Compose packaging remains available as `make package-compose-deb` and
+`make package-compose-rpm` for migration checks. It requires the old JDK/Gradle
+setup and writes to `build/release/linux-compose/`, outside the release inputs.

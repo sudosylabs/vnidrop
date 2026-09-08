@@ -33,9 +33,9 @@ owner of lifecycle rules or a transport for file payloads.
 | Native Linux app | GTK/libadwaita presentation, native file access, desktop integration, and preferences | A separate transfer engine or durable transfer store |
 | Platform adapters | Opening paths or descriptors, security-scoped/SAF leases, receive destinations, process-retention mechanisms | Protocol decisions or payload buffering as the default path |
 
-Windows releases use WinUI; the retained Compose Windows host supports development
-and migration checks. Linux releases still use Compose while the GTK frontend
-undergoes qualification. See [Platforms](platforms.md) for source locations.
+Windows release builds use WinUI and Linux release builds use GTK/libadwaita.
+The Compose desktop hosts remain available for migration checks. See
+[Platforms](platforms.md) for source locations.
 
 ## Module boundaries
 

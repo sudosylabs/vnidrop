@@ -6,8 +6,9 @@ dialogs, preferences, system file pickers, and system appearance. It contains
 no Compose/JVM UI or transfer engine fork.
 
 The native app includes invitation and targeted transfers, saved devices,
-settings, previews, notifications, and bug reporting. The existing Compose Linux
-host remains the release application while the native app undergoes qualification.
+settings, previews, notifications, and bug reporting. The official Linux package
+workflow now builds this frontend. The Compose host remains available for migration
+checks.
 
 The target is full feature and behavior parity with the Linux Compose app through
 native GNOME presentation. See the [parity and native UX plan](PARITY_PLAN.md) for
@@ -113,14 +114,14 @@ Outgoing/Incoming navigation and additional history-management actions are exclu
 Closing the app stops sharing. Background-after-close and Flatpak remain optional
 extensions, not requirements of the published KMP Linux baseline.
 
-Before replacing the released Linux app, native↔KMP interoperability, actual desktop
-notification activation, packaged upgrades and supported-distribution acceptance
-still need qualification. Native DEB/RPM recipes are available under `packaging/`;
-`make package-linux-native-deb` and `make package-linux-native-rpm` build release
-binaries and validate package identity and MIME integration. The DEB currently
-requires Ubuntu 24.04+ (GTK 4.10+/libadwaita 1.5+); it does not replace the existing
-Ubuntu 22.04-compatible KMP release pipeline. RPM builds run on Fedora in the native
-package CI workflow. Package recipes never edit the user's profile.
+Local Linux testing was reported successful on 8 September 2026, and the GTK
+frontend was selected for official packages. `make package-deb` and
+`make package-rpm` build release binaries and validate package identity, diagnostics
+configuration, and MIME integration. The longer `package-linux-native-*` names
+remain aliases to the same builds. DEB requires Ubuntu 24.04+
+(GTK 4.10+/libadwaita 1.5+); RPM builds use Fedora 43. Package recipes never edit
+the user's profile. Release checks cover upgrades, cross-platform transfers,
+and notification activation on the supported systems.
 
 Bug reporting uses `VNIDROP_DIAGNOSTICS_ENDPOINT` and
 `VNIDROP_DIAGNOSTICS_INGEST_KEY` at build time or runtime. When neither native
@@ -144,11 +145,11 @@ GTK or displaying the endpoint/key; runtime overrides cannot satisfy this check.
 For intentionally unconfigured development packages, explicitly set
 `VNIDROP_DIAGNOSTICS_REQUIRED=0`.
 
-The native package workflow supplies `vars.VNIDROP_DIAGNOSTICS_ENDPOINT` and
-`secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY` only to manual package builds. Pull-request
-builds explicitly disable reporting and receive neither value. The native workflow
-builds artifacts; it does not replace the existing KMP release pipeline or publish
-a GitHub Release. The client ingest key is designed to ship in binaries and is not
+The Linux package workflow supplies `vars.VNIDROP_DIAGNOSTICS_ENDPOINT` and
+`secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY` to manual and coordinated-release builds.
+Pull-request builds explicitly disable reporting and receive neither value.
+Packages and checksums go to `build/release/linux/deb/` or `build/release/linux/rpm/`.
+The coordinated release workflow publishes those artifacts to GitHub Releases. The client ingest key is designed to ship in binaries and is not
 an administrative or report-reading credential; see the diagnostics service's
 [security model](../services/diagnostics-api/README.md#security-model).
 

@@ -76,10 +76,10 @@ installed.
 | `crates/vnidrop/` | Rust transfer core, persistence, approval, and streaming |
 | `shared/` | Compose UI, ViewModels, and bridges for Android and Compose desktop hosts |
 | `androidApp/` | Android application shell |
-| `desktopApp/` | Released Linux JVM app and retained legacy Windows host |
+| `desktopApp/` | Retained legacy Windows/Linux Compose host |
 | `apple/` | Native SwiftUI application and Rust/UniFFI integration for Apple platforms |
 | `windows/` | Released Windows WinUI application and Rust/UniFFI C# integration |
-| `linux/` | Native GTK/libadwaita application; release qualification pending |
+| `linux/` | Linux release application using GTK/libadwaita |
 | `localization/` | Source strings and generators for all four frontend targets |
 | `services/diagnostics-api/` | Optional Cloudflare diagnostics service |
 

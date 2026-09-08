@@ -3,7 +3,7 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 format=${1:?Usage: package.sh deb|rpm [native-binary] [output-directory]}
 binary=${2:-$root/target/release/vnidrop-gnome}
-output=${3:-$root/build/release/linux-native}
+output=${3:-$root/build/release/linux/$format}
 version=$("$root/packaging/linux/resolve-version.sh")
 [[ -f $binary && -x $binary ]] || { echo 'Build the native release binary first.' >&2; exit 1; }
 [[ $format == deb || $format == rpm ]] || exit 2

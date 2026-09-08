@@ -2,9 +2,9 @@
 
 A native SwiftUI app for Apple platforms, sharing the existing Rust transfer core
 (`crates/vnidrop`) through UniFFI-generated Swift bindings. SwiftUI owns the
-screens and Apple platform integration. Android and the released Linux app use
-Compose; Windows uses WinUI. A native GTK/libadwaita Linux app is also under
-development. See the [platform overview](../doc/architecture/platforms.md).
+screens and Apple platform integration. Android uses Compose, Windows uses
+WinUI, and Linux release packages use GTK/libadwaita. See the
+[platform overview](../doc/architecture/platforms.md).
 
 ## Layout
 

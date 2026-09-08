@@ -7,14 +7,13 @@ All frontends use the same Rust transfer core:
 | Frontend | Source | Core access |
 |---|---|---|
 | Android Compose app | `androidApp/` and `shared/` | Generated Kotlin/UniFFI bindings |
-| Released Linux Compose app | `desktopApp/` and `shared/` | Generated Kotlin/UniFFI bindings |
+| Legacy Linux Compose host | `desktopApp/` and `shared/` | Generated Kotlin/UniFFI bindings |
 | Windows WinUI app | `windows/` | Generated C#/UniFFI bindings |
 | Apple SwiftUI app | `apple/` | Generated Swift/UniFFI bindings |
 | Native Linux GTK/libadwaita app | `linux/` | Direct Rust calls |
 
-The Compose Windows host remains available for development and migration checks.
-Windows release packages use WinUI. The native Linux frontend has separate
-package recipes and still needs release qualification before replacing Compose.
+The Compose Windows/Linux hosts remain available for migration checks.
+Windows release packages use WinUI; Linux release packages use GTK/libadwaita.
 
 The platform/core boundary is capability-oriented: the platform obtains access
 to a file or destination; Rust owns the transfer and streams bytes through that

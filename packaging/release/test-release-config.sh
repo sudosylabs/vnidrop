@@ -65,4 +65,22 @@ dmg_line="$(
 	exit 1
 }
 
+for format in deb rpm; do
+	linux_dry_run="$(make -n -C "$repo_root" "package-$format" HOST_OS=linux VNIDROP_DIAGNOSTICS_REQUIRED=1)"
+	compile_line="$(printf '%s\n' "$linux_dry_run" | awk '/VNIDROP_DIAGNOSTICS_REQUIRED=1 .*build --locked --release -p vnidrop-gnome --features gui/ {print NR; exit}')"
+	package_line="$(printf '%s\n' "$linux_dry_run" | awk -v format="$format" '$0 ~ "linux/packaging/package.sh " format {print NR; exit}')"
+	verify_line="$(printf '%s\n' "$linux_dry_run" | awk -v format="$format" '$0 ~ "VNIDROP_DIAGNOSTICS_REQUIRED=1 linux/packaging/verify.sh " format " build/release/linux/" format "/" {print NR; exit}')"
+	[[ -n $compile_line && -n $package_line && -n $verify_line &&
+		$compile_line -lt $package_line && $package_line -lt $verify_line ]] || {
+		printf 'package-%s must compile GTK, package it, and verify the release payload with diagnostics required\n' "$format" >&2
+		exit 1
+	}
+done
+
+linux_job="$(sed -n '/^  linux:/,/^  windows:/p' "$repo_root/.github/workflows/release.yml")"
+grep -F 'secrets: inherit' <<< "$linux_job" >/dev/null || {
+	printf 'Linux releases must receive the diagnostics ingestion configuration\n' >&2
+	exit 1
+}
+
 printf 'Release configuration tests passed.\n'

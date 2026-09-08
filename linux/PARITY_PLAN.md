@@ -7,10 +7,11 @@ that starting point; the implementation entries record subsequent changes.
 The native app now includes invitation and targeted transfers, saved devices,
 settings, previews, notifications, and bug reporting. The mixed Transfers page
 is retained; separate Outgoing/Incoming navigation and additional history actions
-were excluded in the later scope decision. Native DEB/RPM recipes remain separate
-from the released Compose pipeline. Interoperability, installed notification
-activation, package upgrades, and supported-distribution acceptance still need
-qualification. See the [README](README.md) for current behavior and commands.
+were excluded in the later scope decision. On 8 September 2026, the user reported
+successful local Linux testing and selected GTK for official DEB/RPM builds.
+The entries below preserve earlier implementation and acceptance notes; they do
+not describe the current release-workflow selection. See the [README](README.md)
+for current behavior, commands, and release checks.
 
 ## Product contract
 

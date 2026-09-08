@@ -75,7 +75,7 @@ export default async function DownloadPage() {
                 <span>Packages</span>
               </div>
               <div className={styles.platformDetails}>
-                <p>64-bit packages for Debian/Ubuntu and Fedora/RHEL.</p>
+                <p>64-bit GTK packages for Ubuntu 24.04 or newer and Fedora 43.</p>
                 <p className={styles.downloadActions}>
                   {release.deb ? <FileLink asset={release.deb} /> : null}
                   {release.rpm ? <FileLink asset={release.rpm} /> : null}

@@ -62,6 +62,60 @@ class ReleaseWorkflowsTest < Minitest::Test
       step(job, "Verify bug-report build configuration").fetch("run")
   end
 
+  def test_preview_is_manual_and_only_publishes_direct_packages
+    preview = workflow("preview-release")
+    assert_equal({"workflow_dispatch" => nil}, preview.fetch(true))
+    jobs = preview.fetch("jobs")
+    assert_equal %w[preflight linux windows macos android publish].sort, jobs.keys.sort
+    assert_equal %w[preflight linux windows macos android].sort, jobs.fetch("publish").fetch("needs").sort
+    assert_equal({"direct_only" => true}, jobs.fetch("windows").fetch("with"))
+    assert_equal({"preview" => true}, jobs.fetch("macos").fetch("with"))
+    assert_equal({"preview_number" => "${{ needs.preflight.outputs.number }}"}, jobs.fetch("android").fetch("with"))
+    publish = step(jobs.fetch("publish"), "Publish preview").fetch("run")
+    assert_includes publish, "--draft --prerelease --latest=false"
+    assert_includes publish, '--target "$GITHUB_SHA"'
+    assert_includes publish, "--draft=false --prerelease --latest=false"
+    refute_equal workflow("release").fetch("concurrency").fetch("group"), preview.fetch("concurrency").fetch("group")
+    %w[android-release apple-release windows-store linux-packages].each do |name|
+      assert_includes workflow(name).fetch("concurrency").fetch("group"), "${{ github.workflow }}"
+    end
+  end
+
+  def test_preview_options_leave_normal_release_defaults_intact
+    apple = workflow("apple-release")
+    assert_equal false, apple.fetch(true).fetch("workflow_call").fetch("inputs").fetch("preview").fetch("default")
+    ["Download Sparkle tools", "Write Sparkle signing key", "Package prebuilt core", "Generate appcast"].each do |name|
+      assert_equal "${{ !inputs.preview }}", step(apple.fetch("jobs").fetch("build"), name).fetch("if")
+    end
+    windows = workflow("windows-store")
+    assert_equal false, windows.fetch(true).fetch("workflow_call").fetch("inputs").fetch("direct_only").fetch("default")
+    assert_equal "${{ !inputs.direct_only }}",
+      step(windows.fetch("jobs").fetch("build-msix"), "Create and validate Store artifacts").fetch("if")
+    android = workflow("android-release")
+    assert_equal "", android.fetch(true).fetch("workflow_call").fetch("inputs").fetch("preview_number").fetch("default")
+    signing = step(android.fetch("jobs").fetch("build"), "Build and verify signed release").fetch("env")
+    assert_equal "${{ secrets[inputs.preview_number != '' && 'ANDROID_PREVIEW_KEY_PASSWORD' || 'ANDROID_UPLOAD_KEY_PASSWORD'] }}",
+      signing.fetch("VNIDROP_ANDROID_KEY_PASSWORD")
+  end
+
+  def test_preview_identity_never_matches_a_normal_release_tag
+    script = step(workflow("preview-release").fetch("jobs").fetch("preflight"), "Resolve preview identity").fetch("run")
+    Dir.mktmpdir("vnidrop-preview-id") do |directory|
+      env = {"GITHUB_REF" => "refs/heads/master", "GITHUB_REF_TYPE" => "branch", "GITHUB_RUN_NUMBER" => "17",
+        "GITHUB_OUTPUT" => File.join(directory, "outputs")}
+      run_command(env, "bash", "-c", script, directory: ROOT)
+      outputs = File.read(env.fetch("GITHUB_OUTPUT")).lines.to_h { |line| line.strip.split("=", 2) }
+      assert_equal "17", outputs.fetch("number")
+      assert_equal "preview-#{outputs.fetch('version')}-17", outputs.fetch("tag")
+      refute File.fnmatch?("v*.*.*", outputs.fetch("tag"))
+      [{"GITHUB_REF" => "refs/heads/feature"}, {"GITHUB_REF" => "refs/tags/v0.3.3"},
+       {"GITHUB_RUN_NUMBER" => "0"}, {"GITHUB_RUN_NUMBER" => "2100000001"}].each do |invalid|
+        _, status = Open3.capture2e(env.merge(invalid), "bash", "-c", script, chdir: ROOT)
+        refute status.success?, "Invalid preview dispatch must fail: #{invalid}"
+      end
+    end
+  end
+
   def test_release_tag_remains_valid_after_master_advances
     Dir.mktmpdir("vnidrop-release-tag") do |directory|
       env = {"GIT_CONFIG_GLOBAL" => File.join(directory, "gitconfig"), "GIT_CONFIG_NOSYSTEM" => "1"}

@@ -14,18 +14,22 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
   workflow_call:
+    inputs:
+      direct_only:
+        type: boolean
+        default: false
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: windows-packages-${{ github.event.pull_request.number || github.ref }}
+  group: windows-packages-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-msix:
-    name: Build Store MSIX and direct EXE (x64)
+    name: ${{ inputs.direct_only && 'Build unsigned preview EXE (x64)' || 'Build Store MSIX and direct EXE (x64)' }}
     runs-on: windows-2025
     timeout-minutes: 90
     env:
@@ -56,6 +60,7 @@ jobs:
         run: ./packaging/windows/test-standard-user-process.ps1
 
       - name: Verify MSIX activation runner policy
+        if: ${{ !inputs.direct_only }}
         shell: powershell
         run: ./packaging/windows/test-msix-runner-policy.ps1
 
@@ -97,16 +102,36 @@ jobs:
           git diff --exit-code -- windows/VniDrop/Strings apple/VniDrop/Generated apple/VniDrop/Resources shared/src/commonMain/composeResources
           if ($LASTEXITCODE) { throw 'Generated localization is out of date' }
 
-      - name: Create and validate release artifacts
+      - name: Create direct installer
+        shell: pwsh
+        run: ./packaging/windows/build-installer.ps1 -AppImage ./build/windows/publish -OutputDirectory ./build/windows/installer
+
+      - name: Create and validate Store artifacts
+        if: ${{ !inputs.direct_only }}
         shell: pwsh
         run: |
-          ./packaging/windows/build-installer.ps1 -AppImage ./build/windows/publish -OutputDirectory ./build/windows/installer
           $arguments = @{
             AppImage = "./build/windows/publish"
             DirectInstaller = "./build/windows/installer/VniDrop_${{ steps.version.outputs.app }}_x64.exe"
             OutputDirectory = ".\build\release\windows"
           }
           & .\packaging\windows\build-msix.ps1 @arguments
+
+      - name: Collect unsigned direct installer
+        if: inputs.direct_only
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.app }}
+        run: |
+          $installer = "VniDrop_$($env:VERSION)_x64.exe"
+          $source = Join-Path ./build/windows/installer $installer
+          if ((Get-AuthenticodeSignature -LiteralPath $source).Status -ne 'NotSigned') {
+            throw 'The preview installer must be unsigned'
+          }
+          New-Item -ItemType Directory -Force ./build/release/windows | Out-Null
+          Copy-Item -LiteralPath $source -Destination ./build/release/windows
+          $hash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $installer" | Set-Content ./build/release/windows/SHA256SUMS -Encoding utf8NoBOM
 
       - name: Verify installer payload and upgrade behavior
         shell: pwsh
@@ -115,6 +140,7 @@ jobs:
           ./packaging/windows/test-installer.ps1 -AppImage ./build/windows/publish -InstallerDirectory ./build/windows/installer -LegacyInstaller $legacy -Install
 
       - name: Verify packaged WinUI startup and warm notification activation
+        if: ${{ !inputs.direct_only }}
         shell: powershell
         run: ./packaging/windows/test-msix.ps1 -Package ./build/release/windows/VniDrop_${{ steps.version.outputs.app }}_x64.msix -EnableDeveloperMode
 
@@ -145,9 +171,11 @@ jobs:
         run: |
           "### Windows packages" >> $env:GITHUB_STEP_SUMMARY
           "- App version: ${{ steps.version.outputs.app }}" >> $env:GITHUB_STEP_SUMMARY
-          "- MSIX version: ${{ steps.version.outputs.package }}" >> $env:GITHUB_STEP_SUMMARY
+          if ('${{ inputs.direct_only }}' -ne 'true') {
+            "- MSIX version: ${{ steps.version.outputs.package }}" >> $env:GITHUB_STEP_SUMMARY
+            "- Store signing: unsigned submission; Microsoft signs after certification" >> $env:GITHUB_STEP_SUMMARY
+          }
           "- Architecture: x64" >> $env:GITHUB_STEP_SUMMARY
-          "- Store signing: unsigned submission; Microsoft signs after certification" >> $env:GITHUB_STEP_SUMMARY
           "- Direct installer signing: unsigned; Windows SmartScreen warning expected" >> $env:GITHUB_STEP_SUMMARY
           Import-Module ./packaging/windows/Packaging.psm1 -Force
           $coldNotificationSkipReason = Get-ColdNotificationTestSkipReason

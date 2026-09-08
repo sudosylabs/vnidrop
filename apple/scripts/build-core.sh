@@ -69,7 +69,19 @@ case "${VNIDROP_APPLE_SIMULATOR:-auto}" in
 	*) echo "VNIDROP_APPLE_SIMULATOR must be 0, 1, or auto" >&2; exit 1 ;;
 esac
 
-TARGETS=("$IOS_TARGET" "$MAC_TARGET")
+case "${VNIDROP_APPLE_IOS:-1}" in
+	1) WITH_IOS=1 ;;
+	0) WITH_IOS=0 ;;
+	*) echo "VNIDROP_APPLE_IOS must be 0 or 1" >&2; exit 1 ;;
+esac
+if [ "$WITH_IOS" = "0" ] && [ "$WITH_SIMULATOR" = "1" ]; then
+	echo "Simulator slices require VNIDROP_APPLE_IOS=1" >&2
+	exit 1
+fi
+
+# Direct preview releases have no iOS consumer for this expensive cross-build.
+TARGETS=("$MAC_TARGET")
+[ "$WITH_IOS" = "1" ] && TARGETS+=("$IOS_TARGET")
 [ "$WITH_SIMULATOR" = "1" ] && TARGETS+=("$SIM_ARM_TARGET" "$SIM_X64_TARGET")
 
 echo "==> Building vnidrop staticlib ($PROFILE) for Apple targets"
@@ -126,7 +138,8 @@ cp "$BUILD_DIR/vnidropFFI.modulemap" "$HEADERS_DIR/module.modulemap"
 echo "==> Assembling xcframework"
 XCFRAMEWORK="$PKG_DIR/vnidrop.xcframework"
 rm -rf "$XCFRAMEWORK"
-XCF_ARGS=(-library "$IOS_LIB" -headers "$HEADERS_DIR")
+XCF_ARGS=()
+[ "$WITH_IOS" = "1" ] && XCF_ARGS+=(-library "$IOS_LIB" -headers "$HEADERS_DIR")
 [ "$WITH_SIMULATOR" = "1" ] && XCF_ARGS+=(-library "$SIM_LIB" -headers "$HEADERS_DIR")
 XCF_ARGS+=(-library "$MAC_LIB" -headers "$HEADERS_DIR")
 xcodebuild -create-xcframework "${XCF_ARGS[@]}" -output "$XCFRAMEWORK"

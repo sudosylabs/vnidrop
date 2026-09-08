@@ -43,7 +43,10 @@ VniDrop supports these routing policies:
 | Automatic | Uses the configured/default relay facilities | Uses direct discovery when available |
 | Strict custom | Uses only the configured custom relays | No direct fallback that violates the policy |
 | Custom with direct fallback | Prefers configured custom relays | May connect directly when possible |
-| Local only | Does not use internet relays | Restricts discovery and transport to local reachability |
+| Local only | Disables relays and public address lookup | Uses direct IP addresses supplied by the peer; does not filter them to LAN ranges |
+
+Local only is a direct-only policy. A reachable public IP address can still be
+used; the mode does not enforce a LAN boundary.
 
 Relay compatibility is enforced when tickets or peer addresses are interpreted.
 The application must not silently broaden a strict routing policy to make a

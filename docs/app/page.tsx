@@ -14,7 +14,7 @@ const traits = [
   },
   {
     title: "Approval by default",
-    text: "The receiver confirms every request. You can cancel a transfer or stop sharing whenever you need to.",
+    text: "Senders approve invitation downloads by default. Recipients accept offers sent to saved devices. You can cancel a transfer or stop sharing.",
   },
 ];
 
@@ -86,7 +86,7 @@ export default function HomePage() {
             <h1>Send files from this device to that one.</h1>
             <p className={styles.heroLead}>
               Move a file, a folder, or a whole batch across Android, iOS, macOS, Windows, and Linux.
-              No account. No hosted copy. The receiver approves it.
+              No account. No hosted copy. Approval by default.
             </p>
             <p className={styles.heroActions}>
               <Link className="btn btn-primary" href="/download/">

@@ -1,17 +1,30 @@
 # Native Linux parity and UX plan
 
-Status: approved for implementation; work started 7 September 2026. Source audit: repository commit `2ca10f1`, product version `0.3.3`, plus the local relay-startup fix. This document specifies the full port; the implementation evidence below records progress without closing incomplete parity areas.
+Work started 7 September 2026 from an audit of commit `2ca10f1`, product version
+`0.3.3`, plus the local relay-startup fix. The audit and proposals below record
+that starting point; the implementation entries record subsequent changes.
+
+The native app now includes invitation and targeted transfers, saved devices,
+settings, previews, notifications, and bug reporting. The mixed Transfers page
+is retained; separate Outgoing/Incoming navigation and additional history actions
+were excluded in the later scope decision. Native DEB/RPM recipes remain separate
+from the released Compose pipeline. Interoperability, installed notification
+activation, package upgrades, and supported-distribution acceptance still need
+qualification. See the [README](README.md) for current behavior and commands.
 
 ## Product contract
 
 Deliver the complete VniDrop Linux product through Rust, GTK and libadwaita. Preserve the KMP Linux app's capabilities, information, consent, state transitions, error recovery and persistence. Design navigation, controls, dialogs and system integration for GNOME. Native presentation is freedom to improve the interaction, not permission to remove functionality.
 
-The current Linux implementation is an invitation-transfer slice. It is not the acceptance baseline for the finished port. Each capability below must have a usable native path and passing behavioral acceptance before replacing the published app. Intermediate implementation increments are allowed; they do not reduce release scope.
+At the initial audit, the native app covered invitation transfers. Each retained
+capability needs a usable native path and passing behavioral acceptance before
+replacing the published app. Later scope decisions are recorded with the
+implementation evidence below.
 
 ### Evidence and baseline
 
 - KMP feature implementations, presentation models and tests define the behavioral reference. JVM adapters determine what is actually available on Linux.
-- The audit uses the current checkout. Before release acceptance, pin and record the actual published Linux package, checksum and corresponding source revision. The current `version.properties` alone does not establish which code shipped. Reconcile any differences; preserve shipped behavior and include the current KMP features inventoried here.
+- The audit uses the source revision recorded above. Before release acceptance, pin and record the actual published Linux package, checksum and corresponding source revision. `version.properties` alone does not establish which code shipped. Reconcile any differences and preserve shipped behavior within the agreed scope.
 - Apple and Windows are secondary references for native adaptation and shared-core integration. Their documented omissions are not automatic Linux scope exclusions. Some platform README statements are stale, so inspect implementation and tests before relying on them.
 - This is a source-level audit, not a completed side-by-side visual or installed-package acceptance run. Existing Linux tests cover a subset of the product.
 
@@ -72,7 +85,11 @@ Reference areas:
 | Destructive identity reset | Available in the core and native Windows scope; no corresponding KMP UI path found in this audit | Actionable keyring recovery is required. Add reset only as an explicitly reviewed recovery flow with clear irreversible consequences. Never reset automatically to make startup succeed. |
 | Flatpak | Current published channels are DEB/RPM | Optional distribution extension. It is not permission to replace a working DEB/RPM upgrade path. |
 
-## Proposed native UX
+## Original native UX proposal
+
+The main-window proposal below was superseded by the decision to retain mixed
+Transfers and a Devices page. Keep it as design history; it is not an outstanding
+navigation requirement.
 
 ### Main window
 
@@ -129,7 +146,11 @@ Use GIO notification actions routed through the app to resolve current state bef
 
 Keep Rust as the transfer, authorization, identity and durable-state authority. The Linux frontend owns presentation models, user intent, native file access and system integration. No second transfer engine, parallel database, or Kotlin runtime belongs in the native app.
 
-The current [session](src/session.rs) coalesces events into refresh notifications and drops their contents; its snapshot contains invitation transfers, receiver requests, artifacts and obligations only. That boundary must grow before progress, activity, pairing and targeted UI can be truthful.
+At the initial audit, the session discarded event contents and exposed only
+invitation transfers, receiver requests, artifacts, and obligations. The
+[current session](src/session.rs) also includes bounded event history, devices,
+targeted transfers, and pending offers. The table below records the original
+module plan; implementation evidence follows the acceptance gates.
 
 | Module responsibility | Planned change |
 | --- | --- |

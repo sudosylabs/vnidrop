@@ -7,7 +7,8 @@ still applies; this file wins for Rust-specific commands and conventions.
 
 ## Purpose
 
-This crate is the transfer backend exposed to Kotlin via UniFFI (`VnidropCore`).
+This crate is the transfer backend exposed to Kotlin, Swift, and C# via UniFFI
+(`VnidropCore`), and called directly by the native Linux Rust frontend.
 It owns Iroh, blobs, SQLite history, tickets, approval handshake, and file streaming.
 
 Read [`CORE_FLOW.md`](CORE_FLOW.md) before changing send/receive/export/cancel.
@@ -82,8 +83,9 @@ open domain stores via `persistence::open_all`.
 
 ## Hard constraints
 
-1. **Public API stability:** UniFFI surface changes break Kotlin. Prefer additive
-   changes; update shared Kotlin call sites in the same change when required.
+1. **Public API stability:** core surface changes affect Kotlin, Swift, C#, and
+   native Linux callers. Prefer additive changes; update affected callers and
+   regenerate bindings in the same change when required.
 2. **Streaming stays in Rust.** Platform passes paths or FDs; core does not pull
    whole files into Kotlin.
 3. **Android FDs are files only.** `SourceKind::FileDescriptor` with

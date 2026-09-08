@@ -226,18 +226,30 @@ cd vnidrop
 make help
 make doctor
 
-# Windows/Linux desktop
+# Released Linux Compose host (also retains the legacy Windows host)
 make run-desktop
+
+# Native Linux development app
+make run-linux
 
 # Android debug build
 make build-android
 
-# Build and launch the macOS app
-make open-apple
+# Build and launch macOS after configuring apple/Local.xcconfig
+make open-apple APPLE_CODE_SIGNING=YES
 
 # Open the native project for iOS, iPadOS, or Xcode development
 make open-apple-project
 ```
+
+For the native Windows app, run from PowerShell:
+
+```powershell
+pwsh windows/scripts/build.ps1 -Test -Run
+```
+
+See the [Windows](windows/README.md), [Apple](apple/README.md), and
+[native Linux](linux/README.md) guides for host prerequisites and setup.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for prerequisites, development setup,
 testing, and pull request guidance.

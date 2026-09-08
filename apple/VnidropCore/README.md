@@ -12,9 +12,10 @@ From the repository root:
 apple/scripts/build-core.sh release   # or: debug
 ```
 
-This builds `libvnidrop.a` for `aarch64-apple-ios`, `aarch64-apple-ios-sim`, and
-`aarch64-apple-darwin`, generates `Sources/VnidropCore/Vnidrop.swift`, and
-assembles `vnidrop.xcframework`.
+This builds `libvnidrop.a` for `aarch64-apple-ios` and `aarch64-apple-darwin`,
+generates `Sources/VnidropCore/Vnidrop.swift`, and assembles `vnidrop.xcframework`.
+Debug builds also include the `aarch64-apple-ios-sim` and `x86_64-apple-ios`
+simulator slices. Set `VNIDROP_APPLE_SIMULATOR=1` to include them in a release build.
 
 ## Generated / ignored artifacts
 

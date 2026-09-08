@@ -69,7 +69,7 @@ rules.
 
 ## Read models
 
-**Target:** Kotlin and Swift each build an in-process Saved Devices
+Kotlin and Swift each implement an in-process Saved Devices
 read model from the core's durable APIs. The implementations remain
 platform-specific but share a canonical scenario matrix and domain vocabulary.
 

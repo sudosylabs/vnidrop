@@ -18,9 +18,11 @@ VniDrop is a cross-platform **local P2P file transfer** app.
 | Layer | Path | Responsibility |
 |-------|------|----------------|
 | Rust core | `crates/vnidrop/` | Iroh endpoint, blobs, SQLite, tickets, approval, streaming |
-| Shared KMP | `shared/` | Compose UI and platform bridges for Android, Windows, and Linux |
-| Compose hosts | `androidApp/`, `desktopApp/` | Thin Android and Windows/Linux app shells |
+| Shared KMP | `shared/` | Compose UI, ViewModels, and bridges for Android and the Compose desktop hosts |
+| Compose hosts | `androidApp/`, `desktopApp/` | Android app and released Linux app; retained legacy Windows host |
 | Apple app | `apple/` | Native SwiftUI UI using generated Rust/UniFFI Swift bindings |
+| Windows app | `windows/` | Released WinUI app using generated Rust/UniFFI C# bindings |
+| Native Linux app | `linux/` | GTK/libadwaita frontend calling Rust directly; release qualification pending |
 
 **Invariant:** UI/platform opens files and handles pickers; **Rust streams bytes**.
 Do not design features that move transfer payloads through Kotlin heap by default.
@@ -49,21 +51,24 @@ Domain docs (reference, do not paste into PRs):
 9. After code changes, run the **relevant** checks in [Build and test](#build-and-test)
    and fix failures before finishing.
 10. **`localization/strings.json` is the single source of truth for all localized
-    strings.** The KMP Compose resources (`shared/src/commonMain/composeResources/
-    values*/strings.xml`) and the Apple catalog + accessors
-    (`apple/VniDrop/Resources/Localizable.xcstrings`, `apple/VniDrop/Generated/
-    L10n.swift`) are **generated** by the loc CLI (`cd localization && bun run
-    src/cli.ts generate`) — never hand-edit them. To add/change a string: edit
-    `strings.json` (set `targets` to `kmp`, `apple`, or omit for both), then
-    regenerate. A key referenced in code but only present in a generated file will
+    strings.** The loc CLI (`cd localization && bun run src/cli.ts generate`)
+    generates KMP Compose XML, the Apple catalog and Swift accessors, Windows
+    `.resw` files, and `linux/data/strings.json`. Never hand-edit those outputs.
+    To add/change a string, edit `strings.json`, then regenerate. `targets` is an
+    array containing any of `kmp`, `apple`, `windows`, and `linux`; omitting it
+    includes all four. See [Localization](localization/README.md) for output paths.
+    A key referenced in code but only present in a generated file will
     be silently dropped the next time generation runs.
 
 ---
 
 ## Build and test
 
-Install prerequisites when missing: GNU Make + Bash, Rust stable + rustfmt + clippy, JDK 17,
-Android NDK/SDK only if building Android, Xcode only for the native Apple app.
+Install prerequisites for the affected host. Shared builds use GNU Make, Bash,
+Rust stable with rustfmt and Clippy, Bun, and JDK 17 or newer; Android also needs
+the SDK and NDK. Native prerequisites and commands are in the
+[Windows](windows/README.md), [Apple](apple/README.md), and
+[Linux](linux/README.md) guides.
 
 ### Rust core (`crates/vnidrop` or workspace root)
 
@@ -118,6 +123,10 @@ Rust library.
 | Cancel / export / sinks | Above + `make test-rust-output-sink` |
 | `shared/**` only | `make test-shared` |
 | Both | `make test-rust test-shared` |
+| `windows/**` | `pwsh windows/scripts/build.ps1 -Test` and affected native UI checks |
+| `apple/**` | `make check-apple`; compile the affected macOS target when applicable |
+| `linux/**` | `make check-linux`; `make test-linux-ui` for GTK changes |
+| Website source under `docs/**` | `make check-docs` |
 | Docs only | No suite required; verify links/paths |
 
 Do not kill long `cargo` / Gradle runs mid-flight unless they hang past several
@@ -300,8 +309,8 @@ branch from updated `master`.
 - Flaky multi-minute sleeps in tests
 - Unsigned commits when signing is required
 - Force-push or secret commits without explicit user direction
-- Hand-editing generated localization files (`values*/strings.xml`,
-  `Localizable.xcstrings`, `L10n.swift`) instead of `localization/strings.json`
+- Hand-editing generated localization files (Compose XML, Apple catalogs/accessors,
+  Windows `.resw`, or the Linux catalog) instead of `localization/strings.json`
 
 ---
 

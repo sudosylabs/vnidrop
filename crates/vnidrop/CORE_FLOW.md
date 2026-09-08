@@ -70,8 +70,10 @@ bytes through Kotlin memory.
    protected identity. Transfer history and received files remain; old active
    Invitation transfers are stopped and Saved devices must be paired again.
 8. Saved devices, relationships, pairing eligibility, and targeted transfers are
-   shipped Rust core domains. Graduating the KMP and Apple Saved-device UI and
-   their existing experimental preference gates is outside this release gate.
+   shipped Rust core domains. KMP and Apple expose Saved Devices as a top-level
+   destination without an experimental preference gate. Their read models derive
+   action availability from durable core reads; see the
+   [UI contract](../../shared/docs/saved-devices-ui-contract.md).
 
 ## Core States And Events
 

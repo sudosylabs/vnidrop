@@ -38,18 +38,23 @@ Install the tools needed for the area you plan to change:
 - GNU Make and Bash for the root command interface
 - JDK 17 or newer for Gradle and application builds
 - Rust stable with `rustfmt` and Clippy for the transfer core
+- Bun for localization generation
 - Android SDK and NDK for Android builds
-- Xcode and XcodeGen on macOS for native Apple builds and simulator tests
+- Xcode, XcodeGen, and SwiftLint on macOS for native Apple builds and simulator tests
+- .NET 10 SDK, Visual Studio C++ Build Tools, and the Windows SDK for WinUI
+- GTK 4.10+, libadwaita 1.5+, and a session Secret Service for native Linux
 - Node.js 22.12 or newer for the optional diagnostics service
 
 The first Rust and Gradle builds may take several minutes while dependencies are
 downloaded and native components are compiled.
 
+Use the [Windows](windows/README.md), [Apple](apple/README.md), or
+[native Linux](linux/README.md) guide for the complete host setup and run commands.
+
 ## Command Interface
 
-Run development commands through the root `Makefile`. It keeps local and CI
-commands aligned while continuing to delegate builds to Cargo, Gradle, Xcode,
-Bun, and npm:
+Run Rust, Compose, Apple, native Linux, and JavaScript commands through the root
+`Makefile`:
 
 ```bash
 make help       # list commands
@@ -69,10 +74,13 @@ installed.
 | Path | Purpose |
 |------|---------|
 | `crates/vnidrop/` | Rust transfer core, persistence, approval, and streaming |
-| `shared/` | Compose Multiplatform UI and bridges for Android, Windows, and Linux |
+| `shared/` | Compose UI, ViewModels, and bridges for Android and Compose desktop hosts |
 | `androidApp/` | Android application shell |
-| `desktopApp/` | Windows/Linux JVM application shell |
+| `desktopApp/` | Released Linux JVM app and retained legacy Windows host |
 | `apple/` | Native SwiftUI application and Rust/UniFFI integration for Apple platforms |
+| `windows/` | Released Windows WinUI application and Rust/UniFFI C# integration |
+| `linux/` | Native GTK/libadwaita application; release qualification pending |
+| `localization/` | Source strings and generators for all four frontend targets |
 | `services/diagnostics-api/` | Optional Cloudflare diagnostics service |
 
 Read the nearest contributor guidance before editing:
@@ -144,6 +152,29 @@ make check-apple
 
 Override the selected simulator when needed with
 `make check-apple APPLE_DESTINATION='platform=iOS Simulator,name=iPhone 16'`.
+
+### Native Windows App
+
+From PowerShell:
+
+```powershell
+pwsh windows/scripts/build.ps1 -Test
+```
+
+Add `-Run` to launch the app and inspect affected screens. Use `-SkipCore` for
+subsequent UI-only builds when the Rust core and generated bindings are current.
+
+### Native Linux App
+
+```bash
+make check-linux
+make test-linux-ui  # GTK changes; requires a graphical session or Xvfb
+```
+
+### Documentation
+
+For Markdown edits, verify paths, links, and commands against the source.
+For website changes under `docs/`, run `make check-docs`.
 
 ### Diagnostics Service
 

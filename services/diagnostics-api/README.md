@@ -166,6 +166,21 @@ after the exact expiration time rather than synchronously at it.
 
 ## App wiring
 
+Configuration depends on the frontend:
+
+| Frontend | Configuration and behavior |
+|---|---|
+| Android and Compose desktop | Gradle properties or environment variables; see below. Unconfigured builds use the offline no-op transport. |
+| Apple | Build-time environment variables generate `AppConfig.swift`. Official builds set `VNIDROP_REQUIRE_DIAGNOSTICS=1`; unconfigured development builds show an error on submission. See the [Apple guide](../../apple/README.md#bug-reporting). |
+| Native Linux | Build-time or runtime environment variables, with a Gradle-properties fallback during builds. Packages require embedded configuration through `VNIDROP_DIAGNOSTICS_REQUIRED=1`. The KMP inclusion switch does not apply. See the [Linux guide](../../linux/README.md). |
+| Native Windows | The current Settings form opens the Windows share sheet with report text; it does not submit to this API. |
+
+The Apple and Linux environment variables are `VNIDROP_DIAGNOSTICS_ENDPOINT`
+and `VNIDROP_DIAGNOSTICS_INGEST_KEY`. Configure both together. Only explicit
+user-submitted reports are sent.
+
+### Android and Compose desktop
+
 Keep credentials out of tracked files. Configure local builds through
 `~/.gradle/gradle.properties`:
 

@@ -5,13 +5,13 @@ the existing VniDrop core. It uses Adwaita navigation, header bars, adaptive
 dialogs, preferences, system file pickers, and system appearance. It contains
 no Compose/JVM UI or transfer engine fork.
 
-This is the first working invitation-transfer slice. The existing Compose
-Linux host remains the release application while native feature coverage grows.
+The native app includes invitation and targeted transfers, saved devices,
+settings, previews, notifications, and bug reporting. The existing Compose Linux
+host remains the release application while the native app undergoes qualification.
 
 The target is full feature and behavior parity with the Linux Compose app through
 native GNOME presentation. See the [parity and native UX plan](PARITY_PLAN.md) for
-the audited gaps, proposed workflows, and release acceptance gates. The current
-slice does not define the scope of the finished port.
+the original audit, implementation evidence, and remaining release acceptance gates.
 
 ## Run on Linux
 

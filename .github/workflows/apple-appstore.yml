@@ -14,9 +14,9 @@ name: Apple App Store (iOS + macOS)
 #     build numbers to increase across versions, so an integer counter starting
 #     at 1 would sort below the existing 20260802.1040.54 history.
 #  2. Its cloud-managed signing emits a designated requirement encoding the
-#     certificate CN in Unicode NFD while the certificate carries NFC, so the
-#     signature cannot satisfy its own requirement and the upload is rejected
-#     with ITMS-90035.
+#     certificate CN in decomposed Unicode while the certificate uses composed
+#     Unicode, so the signature cannot satisfy its own requirement and the upload
+#     is rejected with ITMS-90035.
 
 on:
   # Call directly: releases published using GITHUB_TOKEN do not trigger workflows.

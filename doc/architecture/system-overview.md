@@ -27,14 +27,14 @@ owner of lifecycle rules or a transport for file payloads.
 | Layer | Owns | Does not own |
 |---|---|---|
 | Rust core | Transfer identity and lifecycle, approval and access policy, Iroh endpoint and protocols, SQLite state, recovery, payload streaming | Pickers, UI navigation, platform background-service APIs |
-| Shared KMP | Android and legacy desktop presentation, ViewModels, navigation, platform-neutral UI state | Transfer authority, duplicated durable lifecycle state |
+| Shared KMP | Android presentation, ViewModels, navigation, platform-neutral UI state | Transfer authority, duplicated durable lifecycle state |
 | Apple app | SwiftUI presentation and Apple platform integration | Transfer authority, a separate transfer state machine |
 | Windows app | WinUI presentation, native file access, activation, notifications, and preferences | Transfer authority or managed payload streaming |
 | Native Linux app | GTK/libadwaita presentation, native file access, desktop integration, and preferences | A separate transfer engine or durable transfer store |
 | Platform adapters | Opening paths or descriptors, security-scoped/SAF leases, receive destinations, process-retention mechanisms | Protocol decisions or payload buffering as the default path |
 
 Windows release builds use WinUI and Linux release builds use GTK/libadwaita.
-The Compose desktop hosts remain available for migration checks. See
+The shared Kotlin JVM target supports host-side tests. See
 [Platforms](platforms.md) for source locations.
 
 ## Module boundaries

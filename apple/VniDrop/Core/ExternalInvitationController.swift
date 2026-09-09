@@ -30,9 +30,8 @@ final class ExternalInvitationController: ObservableObject {
 /// Semantic, UI-agnostic invitation/transfer failures. Cases carry no display
 /// text: `Error.toUiText()` (UI layer) maps each case to a localized `L10n` key,
 /// so there are no free-form English strings to keep in sync or substring-match.
-/// `.raw` is the escape hatch for genuinely dynamic system/core messages (e.g. a
-/// `CoreNFC` `localizedDescription` or a picker's failure reason), never shown
-/// verbatim — it is still routed through `reasonHints`.
+/// `.raw` carries dynamic system/core messages, such as a picker's failure reason.
+/// They are routed through `reasonHints` rather than shown verbatim.
 enum InvitationError: LocalizedError {
 	case empty
 	case tooLarge
@@ -45,8 +44,6 @@ enum InvitationError: LocalizedError {
 	case viewControllerUnavailable
 	case filesystemUnavailable
 	case invalidInvitationURL
-	case nfcUnavailable
-	case nfcFailed
 	case cameraUnavailable
 	case qrUnavailable
 	case bugReportingUnavailable

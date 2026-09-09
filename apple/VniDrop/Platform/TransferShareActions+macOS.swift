@@ -6,10 +6,9 @@ import SwiftUI
 func makePlatformShareActions() -> TransferShareActions { MacTransferShareActions() }
 
 /// macOS invitation delivery, mirroring the iOS actions: save panel export and
-/// `NSSharingServicePicker` native share. NFC is unavailable on macOS.
+/// `NSSharingServicePicker` native share.
 final class MacTransferShareActions: TransferShareActions {
 	var canUseNativeShare: Bool { true }
-	var nfcAvailability: NfcShareAvailability { .hidden }
 
 	func exportInvitation(ticket: String, transferName: String, onResult: @escaping (Result<Void, Error>) -> Void) {
 		let panel = NSSavePanel()
@@ -38,11 +37,5 @@ final class MacTransferShareActions: TransferShareActions {
 			onResult(.failure(error))
 		}
 	}
-
-	func writeInvitationToNfc(ticket: String, onResult: @escaping (Result<Void, Error>) -> Void) {
-		onResult(.failure(InvitationError.nfcUnavailable))
-	}
-
-	func cancelNfcWrite() {}
 }
 #endif

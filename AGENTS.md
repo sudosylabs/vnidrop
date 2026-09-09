@@ -18,8 +18,8 @@ VniDrop is a cross-platform **local P2P file transfer** app.
 | Layer | Path | Responsibility |
 |-------|------|----------------|
 | Rust core | `crates/vnidrop/` | Iroh endpoint, blobs, SQLite, tickets, approval, streaming |
-| Shared KMP | `shared/` | Compose UI, ViewModels, and bridges for Android and the Compose desktop hosts |
-| Compose hosts | `androidApp/`, `desktopApp/` | Android app and retained legacy Windows/Linux desktop hosts |
+| Shared KMP | `shared/` | Compose UI, ViewModels, and bridges for Android, with JVM-based tests |
+| Android app | `androidApp/` | Android Compose host |
 | Apple app | `apple/` | Native SwiftUI UI using generated Rust/UniFFI Swift bindings |
 | Windows app | `windows/` | Released WinUI app using generated Rust/UniFFI C# bindings |
 | Native Linux app | `linux/` | Linux release frontend using GTK/libadwaita and direct Rust calls |
@@ -108,12 +108,11 @@ Other targets (slower / machine-dependent):
 ```bash
 make test-android-host
 make check-android
-make run-desktop
 ```
 
 **Note:** `jvmTest` CI runs on **Linux**. Gobley host cargo is enabled for the
-current host and architecture, so local desktop builds embed their matching
-Rust library.
+current host and architecture, so local JVM tests embed their matching Rust
+library.
 
 ### What to run before finishing
 
@@ -293,7 +292,7 @@ branch from updated `master`.
 | Cancel / delete / stop share | `runtime/lifecycle.rs`, `facade.rs` |
 | Per-receiver send progress | `runtime/provider.rs`, `ui/state/AppUiModels.kt` |
 | Approvals | `feature/approvals/`, `approval.rs` |
-| QR / NFC invitations | `TransferShareActions.*`, `ReceiveInvitationActions.*` |
+| QR / file invitations | `TransferShareActions.*`, `ReceiveInvitationActions.*` |
 | Theme / brand | `ui/theme/VniDropTheme.kt` |
 | Compose skill | `.codex/skills/compose-skill/SKILL.md` |
 

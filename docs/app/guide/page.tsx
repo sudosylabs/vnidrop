@@ -65,7 +65,7 @@ export default function GuidePage() {
               <h2>Send and receive</h2>
               <ol>
                 <li>Open VniDrop on both devices. On the sender, choose files, a batch, or a folder.</li>
-                <li>Create an invitation and share the <code>.vnd</code> file with the receiver. QR codes and NFC are also available where the platform and hardware support them.</li>
+                <li>Create an invitation and share the <code>.vnd</code> file with the receiver. QR codes are also available where the platform and hardware support them.</li>
                 <li>On the receiver, open the invitation in VniDrop and request the transfer.</li>
                 <li>Approve the request on the sender. The receiver saves to its selected destination; Android defaults to Downloads.</li>
                 <li>Keep both devices reachable until the transfer finishes. Stop sharing when you no longer want the invitation to work.</li>
@@ -118,7 +118,7 @@ export default function GuidePage() {
                 <div><dt><a href={`${githubRepoUrl}/blob/master/apple/README.md`}>Apple · SwiftUI</a></dt><dd><code>make open-apple APPLE_CODE_SIGNING=YES</code><p>Configure Local.xcconfig first. Use Xcode on macOS for Apple targets.</p></dd></div>
                 <div><dt><a href={`${githubRepoUrl}/blob/master/CONTRIBUTING.md`}>Android · Kotlin / Compose</a></dt><dd><code>make build-android</code><p>A local debug build for development; requires JDK, Android SDK/NDK, Rust, and Bun.</p></dd></div>
               </dl>
-              <p>The retained Compose desktop host is for migration checks. It does not build the Windows or Linux release apps. For repository checks and contributions, see <a href={`${githubRepoUrl}/blob/master/CONTRIBUTING.md`}>CONTRIBUTING.md</a>.</p>
+              <p>For repository checks and contributions, see <a href={`${githubRepoUrl}/blob/master/CONTRIBUTING.md`}>CONTRIBUTING.md</a>.</p>
             </section>
           </article>
         </div>

@@ -29,11 +29,11 @@ const steps = [
   },
   {
     src: "/shots/share-securely.png",
-    width: 1320,
-    height: 2868,
+    width: 851,
+    height: 1848,
     alt: "Native iPhone share sheet with a QR code for the transfer invitation.",
     title: "Introduce the devices",
-    text: "Share a .vnd invitation, or use QR and NFC where supported. The other device opens it in VniDrop.",
+    text: "Share a .vnd invitation, or use QR where supported. The other device opens it in VniDrop.",
   },
   {
     src: "/shots/choose-receivers.png",
@@ -109,10 +109,10 @@ export default function HomePage() {
           <figure className={styles.heroFigure}>
             <Image
               src="/shots/hero.png"
-              width={2400}
-              height={1920}
+              width={1402}
+              height={1122}
               sizes="(max-width: 800px) calc(100vw - 32px), (max-width: 1200px) 58vw, 650px"
-              alt="VniDrop on macOS reviewing a transfer, and on iPhone choosing how to connect: a .vnd file, a QR code, or NFC."
+              alt="VniDrop on macOS reviewing a transfer, and on iPhone choosing how to connect: a .vnd file or a QR code."
               priority
               unoptimized
             />

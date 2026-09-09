@@ -37,4 +37,3 @@ APPLE_TEST_CODE_SIGN_IDENTITY ?= -
 APPLE_DERIVED_DATA ?= $(ROOT)/apple/DerivedData
 
 GRADLE_FLAGS ?= --no-daemon --stacktrace
-GRADLE_RELEASE_FLAGS ?= --no-daemon --no-configuration-cache --stacktrace

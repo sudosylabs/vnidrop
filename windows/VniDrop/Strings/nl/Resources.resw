@@ -17,7 +17,7 @@
   <data name="about_isnt_title" xml:space="preserve"><value>Wat VniDrop niet is</value></data>
   <data name="about_license_label" xml:space="preserve"><value>Licentie</value></data>
   <data name="about_privacy" xml:space="preserve"><value>Privacybeleid</value></data>
-  <data name="about_privacy_capability" xml:space="preserve"><value>Uitnodigingen zijn toegangssleutels. Behandel een QR-code, NFC-tag of .vnd-bestand als een privétoegangslink en deel deze alleen met de bedoelde personen, vooral bij ‘Iedereen met deze overdracht’.</value></data>
+  <data name="about_privacy_capability" xml:space="preserve"><value>Uitnodigingen zijn toegangssleutels. Behandel een QR-code of .vnd-bestand als een privétoegangslink en deel deze alleen met de bedoelde personen, vooral bij ‘Iedereen met deze overdracht’.</value></data>
   <data name="about_privacy_deny" xml:space="preserve"><value>VniDrop levert alleen de inhoud van een actieve deling en wijst onbekende verzoeken standaard af.</value></data>
   <data name="about_privacy_local" xml:space="preserve"><value>Ontvangen bestanden worden op uw apparaat bewaard en overschrijven nooit een bestaand bestand.</value></data>
   <data name="about_privacy_policy_label" xml:space="preserve"><value>Privacybeleid</value></data>
@@ -85,7 +85,6 @@
   <data name="button_share_file" xml:space="preserve"><value>Delen starten</value></data>
   <data name="button_sharing_file" xml:space="preserve"><value>Overdracht voorbereiden…</value></data>
   <data name="button_show_in_files" xml:space="preserve"><value>Toon in Bestanden</value></data>
-  <data name="button_write_nfc" xml:space="preserve"><value>Naar NFC-tag schrijven</value></data>
   <data name="device_model_title" xml:space="preserve"><value>Apparaatmodel</value></data>
   <data name="device_name_title" xml:space="preserve"><value>Apparaatnaam</value></data>
   <data name="error_camera" xml:space="preserve"><value>Voor het scannen van een QR-code is toegang tot de camera vereist.</value></data>
@@ -99,7 +98,6 @@
   <data name="error_invitation_empty" xml:space="preserve"><value>Die uitnodiging is leeg. Probeer deze opnieuw te openen.</value></data>
   <data name="error_missing_native_library" xml:space="preserve"><value>De native VniDrop-bibliotheek ontbreekt in deze build.</value></data>
   <data name="error_network" xml:space="preserve"><value>VniDrop kon de afzender niet bereiken. Controleer de verbinding op beide apparaten en probeer het opnieuw.</value></data>
-  <data name="error_nfc" xml:space="preserve"><value>Deze NFC-tag kon niet worden gebruikt. Probeer een andere.</value></data>
   <data name="error_permission" xml:space="preserve"><value>De afzender heeft deze overdracht niet goedgekeurd, of deze is geweigerd.</value></data>
   <data name="error_repository" xml:space="preserve"><value>VniDrop kon de overdrachtsgegevens niet op dit apparaat bewaren.</value></data>
   <data name="error_selection_failed" xml:space="preserve"><value>Het geselecteerde item kon niet worden geopend. Probeer het opnieuw te kiezen.</value></data>
@@ -184,18 +182,15 @@
   <data name="receive_delete_history_description" xml:space="preserve"><value>{transferName} wordt uit de geschiedenis van VniDrop verwijderd. Het gedownloade bestand blijft op dit apparaat.</value></data>
   <data name="receive_delete_history_item" xml:space="preserve"><value>Uit ontvangstgeschiedenis verwijderen</value></data>
   <data name="receive_delete_history_title" xml:space="preserve"><value>Uit geschiedenis verwijderen?</value></data>
-  <data name="receive_empty_body" xml:space="preserve"><value>Open een VniDrop-uitnodiging, scan een QR-code of houd het apparaat bij een NFC-tag.</value></data>
+  <data name="receive_empty_body" xml:space="preserve"><value>Open een VniDrop-uitnodiging of scan een QR-code.</value></data>
   <data name="receive_empty_title" xml:space="preserve"><value>Nog niets ontvangen</value></data>
   <data name="receive_history_cleared" xml:space="preserve"><value>Ontvangstgeschiedenis gewist.</value></data>
   <data name="receive_history_title" xml:space="preserve"><value>Geschiedenis</value></data>
   <data name="receive_method_file" xml:space="preserve"><value>Een .vnd-uitnodiging openen</value></data>
   <data name="receive_method_file_description" xml:space="preserve"><value>Kies een uitnodiging die op dit apparaat is bewaard of gedeeld.</value></data>
-  <data name="receive_method_nfc" xml:space="preserve"><value>NFC-tag lezen</value></data>
-  <data name="receive_method_nfc_description" xml:space="preserve"><value>Houd dit apparaat bij de uitnodigingstag van de afzender.</value></data>
   <data name="receive_method_scan" xml:space="preserve"><value>QR-code scannen</value></data>
   <data name="receive_method_scan_description" xml:space="preserve"><value>Gebruik de camera om de VniDrop-code van de afzender te scannen.</value></data>
   <data name="receive_new_subtitle" xml:space="preserve"><value>Overdrachten die u op dit apparaat hebt ontvangen.</value></data>
-  <data name="receive_nfc_waiting" xml:space="preserve"><value>Houd bij de NFC-tag…</value></data>
   <data name="receive_open_files_failed" xml:space="preserve"><value>VniDrop kon niet worden geopend in Bestanden.</value></data>
   <data name="receive_review_title" xml:space="preserve"><value>Overdracht controleren</value></data>
   <data name="receive_title" xml:space="preserve"><value>Ontvangen</value></data>
@@ -279,7 +274,7 @@
   <data name="send_choose_file_body" xml:space="preserve"><value>Selecteer bestanden of een map op dit apparaat. U kunt de selectie controleren voordat u de overdracht aanmaakt.</value></data>
   <data name="send_choose_file_title" xml:space="preserve"><value>Kies wat u wilt delen</value></data>
   <data name="send_default_transfer_name" xml:space="preserve"><value>{count} bestanden</value></data>
-  <data name="send_empty_body" xml:space="preserve"><value>Maak een overdracht aan, bepaal wie deze kan ontvangen en nodig die personen vervolgens uit met een QR-code, NFC-tag of uitnodigingsbestand.</value></data>
+  <data name="send_empty_body" xml:space="preserve"><value>Maak een overdracht aan, bepaal wie deze kan ontvangen en nodig die personen vervolgens uit met een QR-code of uitnodigingsbestand.</value></data>
   <data name="send_empty_title" xml:space="preserve"><value>Nog niets gedeeld</value></data>
   <data name="send_file_size_unknown" xml:space="preserve"><value>Grootte niet beschikbaar</value></data>
   <data name="send_folder_label" xml:space="preserve"><value>Map</value></data>
@@ -365,9 +360,6 @@
   <data name="transfer_file_count_other" xml:space="preserve"><value>{count} bestanden</value></data>
   <data name="transfer_invitation_saved" xml:space="preserve"><value>Uitnodiging bewaard.</value></data>
   <data name="transfer_nearby_device" xml:space="preserve"><value>Apparaat in de buurt</value></data>
-  <data name="transfer_nfc_unavailable" xml:space="preserve"><value>Het schrijven van NFC-tags is niet beschikbaar op dit apparaat.</value></data>
-  <data name="transfer_nfc_waiting" xml:space="preserve"><value>Houd uw apparaat bij een beschrijfbare NFC-tag.</value></data>
-  <data name="transfer_nfc_written" xml:space="preserve"><value>Uitnodiging naar de NFC-tag geschreven.</value></data>
   <data name="transfer_no_activity" xml:space="preserve"><value>Er is nog geen activiteit om weer te geven.</value></data>
   <data name="transfer_no_receivers" xml:space="preserve"><value>Nog niemand heeft deze overdracht aangevraagd.</value></data>
   <data name="transfer_qr_unavailable" xml:space="preserve"><value>QR is niet beschikbaar voor deze uitnodiging. Gebruik in plaats daarvan Delen of Downloaden.</value></data>

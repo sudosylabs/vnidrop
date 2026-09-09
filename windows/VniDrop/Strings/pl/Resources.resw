@@ -17,7 +17,7 @@
   <data name="about_isnt_title" xml:space="preserve"><value>Czym VniDrop nie jest</value></data>
   <data name="about_license_label" xml:space="preserve"><value>Licencja</value></data>
   <data name="about_privacy" xml:space="preserve"><value>Polityka prywatności</value></data>
-  <data name="about_privacy_capability" xml:space="preserve"><value>Zaproszenia są kluczami dostępu. Traktuj kod QR, tag NFC lub plik .vnd jak prywatny link dostępu i udostępniaj go tylko zamierzonym osobom, zwłaszcza przy opcji „Każdy, kto ma ten transfer”.</value></data>
+  <data name="about_privacy_capability" xml:space="preserve"><value>Zaproszenia są kluczami dostępu. Traktuj kod QR lub plik .vnd jak prywatny link dostępu i udostępniaj go tylko zamierzonym osobom, zwłaszcza przy opcji „Każdy, kto ma ten transfer”.</value></data>
   <data name="about_privacy_deny" xml:space="preserve"><value>VniDrop udostępnia tylko zawartość aktywnego udostępnienia i domyślnie odrzuca nieznane żądania.</value></data>
   <data name="about_privacy_local" xml:space="preserve"><value>Odebrane pliki są zapisywane na Twoim urządzeniu i nigdy nie nadpisują istniejącego pliku.</value></data>
   <data name="about_privacy_policy_label" xml:space="preserve"><value>Polityka prywatności</value></data>
@@ -85,7 +85,6 @@
   <data name="button_share_file" xml:space="preserve"><value>Rozpocznij udostępnianie</value></data>
   <data name="button_sharing_file" xml:space="preserve"><value>Przygotowywanie transferu…</value></data>
   <data name="button_show_in_files" xml:space="preserve"><value>Pokaż w Plikach</value></data>
-  <data name="button_write_nfc" xml:space="preserve"><value>Zapisz na tagu NFC</value></data>
   <data name="device_model_title" xml:space="preserve"><value>Model urządzenia</value></data>
   <data name="device_name_title" xml:space="preserve"><value>Nazwa urządzenia</value></data>
   <data name="error_camera" xml:space="preserve"><value>Do zeskanowania kodu QR wymagany jest dostęp do aparatu.</value></data>
@@ -99,7 +98,6 @@
   <data name="error_invitation_empty" xml:space="preserve"><value>To zaproszenie jest puste. Spróbuj otworzyć je ponownie.</value></data>
   <data name="error_missing_native_library" xml:space="preserve"><value>W tej kompilacji brakuje natywnej biblioteki VniDrop.</value></data>
   <data name="error_network" xml:space="preserve"><value>VniDrop nie mógł połączyć się z nadawcą. Sprawdź połączenie na obu urządzeniach i spróbuj ponownie.</value></data>
-  <data name="error_nfc" xml:space="preserve"><value>Nie udało się użyć tego tagu NFC. Spróbuj innego.</value></data>
   <data name="error_permission" xml:space="preserve"><value>Nadawca nie zatwierdził tego transferu lub został on odrzucony.</value></data>
   <data name="error_repository" xml:space="preserve"><value>VniDrop nie mógł zapisać danych transferu na tym urządzeniu.</value></data>
   <data name="error_selection_failed" xml:space="preserve"><value>Nie udało się otworzyć wybranego elementu. Spróbuj wybrać go ponownie.</value></data>
@@ -184,18 +182,15 @@
   <data name="receive_delete_history_description" xml:space="preserve"><value>{transferName} zostanie usunięty z historii VniDrop. Pobrany plik pozostanie na tym urządzeniu.</value></data>
   <data name="receive_delete_history_item" xml:space="preserve"><value>Usuń z historii odbioru</value></data>
   <data name="receive_delete_history_title" xml:space="preserve"><value>Usunąć z historii?</value></data>
-  <data name="receive_empty_body" xml:space="preserve"><value>Otwórz zaproszenie VniDrop, zeskanuj kod QR lub zbliż tag NFC.</value></data>
+  <data name="receive_empty_body" xml:space="preserve"><value>Otwórz zaproszenie VniDrop lub zeskanuj kod QR.</value></data>
   <data name="receive_empty_title" xml:space="preserve"><value>Nic jeszcze nie odebrano</value></data>
   <data name="receive_history_cleared" xml:space="preserve"><value>Historia odbioru wyczyszczona.</value></data>
   <data name="receive_history_title" xml:space="preserve"><value>Historia</value></data>
   <data name="receive_method_file" xml:space="preserve"><value>Otwórz zaproszenie .vnd</value></data>
   <data name="receive_method_file_description" xml:space="preserve"><value>Wybierz zaproszenie zapisane lub udostępnione na tym urządzeniu.</value></data>
-  <data name="receive_method_nfc" xml:space="preserve"><value>Odczytaj tag NFC</value></data>
-  <data name="receive_method_nfc_description" xml:space="preserve"><value>Zbliż to urządzenie do tagu zaproszenia nadawcy.</value></data>
   <data name="receive_method_scan" xml:space="preserve"><value>Zeskanuj kod QR</value></data>
   <data name="receive_method_scan_description" xml:space="preserve"><value>Użyj aparatu, aby zeskanować kod VniDrop nadawcy.</value></data>
   <data name="receive_new_subtitle" xml:space="preserve"><value>Transfery odebrane na tym urządzeniu.</value></data>
-  <data name="receive_nfc_waiting" xml:space="preserve"><value>Zbliż do tagu NFC…</value></data>
   <data name="receive_open_files_failed" xml:space="preserve"><value>Nie udało się otworzyć VniDrop w Plikach.</value></data>
   <data name="receive_review_title" xml:space="preserve"><value>Przejrzyj transfer</value></data>
   <data name="receive_title" xml:space="preserve"><value>Odbierz</value></data>
@@ -279,7 +274,7 @@
   <data name="send_choose_file_body" xml:space="preserve"><value>Wybierz pliki lub folder z tego urządzenia. Przed utworzeniem transferu możesz przejrzeć wybór.</value></data>
   <data name="send_choose_file_title" xml:space="preserve"><value>Wybierz, co udostępnić</value></data>
   <data name="send_default_transfer_name" xml:space="preserve"><value>Pliki: {count}</value></data>
-  <data name="send_empty_body" xml:space="preserve"><value>Utwórz transfer, zdecyduj, kto może go odebrać, a następnie zaproś te osoby za pomocą kodu QR, tagu NFC lub pliku zaproszenia.</value></data>
+  <data name="send_empty_body" xml:space="preserve"><value>Utwórz transfer, zdecyduj, kto może go odebrać, a następnie zaproś te osoby za pomocą kodu QR lub pliku zaproszenia.</value></data>
   <data name="send_empty_title" xml:space="preserve"><value>Nic jeszcze nie udostępniono</value></data>
   <data name="send_file_size_unknown" xml:space="preserve"><value>Rozmiar niedostępny</value></data>
   <data name="send_folder_label" xml:space="preserve"><value>Folder</value></data>
@@ -365,9 +360,6 @@
   <data name="transfer_file_count_other" xml:space="preserve"><value>{count} pliku</value></data>
   <data name="transfer_invitation_saved" xml:space="preserve"><value>Zaproszenie zapisane.</value></data>
   <data name="transfer_nearby_device" xml:space="preserve"><value>Urządzenie w pobliżu</value></data>
-  <data name="transfer_nfc_unavailable" xml:space="preserve"><value>Zapis tagów NFC nie jest dostępny na tym urządzeniu.</value></data>
-  <data name="transfer_nfc_waiting" xml:space="preserve"><value>Zbliż urządzenie do zapisywalnego tagu NFC.</value></data>
-  <data name="transfer_nfc_written" xml:space="preserve"><value>Zaproszenie zapisane na tagu NFC.</value></data>
   <data name="transfer_no_activity" xml:space="preserve"><value>Nie ma jeszcze aktywności do wyświetlenia.</value></data>
   <data name="transfer_no_receivers" xml:space="preserve"><value>Nikt jeszcze nie poprosił o ten transfer.</value></data>
   <data name="transfer_qr_unavailable" xml:space="preserve"><value>Kod QR jest niedostępny dla tego zaproszenia. Zamiast tego użyj opcji Udostępnij lub Pobierz.</value></data>

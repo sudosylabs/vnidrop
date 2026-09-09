@@ -51,7 +51,6 @@ ICONS = (
 	IconSource("megaphone", "campaign", "Megaphone", "megaphone", "megaphone"),
 	IconSource("more_vertical", "more_vert", "More Vertical", "more_vertical", "ellipsis-vertical"),
 	IconSource("moon", "dark_mode", "Weather Moon", "weather_moon", "moon"),
-	IconSource("nfc", "nfc", "Tap Double", "tap_double", "nfc"),
 	IconSource("qr_code", "qr_code_scanner", "QR Code", "qr_code", "qr-code"),
 	IconSource("radio", "cell_tower", "Cellular Data 1", "cellular_data_1", "radio-tower"),
 	IconSource("scan", "document_scanner", "Scan Type", "scan_type", "scan-line"),

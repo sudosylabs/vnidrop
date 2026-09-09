@@ -159,8 +159,6 @@ extension InvitationError {
 			return .resource(L10n.Error.startingUp)
 		case .filesystemUnavailable:
 			return .resource(L10n.Error.filesystem)
-		case .nfcUnavailable, .nfcFailed:
-			return .resource(L10n.Error.nfc)
 		case .cameraUnavailable:
 			return .resource(L10n.Error.camera)
 		case .selectionFailed:
@@ -240,11 +238,6 @@ private func reasonHints(_ detailRaw: String) -> UiText? {
 	}
 	if detail.contains("camera") {
 		return .resource(L10n.Error.camera)
-	}
-	if detail.contains("nfc") || detail.contains("ndef")
-		|| (detail.contains("read-only") && detail.contains("tag"))
-		|| detail.contains("tag is too small") || detail.contains("no nfc tag") {
-		return .resource(L10n.Error.nfc)
 	}
 	if detail.contains("native") && detail.contains("library") {
 		return .resource(L10n.Error.missingNativeLibrary)

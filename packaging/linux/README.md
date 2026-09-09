@@ -83,7 +83,3 @@ make package-rpm
 The existing `make package-linux-native-deb` and `make package-linux-native-rpm`
 commands select the same builds. For an intentionally unconfigured development
 package, pass `VNIDROP_DIAGNOSTICS_REQUIRED=0`. Official builds require reporting.
-
-Legacy Compose packaging remains available as `make package-compose-deb` and
-`make package-compose-rpm` for migration checks. It requires the old JDK/Gradle
-setup and writes to `build/release/linux-compose/`, outside the release inputs.

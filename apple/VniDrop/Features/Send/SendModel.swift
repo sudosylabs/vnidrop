@@ -11,7 +11,6 @@ enum TransferDetailPanel: Equatable {
 enum InvitationAction {
 	case export
 	case share
-	case nfc
 }
 
 /// Send feature state, ported from `feature/send/SendViewModel.kt` (`SendState`).
@@ -336,7 +335,6 @@ final class SendModel: ObservableObject {
 			let key: String.LocalizationValue?
 			switch action {
 			case .export: key = L10n.Transfer.invitationSaved
-			case .nfc: key = L10n.Transfer.nfcWritten
 			case .share: key = nil  // system share sheet already confirms
 			}
 			if let key { messages.tryShow(UiMessage(text: .resource(key), tone: .success)) }

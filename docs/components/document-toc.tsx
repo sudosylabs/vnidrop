@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import styles from "./page.module.css";
+import styles from "./document-page.module.css";
 
-type PrivacySection = readonly [id: string, label: string];
+type DocumentSection = readonly [id: string, label: string];
 
-export function PrivacyToc({ sections }: { sections: readonly PrivacySection[] }) {
+export function DocumentToc({ sections, label }: {
+  sections: readonly DocumentSection[];
+  label: string;
+}) {
   const [activeId, setActiveId] = useState(sections[0]?.[0] ?? "");
 
   useEffect(() => {
@@ -58,9 +61,9 @@ export function PrivacyToc({ sections }: { sections: readonly PrivacySection[] }
   }, [sections]);
 
   return (
-    <aside className={styles.privacyToc}>
+    <aside className={styles.toc}>
       <p>On this page</p>
-      <nav aria-label="Privacy policy sections">
+      <nav aria-label={label}>
         <ol>
           {sections.map(([id, label]) => (
             <li key={id}>

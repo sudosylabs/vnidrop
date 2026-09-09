@@ -20,7 +20,7 @@ const metadataBase = new URL(
   configuredSiteUrl.startsWith("http") ? configuredSiteUrl : `https://${configuredSiteUrl}`,
 );
 
-const title = "VniDrop — Send files from this device to that one";
+const title = "VniDrop · Send files from this device to that one";
 const description =
   "Direct file transfer across Android, iOS, macOS, Windows, and Linux. No account, no hosted copy. Meet with an invitation, or send to a Saved device. They still confirm.";
 
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "VniDrop — Send files directly, with no account or hosted copy.",
+        alt: "VniDrop file sharing, with the macOS and iPhone apps.",
       },
     ],
   },
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
     images: [
       {
         url: "/og.png",
-        alt: "VniDrop — Send files directly, with no account or hosted copy.",
+        alt: "VniDrop file sharing, with the macOS and iPhone apps.",
       },
     ],
   },

@@ -9,13 +9,22 @@ export function SiteHeader() {
       <div className={`${styles.inner} page-shell`}>
         <Brand />
         <nav className={styles.nav} aria-label="Site">
-          <Link className={`${styles.link} ${styles.how}`} href="/#how-it-works">
-            How it works
+          <Link className={styles.link} href="/guide/">
+            Guide
           </Link>
-          <Link className={`${styles.download} btn btn-primary`} href="/download/">
+          <Link className={`${styles.link} ${styles.download}`} href="/download/">
             Download
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </Link>
-          <a className={styles.link} href={githubRepoUrl} target="_blank" rel="noreferrer">
+          <a className={`${styles.link} ${styles.github}`} href={githubRepoUrl} target="_blank" rel="noreferrer">
             GitHub
           </a>
         </nav>

@@ -33,7 +33,7 @@ const steps = [
     height: 2868,
     alt: "Native iPhone share sheet with a QR code for the transfer invitation.",
     title: "Introduce the devices",
-    text: "Show a QR code, write an NFC tag, or save a .vnd invitation. The other device opens it in VniDrop.",
+    text: "Share a .vnd invitation, or use QR and NFC where supported. The other device opens it in VniDrop.",
   },
   {
     src: "/shots/choose-receivers.png",
@@ -60,7 +60,15 @@ const questions = [
   },
   {
     q: "Which platforms?",
-    a: "Android, iOS, macOS, Windows, and Linux. Windows is on the Microsoft Store. macOS, Linux, and Android builds are on GitHub. iOS is not in a public store yet.",
+    a: "Android, iOS, macOS, Windows, and Linux. Windows has Store and direct downloads; macOS, Linux, and Android have GitHub downloads. iOS currently requires a source build with Xcode.",
+  },
+  {
+    q: "Can I try changes before a store release?",
+    a: "Yes, when a preview is published. Previews use Release builds for macOS, Windows, Linux, and Android and skip store submission. Choose the preview section on the download page for early testing.",
+  },
+  {
+    q: "Can I choose which relays to use?",
+    a: "Yes. Network settings offer automatic connections, custom HTTPS relays, or direct-only connections. The guide explains each mode and how to apply changes safely.",
   },
 ];
 
@@ -155,6 +163,7 @@ export default function HomePage() {
               </li>
             ))}
           </ol>
+          <Link className="text-link" href="/guide/">Read the guide for installation, saved devices, and troubleshooting →</Link>
         </div>
       </section>
 
@@ -177,8 +186,8 @@ export default function HomePage() {
           <div>
             <h2>Make the next handoff.</h2>
             <p>
-              Beta builds for macOS, Linux, and Android. Windows is on the Microsoft Store. iOS is
-              not in a public store yet.
+              Public downloads for macOS, Windows, Linux, and Android, with a separate preview
+              channel for early testing. iOS is available to build from source.
             </p>
             <ul className={styles.osList}>
               {platforms.map((platform) => (
@@ -195,6 +204,7 @@ export default function HomePage() {
             <a className="text-link" href={githubRepoUrl} target="_blank" rel="noreferrer">
               Source on GitHub
             </a>
+            <Link className="text-link" href="/download/#preview">Try a preview</Link>
           </p>
         </div>
       </section>

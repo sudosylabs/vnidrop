@@ -5,20 +5,20 @@
   <resheader name="version"><value>2.0</value></resheader>
   <data name="about_bug_report" xml:space="preserve"><value>Fehler melden</value></data>
   <data name="about_description" xml:space="preserve"><value>VniDrop überträgt Dateien und Ordner direkt von einem Gerät auf ein anderes über das Netzwerk, ohne sie auf einen Hosting-Dienst hochzuladen. Es muss kein Konto erstellt werden, und nach Abschluss verbleibt keine Kopie Ihrer Übertragung in der Cloud.</value></data>
-  <data name="about_is_direct" xml:space="preserve"><value>Eine direkte Gerät-zu-Gerät-Übertragung – Ihre Dateien gehen direkt an den Empfänger.</value></data>
+  <data name="about_is_direct" xml:space="preserve"><value>Ihre Dateien werden direkt von Ihrem Gerät an den Empfänger übertragen.</value></data>
   <data name="about_is_encrypted" xml:space="preserve"><value>Verbindungen sind authentifiziert und Ende-zu-Ende-verschlüsselt (über Iroh), und eingehende Dateien werden anhand ihres Inhalts-Hashs überprüft.</value></data>
   <data name="about_is_in_control" xml:space="preserve"><value>Sie entscheiden, wer empfängt: Genehmigen Sie jede Anfrage oder öffnen Sie eine Übertragung für alle, die die Einladung besitzen.</value></data>
-  <data name="about_is_no_account" xml:space="preserve"><value>Ohne Konto – es gibt nichts zu registrieren.</value></data>
+  <data name="about_is_no_account" xml:space="preserve"><value>Kein Konto und keine Registrierung erforderlich.</value></data>
   <data name="about_is_open" xml:space="preserve"><value>Open Source, veröffentlicht unter der Apache-2.0-Lizenz.</value></data>
   <data name="about_is_title" xml:space="preserve"><value>Was VniDrop ist</value></data>
-  <data name="about_isnt_cloud" xml:space="preserve"><value>Kein Cloud-Speicher – kein Server hält Ihre Dateien, und nach einer Übertragung wartet nichts in der Cloud.</value></data>
-  <data name="about_isnt_public" xml:space="preserve"><value>Keine öffentliche Übertragung – eine Einladung ist ein privater Zugangslink, keine Ankündigung an alle in der Nähe.</value></data>
+  <data name="about_isnt_cloud" xml:space="preserve"><value>Kein Server speichert Ihre Dateien, und nach einer Übertragung bleibt nichts in der Cloud.</value></data>
+  <data name="about_isnt_public" xml:space="preserve"><value>Eine Einladung ist ein privater Zugangslink, keine Ankündigung an alle in der Nähe.</value></data>
   <data name="about_isnt_sync" xml:space="preserve"><value>Kein Synchronisierungs- oder Backup-Dienst.</value></data>
   <data name="about_isnt_title" xml:space="preserve"><value>Was VniDrop nicht ist</value></data>
   <data name="about_license_label" xml:space="preserve"><value>Lizenz</value></data>
   <data name="about_privacy" xml:space="preserve"><value>Datenschutzrichtlinie</value></data>
-  <data name="about_privacy_capability" xml:space="preserve"><value>Einladungen sind Zugangsschlüssel. Behandeln Sie einen QR-Code, ein NFC-Tag oder eine .vnd-Datei wie einen privaten Zugangslink und teilen Sie ihn nur mit den vorgesehenen Personen – insbesondere bei „Jeder mit dieser Übertragung“.</value></data>
-  <data name="about_privacy_deny" xml:space="preserve"><value>Standardmäßig ablehnen – VniDrop stellt nur den Inhalt einer aktiven Freigabe bereit und weist unbekannte Anfragen ab.</value></data>
+  <data name="about_privacy_capability" xml:space="preserve"><value>Einladungen sind Zugangsschlüssel. Behandeln Sie einen QR-Code, ein NFC-Tag oder eine .vnd-Datei wie einen privaten Zugangslink und teilen Sie ihn nur mit den vorgesehenen Personen, insbesondere bei „Jeder mit dieser Übertragung“.</value></data>
+  <data name="about_privacy_deny" xml:space="preserve"><value>VniDrop stellt nur den Inhalt einer aktiven Freigabe bereit und weist unbekannte Anfragen standardmäßig ab.</value></data>
   <data name="about_privacy_local" xml:space="preserve"><value>Empfangene Dateien werden auf Ihrem Gerät gespeichert und überschreiben niemals eine vorhandene Datei.</value></data>
   <data name="about_privacy_policy_label" xml:space="preserve"><value>Datenschutzrichtlinie</value></data>
   <data name="about_privacy_relay" xml:space="preserve"><value>Wenn zwei Geräte sich nicht direkt verbinden können, kann die verschlüsselte Verbindung weitergeleitet werden. Relays leiten nur verschlüsselte Pakete weiter; sie speichern niemals Ihre Dateien.</value></data>

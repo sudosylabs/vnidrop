@@ -5,20 +5,20 @@
   <resheader name="version"><value>2.0</value></resheader>
   <data name="about_bug_report" xml:space="preserve"><value>Een fout melden</value></data>
   <data name="about_description" xml:space="preserve"><value>VniDrop verplaatst bestanden en mappen rechtstreeks van het ene apparaat naar het andere via het netwerk, zonder ze naar een hostingdienst te uploaden. U hoeft geen account aan te maken en er blijft geen kopie van uw overdracht in de cloud achter zodra u klaar bent.</value></data>
-  <data name="about_is_direct" xml:space="preserve"><value>Een directe overdracht van apparaat naar apparaat — uw bestanden gaan rechtstreeks naar de ontvanger.</value></data>
+  <data name="about_is_direct" xml:space="preserve"><value>Uw bestanden gaan rechtstreeks van uw apparaat naar de ontvanger.</value></data>
   <data name="about_is_encrypted" xml:space="preserve"><value>Verbindingen zijn geverifieerd en end-to-end versleuteld (via Iroh), en binnenkomende bestanden worden gecontroleerd aan de hand van hun inhouds-hash.</value></data>
   <data name="about_is_in_control" xml:space="preserve"><value>U bepaalt wie ontvangt: keur elk verzoek goed, of stel een overdracht open voor iedereen met de uitnodiging.</value></data>
-  <data name="about_is_no_account" xml:space="preserve"><value>Zonder account — er is niets om aan te melden.</value></data>
+  <data name="about_is_no_account" xml:space="preserve"><value>U hoeft geen account aan te maken of u te registreren.</value></data>
   <data name="about_is_open" xml:space="preserve"><value>Opensource, uitgebracht onder de Apache 2.0-licentie.</value></data>
   <data name="about_is_title" xml:space="preserve"><value>Wat VniDrop is</value></data>
-  <data name="about_isnt_cloud" xml:space="preserve"><value>Geen cloudopslag — geen enkele server bewaart uw bestanden en er wacht niets in de cloud na een overdracht.</value></data>
-  <data name="about_isnt_public" xml:space="preserve"><value>Geen openbare uitzending — een uitnodiging is een privétoegangslink, geen aankondiging aan iedereen in de buurt.</value></data>
+  <data name="about_isnt_cloud" xml:space="preserve"><value>Geen enkele server bewaart uw bestanden en er blijft niets in de cloud achter na een overdracht.</value></data>
+  <data name="about_isnt_public" xml:space="preserve"><value>Een uitnodiging is een privétoegangslink, geen aankondiging aan iedereen in de buurt.</value></data>
   <data name="about_isnt_sync" xml:space="preserve"><value>Geen synchronisatie- of back-updienst.</value></data>
   <data name="about_isnt_title" xml:space="preserve"><value>Wat VniDrop niet is</value></data>
   <data name="about_license_label" xml:space="preserve"><value>Licentie</value></data>
   <data name="about_privacy" xml:space="preserve"><value>Privacybeleid</value></data>
-  <data name="about_privacy_capability" xml:space="preserve"><value>Uitnodigingen zijn toegangssleutels. Behandel een QR-code, NFC-tag of .vnd-bestand als een privétoegangslink en deel deze alleen met de bedoelde personen — vooral bij ‘Iedereen met deze overdracht’.</value></data>
-  <data name="about_privacy_deny" xml:space="preserve"><value>Standaard weigeren — VniDrop levert alleen de inhoud van een actieve deling en wijst onbekende verzoeken af.</value></data>
+  <data name="about_privacy_capability" xml:space="preserve"><value>Uitnodigingen zijn toegangssleutels. Behandel een QR-code, NFC-tag of .vnd-bestand als een privétoegangslink en deel deze alleen met de bedoelde personen, vooral bij ‘Iedereen met deze overdracht’.</value></data>
+  <data name="about_privacy_deny" xml:space="preserve"><value>VniDrop levert alleen de inhoud van een actieve deling en wijst onbekende verzoeken standaard af.</value></data>
   <data name="about_privacy_local" xml:space="preserve"><value>Ontvangen bestanden worden op uw apparaat bewaard en overschrijven nooit een bestaand bestand.</value></data>
   <data name="about_privacy_policy_label" xml:space="preserve"><value>Privacybeleid</value></data>
   <data name="about_privacy_relay" xml:space="preserve"><value>Als twee apparaten niet rechtstreeks verbinding kunnen maken, kan de versleutelde verbinding via een relay worden doorgestuurd. Relays sturen alleen versleutelde pakketten door; ze slaan uw bestanden nooit op.</value></data>

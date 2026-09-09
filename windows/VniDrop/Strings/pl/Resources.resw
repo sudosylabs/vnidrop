@@ -5,20 +5,20 @@
   <resheader name="version"><value>2.0</value></resheader>
   <data name="about_bug_report" xml:space="preserve"><value>Zgłoś błąd</value></data>
   <data name="about_description" xml:space="preserve"><value>VniDrop przesyła pliki i foldery bezpośrednio z jednego urządzenia na drugie przez sieć, bez przesyłania ich do jakiejkolwiek usługi hostingowej. Nie trzeba zakładać konta, a po zakończeniu żadna kopia transferu nie pozostaje w chmurze.</value></data>
-  <data name="about_is_direct" xml:space="preserve"><value>Bezpośredni transfer między urządzeniami — pliki trafiają prosto do odbiorcy.</value></data>
+  <data name="about_is_direct" xml:space="preserve"><value>Pliki trafiają bezpośrednio z Twojego urządzenia do odbiorcy.</value></data>
   <data name="about_is_encrypted" xml:space="preserve"><value>Połączenia są uwierzytelniane i szyfrowane od końca do końca (przez Iroh), a przychodzące pliki są weryfikowane na podstawie skrótu ich zawartości.</value></data>
   <data name="about_is_in_control" xml:space="preserve"><value>To Ty decydujesz, kto otrzymuje: zatwierdź każde żądanie lub udostępnij transfer każdemu, kto ma zaproszenie.</value></data>
-  <data name="about_is_no_account" xml:space="preserve"><value>Bez konta — nie trzeba się rejestrować.</value></data>
+  <data name="about_is_no_account" xml:space="preserve"><value>Nie trzeba zakładać konta ani się rejestrować.</value></data>
   <data name="about_is_open" xml:space="preserve"><value>Otwarte oprogramowanie, wydane na licencji Apache 2.0.</value></data>
   <data name="about_is_title" xml:space="preserve"><value>Czym jest VniDrop</value></data>
-  <data name="about_isnt_cloud" xml:space="preserve"><value>To nie magazyn w chmurze — żaden serwer nie przechowuje Twoich plików i nic nie pozostaje w chmurze po transferze.</value></data>
-  <data name="about_isnt_public" xml:space="preserve"><value>To nie publiczne rozgłaszanie — zaproszenie to prywatny link dostępu, a nie ogłoszenie dla wszystkich w pobliżu.</value></data>
+  <data name="about_isnt_cloud" xml:space="preserve"><value>Żaden serwer nie przechowuje Twoich plików i nic nie pozostaje w chmurze po transferze.</value></data>
+  <data name="about_isnt_public" xml:space="preserve"><value>Zaproszenie to prywatny link dostępu, a nie ogłoszenie dla wszystkich w pobliżu.</value></data>
   <data name="about_isnt_sync" xml:space="preserve"><value>To nie usługa synchronizacji ani kopii zapasowej.</value></data>
   <data name="about_isnt_title" xml:space="preserve"><value>Czym VniDrop nie jest</value></data>
   <data name="about_license_label" xml:space="preserve"><value>Licencja</value></data>
   <data name="about_privacy" xml:space="preserve"><value>Polityka prywatności</value></data>
-  <data name="about_privacy_capability" xml:space="preserve"><value>Zaproszenia są kluczami dostępu. Traktuj kod QR, tag NFC lub plik .vnd jak prywatny link dostępu i udostępniaj go tylko zamierzonym osobom — zwłaszcza przy opcji „Każdy, kto ma ten transfer”.</value></data>
-  <data name="about_privacy_deny" xml:space="preserve"><value>Domyślnie odmowa — VniDrop udostępnia tylko zawartość aktywnego udostępnienia i odrzuca nieznane żądania.</value></data>
+  <data name="about_privacy_capability" xml:space="preserve"><value>Zaproszenia są kluczami dostępu. Traktuj kod QR, tag NFC lub plik .vnd jak prywatny link dostępu i udostępniaj go tylko zamierzonym osobom, zwłaszcza przy opcji „Każdy, kto ma ten transfer”.</value></data>
+  <data name="about_privacy_deny" xml:space="preserve"><value>VniDrop udostępnia tylko zawartość aktywnego udostępnienia i domyślnie odrzuca nieznane żądania.</value></data>
   <data name="about_privacy_local" xml:space="preserve"><value>Odebrane pliki są zapisywane na Twoim urządzeniu i nigdy nie nadpisują istniejącego pliku.</value></data>
   <data name="about_privacy_policy_label" xml:space="preserve"><value>Polityka prywatności</value></data>
   <data name="about_privacy_relay" xml:space="preserve"><value>Jeśli dwa urządzenia nie mogą połączyć się bezpośrednio, szyfrowane połączenie może być przekazywane przez przekaźnik. Przekaźniki przekazują tylko zaszyfrowane pakiety; nigdy nie przechowują Twoich plików.</value></data>

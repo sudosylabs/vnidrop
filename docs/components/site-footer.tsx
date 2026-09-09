@@ -14,6 +14,8 @@ export function SiteFooter() {
         </p>
         <nav className={styles.links} aria-label="Footer">
           <Link href="/download/">Download</Link>
+          <Link href="/download/#preview">Previews</Link>
+          <Link href="/guide/">Guide</Link>
           <Link href="/privacy/">Privacy</Link>
           <a href={githubRepoUrl} target="_blank" rel="noreferrer">
             GitHub

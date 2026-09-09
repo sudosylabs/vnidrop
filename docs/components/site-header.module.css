@@ -36,8 +36,17 @@
 }
 
 .download {
-  padding: 8px 14px;
-  font-size: 14px;
+  gap: 7px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.download:hover {
+  color: var(--brand-ink);
+}
+
+.download svg {
+  flex-shrink: 0;
 }
 
 @media (max-width: 520px) {
@@ -50,7 +59,7 @@
     font-size: 14px;
   }
 
-  .how {
+  .github {
     display: none;
   }
 }

@@ -34,8 +34,11 @@ preview identity before creating downloads. It publishes only the five packages,
 preview number, Android certificate fingerprint, and macOS build number.
 
 Previews use `--prerelease --latest=false`, and their tags begin with `preview-`
-rather than `v`. They do not start the normal tag workflow or update the website,
-Homebrew cask, or stable Sparkle feed. macOS preview installations continue to
+rather than `v`. They do not start the normal tag workflow, rebuild the website,
+or update the Homebrew cask or stable Sparkle feed. The website's
+[preview download section](https://vnidrop.sudosy.fr/download/#preview) loads
+recent previews from GitHub in the browser, so new downloads appear without a
+Pages workflow run. macOS preview installations continue to
 check the stable feed and can move to a later stable build; preview updates are
 downloaded manually from GitHub Releases.
 

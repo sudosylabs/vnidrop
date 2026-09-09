@@ -1,5 +1,11 @@
 # Android release pipeline
 
+This guide describes the normal Play-connected release. For direct testing,
+the [preview workflow](../release/PREVIEW.md) builds a Release APK without an
+AAB or Play submission. It uses a dedicated preview signing key and the separate
+`com.vnidrop.app.preview` application ID. Its one-time signing setup and version
+rules are documented in that guide; do not use the Play upload key for previews.
+
 Android signing and publishing use separate credentials:
 
 - the upload keystore signs the APK and AAB;

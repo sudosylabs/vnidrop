@@ -163,15 +163,15 @@
     "about_is_direct": {
       "context": "About screen, 'What VniDrop is' list: point about direct device-to-device transfer.",
       "translations": {
-        "en": "A direct device-to-device transfer — your files go straight to the receiver.",
-        "fr": "Un transfert direct d’appareil à appareil — vos fichiers vont droit au destinataire.",
+        "en": "Your files go straight from your device to the receiver.",
+        "fr": "Vos fichiers vont directement de votre appareil à celui du destinataire.",
         "es": "Una transferencia directa entre dispositivos: sus archivos van directamente al destinatario.",
         "it": "Un trasferimento diretto da dispositivo a dispositivo: i suoi file vanno direttamente al destinatario.",
-        "de": "Eine direkte Gerät-zu-Gerät-Übertragung – Ihre Dateien gehen direkt an den Empfänger.",
-        "pt": "Uma transferência direta entre dispositivos — os seus ficheiros vão diretamente para o destinatário.",
-        "pl": "Bezpośredni transfer między urządzeniami — pliki trafiają prosto do odbiorcy.",
-        "nl": "Een directe overdracht van apparaat naar apparaat — uw bestanden gaan rechtstreeks naar de ontvanger.",
-        "ru": "Прямая передача с устройства на устройство — ваши файлы попадают напрямую к получателю."
+        "de": "Ihre Dateien werden direkt von Ihrem Gerät an den Empfänger übertragen.",
+        "pt": "Os seus ficheiros vão diretamente do seu dispositivo para o destinatário.",
+        "pl": "Pliki trafiają bezpośrednio z Twojego urządzenia do odbiorcy.",
+        "nl": "Uw bestanden gaan rechtstreeks van uw apparaat naar de ontvanger.",
+        "ru": "Ваши файлы передаются напрямую с вашего устройства получателю."
       }
     },
     "about_is_encrypted": {
@@ -205,15 +205,15 @@
     "about_is_no_account": {
       "context": "About screen, 'What VniDrop is' list: point about being account-free.",
       "translations": {
-        "en": "Account-free — there’s nothing to sign up for.",
-        "fr": "Sans compte — il n’y a rien à créer.",
+        "en": "No account or sign-up required.",
+        "fr": "Aucun compte ni inscription nécessaire.",
         "es": "Sin cuenta: no hay nada que registrar.",
         "it": "Senza account: non c’è nulla da registrare.",
-        "de": "Ohne Konto – es gibt nichts zu registrieren.",
-        "pt": "Sem conta — não há nada para registar.",
-        "pl": "Bez konta — nie trzeba się rejestrować.",
-        "nl": "Zonder account — er is niets om aan te melden.",
-        "ru": "Без учётной записи — регистрироваться не нужно."
+        "de": "Kein Konto und keine Registrierung erforderlich.",
+        "pt": "Não é necessário criar conta nem registar-se.",
+        "pl": "Nie trzeba zakładać konta ani się rejestrować.",
+        "nl": "U hoeft geen account aan te maken of u te registreren.",
+        "ru": "Не нужно создавать учётную запись или регистрироваться."
       }
     },
     "about_is_open": {
@@ -247,29 +247,29 @@
     "about_isnt_cloud": {
       "context": "About screen, 'What VniDrop isn't' list: point about not being cloud storage.",
       "translations": {
-        "en": "Not cloud storage — no server holds your files, and nothing waits in the cloud after a transfer.",
-        "fr": "Pas un stockage cloud — aucun serveur ne détient vos fichiers, et rien n’attend dans le cloud après un transfert.",
+        "en": "No server holds your files, and nothing stays in the cloud after a transfer.",
+        "fr": "Aucun serveur ne conserve vos fichiers et rien ne reste dans le cloud après un transfert.",
         "es": "No es almacenamiento en la nube: ningún servidor guarda sus archivos y nada queda en la nube después de una transferencia.",
         "it": "Non è un’archiviazione cloud: nessun server conserva i suoi file e nulla resta nel cloud dopo un trasferimento.",
-        "de": "Kein Cloud-Speicher – kein Server hält Ihre Dateien, und nach einer Übertragung wartet nichts in der Cloud.",
-        "pt": "Não é armazenamento na nuvem — nenhum servidor guarda os seus ficheiros e nada fica na nuvem após uma transferência.",
-        "pl": "To nie magazyn w chmurze — żaden serwer nie przechowuje Twoich plików i nic nie pozostaje w chmurze po transferze.",
-        "nl": "Geen cloudopslag — geen enkele server bewaart uw bestanden en er wacht niets in de cloud na een overdracht.",
-        "ru": "Это не облачное хранилище — ни один сервер не хранит ваши файлы, и после передачи в облаке ничего не остаётся."
+        "de": "Kein Server speichert Ihre Dateien, und nach einer Übertragung bleibt nichts in der Cloud.",
+        "pt": "Nenhum servidor guarda os seus ficheiros e nada fica na nuvem após uma transferência.",
+        "pl": "Żaden serwer nie przechowuje Twoich plików i nic nie pozostaje w chmurze po transferze.",
+        "nl": "Geen enkele server bewaart uw bestanden en er blijft niets in de cloud achter na een overdracht.",
+        "ru": "Ни один сервер не хранит ваши файлы, и после передачи в облаке ничего не остаётся."
       }
     },
     "about_isnt_public": {
       "context": "About screen, 'What VniDrop isn't' list: point about invitations not being public broadcasts.",
       "translations": {
-        "en": "Not public broadcasting — an invitation is a private access link, not an announcement to everyone nearby.",
-        "fr": "Pas une diffusion publique — une invitation est un lien d’accès privé, pas une annonce à tout le voisinage.",
+        "en": "An invitation is a private access link, not an announcement to everyone nearby.",
+        "fr": "Une invitation est un lien d’accès privé, pas une annonce à tout le voisinage.",
         "es": "No es difusión pública: una invitación es un enlace de acceso privado, no un anuncio para todos los que estén cerca.",
         "it": "Non è una diffusione pubblica: un invito è un link di accesso privato, non un annuncio a tutti nelle vicinanze.",
-        "de": "Keine öffentliche Übertragung – eine Einladung ist ein privater Zugangslink, keine Ankündigung an alle in der Nähe.",
-        "pt": "Não é difusão pública — um convite é uma ligação de acesso privado, não um anúncio a toda a gente por perto.",
-        "pl": "To nie publiczne rozgłaszanie — zaproszenie to prywatny link dostępu, a nie ogłoszenie dla wszystkich w pobliżu.",
-        "nl": "Geen openbare uitzending — een uitnodiging is een privétoegangslink, geen aankondiging aan iedereen in de buurt.",
-        "ru": "Это не публичная рассылка — приглашение является частной ссылкой доступа, а не объявлением для всех поблизости."
+        "de": "Eine Einladung ist ein privater Zugangslink, keine Ankündigung an alle in der Nähe.",
+        "pt": "Um convite é uma ligação de acesso privado, não um anúncio a toda a gente por perto.",
+        "pl": "Zaproszenie to prywatny link dostępu, a nie ogłoszenie dla wszystkich w pobliżu.",
+        "nl": "Een uitnodiging is een privétoegangslink, geen aankondiging aan iedereen in de buurt.",
+        "ru": "Приглашение является частной ссылкой доступа, а не объявлением для всех поблизости."
       }
     },
     "about_isnt_sync": {
@@ -331,15 +331,15 @@
     "about_privacy_capability": {
       "context": "About screen, Privacy & security list: point that invitations are capabilities to share carefully.",
       "translations": {
-        "en": "Invitations are capabilities. Treat a QR code, NFC tag, or .vnd file like a private access link and share it only with the people you intend — especially with “Anyone with this transfer.”",
-        "fr": "Les invitations sont des clés d’accès. Traitez un QR code, un tag NFC ou un fichier .vnd comme un lien d’accès privé et ne le partagez qu’avec les personnes visées — en particulier avec « Toute personne disposant de ce transfert ».",
+        "en": "Invitations are capabilities. Treat a QR code, NFC tag, or .vnd file like a private access link and share it only with the people you intend, especially with “Anyone with this transfer.”",
+        "fr": "Les invitations sont des clés d’accès. Traitez un QR code, un tag NFC ou un fichier .vnd comme un lien d’accès privé et ne le partagez qu’avec les personnes visées, en particulier avec « Toute personne disposant de ce transfert ».",
         "es": "Las invitaciones son claves de acceso. Trate un código QR, una etiqueta NFC o un archivo .vnd como un enlace de acceso privado y compártalo solo con las personas previstas, especialmente con «Cualquiera que tenga esta transferencia».",
         "it": "Gli inviti sono chiavi di accesso. Tratti un codice QR, un tag NFC o un file .vnd come un link di accesso privato e lo condivida solo con le persone previste, soprattutto con «Chiunque abbia questo trasferimento».",
-        "de": "Einladungen sind Zugangsschlüssel. Behandeln Sie einen QR-Code, ein NFC-Tag oder eine .vnd-Datei wie einen privaten Zugangslink und teilen Sie ihn nur mit den vorgesehenen Personen – insbesondere bei „Jeder mit dieser Übertragung“.",
-        "pt": "Os convites são chaves de acesso. Trate um código QR, uma etiqueta NFC ou um ficheiro .vnd como uma ligação de acesso privado e partilhe-o apenas com as pessoas pretendidas — sobretudo com «Qualquer pessoa com esta transferência».",
-        "pl": "Zaproszenia są kluczami dostępu. Traktuj kod QR, tag NFC lub plik .vnd jak prywatny link dostępu i udostępniaj go tylko zamierzonym osobom — zwłaszcza przy opcji „Każdy, kto ma ten transfer”.",
-        "nl": "Uitnodigingen zijn toegangssleutels. Behandel een QR-code, NFC-tag of .vnd-bestand als een privétoegangslink en deel deze alleen met de bedoelde personen — vooral bij ‘Iedereen met deze overdracht’.",
-        "ru": "Приглашения — это ключи доступа. Относитесь к QR-коду, NFC-метке или файлу .vnd как к частной ссылке доступа и делитесь ими только с теми, для кого они предназначены, особенно при варианте «Любой, у кого есть эта передача»."
+        "de": "Einladungen sind Zugangsschlüssel. Behandeln Sie einen QR-Code, ein NFC-Tag oder eine .vnd-Datei wie einen privaten Zugangslink und teilen Sie ihn nur mit den vorgesehenen Personen, insbesondere bei „Jeder mit dieser Übertragung“.",
+        "pt": "Os convites são chaves de acesso. Trate um código QR, uma etiqueta NFC ou um ficheiro .vnd como uma ligação de acesso privado e partilhe-o apenas com as pessoas pretendidas, sobretudo com «Qualquer pessoa com esta transferência».",
+        "pl": "Zaproszenia są kluczami dostępu. Traktuj kod QR, tag NFC lub plik .vnd jak prywatny link dostępu i udostępniaj go tylko zamierzonym osobom, zwłaszcza przy opcji „Każdy, kto ma ten transfer”.",
+        "nl": "Uitnodigingen zijn toegangssleutels. Behandel een QR-code, NFC-tag of .vnd-bestand als een privétoegangslink en deel deze alleen met de bedoelde personen, vooral bij ‘Iedereen met deze overdracht’.",
+        "ru": "Приглашения служат ключами доступа. Относитесь к QR-коду, NFC-метке или файлу .vnd как к частной ссылке доступа и делитесь ими только с теми, для кого они предназначены, особенно при варианте «Любой, у кого есть эта передача»."
       },
       "targets": [
         "apple",
@@ -349,15 +349,15 @@
     "about_invitation_privacy": {
       "context": "About screen, Privacy & security list: point that invitations are capabilities to share carefully.",
       "translations": {
-        "en": "Invitations are capabilities. Treat a QR code or .vnd file like a private access link and share it only with the people you intend — especially with “Anyone with this transfer.”",
-        "fr": "Les invitations sont des clés d’accès. Traitez un QR code ou un fichier .vnd comme un lien d’accès privé et ne le partagez qu’avec les personnes visées — en particulier avec « Toute personne disposant de ce transfert ».",
+        "en": "Invitations are capabilities. Treat a QR code or .vnd file like a private access link and share it only with the people you intend, especially with “Anyone with this transfer.”",
+        "fr": "Les invitations sont des clés d’accès. Traitez un QR code ou un fichier .vnd comme un lien d’accès privé et ne le partagez qu’avec les personnes visées, en particulier avec « Toute personne disposant de ce transfert ».",
         "es": "Las invitaciones son claves de acceso. Trate un código QR o un archivo .vnd como un enlace de acceso privado y compártalo solo con las personas previstas, especialmente con «Cualquiera que tenga esta transferencia».",
         "it": "Gli inviti sono chiavi di accesso. Tratti un codice QR o un file .vnd come un link di accesso privato e lo condivida solo con le persone previste, soprattutto con «Chiunque abbia questo trasferimento».",
-        "de": "Einladungen sind Zugangsschlüssel. Behandeln Sie einen QR-Code oder eine .vnd-Datei wie einen privaten Zugangslink und teilen Sie ihn nur mit den vorgesehenen Personen – insbesondere bei „Jeder mit dieser Übertragung“.",
-        "pt": "Os convites são chaves de acesso. Trate um código QR ou um ficheiro .vnd como uma ligação de acesso privado e partilhe-o apenas com as pessoas pretendidas — sobretudo com «Qualquer pessoa com esta transferência».",
-        "pl": "Zaproszenia są kluczami dostępu. Traktuj kod QR lub plik .vnd jak prywatny link dostępu i udostępniaj go tylko zamierzonym osobom — zwłaszcza przy opcji „Każdy, kto ma ten transfer”.",
-        "nl": "Uitnodigingen zijn toegangssleutels. Behandel een QR-code of .vnd-bestand als een privétoegangslink en deel deze alleen met de bedoelde personen — vooral bij ‘Iedereen met deze overdracht’.",
-        "ru": "Приглашения — это ключи доступа. Относитесь к QR-коду или файлу .vnd как к частной ссылке доступа и делитесь ими только с теми, для кого они предназначены, особенно при варианте «Любой, у кого есть эта передача»."
+        "de": "Einladungen sind Zugangsschlüssel. Behandeln Sie einen QR-Code oder eine .vnd-Datei wie einen privaten Zugangslink und teilen Sie ihn nur mit den vorgesehenen Personen, insbesondere bei „Jeder mit dieser Übertragung“.",
+        "pt": "Os convites são chaves de acesso. Trate um código QR ou um ficheiro .vnd como uma ligação de acesso privado e partilhe-o apenas com as pessoas pretendidas, sobretudo com «Qualquer pessoa com esta transferência».",
+        "pl": "Zaproszenia są kluczami dostępu. Traktuj kod QR lub plik .vnd jak prywatny link dostępu i udostępniaj go tylko zamierzonym osobom, zwłaszcza przy opcji „Każdy, kto ma ten transfer”.",
+        "nl": "Uitnodigingen zijn toegangssleutels. Behandel een QR-code of .vnd-bestand als een privétoegangslink en deel deze alleen met de bedoelde personen, vooral bij ‘Iedereen met deze overdracht’.",
+        "ru": "Приглашения служат ключами доступа. Относитесь к QR-коду или файлу .vnd как к частной ссылке доступа и делитесь ими только с теми, для кого они предназначены, особенно при варианте «Любой, у кого есть эта передача»."
       },
       "targets": [
         "kmp",
@@ -367,15 +367,15 @@
     "about_privacy_deny": {
       "context": "About screen, Privacy & security list: point about denying unknown requests by default.",
       "translations": {
-        "en": "Deny by default — VniDrop serves only the content of an active share and rejects unknown requests.",
-        "fr": "Refus par défaut — VniDrop ne sert que le contenu d’un partage actif et rejette les demandes inconnues.",
+        "en": "VniDrop serves only the content of an active share and rejects unknown requests by default.",
+        "fr": "VniDrop ne sert que le contenu d’un partage actif et rejette les demandes inconnues par défaut.",
         "es": "Denegación por defecto: VniDrop solo sirve el contenido de un recurso compartido activo y rechaza las solicitudes desconocidas.",
         "it": "Rifiuto predefinito: VniDrop serve solo il contenuto di una condivisione attiva e rifiuta le richieste sconosciute.",
-        "de": "Standardmäßig ablehnen – VniDrop stellt nur den Inhalt einer aktiven Freigabe bereit und weist unbekannte Anfragen ab.",
-        "pt": "Recusa por predefinição — o VniDrop apenas fornece o conteúdo de uma partilha ativa e rejeita pedidos desconhecidos.",
-        "pl": "Domyślnie odmowa — VniDrop udostępnia tylko zawartość aktywnego udostępnienia i odrzuca nieznane żądania.",
-        "nl": "Standaard weigeren — VniDrop levert alleen de inhoud van een actieve deling en wijst onbekende verzoeken af.",
-        "ru": "Отказ по умолчанию — VniDrop предоставляет только содержимое активной передачи и отклоняет неизвестные запросы."
+        "de": "VniDrop stellt nur den Inhalt einer aktiven Freigabe bereit und weist unbekannte Anfragen standardmäßig ab.",
+        "pt": "O VniDrop apenas fornece o conteúdo de uma partilha ativa e rejeita pedidos desconhecidos por predefinição.",
+        "pl": "VniDrop udostępnia tylko zawartość aktywnego udostępnienia i domyślnie odrzuca nieznane żądania.",
+        "nl": "VniDrop levert alleen de inhoud van een actieve deling en wijst onbekende verzoeken standaard af.",
+        "ru": "VniDrop предоставляет только содержимое активной передачи и по умолчанию отклоняет неизвестные запросы."
       }
     },
     "about_privacy_local": {

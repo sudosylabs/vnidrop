@@ -5,20 +5,20 @@
   <resheader name="version"><value>2.0</value></resheader>
   <data name="about_bug_report" xml:space="preserve"><value>Report a bug</value></data>
   <data name="about_description" xml:space="preserve"><value>VniDrop moves files and folders straight from one device to another over the network, without uploading them to any file-hosting service. There’s no account to create, and no copy of your transfer is left in the cloud once you’re done.</value></data>
-  <data name="about_is_direct" xml:space="preserve"><value>A direct device-to-device transfer — your files go straight to the receiver.</value></data>
+  <data name="about_is_direct" xml:space="preserve"><value>Your files go straight from your device to the receiver.</value></data>
   <data name="about_is_encrypted" xml:space="preserve"><value>Connections are authenticated and end-to-end encrypted (via Iroh), and incoming files are verified by their content hash.</value></data>
   <data name="about_is_in_control" xml:space="preserve"><value>You decide who receives: approve each request, or open a transfer to anyone holding the invitation.</value></data>
-  <data name="about_is_no_account" xml:space="preserve"><value>Account-free — there’s nothing to sign up for.</value></data>
+  <data name="about_is_no_account" xml:space="preserve"><value>No account or sign-up required.</value></data>
   <data name="about_is_open" xml:space="preserve"><value>Open source, released under the Apache 2.0 license.</value></data>
   <data name="about_is_title" xml:space="preserve"><value>What VniDrop is</value></data>
-  <data name="about_isnt_cloud" xml:space="preserve"><value>Not cloud storage — no server holds your files, and nothing waits in the cloud after a transfer.</value></data>
-  <data name="about_isnt_public" xml:space="preserve"><value>Not public broadcasting — an invitation is a private access link, not an announcement to everyone nearby.</value></data>
+  <data name="about_isnt_cloud" xml:space="preserve"><value>No server holds your files, and nothing stays in the cloud after a transfer.</value></data>
+  <data name="about_isnt_public" xml:space="preserve"><value>An invitation is a private access link, not an announcement to everyone nearby.</value></data>
   <data name="about_isnt_sync" xml:space="preserve"><value>Not a sync or backup service.</value></data>
   <data name="about_isnt_title" xml:space="preserve"><value>What VniDrop isn’t</value></data>
   <data name="about_license_label" xml:space="preserve"><value>License</value></data>
   <data name="about_privacy" xml:space="preserve"><value>Privacy policy</value></data>
-  <data name="about_privacy_capability" xml:space="preserve"><value>Invitations are capabilities. Treat a QR code, NFC tag, or .vnd file like a private access link and share it only with the people you intend — especially with “Anyone with this transfer.”</value></data>
-  <data name="about_privacy_deny" xml:space="preserve"><value>Deny by default — VniDrop serves only the content of an active share and rejects unknown requests.</value></data>
+  <data name="about_privacy_capability" xml:space="preserve"><value>Invitations are capabilities. Treat a QR code, NFC tag, or .vnd file like a private access link and share it only with the people you intend, especially with “Anyone with this transfer.”</value></data>
+  <data name="about_privacy_deny" xml:space="preserve"><value>VniDrop serves only the content of an active share and rejects unknown requests by default.</value></data>
   <data name="about_privacy_local" xml:space="preserve"><value>Received files are saved on your device and never silently overwrite an existing file.</value></data>
   <data name="about_privacy_policy_label" xml:space="preserve"><value>Privacy policy</value></data>
   <data name="about_privacy_relay" xml:space="preserve"><value>If two devices can’t connect directly, the encrypted connection may be relayed. Relays forward encrypted packets only; they never store your files.</value></data>

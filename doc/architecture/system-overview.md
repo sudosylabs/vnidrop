@@ -3,7 +3,7 @@
 ## Shape of the system
 
 ```text
-Android / Linux Compose    Windows WinUI    Apple SwiftUI    Linux GTK
+     Android Compose       Windows WinUI    Apple SwiftUI    Linux GTK
            |                     |               |              |
      Kotlin/UniFFI          C#/UniFFI        Swift/UniFFI     Rust API
            |                     |               |              |
@@ -27,7 +27,7 @@ owner of lifecycle rules or a transport for file payloads.
 | Layer | Owns | Does not own |
 |---|---|---|
 | Rust core | Transfer identity and lifecycle, approval and access policy, Iroh endpoint and protocols, SQLite state, recovery, payload streaming | Pickers, UI navigation, platform background-service APIs |
-| Shared KMP | Android/desktop presentation, ViewModels, navigation, platform-neutral UI state | Transfer authority, duplicated durable lifecycle state |
+| Shared KMP | Android and legacy desktop presentation, ViewModels, navigation, platform-neutral UI state | Transfer authority, duplicated durable lifecycle state |
 | Apple app | SwiftUI presentation and Apple platform integration | Transfer authority, a separate transfer state machine |
 | Windows app | WinUI presentation, native file access, activation, notifications, and preferences | Transfer authority or managed payload streaming |
 | Native Linux app | GTK/libadwaita presentation, native file access, desktop integration, and preferences | A separate transfer engine or durable transfer store |

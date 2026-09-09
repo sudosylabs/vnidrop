@@ -2,8 +2,9 @@
 
 `version.properties` at the repository root is the single source of truth for
 the VniDrop product version and the permanent Windows version epoch. Platform
-projects and release workflows derive their versions from it rather than
-accepting independent release counters.
+projects and normal release workflows derive their versions from it rather than
+accepting independent release counters. Previews retain that base version and
+use the preview workflow run number to identify successive test builds.
 
 Keep it as plain `KEY=VALUE` assignments: the same file is parsed by shell,
 PowerShell, Gradle, and Rust. Xcode receives resolver-generated xcconfig files.
@@ -74,5 +75,22 @@ prints the derived Android and Microsoft Store versions. Then verify:
 make check-version
 ```
 
-Release tags must exactly match `vPRODUCT_VERSION`. Manual workflow dispatches
-also build the committed version and do not accept free-form version inputs.
+Normal release tags must exactly match `vPRODUCT_VERSION`. Manual workflow
+dispatches also build the committed version and do not accept free-form version
+inputs.
+
+## Preview versions
+
+The independent preview workflow publishes `preview-PRODUCT_VERSION-N`, where
+`N` is its GitHub Actions run number. Assets include `PRODUCT_VERSION-preview.N`
+in their filenames, and `preview-manifest.json` records the source commit.
+Do not edit `version.properties` just to dispatch another preview.
+
+Android uses version name `PRODUCT_VERSION-preview.N` and version code `N` for
+the separate `com.vnidrop.app.preview` app, signed with its dedicated key. Keep
+that key and workflow run numbering stable so preview upgrades remain possible.
+
+Desktop package metadata keeps the numeric product version, and macOS also gets
+its timestamp build number. A different preview of the same version may need a
+package reinstall. Previews do not consume Store version numbers or update the
+normal Sparkle/Homebrew feeds. See [Preview releases](../release/PREVIEW.md).

@@ -206,7 +206,7 @@ GSK_RENDERER=cairo xvfb-run -a make/with-secret-service.sh make test-linux-ui
 make check-localization
 ```
 
-Expand `test-linux-ui` beyond its current single invitation workflow. Run `make check-rust` if core implementation changes and the additional sink checks for sink/export/cancel changes. Package verification must be updated to validate the native payload; current checks explicitly expect a JVM and Compose output.
+The initial plan required expanding `test-linux-ui` beyond its single invitation workflow and replacing package checks that expected a JVM and Compose output. Current package checks validate the native GTK payload; see [packaging](../packaging/linux/README.md). Run `make check-rust` if core implementation changes and the additional sink checks for sink/export/cancel changes.
 
 Maintain an evidence record for every P-row: source contract, native code, automated test, screenshots/manual acceptance where required, and open discrepancies. A row closes only after its complete user journey and failure recovery pass. Passing `make check-linux` alone cannot close the parity inventory.
 

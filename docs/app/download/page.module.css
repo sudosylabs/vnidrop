@@ -31,7 +31,7 @@
   line-height: 0.98;
 }
 
-.releaseSummary > p:last-child {
+.releaseSummary > p:not(.releaseIdentity):not(.channelLinks) {
   margin: 0;
   color: var(--ink-soft);
   font-size: 1.03rem;
@@ -39,6 +39,7 @@
 
 .releaseIdentity {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 10px;
   margin: 0 0 12px;
@@ -77,7 +78,8 @@
   border-bottom: 1px solid var(--line);
 }
 
-.platformName h2 {
+.platformName h2,
+.platformName h3 {
   margin: 0 0 6px;
   font-size: 1.35rem;
   letter-spacing: -0.02em;
@@ -109,8 +111,18 @@
   margin-top: 12px;
 }
 
+.fileLink {
+  flex-wrap: wrap;
+  column-gap: 6px;
+  max-width: 100%;
+}
+
+.fileLink > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .downloadMeta {
-  margin-left: 6px;
   color: var(--ink-muted);
   font-family: var(--font-sans);
   font-size: 0.85rem;
@@ -130,12 +142,82 @@
   font-size: 14px;
 }
 
+.channelLinks,
+.previewLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 18px 0 0;
+  font-size: 14px;
+}
+
+.previewSection {
+  padding: 64px 0 80px;
+  border-top: 1px solid var(--line-strong);
+  background: var(--paper-warm);
+  scroll-margin-top: 56px;
+}
+
+.previewIntro {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.2fr);
+  gap: 28px 80px;
+  margin-bottom: 36px;
+}
+
+.previewIntro h2 {
+  margin: 0;
+  font-size: clamp(2.2rem, 4vw, 3.25rem);
+  letter-spacing: -0.04em;
+}
+
+.previewIntro p:not(.downloadKicker),
+.previewNote,
+.previewStatus {
+  color: var(--ink-soft);
+}
+
+.previewIntro > div > p:first-child:not(.downloadKicker) {
+  margin-top: 0;
+}
+
+.previewNote {
+  max-width: 80ch;
+  margin-top: 24px;
+  font-size: 14px;
+}
+
+.previewStatus {
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand);
+}
+
+.previewStatus p {
+  margin: 0;
+}
+
+.previewStatus button {
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.releaseIdentity time {
+  margin-left: auto;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
 @media (max-width: 720px) {
   .downloadHero {
     padding: 44px 0 40px;
   }
 
   .downloadHeroInner,
+  .previewIntro,
   .downloadList > li {
     grid-template-columns: 1fr;
   }
@@ -155,5 +237,13 @@
 
   .downloadListSection {
     padding-bottom: 64px;
+  }
+
+  .previewSection {
+    padding: 44px 0 56px;
+  }
+
+  .releaseIdentity time {
+    margin-left: 0;
   }
 }

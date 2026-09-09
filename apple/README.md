@@ -6,6 +6,12 @@ screens and Apple platform integration. Android uses Compose, Windows uses
 WinUI, and Linux release packages use GTK/libadwaita. See the
 [platform overview](../doc/architecture/platforms.md).
 
+For direct test distributions, the [preview workflow](../packaging/release/PREVIEW.md)
+builds only the macOS Release app and publishes a signed, notarized DMG. It skips
+App Store submission, iOS builds, and appcast/Homebrew updates. Preview updates
+are downloaded manually; the installed direct app can still discover later
+normal releases through its existing update feed.
+
 ## Layout
 
 ```

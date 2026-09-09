@@ -21,17 +21,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/rust-core.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/rust-core.yml/badge.svg" alt="Rust core status" /></a>
-  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/shared-kmp.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/shared-kmp.yml/badge.svg" alt="Shared KMP status" /></a>
-  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/apple.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/apple.yml/badge.svg" alt="Apple status" /></a>
-  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/docs.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/docs.yml/badge.svg" alt="Docs website status" /></a>
+  <a href="https://github.com/sudosylabs/vnidrop/actions/workflows/rust-core.yml"><img src="https://github.com/sudosylabs/vnidrop/actions/workflows/rust-core.yml/badge.svg" alt="Rust core status" /></a>
+  <a href="https://github.com/sudosylabs/vnidrop/actions/workflows/shared-kmp.yml"><img src="https://github.com/sudosylabs/vnidrop/actions/workflows/shared-kmp.yml/badge.svg" alt="Shared KMP status" /></a>
+  <a href="https://github.com/sudosylabs/vnidrop/actions/workflows/apple.yml"><img src="https://github.com/sudosylabs/vnidrop/actions/workflows/apple.yml/badge.svg" alt="Apple status" /></a>
+  <a href="https://github.com/sudosylabs/vnidrop/actions/workflows/docs.yml"><img src="https://github.com/sudosylabs/vnidrop/actions/workflows/docs.yml/badge.svg" alt="Docs website status" /></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/android-release.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/android-release.yml/badge.svg" alt="Android release package status" /></a>
-  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/apple-release.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/apple-release.yml/badge.svg" alt="Apple release status" /></a>
-  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/windows-store.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/windows-store.yml/badge.svg" alt="Windows Store package status" /></a>
-  <a href="https://github.com/vnidrop/vnidrop/actions/workflows/linux-packages.yml"><img src="https://github.com/vnidrop/vnidrop/actions/workflows/linux-packages.yml/badge.svg" alt="Linux packages status" /></a>
+  <a href="https://github.com/sudosylabs/vnidrop/actions/workflows/android-release.yml"><img src="https://github.com/sudosylabs/vnidrop/actions/workflows/android-release.yml/badge.svg" alt="Android release package status" /></a>
+  <a href="https://github.com/sudosylabs/vnidrop/actions/workflows/apple-release.yml"><img src="https://github.com/sudosylabs/vnidrop/actions/workflows/apple-release.yml/badge.svg" alt="Apple release status" /></a>
+  <a href="https://github.com/sudosylabs/vnidrop/actions/workflows/windows-store.yml"><img src="https://github.com/sudosylabs/vnidrop/actions/workflows/windows-store.yml/badge.svg" alt="Windows Store package status" /></a>
+  <a href="https://github.com/sudosylabs/vnidrop/actions/workflows/linux-packages.yml"><img src="https://github.com/sudosylabs/vnidrop/actions/workflows/linux-packages.yml/badge.svg" alt="Linux packages status" /></a>
 </p>
 
 <p align="center">
@@ -64,7 +64,7 @@ This is the invitation flow, used the first time two devices meet.
    device and keeps the original folder structure.
 2. **Create an invitation.** The app produces a small VniDrop invitation that
    describes the transfer and how to reach the sender. Share it as a QR code, an
-   NFC tag, or a `.vnd` file.
+   NFC tag where supported, or a portable `.vnd` file on any platform.
 3. **Connect to the sender.** The receiver opens the invitation. Iroh helps the
    devices find each other and establishes an authenticated, end-to-end
    encrypted connection.
@@ -100,7 +100,8 @@ VniDrop uses Iroh's public relay and discovery infrastructure by default. In
 - **Custom with direct fallback:** prefer the configured custom relays, but
   continue with direct connections if they are unavailable.
 - **Local only:** disable every relay and allow direct connections only,
-  primarily for devices on the same network.
+  primarily for devices on the same network. This does not enforce a LAN-only
+  boundary; any reachable direct address can be used.
 
 Strict custom, custom with direct fallback, and local only never use public
 relays or public discovery, including relay addresses advertised by incoming
@@ -186,7 +187,7 @@ The security and lifecycle rules are documented in
 ## What VniDrop supports
 
 - Individual files, multiple files, and complete folders
-- QR codes, NFC tags, and portable `.vnd` invitation files
+- Portable `.vnd` invitation files, plus QR codes and NFC where supported
 - Per-receiver requests, approvals, progress, and delivery status
 - Cancel, stop sharing, and local transfer history
 - Saved devices with mutual consent, and targeted transfers that need no new
@@ -216,19 +217,28 @@ Please report suspected vulnerabilities through the private process in
 ## Project status
 
 VniDrop is in early development. The transfer engine, application experience,
-and stored history format may change before a stable release. Build from source
-if you want to try the current version.
+and stored history format may change before a stable release. Use the
+[download page](https://vnidrop.sudosy.fr/download/) for the current public
+release or [previews](https://vnidrop.sudosy.fr/download/#preview) for earlier
+changes. The [user guide](https://vnidrop.sudosy.fr/guide/) covers installation,
+transfers, and troubleshooting.
+
+Previews use Release builds: a signed/notarized macOS DMG, an unsigned Windows
+EXE, native Linux DEB/RPM packages, and an Android APK signed with a dedicated
+preview key. They bypass store submission and have an independent workflow.
+Android previews install alongside the normal app; desktop previews share its
+identity and data. See the [preview release guide](packaging/release/PREVIEW.md).
+
+Build from source for the current checkout. Published release tags may predate
+the native Windows and Linux frontends described here.
 
 ```bash
-git clone https://github.com/vnidrop/vnidrop.git
+git clone https://github.com/sudosylabs/vnidrop.git
 cd vnidrop
 
 # List the supported development commands and check prerequisites
 make help
 make doctor
-
-# Legacy Compose desktop host for migration checks
-make run-desktop
 
 # Native Linux app
 make run-linux
@@ -251,6 +261,10 @@ pwsh windows/scripts/build.ps1 -Test -Run
 
 See the [Windows](windows/README.md), [Apple](apple/README.md), and
 [native Linux](linux/README.md) guides for host prerequisites and setup.
+
+`desktopApp/` and `make run-desktop` retain the legacy Compose Windows/Linux
+host for migration checks. They do not build the release desktop apps, and
+native Windows/Linux builds do not require a JVM.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for prerequisites, development setup,
 testing, and pull request guidance.

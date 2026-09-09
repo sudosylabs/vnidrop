@@ -5,20 +5,20 @@
   <resheader name="version"><value>2.0</value></resheader>
   <data name="about_bug_report" xml:space="preserve"><value>Signaler un bug</value></data>
   <data name="about_description" xml:space="preserve"><value>VniDrop transfère fichiers et dossiers directement d’un appareil à un autre sur le réseau, sans les téléverser vers un service d’hébergement. Aucun compte à créer, et aucune copie de votre transfert ne reste dans le cloud une fois terminé.</value></data>
-  <data name="about_is_direct" xml:space="preserve"><value>Un transfert direct d’appareil à appareil — vos fichiers vont droit au destinataire.</value></data>
+  <data name="about_is_direct" xml:space="preserve"><value>Vos fichiers vont directement de votre appareil à celui du destinataire.</value></data>
   <data name="about_is_encrypted" xml:space="preserve"><value>Les connexions sont authentifiées et chiffrées de bout en bout (via Iroh), et les fichiers entrants sont vérifiés par leur empreinte de contenu.</value></data>
   <data name="about_is_in_control" xml:space="preserve"><value>Vous décidez qui reçoit : approuvez chaque demande, ou ouvrez un transfert à toute personne disposant de l’invitation.</value></data>
-  <data name="about_is_no_account" xml:space="preserve"><value>Sans compte — il n’y a rien à créer.</value></data>
+  <data name="about_is_no_account" xml:space="preserve"><value>Aucun compte ni inscription nécessaire.</value></data>
   <data name="about_is_open" xml:space="preserve"><value>Open source, publié sous licence Apache 2.0.</value></data>
   <data name="about_is_title" xml:space="preserve"><value>Ce qu’est VniDrop</value></data>
-  <data name="about_isnt_cloud" xml:space="preserve"><value>Pas un stockage cloud — aucun serveur ne détient vos fichiers, et rien n’attend dans le cloud après un transfert.</value></data>
-  <data name="about_isnt_public" xml:space="preserve"><value>Pas une diffusion publique — une invitation est un lien d’accès privé, pas une annonce à tout le voisinage.</value></data>
+  <data name="about_isnt_cloud" xml:space="preserve"><value>Aucun serveur ne conserve vos fichiers et rien ne reste dans le cloud après un transfert.</value></data>
+  <data name="about_isnt_public" xml:space="preserve"><value>Une invitation est un lien d’accès privé, pas une annonce à tout le voisinage.</value></data>
   <data name="about_isnt_sync" xml:space="preserve"><value>Pas un service de synchronisation ou de sauvegarde.</value></data>
   <data name="about_isnt_title" xml:space="preserve"><value>Ce que VniDrop n’est pas</value></data>
   <data name="about_license_label" xml:space="preserve"><value>Licence</value></data>
   <data name="about_privacy" xml:space="preserve"><value>Politique de confidentialité</value></data>
-  <data name="about_privacy_capability" xml:space="preserve"><value>Les invitations sont des clés d’accès. Traitez un QR code, un tag NFC ou un fichier .vnd comme un lien d’accès privé et ne le partagez qu’avec les personnes visées — en particulier avec « Toute personne disposant de ce transfert ».</value></data>
-  <data name="about_privacy_deny" xml:space="preserve"><value>Refus par défaut — VniDrop ne sert que le contenu d’un partage actif et rejette les demandes inconnues.</value></data>
+  <data name="about_privacy_capability" xml:space="preserve"><value>Les invitations sont des clés d’accès. Traitez un QR code, un tag NFC ou un fichier .vnd comme un lien d’accès privé et ne le partagez qu’avec les personnes visées, en particulier avec « Toute personne disposant de ce transfert ».</value></data>
+  <data name="about_privacy_deny" xml:space="preserve"><value>VniDrop ne sert que le contenu d’un partage actif et rejette les demandes inconnues par défaut.</value></data>
   <data name="about_privacy_local" xml:space="preserve"><value>Les fichiers reçus sont enregistrés sur votre appareil et n’écrasent jamais un fichier existant.</value></data>
   <data name="about_privacy_policy_label" xml:space="preserve"><value>Politique de confidentialité</value></data>
   <data name="about_privacy_relay" xml:space="preserve"><value>Si deux appareils ne peuvent pas se connecter directement, la connexion chiffrée peut être relayée. Les relais ne transmettent que des paquets chiffrés ; ils ne stockent jamais vos fichiers.</value></data>

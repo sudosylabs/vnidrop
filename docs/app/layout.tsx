@@ -20,7 +20,7 @@ const metadataBase = new URL(
   configuredSiteUrl.startsWith("http") ? configuredSiteUrl : `https://${configuredSiteUrl}`,
 );
 
-const title = "VniDrop — Send files from this device to that one";
+const title = "VniDrop · Send files from this device to that one";
 const description =
   "Direct file transfer across Android, iOS, macOS, Windows, and Linux. No account, no hosted copy. Meet with an invitation, or send to a Saved device. They still confirm.";
 

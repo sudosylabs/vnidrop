@@ -74,9 +74,8 @@ installed.
 | Path | Purpose |
 |------|---------|
 | `crates/vnidrop/` | Rust transfer core, persistence, approval, and streaming |
-| `shared/` | Compose UI, ViewModels, and bridges for Android and retained legacy desktop hosts |
+| `shared/` | Compose UI, ViewModels, and bridges for Android, with JVM-based tests |
 | `androidApp/` | Android application shell |
-| `desktopApp/` | Retained legacy Windows/Linux Compose host |
 | `apple/` | Native SwiftUI application and Rust/UniFFI integration for Apple platforms |
 | `windows/` | Released Windows WinUI application and Rust/UniFFI C# integration |
 | `linux/` | Linux release application using GTK/libadwaita |

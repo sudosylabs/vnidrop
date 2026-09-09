@@ -73,8 +73,6 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
-	<key>NFCReaderUsageDescription</key>
-	<string>VniDrop uses NFC to read transfer invitation tags.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>VniDrop uses the camera to scan transfer QR codes.</string>
 	<key>NSLocalNetworkUsageDescription</key>

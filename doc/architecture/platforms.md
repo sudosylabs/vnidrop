@@ -10,10 +10,9 @@ All frontends use the same Rust transfer core:
 | Windows WinUI app | `windows/` | Generated C#/UniFFI bindings |
 | Apple SwiftUI app | `apple/` | Generated Swift/UniFFI bindings |
 | Native Linux GTK/libadwaita app | `linux/` | Direct Rust calls |
-| Legacy Windows/Linux Compose hosts | `desktopApp/` and `shared/` | Generated Kotlin/UniFFI bindings |
 
-The Compose Windows/Linux hosts remain available for migration checks.
-Windows release packages use WinUI; Linux release packages use GTK/libadwaita.
+The shared Kotlin module retains a JVM target for host-side tests. Desktop
+applications use the native frontends listed above.
 
 The platform/core boundary is capability-oriented: the platform obtains access
 to a file or destination; Rust owns the transfer and streams bytes through that
@@ -32,14 +31,14 @@ access.
 
 ## Kotlin and Compose
 
-Android and the retained legacy desktop presentation follow MVVM-style
-ViewModels with state flows and named methods. The application graph owns application-lifetime services and read
-models. A composable must not become the authority for Runtime obligations merely
-because it observes transfer UI state.
+Android presentation follows MVVM-style ViewModels with state flows and named
+methods. The application graph owns application-lifetime services and read models.
+A composable must not become the authority for Runtime obligations merely because
+it observes transfer UI state.
 
 Android source adapters open file descriptors for files. Folder sharing walks a
 SAF tree in Kotlin and supplies per-file descriptors and relative names.
-Legacy desktop adapters use paths and let Rust walk directories.
+The JVM test adapters use paths and let Rust walk directories.
 
 Android receive output defaults to MediaStore Downloads; custom destinations use
 SAF sinks. The retention adapter must be idempotent and teardown-safe because
@@ -114,5 +113,5 @@ access, desktop integration, notifications, and Secret Service-backed
 credentials. `make run-linux` starts it; `make package-deb` and
 `make package-rpm` package it. See the [Linux guide](../../linux/README.md).
 
-Neither native desktop build uses Gradle or bundles a JVM. The retained
-`make run-desktop` command starts the legacy Compose host for migration checks.
+Native desktop builds do not use Gradle or bundle a JVM. The shared Kotlin JVM
+target remains available through `make test-shared`.

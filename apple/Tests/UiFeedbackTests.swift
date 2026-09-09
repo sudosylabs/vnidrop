@@ -45,7 +45,6 @@ final class UserFacingErrorTests: XCTestCase {
 		// Typed cases map directly at the UI boundary.
 		XCTAssertEqual(InvitationError.shareEmpty.toUiText(), .resource(L10n.Error.shareEmpty))
 		XCTAssertEqual(InvitationError.cameraUnavailable.toUiText(), .resource(L10n.Error.camera))
-		XCTAssertEqual(InvitationError.nfcFailed.toUiText(), .resource(L10n.Error.nfc))
 		// Dynamic `.raw` payloads still fall through the substring hints.
 		XCTAssertEqual(InvitationError.raw("The transfer was refused").toUiText(), .resource(L10n.Error.permission))
 		XCTAssertEqual(InvitationError.raw("invalid ticket").toUiText(), .resource(L10n.Error.invalidTicket))

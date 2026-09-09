@@ -3,9 +3,8 @@
 Product UI for saved devices and targeted transfers. Rust UniFFI is the source
 of behaviour; this document keeps Apple and KMP interaction semantics aligned.
 
-Status: implemented, top-level product surface. KMP covers Android and the
-retained legacy desktop hosts. Windows and Linux releases use separate native
-WinUI and GTK implementations; see the
+Status: implemented, top-level product surface. KMP covers Android. Windows
+and Linux releases use separate native WinUI and GTK implementations; see the
 [platform overview](../../doc/architecture/platforms.md).
 
 ## Vocabulary
@@ -14,8 +13,8 @@ Use **saved device**, **device relationship**, **targeted transfer**, **invitati
 
 ## Product surface
 
-- Android and the legacy Compose desktop hosts expose Saved Devices as a top-level
-  destination. It is not controlled by an experimental preference.
+- Android exposes Saved Devices as a top-level destination. It is not controlled
+  by an experimental preference.
 - Apple exposes Saved Devices in the native iOS tab bar and macOS sidebar.
 - The populated main screen lists saved devices and outstanding consent
   requests. Targeted Transfer history belongs to the selected device's detail

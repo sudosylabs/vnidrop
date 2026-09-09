@@ -79,7 +79,7 @@ export default function PrivacyPage() {
               </p>
               <h3>Invitations and transfer metadata</h3>
               <p>
-                A QR code, NFC tag, or <code>.vnd</code> file contains a transfer invitation. The
+                A QR code or <code>.vnd</code> file contains a transfer invitation. The
                 invitation includes connection and content identifiers plus transfer metadata such
                 as the transfer name, optional sender name, creation time, file count, and total
                 size. It is a capability: anyone who receives it may be able to request the transfer
@@ -176,10 +176,6 @@ export default function PrivacyPage() {
                 <div>
                   <dt>Camera / scanner</dt>
                   <dd>Scan a QR invitation when you choose that receive method.</dd>
-                </div>
-                <div>
-                  <dt>NFC</dt>
-                  <dd>Read or write an invitation through a compatible NFC tag.</dd>
                 </div>
                 <div>
                   <dt>Network &amp; notifications</dt>

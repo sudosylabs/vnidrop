@@ -11,7 +11,7 @@ include $(ROOT)/make/release.mk
 .PHONY: help doctor setup setup-localization setup-docs setup-diagnostics
 .PHONY: format test check check-rust audit-rust test-rust test-rust-all
 .PHONY: test-rust-transfer test-rust-approval test-rust-lifecycle test-rust-output-sink test-rust-saved-devices
-.PHONY: check-shared test-shared test-android-host check-android verify-android-libs build-android run-desktop
+.PHONY: check-shared test-shared test-android-host check-android verify-android-libs build-android
 .PHONY: build-linux run-linux check-linux test-linux-ui
 .PHONY: apple-core apple-version-config apple-app-config apple-project open-apple-project open-apple build-apple-macos build-apple-ios check-apple package-apple-core
 .PHONY: prepare-release check-version check-release check-localization localization localization-migrate
@@ -74,7 +74,7 @@ check-version: ## Validate the canonical version and its platform mappings.
 check-release: ## Validate coordinated release scripts and workflow YAML.
 	cd $(ROOT) && bash -n apple/scripts/build-core.sh apple/scripts/tests/test-build-core.sh
 	cd $(ROOT) && bash -n apple/scripts/build-dmg.sh apple/scripts/tests/test-build-dmg.sh packaging/android/tests/test-build-release.sh
-	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh make/tests/test-open-apple.sh make/tests/test-with-secret-service.sh make/with-secret-service.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/linux/ensure-desktop-identity.sh packaging/linux/patch-deb-desktop-entry.sh packaging/linux/verify-package.sh packaging/linux/tests/test-ensure-desktop-identity.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh linux/packaging/package.sh linux/packaging/verify.sh linux/packaging/verify-mime.sh linux/packaging/tests/test-verify-mime.sh
+	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh make/tests/test-open-apple.sh make/tests/test-with-secret-service.sh make/with-secret-service.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh linux/packaging/package.sh linux/packaging/verify.sh linux/packaging/verify-mime.sh linux/packaging/tests/test-verify-mime.sh
 	cd $(ROOT) && apple/scripts/tests/test-notarize.sh
 	cd $(ROOT) && apple/scripts/tests/test-generate-appconfig.sh
 	cd $(ROOT) && apple/scripts/tests/test-sign-exported-app.sh
@@ -82,7 +82,6 @@ check-release: ## Validate coordinated release scripts and workflow YAML.
 	cd $(ROOT) && bash apple/scripts/tests/test-build-core.sh
 	cd $(ROOT) && bash packaging/android/tests/test-build-release.sh
 	cd $(ROOT) && packaging/android/tests/test_verify_apk_signature.sh
-	cd $(ROOT) && packaging/linux/tests/test-ensure-desktop-identity.sh
 	cd $(ROOT) && packaging/release/test-assemble-release.sh
 	cd $(ROOT) && packaging/release/test-release-config.sh
 	cd $(ROOT) && ruby packaging/release/test-workflows.rb
@@ -141,9 +140,6 @@ verify-android-libs: ## Verify the Rust libraries packaged in the Android debug 
 
 build-android: ## Build the Android debug APK.
 	cd $(ROOT) && $(GRADLE) :androidApp:assembleDebug $(GRADLE_FLAGS)
-
-run-desktop: ## Run the Windows/Linux Compose desktop app.
-	cd $(ROOT) && $(GRADLE) :desktopApp:run $(GRADLE_FLAGS)
 
 build-linux: ## Build the native GNOME application (Linux, GTK 4.10+, libadwaita 1.5+).
 	cd $(ROOT) && $(CARGO) build --locked -p vnidrop-gnome --features gui

@@ -5,12 +5,11 @@ import UniformTypeIdentifiers
 @MainActor
 func makeReceiveInvitationActions() -> ReceiveInvitationActions { MacReceiveInvitationActions() }
 
-/// macOS invitation acquisition: file picker only. QR (camera) and NFC are hidden
+/// macOS invitation acquisition: file picker only. QR scanning is hidden
 /// on the desktop, matching the availability model.
 final class MacReceiveInvitationActions: ReceiveInvitationActions {
 	var fileAvailability: ReceiveMethodAvailability { .available }
 	var qrAvailability: ReceiveMethodAvailability { .hidden }
-	var nfcAvailability: ReceiveMethodAvailability { .hidden }
 
 	func pickInvitation(onResult: @escaping (Result<String, Error>) -> Void) {
 		let panel = NSOpenPanel()
@@ -34,10 +33,6 @@ final class MacReceiveInvitationActions: ReceiveInvitationActions {
 
 	func scanQrCode(onResult: @escaping (Result<String, Error>) -> Void) {
 		onResult(.failure(InvitationError.qrUnavailable))
-	}
-
-	func readNfcInvitation(onResult: @escaping (Result<String, Error>) -> Void) {
-		onResult(.failure(InvitationError.nfcUnavailable))
 	}
 
 	func cancel() {}

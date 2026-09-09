@@ -23,7 +23,7 @@ apple/
     Core/                   # repository, models, preferences, notifications, progress
     Features/Send|Receive|Approvals|Settings/
     UI/Theme|Components|Navigation|Feedback|Shell/
-    Platform/               # pickers, QR, NFC, share/export, per-OS file services
+    Platform/               # pickers, QR, share/export, per-OS file services
     Resources/              # Localizable.xcstrings, Info.plist, entitlements, assets
   Tests/                    # XCTest bundle (VniDropTests target)
   project.yml               # XcodeGen spec for the iOS/macOS app and test targets

@@ -63,8 +63,8 @@ This is the invitation flow, used the first time two devices meet.
 1. **Choose files or a folder.** VniDrop prepares the selection on the sender's
    device and keeps the original folder structure.
 2. **Create an invitation.** The app produces a small VniDrop invitation that
-   describes the transfer and how to reach the sender. Share it as a QR code, an
-   NFC tag where supported, or a portable `.vnd` file on any platform.
+   describes the transfer and how to reach the sender. Share it as a QR code
+   where supported or a portable `.vnd` file on any platform.
 3. **Connect to the sender.** The receiver opens the invitation. Iroh helps the
    devices find each other and establishes an authenticated, end-to-end
    encrypted connection.
@@ -159,7 +159,7 @@ people, especially when using **Anyone with this transfer**.
 
 After a completed transfer, both sides can agree to remember one another. A
 remembered device is called a **saved device**, and sending to one is a
-**targeted transfer**: no new invitation, QR code, or NFC tap is needed.
+**targeted transfer**: no new invitation or QR code is needed.
 
 - **Mutual consent.** Saving requires a fully completed authenticated transfer
   plus an explicit confirmation on *both* devices. Consent is enforced
@@ -187,7 +187,7 @@ The security and lifecycle rules are documented in
 ## What VniDrop supports
 
 - Individual files, multiple files, and complete folders
-- Portable `.vnd` invitation files, plus QR codes and NFC where supported
+- Portable `.vnd` invitation files, plus QR codes where supported
 - Per-receiver requests, approvals, progress, and delivery status
 - Cancel, stop sharing, and local transfer history
 - Saved devices with mutual consent, and targeted transfers that need no new
@@ -262,9 +262,9 @@ pwsh windows/scripts/build.ps1 -Test -Run
 See the [Windows](windows/README.md), [Apple](apple/README.md), and
 [native Linux](linux/README.md) guides for host prerequisites and setup.
 
-`desktopApp/` and `make run-desktop` retain the legacy Compose Windows/Linux
-host for migration checks. They do not build the release desktop apps, and
-native Windows/Linux builds do not require a JVM.
+Desktop builds use the native apps under `apple/`, `windows/`, and `linux/`.
+The `shared` JVM target is retained for Kotlin tests; native desktop apps do not
+require a JVM.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for prerequisites, development setup,
 testing, and pull request guidance.

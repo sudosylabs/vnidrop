@@ -8,7 +8,7 @@ still applies; this file wins for UI/KMP work.
 ## Purpose
 
 `shared` contains Compose UI, feature ViewModels, and `expect`/`actual` bridges
-for Android and the retained Compose Windows/Linux hosts.
+for Android. The JVM target and its adapters support host-side Kotlin tests.
 Transfer work goes through UniFFI `VnidropCore` (see `crates/vnidrop`). Windows
 releases use the separate WinUI app under `windows/`; Apple uses SwiftUI under
 `apple/`. Linux release packages use the GTK/libadwaita frontend under `linux/`.
@@ -37,7 +37,7 @@ lists, animation, accessibility:
 | Theme | Only `LocalVniDropColors` / `VniDropThemeTokens` (`ui/theme/VniDropTheme.kt`). Brand primary light ≈ `#A855F7` (HSL 271, 91%, 65%). |
 | Strings | CMP composeResources / `Res.string.*` — not Android `R` in `commonMain`. `values*/strings.xml` are **generated** from `localization/strings.json` (source of truth) via the loc CLI — add/edit keys there, never in the XML. |
 | DI | Follow existing `AppGraph` construction; no unprompted Hilt/Koin migration. |
-| Platform | `androidMain` / `jvmMain` for pickers, SAF, NFC/QR, and desktop integration. |
+| Platform | `androidMain` for Android integration; `jvmMain` supplies adapters for host-side tests. |
 | Dependencies | Before adding Jetpack/AndroidX to `commonMain`, verify multiplatform artifacts for all targets. |
 
 The skill is repository-specific. Do not substitute a generic Compose/MVI style guide.
@@ -62,12 +62,11 @@ Optional:
 
 ```bash
 make test-android-host
-make run-desktop
 make check-android
 ```
 
 CI `:shared:jvmTest` runs on **Linux**. Gobley host cargo follows the current
-host and architecture so local desktop builds embed their matching Rust library.
+host and architecture so local JVM tests embed their matching Rust library.
 
 When Kotlin changes touch UniFFI-generated APIs, rebuild/test with a full
 `jvmTest` so Gobley/native pieces stay aligned.

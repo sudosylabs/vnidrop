@@ -1,25 +1,20 @@
 #if os(iOS)
 import UIKit
 @preconcurrency import AVFoundation
-@preconcurrency import CoreNFC
 import UniformTypeIdentifiers
 
 @MainActor
 func makeReceiveInvitationActions() -> ReceiveInvitationActions { IosReceiveInvitationActions() }
 
 /// iOS invitation acquisition:
-/// document picker, camera QR scanner, and NFC read.
+/// document picker and camera QR scanner.
 final class IosReceiveInvitationActions: NSObject, ReceiveInvitationActions, UIDocumentPickerDelegate {
 	private var documentResult: ((Result<String, Error>) -> Void)?
-	private var nfcReader: InvitationNfcReader?
 	private var qrController: QrScannerViewController?
 
 	var fileAvailability: ReceiveMethodAvailability { .available }
 	var qrAvailability: ReceiveMethodAvailability {
 		AVCaptureDevice.default(for: .video) != nil ? .available : .unavailable
-	}
-	var nfcAvailability: ReceiveMethodAvailability {
-		NFCNDEFReaderSession.readingAvailable ? .available : .unavailable
 	}
 
 	func pickInvitation(onResult: @escaping (Result<String, Error>) -> Void) {
@@ -54,22 +49,7 @@ final class IosReceiveInvitationActions: NSObject, ReceiveInvitationActions, UID
 		}
 	}
 
-	func readNfcInvitation(onResult: @escaping (Result<String, Error>) -> Void) {
-		cancel()
-		guard NFCNDEFReaderSession.readingAvailable else {
-			return onResult(.failure(InvitationError.nfcUnavailable))
-		}
-		let reader = InvitationNfcReader { [weak self] result in
-			self?.nfcReader = nil
-			onResult(result)
-		}
-		nfcReader = reader
-		reader.start()
-	}
-
 	func cancel() {
-		nfcReader?.cancel()
-		nfcReader = nil
 		qrController?.cancelScan()
 		qrController = nil
 		documentResult = nil
@@ -207,62 +187,4 @@ final class QrScannerViewController: UIViewController, AVCaptureMetadataOutputOb
 	}
 }
 
-/// NFC invitation reader, ported from `InvitationNfcReader`.
-// Runs entirely on the NFC session's `.main` delegate queue.
-final class InvitationNfcReader: NSObject, NFCNDEFReaderSessionDelegate, @unchecked Sendable {
-	private let onResult: (Result<String, Error>) -> Void
-	private var session: NFCNDEFReaderSession?
-	private var finished = false
-
-	init(onResult: @escaping (Result<String, Error>) -> Void) {
-		self.onResult = onResult
-	}
-
-	func start() {
-		let reader = NFCNDEFReaderSession(delegate: self, queue: .main, invalidateAfterFirstRead: true)
-		reader.alertMessage = String(localized: L10n.Receive.nfcWaiting)
-		session = reader
-		reader.begin()
-	}
-
-	func cancel() {
-		session?.invalidate()
-		session = nil
-	}
-
-	func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error) {
-		if finished { return }
-		let cancelled = (error as NSError).code == 200
-		finish(.failure(cancelled ? InvitationError.cancelled : InvitationError.raw(error.localizedDescription)))
-	}
-
-	func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage]) {
-		let result = Result<String, Error> {
-			let ticket = messages
-				.flatMap { $0.records }
-				.compactMap { payloadAsInvitation($0) }
-				.first
-			guard let ticket else { throw InvitationError.nfcFailed }
-			return ticket
-		}
-		session.invalidate()
-		finish(result)
-	}
-
-	private func finish(_ result: Result<String, Error>) {
-		if finished { return }
-		finished = true
-		session = nil
-		DispatchQueue.main.async { self.onResult(result) }
-	}
-}
-
-private func payloadAsInvitation(_ payload: NFCNDEFPayload) -> String? {
-	guard let type = String(data: payload.type, encoding: .utf8) else { return nil }
-	let data = payload.payload
-	if payload.typeNameFormat == .media && (type == vniDropInvitationMimeType || type.hasPrefix("text/")) {
-		return try? decodeInvitationBytes(data)
-	}
-	return nil
-}
 #endif

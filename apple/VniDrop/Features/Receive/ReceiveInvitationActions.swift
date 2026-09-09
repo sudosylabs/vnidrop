@@ -8,11 +8,9 @@ enum ReceiveMethodAvailability { case available, unavailable, hidden }
 protocol ReceiveInvitationActions: AnyObject {
 	var fileAvailability: ReceiveMethodAvailability { get }
 	var qrAvailability: ReceiveMethodAvailability { get }
-	var nfcAvailability: ReceiveMethodAvailability { get }
 
 	func pickInvitation(onResult: @escaping (Result<String, Error>) -> Void)
 	func scanQrCode(onResult: @escaping (Result<String, Error>) -> Void)
-	func readNfcInvitation(onResult: @escaping (Result<String, Error>) -> Void)
 	func cancel()
 }
 
@@ -38,17 +36,6 @@ struct ReceiveMethodPanel: View {
 					availability: actions.qrAvailability
 				) { actions.scanQrCode { model.onInvitationResult(.qrCode, $0) } }
 			}
-			if actions.nfcAvailability != .hidden {
-				MethodRow(
-					icon: .wave3Right,
-					titleOverride: model.state.isWaitingForNfc ? String(localized: L10n.Receive.nfcWaiting) : nil,
-					titleKey: L10n.Receive.methodNfc, descKey: L10n.Receive.methodNfcDescription,
-					availability: model.state.isWaitingForNfc ? .unavailable : actions.nfcAvailability
-				) {
-					model.setWaitingForNfc(true)
-					actions.readNfcInvitation { model.onInvitationResult(.nfc, $0) }
-				}
-			}
 		}
 		.padding(.horizontal, 20).padding(.vertical, 14)
 		.frame(maxWidth: .infinity, alignment: .leading)
@@ -58,7 +45,6 @@ struct ReceiveMethodPanel: View {
 private struct MethodRow: View {
 	@Environment(\.vniColors) private var colors
 	let icon: SFSymbol
-	var titleOverride: String? = nil
 	let titleKey: String.LocalizationValue
 	let descKey: String.LocalizationValue
 	let availability: ReceiveMethodAvailability
@@ -72,11 +58,7 @@ private struct MethodRow: View {
 					.foregroundStyle(enabled ? colors.brandLink : colors.foregroundLighter)
 					.frame(width: 24)
 				VStack(alignment: .leading, spacing: 3) {
-					if let titleOverride {
-						Text(titleOverride).font(VniType.bodyLarge)
-					} else {
-						Text(String(localized: titleKey)).font(VniType.bodyLarge)
-					}
+					Text(String(localized: titleKey)).font(VniType.bodyLarge)
 					Text(String(localized: descKey)).font(VniType.bodySmall).foregroundStyle(colors.foregroundLighter)
 				}
 				Spacer()

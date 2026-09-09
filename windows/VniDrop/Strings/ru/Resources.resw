@@ -17,7 +17,7 @@
   <data name="about_isnt_title" xml:space="preserve"><value>Чем VniDrop не является</value></data>
   <data name="about_license_label" xml:space="preserve"><value>Лицензия</value></data>
   <data name="about_privacy" xml:space="preserve"><value>Политика конфиденциальности</value></data>
-  <data name="about_privacy_capability" xml:space="preserve"><value>Приглашения служат ключами доступа. Относитесь к QR-коду, NFC-метке или файлу .vnd как к частной ссылке доступа и делитесь ими только с теми, для кого они предназначены, особенно при варианте «Любой, у кого есть эта передача».</value></data>
+  <data name="about_privacy_capability" xml:space="preserve"><value>Приглашения служат ключами доступа. Относитесь к QR-коду или файлу .vnd как к частной ссылке доступа и делитесь ими только с теми, для кого они предназначены, особенно при варианте «Любой, у кого есть эта передача».</value></data>
   <data name="about_privacy_deny" xml:space="preserve"><value>VniDrop предоставляет только содержимое активной передачи и по умолчанию отклоняет неизвестные запросы.</value></data>
   <data name="about_privacy_local" xml:space="preserve"><value>Полученные файлы сохраняются на вашем устройстве и никогда не перезаписывают существующий файл.</value></data>
   <data name="about_privacy_policy_label" xml:space="preserve"><value>Политика конфиденциальности</value></data>
@@ -85,7 +85,6 @@
   <data name="button_share_file" xml:space="preserve"><value>Начать общий доступ</value></data>
   <data name="button_sharing_file" xml:space="preserve"><value>Подготовка передачи…</value></data>
   <data name="button_show_in_files" xml:space="preserve"><value>Показать в Файлах</value></data>
-  <data name="button_write_nfc" xml:space="preserve"><value>Записать на NFC-метку</value></data>
   <data name="device_model_title" xml:space="preserve"><value>Модель устройства</value></data>
   <data name="device_name_title" xml:space="preserve"><value>Имя устройства</value></data>
   <data name="error_camera" xml:space="preserve"><value>Для сканирования QR-кода требуется доступ к камере.</value></data>
@@ -99,7 +98,6 @@
   <data name="error_invitation_empty" xml:space="preserve"><value>Это приглашение пустое. Попробуйте открыть его снова.</value></data>
   <data name="error_missing_native_library" xml:space="preserve"><value>В этой сборке отсутствует нативная библиотека VniDrop.</value></data>
   <data name="error_network" xml:space="preserve"><value>VniDrop не удалось связаться с отправителем. Проверьте подключение на обоих устройствах и повторите попытку.</value></data>
-  <data name="error_nfc" xml:space="preserve"><value>Не удалось использовать эту NFC-метку. Попробуйте другую.</value></data>
   <data name="error_permission" xml:space="preserve"><value>Отправитель не одобрил эту передачу, или она была отклонена.</value></data>
   <data name="error_repository" xml:space="preserve"><value>VniDrop не удалось сохранить данные передачи на этом устройстве.</value></data>
   <data name="error_selection_failed" xml:space="preserve"><value>Не удалось открыть выбранный объект. Попробуйте выбрать его снова.</value></data>
@@ -184,18 +182,15 @@
   <data name="receive_delete_history_description" xml:space="preserve"><value>{transferName} будет удалён из истории VniDrop. Загруженный файл останется на этом устройстве.</value></data>
   <data name="receive_delete_history_item" xml:space="preserve"><value>Удалить из истории получения</value></data>
   <data name="receive_delete_history_title" xml:space="preserve"><value>Удалить из истории?</value></data>
-  <data name="receive_empty_body" xml:space="preserve"><value>Откройте приглашение VniDrop, отсканируйте QR-код или поднесите NFC-метку.</value></data>
+  <data name="receive_empty_body" xml:space="preserve"><value>Откройте приглашение VniDrop или отсканируйте QR-код.</value></data>
   <data name="receive_empty_title" xml:space="preserve"><value>Пока ничего не получено</value></data>
   <data name="receive_history_cleared" xml:space="preserve"><value>История получения очищена.</value></data>
   <data name="receive_history_title" xml:space="preserve"><value>История</value></data>
   <data name="receive_method_file" xml:space="preserve"><value>Открыть приглашение .vnd</value></data>
   <data name="receive_method_file_description" xml:space="preserve"><value>Выберите приглашение, сохранённое или отправленное на это устройство.</value></data>
-  <data name="receive_method_nfc" xml:space="preserve"><value>Прочитать NFC-метку</value></data>
-  <data name="receive_method_nfc_description" xml:space="preserve"><value>Поднесите это устройство к метке приглашения отправителя.</value></data>
   <data name="receive_method_scan" xml:space="preserve"><value>Сканировать QR-код</value></data>
   <data name="receive_method_scan_description" xml:space="preserve"><value>Используйте камеру, чтобы отсканировать код VniDrop отправителя.</value></data>
   <data name="receive_new_subtitle" xml:space="preserve"><value>Передачи, полученные на этом устройстве.</value></data>
-  <data name="receive_nfc_waiting" xml:space="preserve"><value>Поднесите к NFC-метке…</value></data>
   <data name="receive_open_files_failed" xml:space="preserve"><value>Не удалось открыть VniDrop в Файлах.</value></data>
   <data name="receive_review_title" xml:space="preserve"><value>Проверить передачу</value></data>
   <data name="receive_title" xml:space="preserve"><value>Получить</value></data>
@@ -279,7 +274,7 @@
   <data name="send_choose_file_body" xml:space="preserve"><value>Выберите файлы или папку на этом устройстве. Вы сможете проверить выбор перед созданием передачи.</value></data>
   <data name="send_choose_file_title" xml:space="preserve"><value>Выберите, чем поделиться</value></data>
   <data name="send_default_transfer_name" xml:space="preserve"><value>Файлов: {count}</value></data>
-  <data name="send_empty_body" xml:space="preserve"><value>Создайте передачу, решите, кто может её получить, затем пригласите этих людей с помощью QR-кода, NFC-метки или файла приглашения.</value></data>
+  <data name="send_empty_body" xml:space="preserve"><value>Создайте передачу, решите, кто может её получить, затем пригласите этих людей с помощью QR-кода или файла приглашения.</value></data>
   <data name="send_empty_title" xml:space="preserve"><value>Пока ничем не поделились</value></data>
   <data name="send_file_size_unknown" xml:space="preserve"><value>Размер недоступен</value></data>
   <data name="send_folder_label" xml:space="preserve"><value>Папка</value></data>
@@ -365,9 +360,6 @@
   <data name="transfer_file_count_other" xml:space="preserve"><value>{count} файла</value></data>
   <data name="transfer_invitation_saved" xml:space="preserve"><value>Приглашение сохранено.</value></data>
   <data name="transfer_nearby_device" xml:space="preserve"><value>Устройство поблизости</value></data>
-  <data name="transfer_nfc_unavailable" xml:space="preserve"><value>Запись NFC-меток недоступна на этом устройстве.</value></data>
-  <data name="transfer_nfc_waiting" xml:space="preserve"><value>Поднесите устройство к записываемой NFC-метке.</value></data>
-  <data name="transfer_nfc_written" xml:space="preserve"><value>Приглашение записано на NFC-метку.</value></data>
   <data name="transfer_no_activity" xml:space="preserve"><value>Пока нет активности для отображения.</value></data>
   <data name="transfer_no_receivers" xml:space="preserve"><value>Никто ещё не запросил эту передачу.</value></data>
   <data name="transfer_qr_unavailable" xml:space="preserve"><value>QR-код недоступен для этого приглашения. Используйте «Поделиться» или «Скачать».</value></data>

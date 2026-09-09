@@ -331,15 +331,15 @@
     "about_privacy_capability": {
       "context": "About screen, Privacy & security list: point that invitations are capabilities to share carefully.",
       "translations": {
-        "en": "Invitations are capabilities. Treat a QR code, NFC tag, or .vnd file like a private access link and share it only with the people you intend, especially with “Anyone with this transfer.”",
-        "fr": "Les invitations sont des clés d’accès. Traitez un QR code, un tag NFC ou un fichier .vnd comme un lien d’accès privé et ne le partagez qu’avec les personnes visées, en particulier avec « Toute personne disposant de ce transfert ».",
-        "es": "Las invitaciones son claves de acceso. Trate un código QR, una etiqueta NFC o un archivo .vnd como un enlace de acceso privado y compártalo solo con las personas previstas, especialmente con «Cualquiera que tenga esta transferencia».",
-        "it": "Gli inviti sono chiavi di accesso. Tratti un codice QR, un tag NFC o un file .vnd come un link di accesso privato e lo condivida solo con le persone previste, soprattutto con «Chiunque abbia questo trasferimento».",
-        "de": "Einladungen sind Zugangsschlüssel. Behandeln Sie einen QR-Code, ein NFC-Tag oder eine .vnd-Datei wie einen privaten Zugangslink und teilen Sie ihn nur mit den vorgesehenen Personen, insbesondere bei „Jeder mit dieser Übertragung“.",
-        "pt": "Os convites são chaves de acesso. Trate um código QR, uma etiqueta NFC ou um ficheiro .vnd como uma ligação de acesso privado e partilhe-o apenas com as pessoas pretendidas, sobretudo com «Qualquer pessoa com esta transferência».",
-        "pl": "Zaproszenia są kluczami dostępu. Traktuj kod QR, tag NFC lub plik .vnd jak prywatny link dostępu i udostępniaj go tylko zamierzonym osobom, zwłaszcza przy opcji „Każdy, kto ma ten transfer”.",
-        "nl": "Uitnodigingen zijn toegangssleutels. Behandel een QR-code, NFC-tag of .vnd-bestand als een privétoegangslink en deel deze alleen met de bedoelde personen, vooral bij ‘Iedereen met deze overdracht’.",
-        "ru": "Приглашения служат ключами доступа. Относитесь к QR-коду, NFC-метке или файлу .vnd как к частной ссылке доступа и делитесь ими только с теми, для кого они предназначены, особенно при варианте «Любой, у кого есть эта передача»."
+        "en": "Invitations are capabilities. Treat a QR code or .vnd file like a private access link and share it only with the people you intend, especially with “Anyone with this transfer.”",
+        "fr": "Les invitations sont des clés d’accès. Traitez un QR code ou un fichier .vnd comme un lien d’accès privé et ne le partagez qu’avec les personnes visées, en particulier avec « Toute personne disposant de ce transfert ».",
+        "es": "Las invitaciones son claves de acceso. Trate un código QR o un archivo .vnd como un enlace de acceso privado y compártalo solo con las personas previstas, especialmente con «Cualquiera que tenga esta transferencia».",
+        "it": "Gli inviti sono chiavi di accesso. Tratti un codice QR o un file .vnd come un link di accesso privato e lo condivida solo con le persone previste, soprattutto con «Chiunque abbia questo trasferimento».",
+        "de": "Einladungen sind Zugangsschlüssel. Behandeln Sie einen QR-Code oder eine .vnd-Datei wie einen privaten Zugangslink und teilen Sie ihn nur mit den vorgesehenen Personen, insbesondere bei „Jeder mit dieser Übertragung“.",
+        "pt": "Os convites são chaves de acesso. Trate um código QR ou um ficheiro .vnd como uma ligação de acesso privado e partilhe-o apenas com as pessoas pretendidas, sobretudo com «Qualquer pessoa com esta transferência».",
+        "pl": "Zaproszenia są kluczami dostępu. Traktuj kod QR lub plik .vnd jak prywatny link dostępu i udostępniaj go tylko zamierzonym osobom, zwłaszcza przy opcji „Każdy, kto ma ten transfer”.",
+        "nl": "Uitnodigingen zijn toegangssleutels. Behandel een QR-code of .vnd-bestand als een privétoegangslink en deel deze alleen met de bedoelde personen, vooral bij ‘Iedereen met deze overdracht’.",
+        "ru": "Приглашения служат ключами доступа. Относитесь к QR-коду или файлу .vnd как к частной ссылке доступа и делитесь ими только с теми, для кого они предназначены, особенно при варианте «Любой, у кого есть эта передача»."
       },
       "targets": [
         "apple",
@@ -1365,24 +1365,6 @@
         "ru": "Показать в Файлах"
       }
     },
-    "button_write_nfc": {
-      "context": "Button: write the invitation to an NFC tag.",
-      "translations": {
-        "en": "Write to NFC tag",
-        "fr": "Écrire sur un tag NFC",
-        "es": "Escribir en etiqueta NFC",
-        "it": "Scrivi su tag NFC",
-        "de": "Auf NFC-Tag schreiben",
-        "pt": "Escrever em etiqueta NFC",
-        "pl": "Zapisz na tagu NFC",
-        "nl": "Naar NFC-tag schrijven",
-        "ru": "Записать на NFC-метку"
-      },
-      "targets": [
-        "apple",
-        "windows"
-      ]
-    },
     "device_model_title": {
       "context": "Device information row: device model label.",
       "translations": {
@@ -1564,24 +1546,6 @@
         "nl": "VniDrop kon de afzender niet bereiken. Controleer de verbinding op beide apparaten en probeer het opnieuw.",
         "ru": "VniDrop не удалось связаться с отправителем. Проверьте подключение на обоих устройствах и повторите попытку."
       }
-    },
-    "error_nfc": {
-      "context": "Error: the NFC tag could not be read/used.",
-      "translations": {
-        "en": "This NFC tag could not be used. Try another tag.",
-        "fr": "Ce tag NFC n’a pas pu être utilisé. Essayez-en un autre.",
-        "es": "No se pudo usar esta etiqueta NFC. Pruebe con otra.",
-        "it": "Impossibile usare questo tag NFC. Ne provi un altro.",
-        "de": "Dieses NFC-Tag konnte nicht verwendet werden. Versuchen Sie ein anderes.",
-        "pt": "Não foi possível utilizar esta etiqueta NFC. Tente outra.",
-        "pl": "Nie udało się użyć tego tagu NFC. Spróbuj innego.",
-        "nl": "Deze NFC-tag kon niet worden gebruikt. Probeer een andere.",
-        "ru": "Не удалось использовать эту NFC-метку. Попробуйте другую."
-      },
-      "targets": [
-        "apple",
-        "windows"
-      ]
     },
     "error_permission": {
       "context": "Error: the transfer was not approved or was refused by the sender.",
@@ -2715,15 +2679,15 @@
     "receive_empty_body": {
       "context": "Receive tab empty state: instructions on how to receive.",
       "translations": {
-        "en": "Open a VniDrop invitation, scan a QR code, or hold near an NFC tag.",
-        "fr": "Ouvrez une invitation VniDrop, scannez un QR code ou approchez un tag NFC.",
-        "es": "Abra una invitación de VniDrop, escanee un código QR o acerque una etiqueta NFC.",
-        "it": "Apra un invito VniDrop, scansioni un codice QR o avvicini un tag NFC.",
-        "de": "Öffnen Sie eine VniDrop-Einladung, scannen Sie einen QR-Code oder halten Sie das Gerät an ein NFC-Tag.",
-        "pt": "Abra um convite do VniDrop, leia um código QR ou aproxime uma etiqueta NFC.",
-        "pl": "Otwórz zaproszenie VniDrop, zeskanuj kod QR lub zbliż tag NFC.",
-        "nl": "Open een VniDrop-uitnodiging, scan een QR-code of houd het apparaat bij een NFC-tag.",
-        "ru": "Откройте приглашение VniDrop, отсканируйте QR-код или поднесите NFC-метку."
+        "en": "Open a VniDrop invitation or scan a QR code.",
+        "fr": "Ouvrez une invitation VniDrop ou scannez un QR code.",
+        "es": "Abra una invitación de VniDrop o escanee un código QR.",
+        "it": "Apra un invito VniDrop o scansioni un codice QR.",
+        "de": "Öffnen Sie eine VniDrop-Einladung oder scannen Sie einen QR-Code.",
+        "pt": "Abra um convite do VniDrop ou leia um código QR.",
+        "pl": "Otwórz zaproszenie VniDrop lub zeskanuj kod QR.",
+        "nl": "Open een VniDrop-uitnodiging of scan een QR-code.",
+        "ru": "Откройте приглашение VniDrop или отсканируйте QR-код."
       },
       "targets": [
         "apple",
@@ -2817,42 +2781,6 @@
         "ru": "Выберите приглашение, сохранённое или отправленное на это устройство."
       }
     },
-    "receive_method_nfc": {
-      "context": "Receive method: read an NFC tag.",
-      "translations": {
-        "en": "Read NFC tag",
-        "fr": "Lire un tag NFC",
-        "es": "Leer etiqueta NFC",
-        "it": "Leggi tag NFC",
-        "de": "NFC-Tag lesen",
-        "pt": "Ler etiqueta NFC",
-        "pl": "Odczytaj tag NFC",
-        "nl": "NFC-tag lezen",
-        "ru": "Прочитать NFC-метку"
-      },
-      "targets": [
-        "apple",
-        "windows"
-      ]
-    },
-    "receive_method_nfc_description": {
-      "context": "Receive method description: hold near the sender's NFC tag.",
-      "translations": {
-        "en": "Hold this device near the sender’s invitation tag.",
-        "fr": "Approchez cet appareil du tag d’invitation de l’expéditeur.",
-        "es": "Acerque este dispositivo a la etiqueta de invitación del remitente.",
-        "it": "Avvicini questo dispositivo al tag di invito del mittente.",
-        "de": "Halten Sie dieses Gerät an das Einladungs-Tag des Absenders.",
-        "pt": "Aproxime este dispositivo da etiqueta de convite do remetente.",
-        "pl": "Zbliż to urządzenie do tagu zaproszenia nadawcy.",
-        "nl": "Houd dit apparaat bij de uitnodigingstag van de afzender.",
-        "ru": "Поднесите это устройство к метке приглашения отправителя."
-      },
-      "targets": [
-        "apple",
-        "windows"
-      ]
-    },
     "receive_method_scan": {
       "context": "Receive method: scan a QR code.",
       "translations": {
@@ -2894,24 +2822,6 @@
         "nl": "Overdrachten die u op dit apparaat hebt ontvangen.",
         "ru": "Передачи, полученные на этом устройстве."
       }
-    },
-    "receive_nfc_waiting": {
-      "context": "Receive flow: prompt while waiting to read an NFC tag.",
-      "translations": {
-        "en": "Hold near the NFC tag…",
-        "fr": "Approchez du tag NFC…",
-        "es": "Acerque a la etiqueta NFC…",
-        "it": "Avvicini al tag NFC…",
-        "de": "Halten Sie das Gerät an das NFC-Tag…",
-        "pt": "Aproxime da etiqueta NFC…",
-        "pl": "Zbliż do tagu NFC…",
-        "nl": "Houd bij de NFC-tag…",
-        "ru": "Поднесите к NFC-метке…"
-      },
-      "targets": [
-        "apple",
-        "windows"
-      ]
     },
     "receive_open_files_failed": {
       "context": "Receive flow: error when opening VniDrop's folder in Files fails.",
@@ -3472,15 +3382,15 @@
     "send_empty_body": {
       "context": "Send tab empty state: instructions on how to create a transfer.",
       "translations": {
-        "en": "Create a transfer, decide who can receive it, then invite them with a QR code, NFC tag, or invitation file.",
-        "fr": "Créez un transfert, décidez qui peut le recevoir, puis invitez-les avec un QR code, un tag NFC ou un fichier d’invitation.",
-        "es": "Cree una transferencia, decida quién puede recibirla y luego invite a esas personas con un código QR, una etiqueta NFC o un archivo de invitación.",
-        "it": "Crei un trasferimento, decida chi può riceverlo, poi inviti queste persone con un codice QR, un tag NFC o un file di invito.",
-        "de": "Erstellen Sie eine Übertragung, entscheiden Sie, wer sie empfangen darf, und laden Sie diese Personen dann mit einem QR-Code, einem NFC-Tag oder einer Einladungsdatei ein.",
-        "pt": "Crie uma transferência, decida quem a pode receber e depois convide essas pessoas com um código QR, uma etiqueta NFC ou um ficheiro de convite.",
-        "pl": "Utwórz transfer, zdecyduj, kto może go odebrać, a następnie zaproś te osoby za pomocą kodu QR, tagu NFC lub pliku zaproszenia.",
-        "nl": "Maak een overdracht aan, bepaal wie deze kan ontvangen en nodig die personen vervolgens uit met een QR-code, NFC-tag of uitnodigingsbestand.",
-        "ru": "Создайте передачу, решите, кто может её получить, затем пригласите этих людей с помощью QR-кода, NFC-метки или файла приглашения."
+        "en": "Create a transfer, decide who can receive it, then invite them with a QR code or invitation file.",
+        "fr": "Créez un transfert, décidez qui peut le recevoir, puis invitez-les avec un QR code ou un fichier d’invitation.",
+        "es": "Cree una transferencia, decida quién puede recibirla y luego invite a esas personas con un código QR o un archivo de invitación.",
+        "it": "Crei un trasferimento, decida chi può riceverlo, poi inviti queste persone con un codice QR o un file di invito.",
+        "de": "Erstellen Sie eine Übertragung, entscheiden Sie, wer sie empfangen darf, und laden Sie diese Personen dann mit einem QR-Code oder einer Einladungsdatei ein.",
+        "pt": "Crie uma transferência, decida quem a pode receber e depois convide essas pessoas com um código QR ou um ficheiro de convite.",
+        "pl": "Utwórz transfer, zdecyduj, kto może go odebrać, a następnie zaproś te osoby za pomocą kodu QR lub pliku zaproszenia.",
+        "nl": "Maak een overdracht aan, bepaal wie deze kan ontvangen en nodig die personen vervolgens uit met een QR-code of uitnodigingsbestand.",
+        "ru": "Создайте передачу, решите, кто может её получить, затем пригласите этих людей с помощью QR-кода или файла приглашения."
       },
       "targets": [
         "apple",
@@ -4673,60 +4583,6 @@
         "nl": "Apparaat in de buurt",
         "ru": "Устройство поблизости"
       }
-    },
-    "transfer_nfc_unavailable": {
-      "context": "Transfer share: message when NFC writing isn't available on the device.",
-      "translations": {
-        "en": "NFC tag writing is not available on this device.",
-        "fr": "L’écriture de tag NFC n’est pas disponible sur cet appareil.",
-        "es": "La escritura de etiquetas NFC no está disponible en este dispositivo.",
-        "it": "La scrittura dei tag NFC non è disponibile su questo dispositivo.",
-        "de": "Das Beschreiben von NFC-Tags ist auf diesem Gerät nicht verfügbar.",
-        "pt": "A escrita de etiquetas NFC não está disponível neste dispositivo.",
-        "pl": "Zapis tagów NFC nie jest dostępny na tym urządzeniu.",
-        "nl": "Het schrijven van NFC-tags is niet beschikbaar op dit apparaat.",
-        "ru": "Запись NFC-меток недоступна на этом устройстве."
-      },
-      "targets": [
-        "apple",
-        "windows"
-      ]
-    },
-    "transfer_nfc_waiting": {
-      "context": "Transfer share: prompt while waiting to write an NFC tag.",
-      "translations": {
-        "en": "Hold your device near a writable NFC tag.",
-        "fr": "Approchez votre appareil d’un tag NFC inscriptible.",
-        "es": "Acerque su dispositivo a una etiqueta NFC grabable.",
-        "it": "Avvicini il dispositivo a un tag NFC scrivibile.",
-        "de": "Halten Sie Ihr Gerät an ein beschreibbares NFC-Tag.",
-        "pt": "Aproxime o seu dispositivo de uma etiqueta NFC gravável.",
-        "pl": "Zbliż urządzenie do zapisywalnego tagu NFC.",
-        "nl": "Houd uw apparaat bij een beschrijfbare NFC-tag.",
-        "ru": "Поднесите устройство к записываемой NFC-метке."
-      },
-      "targets": [
-        "apple",
-        "windows"
-      ]
-    },
-    "transfer_nfc_written": {
-      "context": "Transfer share: confirmation the invitation was written to the NFC tag.",
-      "translations": {
-        "en": "Invitation written to the NFC tag.",
-        "fr": "Invitation écrite sur le tag NFC.",
-        "es": "Invitación escrita en la etiqueta NFC.",
-        "it": "Invito scritto sul tag NFC.",
-        "de": "Einladung auf das NFC-Tag geschrieben.",
-        "pt": "Convite escrito na etiqueta NFC.",
-        "pl": "Zaproszenie zapisane na tagu NFC.",
-        "nl": "Uitnodiging naar de NFC-tag geschreven.",
-        "ru": "Приглашение записано на NFC-метку."
-      },
-      "targets": [
-        "apple",
-        "windows"
-      ]
     },
     "transfer_no_activity": {
       "context": "Transfer details: empty state for the Activity section.",

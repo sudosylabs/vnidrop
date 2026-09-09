@@ -5,7 +5,6 @@ import Combine
 enum ReceiveMethod {
 	case invitationFile
 	case qrCode
-	case nfc
 	/// Pushed by a remembered device and already accepted by the user, so no
 	/// invitation was acquired by hand.
 	case offer
@@ -29,7 +28,6 @@ struct ReceiveState: Equatable {
 	var isReceiving = false
 	var activeReceiveTransferId: UInt64?
 	var lastReceiveError: UiText?
-	var isWaitingForNfc = false
 	var historyDeleteTarget: ReceiveHistoryDeleteTarget?
 	var isDeletingHistory = false
 
@@ -44,7 +42,7 @@ struct ReceiveState: Equatable {
 			&& lhs.receiveFolder == rhs.receiveFolder && lhs.folderAccessStatus == rhs.folderAccessStatus
 			&& lhs.isInspecting == rhs.isInspecting && lhs.isReceiving == rhs.isReceiving
 			&& lhs.activeReceiveTransferId == rhs.activeReceiveTransferId
-			&& lhs.lastReceiveError == rhs.lastReceiveError && lhs.isWaitingForNfc == rhs.isWaitingForNfc
+			&& lhs.lastReceiveError == rhs.lastReceiveError
 			&& lhs.historyDeleteTarget == rhs.historyDeleteTarget && lhs.isDeletingHistory == rhs.isDeletingHistory
 	}
 }
@@ -102,7 +100,6 @@ final class ReceiveModel: ObservableObject {
 		if !state.isReceiving && !state.isInspecting { resetAcquisition() }
 	}
 	func setReceiverName(_ value: String) { state.receiverName = value }
-	func setWaitingForNfc(_ waiting: Bool) { state.isWaitingForNfc = waiting }
 
 	func requestDeleteHistoryItem(_ transferId: UInt64) {
 		let canDelete = coreState.transfers.contains {
@@ -150,7 +147,6 @@ final class ReceiveModel: ObservableObject {
 	}
 
 	func onInvitationResult(_ method: ReceiveMethod, _ result: Result<String, Error>) {
-		state.isWaitingForNfc = false
 		switch result {
 		case .success(let raw): inspectInvitation(method, raw)
 		case .failure(let error): messages.error(error)
@@ -301,6 +297,5 @@ final class ReceiveModel: ObservableObject {
 		state.isReceiving = false
 		state.activeReceiveTransferId = nil
 		state.lastReceiveError = nil
-		state.isWaitingForNfc = false
 	}
 }

@@ -218,6 +218,7 @@ fn native_draft_approval_receive_and_shutdown() {
     .unwrap();
     assert!(!submit.is_sensitive(), "empty draft cannot be submitted");
     capture(&app.window, "draft-empty");
+    widget_tests::composer_controls(&app);
     let composer = app.composer.borrow().clone().unwrap();
     composer.load_files(
         vec![gio::File::for_path(&source)],
@@ -317,6 +318,7 @@ fn native_draft_approval_receive_and_shutdown() {
             .is_some_and(|s| s.transfers.iter().any(|t| t.status == "sharing"))
             && app.window.visible_dialog().is_none()
     });
+    widget_tests::stop_confirmation(&app);
     until("queued invitation processed after draft closes", || {
         app.pending.borrow().is_empty() && !app.reviewing.get()
     });

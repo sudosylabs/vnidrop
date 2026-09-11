@@ -71,3 +71,84 @@ pub(super) fn early_close(app: &Rc<App>) {
     render_window(&app.window);
     assert!(app.window.visible_dialog().is_none());
 }
+
+pub(super) fn assert_visible_choice(row: &adw::ComboRow) {
+    let value = row
+        .selected_item()
+        .and_downcast::<gtk::StringObject>()
+        .unwrap()
+        .string();
+    fn visible(widget: &gtk::Widget, value: &str) -> bool {
+        if let Some(label) = widget.downcast_ref::<gtk::Label>() {
+            if label.is_mapped() && label.text() == value && label.width() > 0 {
+                return true;
+            }
+        }
+        let mut child = widget.first_child();
+        while let Some(widget) = child {
+            if visible(&widget, value) {
+                return true;
+            }
+            child = widget.next_sibling();
+        }
+        false
+    }
+    assert!(
+        visible(row.upcast_ref(), &value),
+        "Selected value must be visible while closed: {value}"
+    );
+}
+
+pub(super) fn composer_controls(app: &Rc<App>) {
+    let dialog = app.window.visible_dialog().unwrap();
+    let policy =
+        super::settings_ui_tests::combo(dialog.upcast_ref(), &text("send_access_title")).unwrap();
+    for selection in [0, 1, 0] {
+        policy.set_selected(selection);
+        render_window(&app.window);
+        assert_visible_choice(&policy);
+    }
+    let settings = gtk::Settings::default().unwrap();
+    let previous = settings.gtk_decoration_layout();
+    for layout in ["close:minimize,maximize", ":minimize,maximize,close"] {
+        settings.set_gtk_decoration_layout(Some(layout));
+        render_window(&app.window);
+        assert!(
+            button(&dialog, &|button| button.has_css_class("close")
+                && button.is_mapped())
+            .is_none(),
+            "Cancel must be the only visible draft dismissal button"
+        );
+    }
+    capture(&app.window, "draft-dismissal-controls");
+    settings.set_gtk_decoration_layout(previous.as_deref());
+}
+
+pub(super) fn stop_confirmation(app: &Rc<App>) {
+    activate_button(&app.details, "send_stop_sharing");
+    until("stop confirmation", || {
+        app.window.visible_dialog().is_some()
+    });
+    let dialog = app
+        .window
+        .visible_dialog()
+        .unwrap()
+        .downcast::<adw::AlertDialog>()
+        .unwrap();
+    capture(&app.window, "stop-confirmation");
+    assert_ne!(
+        dialog.response_label("cancel"),
+        dialog.response_label("confirm"),
+        "Dismissal and stopping must have distinct labels"
+    );
+    activate_button(&dialog, "button_cancel");
+    until("stop dismissed", || app.window.visible_dialog().is_none());
+    assert!(app
+        .snapshot
+        .borrow()
+        .as_ref()
+        .unwrap()
+        .transfers
+        .iter()
+        .any(|transfer| transfer.status == "sharing"));
+}

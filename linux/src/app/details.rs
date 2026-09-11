@@ -670,7 +670,7 @@ impl App {
             if transfer.direction == "send" {
                 "send_stop_sharing"
             } else {
-                "button_cancel_receive"
+                "linux_stop_transfer"
             }
         } else {
             "linux_remove_history"
@@ -687,7 +687,7 @@ impl App {
                     (
                         "linux_cancel_title",
                         "linux_cancel_body",
-                        "button_cancel_receive",
+                        "linux_stop_transfer",
                     )
                 } else {
                     (

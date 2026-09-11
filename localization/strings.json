@@ -6783,6 +6783,21 @@
         "ru": "Выберите несколько файлов или одну папку."
       }
     },
+    "linux_stop_transfer": {
+      "context": "Native GNOME confirmation: stop the current transfer.",
+      "targets": ["linux"],
+      "translations": {
+        "en": "Stop transfer",
+        "fr": "Arrêter le transfert",
+        "es": "Detener transferencia",
+        "it": "Interrompi trasferimento",
+        "de": "Übertragung stoppen",
+        "pt": "Parar transferência",
+        "pl": "Zatrzymaj transfer",
+        "nl": "Overdracht stoppen",
+        "ru": "Остановить передачу"
+      }
+    },
     "linux_cancel_title": {
       "context": "Native GNOME application: cancel title.",
       "targets": ["linux"],

@@ -1,6 +1,6 @@
 use super::*;
 
-fn combo(widget: &gtk::Widget, title: &str) -> Option<adw::ComboRow> {
+pub(super) fn combo(widget: &gtk::Widget, title: &str) -> Option<adw::ComboRow> {
     if let Some(row) = widget.downcast_ref::<adw::ComboRow>() {
         if row.title() == title {
             return Some(row.clone());
@@ -56,6 +56,9 @@ pub(super) fn settings_restart_and_preview_workflow(root: &std::path::Path) {
         adw::ColorScheme::ForceDark
     );
     render_window(&app.window);
+    super::widget_tests::assert_visible_choice(
+        &combo(dialog.upcast_ref(), &text("appearance_title")).unwrap(),
+    );
     dialog.close();
     until("theme dialog closed", || {
         app.window.visible_dialog().is_none()
@@ -94,6 +97,7 @@ pub(super) fn settings_restart_and_preview_workflow(root: &std::path::Path) {
     for selection in 0..4 {
         mode.set_selected(selection);
         render_window(&app.window);
+        super::widget_tests::assert_visible_choice(&mode);
         assert!(mode.uses_subtitle());
         assert_eq!(mode.subtitle_lines(), 0);
         assert!(mode.list_factory().is_some());

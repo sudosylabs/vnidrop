@@ -92,6 +92,7 @@ impl Composer {
 
     fn new(app: &Rc<App>, target: Option<vnidrop_gnome::devices::Device>) -> Rc<Self> {
         let (dialog, rows, header) = content("send_new_transfer_title");
+        header.set_show_start_title_buttons(false);
         header.set_show_end_title_buttons(false);
         dialog.set_content_width(540);
         dialog.set_content_height(600);

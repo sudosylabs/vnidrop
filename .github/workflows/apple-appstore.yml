@@ -306,16 +306,6 @@ jobs:
             CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM="$TEAM_ID"
 
-      - name: Verify keychain access group
-        # The Rust core keeps the endpoint identity in the data-protection
-        # Keychain; an app resolving to no access group gets -34018 on every read
-        # and dies on the startup screen. 0.3.1 shipped exactly that.
-        run: |
-          set -euo pipefail
-          app="$(find "$RUNNER_TEMP/VniDrop.xcarchive/Products/Applications" \
-            -maxdepth 1 -name '*.app' | head -1)"
-          apple/scripts/verify-keychain-access-group.sh "$app"
-
       - name: Export
         # Always exports to disk, never uploads. Splitting export from upload
         # isolates signing failures from transport failures: a macOS upload run
@@ -355,6 +345,43 @@ jobs:
             -authenticationKeyIssuerID "$ISSUER_ID"
 
           ls -lh "$RUNNER_TEMP/export"
+
+      - name: Verify keychain access group
+        # The Rust core keeps the endpoint identity in the data-protection
+        # Keychain; an app resolving to no access group gets -34018 on every read
+        # and dies on the startup screen. 0.3.1 shipped exactly that.
+        #
+        # Checks the *exported* app, not the archive. The archive is signed for
+        # development and is not what ships: export re-signs with the Apple
+        # Distribution identity and the App Store profile, and only then does the
+        # app carry the application-identifier that doubles as its access group.
+        # Checking the archive worked until 0.3.4 only by accident — the NFC
+        # entitlement was restricted, so automatic signing had to fetch a profile
+        # to authorize it, and that profile supplied the identifier. Dropping NFC
+        # left nothing but sandbox and network keys, which macOS grants with no
+        # profile at all, so the archive lost its access group while the exported
+        # .pkg kept one. iOS never had the gap: it cannot be signed profile-less.
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/verify"
+          rm -rf "$work" && mkdir -p "$work"
+          if [ "$PLATFORM" = iOS ]; then
+            payload="$(find "$RUNNER_TEMP/export" -maxdepth 1 -name '*.ipa' | head -1)"
+            [ -n "$payload" ] || { echo "error: no .ipa in the export" >&2; exit 1; }
+            unzip -q "$payload" -d "$work"
+          else
+            payload="$(find "$RUNNER_TEMP/export" -maxdepth 1 -name '*.pkg' | head -1)"
+            [ -n "$payload" ] || { echo "error: no .pkg in the export" >&2; exit 1; }
+            # --expand-full unpacks the component payloads too, so the .app inside
+            # is a real bundle codesign can read rather than a compressed archive.
+            pkgutil --expand-full "$payload" "$work/pkg"
+          fi
+          app="$(find "$work" -name 'VniDrop.app' -type d -print -quit)"
+          [ -n "$app" ] || { echo "error: no VniDrop.app inside $(basename "$payload")" >&2; exit 1; }
+          echo "==> verifying $(basename "$payload") -> ${app#"$work"/}"
+          apple/scripts/verify-keychain-access-group.sh "$app"
 
       - name: Upload to App Store Connect
         if: needs.core.outputs.destination == 'upload'

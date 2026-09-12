@@ -1,7 +1,6 @@
 using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppNotifications.Builder;
 using VniDrop.Core;
-using VniDrop.Native;
 
 namespace VniDrop.Platform;
 
@@ -55,13 +54,14 @@ public sealed class NativeNotifications
         foreach (var request in snapshot.Requests)
             Notice("request:" + request.id, request.status, request.status switch
             { "requested" => Strings.Get("approval_connection_request"), "completed" => Strings.Get("notifications_receiver_completed_title"), "failed" => Strings.Get("notifications_receiver_failed_title"), _ => null }, request.transferName);
-        foreach (var offer in snapshot.Offers)
-            Notice("offer:" + offer.transferId, "pending", Strings.Get("receive_review_title"), offer.transferName);
-        foreach (var relationship in snapshot.Relationships)
-            Notice("pairing:" + relationship.remoteEndpointId, relationship.state.ToString(), relationship.state == DeviceRelationshipState.PendingIncoming ? Strings.Get("saved_devices_pending_incoming") : null, Strings.Get("saved_devices_attention_title"));
-        foreach (var transfer in snapshot.TargetedTransfers)
-            Notice("targeted:" + transfer.id, transfer.state.ToString(), transfer.state switch
-            { TargetedTransferState.Completed => Strings.Get("notifications_receive_completed_title"), TargetedTransferState.Failed => Strings.Get("notifications_receive_failed_title"), _ => null }, transfer.transferName);
+        foreach (var notice in SavedDevicesReadModel.Derive(SavedDevicesReadInputs.FromSnapshot(snapshot)).Notifications)
+            Notice(
+                notice.Id,
+                notice.State,
+                notice.Kind is { } kind ? Strings.Get(SavedDevicesReadModel.TitleKey(kind)) : null,
+                notice.Kind == SavedDeviceNotificationKind.PairingRequest
+                    ? Strings.Get("saved_devices_attention_title")
+                    : notice.TransferName ?? Strings.Get("receive_unknown_transfer"));
         previous = current;
     }
 }

@@ -31,11 +31,7 @@ public sealed class SavedDeviceItem
     public SavedDeviceItem(SavedDevice device, int transferCount, bool isBusy)
     {
         Device = device;
-        Name = !string.IsNullOrWhiteSpace(device.localLabel)
-            ? device.localLabel!
-            : !string.IsNullOrWhiteSpace(device.remoteDisplayName)
-                ? device.remoteDisplayName
-                : Strings.Get("saved_devices_unnamed");
+        Name = SavedDevicesReadModel.DisplayName(device) ?? Strings.Get("saved_devices_unnamed");
         Detail = !string.IsNullOrWhiteSpace(device.localLabel)
             && !string.Equals(device.localLabel, device.remoteDisplayName, StringComparison.Ordinal)
                 ? Strings.Format("saved_devices_authenticated_name", ("name", device.remoteDisplayName))
@@ -176,6 +172,8 @@ public sealed class DeviceActionRowItem
 
 public sealed class DeviceTransferItem
 {
+    private readonly bool showsProgress;
+
     public DeviceTransferItem(
         TargetedTransfer transfer,
         string peerName,
@@ -184,19 +182,17 @@ public sealed class DeviceTransferItem
     {
         Transfer = transfer;
         PeerName = peerName;
-        var availability = TargetedTransferActionPolicy.Evaluate(
-            transfer.role,
-            transfer.state,
-            receiveRunning,
-            mutationBusy);
+        var fact = SavedDevicesReadModel.TransferItem(transfer, peerName);
+        var availability = fact.EvaluateAvailability(receiveRunning, mutationBusy);
         IsBusy = availability.ShowBusy;
         IsPrimaryEnabled = availability.CanStart;
-        IsSecondaryEnabled = IsTerminal(transfer.state)
+        IsSecondaryEnabled = fact.AvailableActions.Contains(SavedDeviceTransferAction.Delete)
             ? availability.CanDelete
             : availability.CanCancel;
         IsMoreEnabled = availability.CanOpenActions;
+        showsProgress = fact.ProgressFraction is not null;
 
-        var incoming = transfer.role == TargetedTransferRole.Receiver;
+        var incoming = fact.Direction == SavedDeviceTransferDirection.Incoming;
         Direction = Strings.Format(
             incoming ? "saved_devices_transfer_direction_incoming" : "saved_devices_transfer_direction_outgoing",
             ("device", peerName));
@@ -204,26 +200,26 @@ public sealed class DeviceTransferItem
         Status = Strings.Get(StatusKey(transfer.state));
         StatusTone = Tone(transfer.state);
         StatusGlyph = Glyph(transfer.state, incoming);
-        Progress = transfer.totalSize == 0
-            ? 0
-            : Math.Clamp(transfer.verifiedBytes * 100d / transfer.totalSize, 0d, 100d);
+        Progress = fact.ProgressFraction is { } fraction
+            ? Math.Clamp(fraction * 100d, 0d, 100d)
+            : 0d;
         ProgressText = Strings.Format(
             "saved_devices_transfer_progress",
             ("verified", Strings.Size(transfer.verifiedBytes)),
             ("total", Strings.Size(transfer.totalSize)));
 
-        if (incoming && transfer.state == TargetedTransferState.Approved)
+        if (fact.AvailableActions.Contains(SavedDeviceTransferAction.Receive))
         {
             PrimaryAction = DeviceTransferAction.Receive;
             PrimaryText = Strings.Get("saved_devices_transfer_receive");
         }
-        else if (incoming && transfer.state == TargetedTransferState.Interrupted)
+        else if (fact.AvailableActions.Contains(SavedDeviceTransferAction.Resume))
         {
             PrimaryAction = DeviceTransferAction.Resume;
             PrimaryText = Strings.Get("saved_devices_transfer_resume");
         }
 
-        SecondaryAction = IsTerminal(transfer.state)
+        SecondaryAction = fact.AvailableActions.Contains(SavedDeviceTransferAction.Delete)
             ? DeviceTransferAction.Delete
             : DeviceTransferAction.Cancel;
         SecondaryText = Strings.Get(SecondaryAction == DeviceTransferAction.Delete
@@ -235,9 +231,7 @@ public sealed class DeviceTransferItem
 
     public string Id => Transfer.id;
 
-    public string PeerId => Transfer.role == TargetedTransferRole.Sender
-        ? Transfer.receiverEndpointId
-        : Transfer.senderEndpointId;
+    public string PeerId => SavedDevicesReadModel.PeerEndpointId(Transfer);
 
     public string PeerName { get; }
 
@@ -279,20 +273,9 @@ public sealed class DeviceTransferItem
         ? Visibility.Collapsed
         : Visibility.Visible;
 
-    public Visibility ProgressVisibility => TransferPresentation.ShowsTargetedProgress(Transfer.state, Transfer.totalSize)
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+    public Visibility ProgressVisibility => showsProgress ? Visibility.Visible : Visibility.Collapsed;
 
     public string AutomationName => $"{Title}. {Summary}. {Status}";
-
-    private static bool IsTerminal(TargetedTransferState state)
-    {
-        return state is TargetedTransferState.Completed
-            or TargetedTransferState.Declined
-            or TargetedTransferState.Cancelled
-            or TargetedTransferState.Failed
-            or TargetedTransferState.Deleted;
-    }
 
     private static string StatusKey(TargetedTransferState state)
     {

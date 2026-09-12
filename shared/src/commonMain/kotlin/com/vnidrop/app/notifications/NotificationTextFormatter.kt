@@ -15,6 +15,8 @@ import vnidrop.shared.generated.resources.notifications_receiver_failed_body
 import vnidrop.shared.generated.resources.notifications_receiver_failed_title
 import vnidrop.shared.generated.resources.notifications_send_failed_body
 import vnidrop.shared.generated.resources.notifications_send_failed_title
+import vnidrop.shared.generated.resources.pairing_request_body
+import vnidrop.shared.generated.resources.pairing_request_title
 import vnidrop.shared.generated.resources.receive_unknown_transfer
 import vnidrop.shared.generated.resources.targeted_offer_body
 import vnidrop.shared.generated.resources.targeted_offer_title
@@ -28,6 +30,8 @@ internal interface NotificationTextFormatter {
 	suspend fun approvalRequest(receiver: String?, transferName: String): NotificationText
 
 	suspend fun transfer(plan: PlannedTransferNotification): NotificationText
+
+	suspend fun savedDevice(plan: PlannedSavedDeviceNotification): NotificationText
 }
 
 internal object LocalizedNotificationTextFormatter : NotificationTextFormatter {
@@ -68,13 +72,37 @@ internal object LocalizedNotificationTextFormatter : NotificationTextFormatter {
 					getString(Res.string.notifications_receiver_failed_body, receiver, transferName),
 				)
 			}
-			TransferNotificationKind.TargetedOffer -> {
-				val sender = plan.receiver ?: getString(Res.string.approval_nearby_device)
-				NotificationText(
-					getString(Res.string.targeted_offer_title),
-					getString(Res.string.targeted_offer_body, sender, transferName),
-				)
-			}
+		}
+	}
+
+	override suspend fun savedDevice(plan: PlannedSavedDeviceNotification): NotificationText {
+		val device = plan.deviceName ?: getString(Res.string.approval_nearby_device)
+		val transferName = plan.transferName ?: getString(Res.string.receive_unknown_transfer)
+		return when (plan.kind) {
+			SavedDeviceNotificationKind.PairingRequest -> NotificationText(
+				getString(Res.string.pairing_request_title),
+				getString(Res.string.pairing_request_body, device),
+			)
+			SavedDeviceNotificationKind.TargetedOffer -> NotificationText(
+				getString(Res.string.targeted_offer_title),
+				getString(Res.string.targeted_offer_body, device, transferName),
+			)
+			SavedDeviceNotificationKind.TargetedReceiveCompleted -> NotificationText(
+				getString(Res.string.notifications_receive_completed_title),
+				getString(Res.string.notifications_receive_completed_body, transferName),
+			)
+			SavedDeviceNotificationKind.TargetedReceiveFailed -> NotificationText(
+				getString(Res.string.notifications_receive_failed_title),
+				getString(Res.string.notifications_receive_failed_body, transferName),
+			)
+			SavedDeviceNotificationKind.TargetedSendCompleted -> NotificationText(
+				getString(Res.string.notifications_receiver_completed_title),
+				getString(Res.string.notifications_receiver_completed_body, device, transferName),
+			)
+			SavedDeviceNotificationKind.TargetedSendFailed -> NotificationText(
+				getString(Res.string.notifications_receiver_failed_title),
+				getString(Res.string.notifications_receiver_failed_body, device, transferName),
+			)
 		}
 	}
 }

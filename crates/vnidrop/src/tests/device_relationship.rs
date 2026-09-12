@@ -441,6 +441,7 @@ fn forget_saved_device_revokes_locally_and_hooks_targeted_cancel() {
     alice.core.forget_saved_device(bob_id.clone()).unwrap();
 
     assert!(alice.core.list_saved_devices().unwrap().is_empty());
+    assert!(bob.core.list_saved_devices().unwrap().is_empty());
     let relationships = alice.core.list_device_relationships().unwrap();
     assert!(
         relationships.is_empty(),
@@ -615,6 +616,9 @@ fn block_rejects_pairing_and_invitation_handshake_unblock_restores_neither() {
     );
     assert!(bob.core.list_saved_devices().unwrap().is_empty());
     assert!(bob.core.list_device_relationships().unwrap().is_empty());
+
+    assert!(alice.core.list_saved_devices().unwrap().is_empty());
+    assert!(alice.core.list_device_relationships().unwrap().is_empty());
 
     // Outbound pairing toward a blocked identity is refused locally.
     assert!(!bob

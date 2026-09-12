@@ -55,17 +55,22 @@ impl DeviceRelationshipService {
     pub(crate) async fn revoke_for_block(
         &self,
         peer_endpoint_id: &str,
-    ) -> Result<(), VnidropError> {
+    ) -> Result<ForgetOutcome, VnidropError> {
         let peer_lock = self.lock_peer(peer_endpoint_id).await;
         let _guard = peer_lock.lock().await;
 
-        if let Some(row) = self.find_row(peer_endpoint_id).await? {
-            self.tombstone_generation(peer_endpoint_id, &row).await?;
+        let row = self.find_row(peer_endpoint_id).await?;
+        if let Some(row) = &row {
+            self.tombstone_generation(peer_endpoint_id, row).await?;
             self.delete_relationship(peer_endpoint_id).await?;
         }
         self.eligibility.remove_for_peer(peer_endpoint_id).await?;
         self.emit_changed(peer_endpoint_id, DeviceRelationshipState::Blocked);
-        Ok(())
+        Ok(ForgetOutcome {
+            had_relationship: row.is_some(),
+            generation: row.as_ref().map(|row| row.generation),
+            issued_grant_id: row.and_then(|row| row.issued_grant_id),
+        })
     }
 
     /// Activate a replacement grant: invalidate the prior generation first, then

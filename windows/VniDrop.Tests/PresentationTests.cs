@@ -8,6 +8,17 @@ namespace VniDrop.Tests;
 public class PresentationTests
 {
     [Fact]
+    public void TargetedProgressOnlyAppearsDuringByteWorkOrInterruption()
+    {
+        foreach (var state in Enum.GetValues<TargetedTransferState>())
+        {
+            Assert.Equal(state is TargetedTransferState.Connecting or TargetedTransferState.Transferring
+                or TargetedTransferState.Interrupted, TransferPresentation.ShowsTargetedProgress(state, 100));
+            Assert.False(TransferPresentation.ShowsTargetedProgress(state, 0));
+        }
+    }
+
+    [Fact]
     public void PairingPromptsPrioritizeIncomingRequestsAndKeepDismissedEligibilityPending()
     {
         var relationships = new[]

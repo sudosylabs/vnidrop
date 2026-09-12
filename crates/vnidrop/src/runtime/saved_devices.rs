@@ -100,7 +100,8 @@ impl CoreInner {
             .block_endpoint(&peer_endpoint_id, now)
             .await
             .map_err(VnidropError::repository)?;
-        self.device_relationships
+        let outcome = self
+            .device_relationships
             .revoke_for_block(&peer_endpoint_id)
             .await?;
         self.cancel_targeted_transfers_for_peer(&peer_endpoint_id)
@@ -110,7 +111,12 @@ impl CoreInner {
             "device-blocked",
             json!({ "peer_endpoint_id": peer_endpoint_id }),
         );
-        // Silence: blocked peers are not notified.
+        // The deny record is durable before notifying the peer that the relationship ended.
+        if let Some(generation) = outcome.generation {
+            self.device_relationships
+                .notify_remote_revoke(&peer_endpoint_id, generation, outcome.issued_grant_id)
+                .await;
+        }
         Ok(())
     }
 

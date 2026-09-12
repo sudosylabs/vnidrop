@@ -145,6 +145,26 @@ startup, navigation resource names, modal transfer flows, settings persistence,
 single-instance redirection, `.vnd` activation, invalid invitation feedback,
 and shutdown. It leaves its isolated profile under `build/windows/smoke`.
 
+For Saved devices, create an isolated paired-device profile with a completed
+direct transfer, then launch the app against its `sender` directory:
+
+```powershell
+dotnet run --project windows/scripts/fixtures/SavedDevices/SavedDevices.csproj -- build/windows/saved-devices-fixture
+pwsh windows/scripts/build.ps1 -SkipCore -Run -ProfileDirectory build/windows/saved-devices-fixture/sender
+```
+
+At wide, medium, and narrow widths, open the saved device and check that direct
+transfers appear in its details and completed transfers have no progress bar.
+Check Back navigation and cancel the Forget/Block confirmations. The bridge suite
+verifies that online Forget/Block updates both peers' saved-device snapshots;
+remote revocation remains best effort when the other peer is unreachable.
+
+Native sharing retains handed-off `.vnd` files for at least 24 hours so targets
+can finish reading attachments after acknowledging the share. Later staging
+cleanup removes expired files; cancelled shares are removed immediately.
+For WhatsApp acceptance, share a test invitation, download the received attachment,
+and open it in VniDrop to verify that its name and metadata match the source.
+
 Transfer-detail layout and scrolling checks use an isolated 22-file transfer with
 12 completed receivers. Choose a new fixture directory for each run:
 

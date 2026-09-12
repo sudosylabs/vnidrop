@@ -279,9 +279,7 @@ public sealed class DeviceTransferItem
         ? Visibility.Collapsed
         : Visibility.Visible;
 
-    public Visibility ProgressVisibility => Transfer.totalSize > 0
-        && (Transfer.verifiedBytes > 0
-            || Transfer.state is TargetedTransferState.Transferring or TargetedTransferState.Interrupted)
+    public Visibility ProgressVisibility => TransferPresentation.ShowsTargetedProgress(Transfer.state, Transfer.totalSize)
             ? Visibility.Visible
             : Visibility.Collapsed;
 

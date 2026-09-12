@@ -72,6 +72,8 @@ class AppGraph(
 		keeper = dependencies.backgroundRuntimeKeeper,
 		platform = dependencies.environment.uiPlatform,
 		applicationScope = applicationScope,
+		preferencesRepository = preferencesRepository,
+		notifications = dependencies.localNotificationService,
 	)
 
 	init {

@@ -95,8 +95,11 @@ offer/history boundary without synthesizing lifecycle state.
 
 ## Wave 1 Runtime obligation matrix
 
-Runtime retention is a separate application-lifetime policy; notification
-visibility does not affect it.
+Runtime retention is a separate application-lifetime policy; whether a
+notification is currently displayed does not affect it. Android still keeps the
+process alive for idle saved-device receive when background notifications are
+enabled, because those offers never become a core receiver obligation until the
+user approves them.
 
 | Core fact | Sender obligation | Receiver obligation |
 |---|---|---|

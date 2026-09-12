@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assetDownloadUrl, loadLatestRelease, loadLatestPreview, selectLatestPreview } from "./release.ts";
+import { assetDownloadUrl, loadLatestRelease, loadLatestPreview, releaseFromManifest, selectLatestPreview } from "./release.ts";
 
 test("asset URLs pin the file to its release tag, not /latest/", () => {
   const url = assetDownloadUrl("v0.3.0", "VniDrop-0.3.0.dmg");
@@ -36,6 +36,7 @@ test("preview downloads pin all five packages and metadata to the validated tag"
   assert.equal(release.version, "0.3.3");
   assert.equal(release.number, 17);
   for (const asset of [release.dmg, release.windowsExe, release.deb, release.rpm, release.apk]) {
+    assert.ok(asset);
     assert.equal(asset.url, assetDownloadUrl(release.tag, asset.name));
     assert.equal(asset.sha256, "a".repeat(64));
     assert.equal(asset.bytes, 1024);
@@ -52,7 +53,7 @@ test("preview selection skips drafts, other channels, and incomplete or malforme
     { ...preview(4), tag_name: "v0.3.3-beta.4" },
     { ...preview(5), tag_name: "preview-0.3.3-01" },
     { ...preview(6), published_at: "invalid date" },
-    { ...preview(7), assets: preview(7).assets.slice(1) },
+    { ...preview(7), assets: preview(7).assets.filter((asset) => !asset.name.endsWith(".rpm")) },
     { ...preview(8), assets: preview(8).assets.slice(0, -1) },
     { ...preview(9), assets: preview(9).assets.filter((asset) => asset.name !== "SHA256SUMS") },
     { ...preview(10), assets: preview(10).assets.map((asset) => ({ ...asset, state: "starter" })) },
@@ -78,7 +79,7 @@ test("preview selection uses publication date rather than response order or vers
 test("missing GitHub digest does not hide a complete preview with a checksum file", () => {
   const release = preview(17);
   release.assets = release.assets.map((asset) => ({ ...asset, digest: "" }));
-  assert.equal(selectLatestPreview([release])?.apk.sha256, undefined);
+  assert.equal(selectLatestPreview([release])?.apk?.sha256, undefined);
   assert.ok(selectLatestPreview([release])?.checksumsUrl);
 });
 
@@ -130,6 +131,9 @@ test("latest release exposes the unsigned Windows direct installer", async () =>
   try {
     const release = await loadLatestRelease();
     assert.deepEqual(release.windowsExe, {
+      version: "0.3.2",
+      tag: "v0.3.2",
+      checksumsUrl: assetDownloadUrl("v0.3.2", "SHA256SUMS"),
       name: "VniDrop_0.3.2_x64.exe",
       url: "https://github.com/sudosylabs/vnidrop/releases/download/v0.3.2/VniDrop_0.3.2_x64.exe",
       bytes: 42_000_000,
@@ -138,4 +142,48 @@ test("latest release exposes the unsigned Windows direct installer", async () =>
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("partial releases preserve each platform's original version, URL, and checksums", () => {
+  const windows = { name: "VniDrop_0.3.5_x64.exe", sha256: "a".repeat(64), bytes: 42 };
+  const macos = { name: "VniDrop-0.3.4.dmg", sha256: "b".repeat(64), bytes: 43 };
+  const release = releaseFromManifest({
+    productVersion: "0.3.5", releaseChannel: "beta", tag: "v0.3.5", files: [windows],
+    downloads: {
+      windows: { version: "0.3.5", tag: "v0.3.5", files: [windows] },
+      macos: { version: "0.3.4", tag: "v0.3.4", files: [macos] },
+    },
+  });
+  assert.deepEqual(release.dmg, {
+    ...macos, version: "0.3.4", tag: "v0.3.4", url: assetDownloadUrl("v0.3.4", macos.name),
+    checksumsUrl: assetDownloadUrl("v0.3.4", "SHA256SUMS"),
+  });
+  assert.equal(release.windowsExe?.tag, "v0.3.5");
+  assert.equal(release.apk, undefined);
+});
+
+test("download index rejects wrong tags, future versions, and path traversal", () => {
+  for (const entry of [
+    { version: "0.3.4", tag: "preview-0.3.4-1", files: [] },
+    { version: "0.3.6", tag: "v0.3.6", files: [] },
+    { version: "0.3.4", tag: "v0.3.4", files: [{ name: "../VniDrop-0.3.4.dmg", sha256: "a".repeat(64), bytes: 10 }] },
+  ]) {
+    assert.throws(() => releaseFromManifest({
+      productVersion: "0.3.5", releaseChannel: "beta", tag: "v0.3.5", files: [], downloads: { macos: entry },
+    }));
+  }
+});
+
+test("a Windows-only preview retains older Apple, Android, and Linux downloads", () => {
+  const old = preview(17, "2026-09-07T12:00:00Z");
+  const current = preview(18);
+  current.assets = current.assets.filter((file) => /\.exe$|\.json$|SHA256SUMS/.test(file.name));
+  const selected = selectLatestPreview([old, current]);
+  assert.equal(selected?.windowsExe?.tag, current.tag_name);
+  for (const asset of [selected?.dmg, selected?.apk, selected?.deb, selected?.rpm]) {
+    assert.ok(asset);
+    assert.equal(asset.tag, old.tag_name);
+    assert.equal(asset.checksumsUrl, assetDownloadUrl(old.tag_name, "SHA256SUMS"));
+  }
+  assert.equal(selectLatestPreview([current])?.dmg, undefined);
 });

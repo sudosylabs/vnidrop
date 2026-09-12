@@ -250,7 +250,9 @@ def download_universal_apk(
 
 
 def publish_bundle(args: argparse.Namespace) -> dict[str, Any]:
-    validate_closed_track(args.track)
+    download_only = args.download_only
+    if not download_only:
+        validate_closed_track(args.track)
     if args.version_code < 1:
         raise ValueError("version code must be positive")
     if not args.bundle.is_file() or args.bundle.stat().st_size == 0:
@@ -274,17 +276,21 @@ def publish_bundle(args: argparse.Namespace) -> dict[str, Any]:
         edit_id = str(edit["id"])
         edit_base = f"{API_ROOT}/applications/{package}/edits/{edit_id}"
         try:
-            track_id = urllib.parse.quote(args.track, safe="")
-            track = client.request_json(
-                "GET",
-                f"{edit_base}/tracks/{track_id}",
-            )
-            release = find_track_release(track, args.version_code)
-            if release is None or release.get("status") != "draft":
-                raise RuntimeError(
-                    "version code already exists in Play but is not a draft on "
-                    f"the configured track {args.track}"
-                )
+            bundles = client.request_json("GET", f"{edit_base}/bundles")
+            matching = [bundle for bundle in bundles.get("bundles", [])
+                        if int(bundle.get("versionCode", 0)) == args.version_code
+                        and bundle.get("sha256", "").lower() == sha256_file(args.bundle)]
+            if len(matching) != 1:
+                raise RuntimeError("Existing Play bundle does not match the local AAB")
+            if not download_only:
+                track_id = urllib.parse.quote(args.track, safe="")
+                track = client.request_json("GET", f"{edit_base}/tracks/{track_id}")
+                release = find_track_release(track, args.version_code)
+                if release is None or release.get("status") != "draft":
+                    raise RuntimeError(
+                        "version code already exists in Play but is not a draft on "
+                        f"the configured track {args.track}"
+                    )
         finally:
             try:
                 client.request("DELETE", edit_base, attempts=1)
@@ -334,11 +340,12 @@ def publish_bundle(args: argparse.Namespace) -> dict[str, Any]:
                     f"{args.version_code}"
                 )
 
-            track_id = urllib.parse.quote(args.track, safe="")
-            track_url = f"{edit_base}/tracks/{track_id}"
-            track = client.request_json("GET", track_url)
-            payload = build_track_payload(track, args.version_code, args.release_name)
-            client.request_json("PUT", track_url, value=payload)
+            if not download_only:
+                track_id = urllib.parse.quote(args.track, safe="")
+                track_url = f"{edit_base}/tracks/{track_id}"
+                track = client.request_json("GET", track_url)
+                payload = build_track_payload(track, args.version_code, args.release_name)
+                client.request_json("PUT", track_url, value=payload)
             commit_url = (
                 f"{edit_base}:commit"
                 "?changesInReviewBehavior=ERROR_IF_IN_REVIEW"
@@ -364,8 +371,8 @@ def publish_bundle(args: argparse.Namespace) -> dict[str, Any]:
     )
     return {
         "packageName": args.package_name,
-        "track": args.track,
-        "releaseStatus": "draft",
+        "track": None if download_only else args.track,
+        "releaseStatus": "unassigned" if download_only else "draft",
         "releaseName": args.release_name,
         "versionCode": args.version_code,
         "bundleSha256": sha256_file(args.bundle),
@@ -389,7 +396,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--package-name", required=True)
-    parser.add_argument("--track", required=True)
+    parser.add_argument("--track", default="")
+    parser.add_argument("--download-only", action="store_true",
+                        help="Generate a Play-signed APK without assigning a release to a store track")
     parser.add_argument("--version-code", type=int, required=True)
     parser.add_argument("--release-name", required=True)
     parser.add_argument("--expected-app-certificate", required=True)
@@ -412,10 +421,10 @@ def main() -> int:
         json.dumps(metadata, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    print(
-        f"Staged {args.release_name} ({args.version_code}) as a draft on "
-        f"{args.track}"
-    )
+    if args.download_only:
+        print("Generated direct download; no Play track was changed")
+    else:
+        print(f"Staged {args.release_name} ({args.version_code}) as a draft on {args.track}")
     print(f"Downloaded Play-signed APK: {args.apk_output}")
     return 0
 

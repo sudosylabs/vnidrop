@@ -1,7 +1,9 @@
 import importlib.util
 import tempfile
 import unittest
+from argparse import Namespace
 from pathlib import Path
+from unittest.mock import patch
 
 
 SCRIPT = Path(__file__).parents[1] / "publish_play.py"
@@ -12,6 +14,87 @@ SPEC.loader.exec_module(publish_play)
 
 
 class PublishPlayTests(unittest.TestCase):
+    def test_direct_download_uploads_bundle_without_reading_or_changing_tracks(self):
+        for download_only in (True, False):
+            with self.subTest(download_only=download_only), tempfile.TemporaryDirectory() as scratch:
+                root = Path(scratch)
+                bundle = root / "app.aab"
+                bundle.write_bytes(b"bundle")
+                calls = []
+
+                class FakeClient:
+                    def __init__(self, token):
+                        self.uploaded = False
+
+                    def request_json(self, method, url, **kwargs):
+                        calls.append((method, url))
+                        if "/generatedApks/" in url:
+                            if not self.uploaded:
+                                raise publish_play.PlayApiError(404, "not uploaded")
+                            return {"generatedApks": [{"certificateSha256Hash": "aabb",
+                                    "generatedUniversalApk": {"downloadId": "apk"}}]}
+                        if url.endswith("/edits"):
+                            return {"id": "edit"}
+                        if "/tracks/" in url:
+                            return {"track": "closed-beta", "releases": []}
+                        raise AssertionError((method, url))
+
+                    def request(self, method, url, **kwargs):
+                        calls.append((method, url))
+                        if "/bundles?" in url:
+                            self.uploaded = True
+                            return b'{"versionCode": 3005}'
+                        if "/downloads/" in url:
+                            return b"apk"
+                        if ":commit?" in url or method == "DELETE":
+                            return b""
+                        raise AssertionError((method, url))
+
+                args = Namespace(track="" if download_only else "closed-beta", download_only=download_only,
+                                 version_code=3005, bundle=bundle, access_token="fixture",
+                                 package_name="com.vnidrop.app", expected_app_certificate="aabb",
+                                 release_name="0.3.5", apk_output=root / "app.apk", poll_attempts=1, poll_interval=0)
+                with patch.object(publish_play, "PlayClient", FakeClient):
+                    metadata = publish_play.publish_bundle(args)
+                track_calls = [call for call in calls if "/tracks/" in call[1]]
+                self.assertEqual([method for method, _ in track_calls], [] if download_only else ["GET", "PUT"])
+                self.assertEqual(metadata["track"], None if download_only else "closed-beta")
+                self.assertEqual(metadata["releaseStatus"], "unassigned" if download_only else "draft")
+                self.assertEqual(args.apk_output.read_bytes(), b"apk")
+                self.assertEqual(sum(":commit?" in url for _, url in calls), 1)
+
+    def test_retry_refuses_existing_bundle_with_different_bytes(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            bundle = root / "app.aab"
+            bundle.write_bytes(b"new bundle")
+            calls = []
+
+            class FakeClient:
+                def __init__(self, token):
+                    pass
+
+                def request_json(self, method, url, **kwargs):
+                    if "/generatedApks/" in url:
+                        return {"generatedApks": [{"certificateSha256Hash": "aabb",
+                                "generatedUniversalApk": {"downloadId": "apk"}}]}
+                    if url.endswith("/edits"):
+                        return {"id": "edit"}
+                    if url.endswith("/bundles"):
+                        return {"bundles": [{"versionCode": 3005, "sha256": "wrong"}]}
+                    raise AssertionError((method, url))
+
+                def request(self, method, url, **kwargs):
+                    calls.append((method, url))
+                    if method != "DELETE":
+                        raise AssertionError((method, url))
+
+            args = Namespace(track="", download_only=True, version_code=3005, bundle=bundle,
+                             access_token="fixture", package_name="com.vnidrop.app", expected_app_certificate="aabb")
+            with patch.object(publish_play, "PlayClient", FakeClient), self.assertRaisesRegex(RuntimeError, "does not match"):
+                publish_play.publish_bundle(args)
+            self.assertEqual([method for method, _ in calls], ["DELETE"])
+
     def test_rejects_phone_and_form_factor_production_tracks(self):
         for track in ("production", "wear:production", " Production "):
             with self.subTest(track=track):

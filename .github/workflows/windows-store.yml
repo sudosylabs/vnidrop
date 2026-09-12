@@ -15,6 +15,10 @@ on:
       - "Cargo.lock"
   workflow_call:
     inputs:
+      source_ref:
+        description: Source commit selected by the release planner
+        type: string
+        default: ""
       direct_only:
         type: boolean
         default: false
@@ -39,6 +43,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ inputs.source_ref || github.sha }}
           persist-credentials: false
 
       - name: Set up .NET 10
@@ -109,6 +114,9 @@ jobs:
       - name: Create and validate Store artifacts
         if: ${{ !inputs.direct_only }}
         shell: pwsh
+        env:
+          VNIDROP_BUILD_SOURCE_COMMIT: ${{ inputs.source_ref || github.sha }}
+          VNIDROP_BUILD_SOURCE_REF: ${{ inputs.source_ref || github.ref }}
         run: |
           $arguments = @{
             AppImage = "./build/windows/publish"
@@ -122,6 +130,7 @@ jobs:
         shell: pwsh
         env:
           VERSION: ${{ steps.version.outputs.app }}
+          PACKAGE_VERSION: ${{ steps.version.outputs.package }}
         run: |
           $installer = "VniDrop_$($env:VERSION)_x64.exe"
           $source = Join-Path ./build/windows/installer $installer
@@ -132,6 +141,14 @@ jobs:
           Copy-Item -LiteralPath $source -Destination ./build/release/windows
           $hash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $installer" | Set-Content ./build/release/windows/SHA256SUMS -Encoding utf8NoBOM
+          $metadata = "VniDrop_$($env:VERSION)_x64.build-info.json"
+          @{
+            appVersion = $env:VERSION
+            packageVersion = $env:PACKAGE_VERSION
+            directInstaller = @{ artifact = $installer; unsigned = $true; smartScreenWarningExpected = $true }
+          } | ConvertTo-Json -Depth 3 | Set-Content "./build/release/windows/$metadata" -Encoding utf8NoBOM
+          $metadataHash = (Get-FileHash "./build/release/windows/$metadata" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$metadataHash  $metadata" | Add-Content ./build/release/windows/SHA256SUMS -Encoding utf8NoBOM
 
       - name: Verify installer payload and upgrade behavior
         shell: pwsh

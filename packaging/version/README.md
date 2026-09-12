@@ -75,9 +75,11 @@ prints the derived Android and Microsoft Store versions. Then verify:
 make check-version
 ```
 
-Normal release tags must exactly match `vPRODUCT_VERSION`. Manual workflow
-dispatches also build the committed version and do not accept free-form version
-inputs.
+Normal release tags must exactly match `vPRODUCT_VERSION`. Pushing a tag does
+not publish a release. Run the Release workflow from `master`, enter the existing
+tag, and select platforms and distribution destinations. It builds that tag's
+committed version rather than overriding version numbers. See the
+[manual release guide](../release/README.md).
 
 ## Preview versions
 

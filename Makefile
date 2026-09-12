@@ -86,6 +86,7 @@ check-release: ## Validate coordinated release scripts and workflow YAML.
 	cd $(ROOT) && packaging/release/test-release-config.sh
 	cd $(ROOT) && ruby packaging/release/test-workflows.rb
 	cd $(ROOT) && python3 -B -m unittest discover -s packaging/release -p 'test_preview.py' -v
+	cd $(ROOT) && python3 -B -m unittest discover -s packaging/release -p 'test_selection.py' -v
 	cd $(ROOT) && make/tests/test-open-apple.sh
 	cd $(ROOT) && make/tests/test-with-secret-service.sh
 	cd $(ROOT) && python3 -m unittest discover -s packaging/android/tests -p 'test_publish_play.py' -v

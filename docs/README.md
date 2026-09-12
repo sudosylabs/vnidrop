@@ -33,13 +33,16 @@ make check-docs
 The production build is written to `out/` and can be hosted by any static web server. The GitHub
 Pages workflow publishes that directory after relevant changes reach `master` and after a release
 is published through the normal release workflow. The release deployment runs after the GitHub Release exists so the download page can
-fetch `release-manifest.json` and render links for the latest public tag.
+fetch `release-manifest.json`. Its per-platform `downloads` index preserves older
+versions when a release updates only selected platforms. Each download uses its
+original tag and checksum file; legacy manifests remain supported.
 
 Preview releases do not rebuild or deploy the website. The download page fetches
 the latest 100 public releases from GitHub's REST API in the browser, then selects
-the most recently published complete `preview-VERSION-N` prerelease. It requires
-the macOS DMG, Windows EXE, Linux DEB/RPM, Android APK, checksums, and preview
-manifest before showing direct links. Links are pinned to that preview's tag.
+the most recently published available download for each platform from
+`preview-VERSION-N` prereleases. Checksums and the preview manifest are required;
+Linux requires both DEB and RPM. A Windows-only preview retains the older previews
+for other platforms. Links and checksums are pinned to each package's original tag.
 No token is shipped to the browser and no visitor data is stored.
 
 The preview section has loading, empty, and request-failure states. A timeout or

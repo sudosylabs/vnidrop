@@ -1,9 +1,37 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing version tag on master (for example v0.3.5)
+        type: string
+        required: true
+      windows:
+        description: Windows
+        type: boolean
+        default: true
+      linux:
+        description: Linux (direct downloads only)
+        type: boolean
+        default: true
+      android:
+        description: Android
+        type: boolean
+        default: true
+      macos:
+        description: macOS
+        type: boolean
+        default: true
+      ios:
+        description: iOS (stores only)
+        type: boolean
+        default: true
+      distribution:
+        description: Distribution destinations
+        type: choice
+        options: [Direct downloads + stores, Direct downloads, Stores]
+        default: Direct downloads + stores
 
 permissions:
   contents: read
@@ -19,6 +47,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
+      direct_platforms: ${{ steps.plan.outputs.direct_platforms }}
+      store_platforms: ${{ steps.plan.outputs.store_platforms }}
+      windows: ${{ steps.plan.outputs.windows }}
+      linux: ${{ steps.plan.outputs.linux }}
+      android: ${{ steps.plan.outputs.android }}
+      macos: ${{ steps.plan.outputs.macos }}
+      windows_store: ${{ steps.plan.outputs.windows_store }}
+      android_store: ${{ steps.plan.outputs.android_store }}
+      apple_store: ${{ steps.plan.outputs.apple_store }}
+      apple_platforms: ${{ steps.plan.outputs.apple_platforms }}
+      source_sha: ${{ steps.version.outputs.source_sha }}
+      previous_tag: ${{ steps.previous.outputs.previous_tag }}
       version: ${{ steps.version.outputs.app }}
       android_code: ${{ steps.version.outputs.android_code }}
 
@@ -26,17 +66,30 @@ jobs:
       - name: Checkout release history
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ format('refs/tags/{0}', inputs.release_tag) }}
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Select platforms and destinations
+        id: plan
+        env:
+          RELEASE_INPUTS: ${{ toJSON(inputs) }}
+        run: python3 packaging/release/plan.py
+
       - name: Verify canonical beta tag on master
         id: version
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
-          packaging/version/resolve-version.sh verify >/dev/null
+          if [ "$GITHUB_REF" != refs/heads/master ]; then
+            echo 'Run the Release workflow from master and enter the version tag as an input.' >&2
+            exit 1
+          fi
+          packaging/version/resolve-version.sh verify-tag "$RELEASE_TAG" >/dev/null
           version="$(packaging/version/resolve-version.sh product)"
           channel="$(packaging/version/resolve-version.sh channel)"
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+          if ! git merge-base --is-ancestor HEAD origin/master; then
             echo "Release tags must point to a commit on master" >&2
             exit 1
           fi
@@ -44,49 +97,73 @@ jobs:
             echo "Only beta closed-testing releases are enabled" >&2
             exit 1
           fi
+          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "app=$version" >> "$GITHUB_OUTPUT"
           echo "android_code=$(packaging/version/resolve-version.sh android-code)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release ordering
+        id: previous
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.app }}
+          RELEASE_HISTORY: ${{ runner.temp }}/releases.json
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RELEASE_HISTORY"
+          python3 packaging/release/plan.py --previous
 
       - name: Refuse an existing GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "GitHub Release $GITHUB_REF_NAME already exists" >&2
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "GitHub Release $RELEASE_TAG already exists" >&2
             exit 1
           fi
 
   linux:
     name: Linux packages
+    if: needs.preflight.outputs.linux == 'true'
     needs: preflight
     uses: ./.github/workflows/linux-packages.yml
+    with:
+      source_ref: ${{ needs.preflight.outputs.source_sha }}
     secrets: inherit
 
   windows:
     name: Windows packages
+    if: needs.preflight.outputs.windows == 'true'
     needs: preflight
     uses: ./.github/workflows/windows-store.yml
+    with:
+      source_ref: ${{ needs.preflight.outputs.source_sha }}
+      direct_only: ${{ needs.preflight.outputs.windows_store != 'true' }}
     secrets: inherit
 
   macos:
     name: Signed and notarized macOS package
+    if: needs.preflight.outputs.macos == 'true'
     needs: preflight
     uses: ./.github/workflows/apple-release.yml
+    with:
+      source_ref: ${{ needs.preflight.outputs.source_sha }}
     secrets: inherit
 
   android:
     name: Signed Android package
+    if: needs.preflight.outputs.android == 'true'
     needs: preflight
     uses: ./.github/workflows/android-release.yml
+    with:
+      source_ref: ${{ needs.preflight.outputs.source_sha }}
     secrets: inherit
 
   play-closed-testing:
-    name: Stage Play closed-testing draft
+    name: Prepare Play-signed Android package
+    if: needs.preflight.outputs.android == 'true'
     needs:
       - preflight
-      - linux
-      - windows
-      - macos
       - android
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -99,6 +176,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ needs.preflight.outputs.source_sha }}
           persist-credentials: false
 
       - name: Download signed Android artifacts
@@ -112,14 +190,13 @@ jobs:
           WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           PLAY_SERVICE_ACCOUNT: ${{ vars.GCP_PLAY_SERVICE_ACCOUNT }}
           PLAY_PACKAGE_NAME: ${{ vars.PLAY_PACKAGE_NAME }}
-          PLAY_CLOSED_TRACK: ${{ vars.PLAY_CLOSED_TRACK }}
+          PLAY_CLOSED_TRACK: ${{ needs.preflight.outputs.android_store == 'true' && vars.PLAY_CLOSED_TRACK || '' }}
           PLAY_APP_SIGNING_CERT_SHA256: ${{ vars.PLAY_APP_SIGNING_CERT_SHA256 }}
         run: |
           for name in \
             WORKLOAD_IDENTITY_PROVIDER \
             PLAY_SERVICE_ACCOUNT \
             PLAY_PACKAGE_NAME \
-            PLAY_CLOSED_TRACK \
             PLAY_APP_SIGNING_CERT_SHA256; do
             if [ -z "${!name:-}" ]; then
               echo "Missing Play closed-testing configuration: $name" >&2
@@ -146,14 +223,15 @@ jobs:
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/androidpublisher
 
-      - name: Stage AAB and download Play-signed APK
+      - name: Prepare AAB and download Play-signed APK
         env:
           GOOGLE_PLAY_ACCESS_TOKEN: ${{ steps.google-auth.outputs.access_token }}
           PLAY_PACKAGE_NAME: ${{ vars.PLAY_PACKAGE_NAME }}
-          PLAY_CLOSED_TRACK: ${{ vars.PLAY_CLOSED_TRACK }}
+          PLAY_CLOSED_TRACK: ${{ needs.preflight.outputs.android_store == 'true' && vars.PLAY_CLOSED_TRACK || '' }}
           PLAY_APP_SIGNING_CERT_SHA256: ${{ vars.PLAY_APP_SIGNING_CERT_SHA256 }}
           VERSION: ${{ needs.preflight.outputs.version }}
           VERSION_CODE: ${{ needs.preflight.outputs.android_code }}
+          STORE_SUBMISSION: ${{ needs.preflight.outputs.android_store }}
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -163,7 +241,9 @@ jobs:
             exit 1
           fi
           mkdir -p build/release/play
-          python3 packaging/android/publish_play.py \
+          options=()
+          if [ "$STORE_SUBMISSION" != true ]; then options+=(--download-only); fi
+          python3 packaging/android/publish_play.py "${options[@]}" \
             --bundle "${bundles[0]}" \
             --package-name "$PLAY_PACKAGE_NAME" \
             --track "$PLAY_CLOSED_TRACK" \
@@ -230,12 +310,10 @@ jobs:
 
   publish-microsoft-store:
     name: Submit Microsoft Store update
+    if: needs.preflight.outputs.windows_store == 'true'
     needs:
       - preflight
-      - linux
       - windows
-      - macos
-      - android
     runs-on: windows-2025
     timeout-minutes: 30
     environment: microsoft-store
@@ -337,12 +415,14 @@ jobs:
           "- Package submitted for certification" >> $env:GITHUB_STEP_SUMMARY
 
   publish-github:
-    name: Publish coordinated GitHub Release
+    name: Publish selected direct downloads
+    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.preflight.outputs.direct_platforms != '' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     needs:
       - preflight
       - linux
       - windows
       - macos
+      - android
       - play-closed-testing
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -355,39 +435,65 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ needs.preflight.outputs.source_sha }}
           persist-credentials: false
 
       - name: Download Debian package
+        if: contains(format(',{0},', needs.preflight.outputs.direct_platforms), ',linux,')
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: vnidrop-${{ needs.preflight.outputs.version }}-linux-deb-x64
           path: build/release/downloads/deb
 
       - name: Download RPM package
+        if: contains(format(',{0},', needs.preflight.outputs.direct_platforms), ',linux,')
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: vnidrop-${{ needs.preflight.outputs.version }}-linux-rpm-x64
           path: build/release/downloads/rpm
 
       - name: Download macOS package
+        if: contains(format(',{0},', needs.preflight.outputs.direct_platforms), ',macos,')
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: vnidrop-${{ needs.preflight.outputs.version }}-macos-dmg
           path: build/release/downloads/macos
 
       - name: Download Windows packages
+        if: contains(format(',{0},', needs.preflight.outputs.direct_platforms), ',windows,')
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: vnidrop-${{ needs.preflight.outputs.version }}-windows-x64
           path: build/release/downloads/windows
 
       - name: Download Play-signed APK
+        if: contains(format(',{0},', needs.preflight.outputs.direct_platforms), ',android,')
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: vnidrop-${{ needs.preflight.outputs.version }}-android-play
           path: build/release/downloads/play
 
+      - name: Load previous download index
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS_TAG: ${{ needs.preflight.outputs.previous_tag }}
+          BUILD_MACOS: ${{ needs.preflight.outputs.macos }}
+        run: |
+          set -euo pipefail
+          if [ -n "$PREVIOUS_TAG" ]; then
+            gh release download "$PREVIOUS_TAG" --repo "$GITHUB_REPOSITORY" --pattern release-manifest.json --dir "$RUNNER_TEMP/previous"
+            if [ "$BUILD_MACOS" != true ] && jq -e '.files[] | select(.name == "appcast.xml")' "$RUNNER_TEMP/previous/release-manifest.json" >/dev/null; then
+              gh release download "$PREVIOUS_TAG" --repo "$GITHUB_REPOSITORY" --pattern appcast.xml --dir "$RUNNER_TEMP/previous"
+            fi
+          fi
+
       - name: Verify and assemble public release assets
+        env:
+          VNIDROP_RELEASE_TAG: ${{ inputs.release_tag }}
+          VNIDROP_RELEASE_COMMIT: ${{ needs.preflight.outputs.source_sha }}
+          VNIDROP_RELEASE_PLATFORMS: ${{ needs.preflight.outputs.direct_platforms }}
+          VNIDROP_RELEASE_STORES: ${{ needs.preflight.outputs.store_platforms }}
+          VNIDROP_PREVIOUS_MANIFEST: ${{ runner.temp }}/previous/release-manifest.json
         run: packaging/release/assemble-release.sh
 
       - name: Attest release provenance
@@ -397,28 +503,30 @@ jobs:
 
       - name: Create GitHub Release
         env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
+          gh release create "$RELEASE_TAG" \
             build/release/final/* \
             --repo "$GITHUB_REPOSITORY" \
-            --verify-tag \
+            --verify-tag --draft \
             --title "VniDrop ${{ needs.preflight.outputs.version }}" \
             --generate-notes
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
 
   apple-appstore:
     name: Apple App Store (iOS + macOS)
-    # Reuse this run's core; store approvals do not depend on another store's API.
+    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.preflight.outputs.apple_store == 'true' && (needs.macos.result == 'success' || needs.macos.result == 'skipped') }}
     needs:
       - preflight
-      - linux
-      - windows
       - macos
-      - android
     uses: ./.github/workflows/apple-appstore.yml
     with:
-      release_tag: ${{ github.ref_name }}
-      core_artifact: vnidrop-${{ needs.preflight.outputs.version }}-macos-dmg
+      source_ref: ${{ needs.preflight.outputs.source_sha }}
+      release_tag: ${{ inputs.release_tag }}
+      platforms: ${{ needs.preflight.outputs.apple_platforms }}
+      build_core: ${{ needs.macos.result == 'skipped' }}
+      core_artifact: ${{ needs.macos.result == 'success' && format('vnidrop-{0}-macos-dmg', needs.preflight.outputs.version) || '' }}
     secrets: inherit
 
   deploy-docs:
@@ -433,6 +541,7 @@ jobs:
 
   update-homebrew:
     name: Update Homebrew cask
+    if: needs.preflight.outputs.macos == 'true'
     needs:
       - preflight
       - macos
@@ -444,6 +553,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ needs.preflight.outputs.source_sha }}
           persist-credentials: false
 
       - name: Download macOS package

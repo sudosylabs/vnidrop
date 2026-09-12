@@ -206,11 +206,17 @@ Compress-Archive -LiteralPath $msixPath -DestinationPath $temporaryZip -Compress
 Move-Item -LiteralPath $temporaryZip -Destination $uploadPath
 
 $dotnet = Get-PackagingDotnet
-$sourceCommit = [System.Environment]::GetEnvironmentVariable("GITHUB_SHA")
+$sourceCommit = [System.Environment]::GetEnvironmentVariable("VNIDROP_BUILD_SOURCE_COMMIT")
+if ([string]::IsNullOrWhiteSpace($sourceCommit)) {
+	$sourceCommit = [System.Environment]::GetEnvironmentVariable("GITHUB_SHA")
+}
 if ([string]::IsNullOrWhiteSpace($sourceCommit)) {
 	$sourceCommit = "local"
 }
-$sourceRef = [System.Environment]::GetEnvironmentVariable("GITHUB_REF")
+$sourceRef = [System.Environment]::GetEnvironmentVariable("VNIDROP_BUILD_SOURCE_REF")
+if ([string]::IsNullOrWhiteSpace($sourceRef)) {
+	$sourceRef = [System.Environment]::GetEnvironmentVariable("GITHUB_REF")
+}
 if ([string]::IsNullOrWhiteSpace($sourceRef)) {
 	$sourceRef = "local"
 }

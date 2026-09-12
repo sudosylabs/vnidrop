@@ -22,6 +22,10 @@ on:
   # Call directly: releases published using GITHUB_TOKEN do not trigger workflows.
   workflow_call:
     inputs:
+      source_ref:
+        description: Resolved release commit
+        type: string
+        default: ""
       release_tag:
         description: "Release tag to build from"
         type: string
@@ -30,6 +34,16 @@ on:
         description: "Artifact from this run containing the core ZIP and checksum"
         type: string
         default: ""
+      platforms:
+        type: string
+        default: both
+      upload:
+        type: boolean
+        default: true
+      build_core:
+        description: Build the core at release_tag instead of downloading a published core
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       release_tag:
@@ -62,7 +76,7 @@ defaults:
 jobs:
   core:
     name: Rust core
-    runs-on: ${{ inputs.release_tag != '' && 'ubuntu-24.04' || 'macos-latest' }}
+    runs-on: ${{ inputs.release_tag != '' && !inputs.build_core && 'ubuntu-24.04' || 'macos-latest' }}
     timeout-minutes: 60
     env:
       CARGO_TERM_COLOR: always
@@ -76,7 +90,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ inputs.release_tag != '' && format('refs/tags/{0}', inputs.release_tag) || github.sha }}
+          ref: ${{ inputs.source_ref || (inputs.release_tag != '' && format('refs/tags/{0}', inputs.release_tag)) || github.sha }}
           persist-credentials: false
 
       - name: Resolve version
@@ -94,12 +108,6 @@ jobs:
 
       - name: Plan the run
         id: plan
-        # A dispatch follows its inputs. release.yml defines only release_tag, so
-        # platforms/upload arrive empty there and fall through to the defaults
-        # below — both platforms, uploaded — which is exactly what a release
-        # wants. That is why there is no separate release branch here: the event
-        # name cannot be used to detect one anyway, since under workflow_call it
-        # reports the caller's tag push.
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
           PLATFORMS: ${{ inputs.platforms }}
@@ -110,7 +118,8 @@ jobs:
           case "${PLATFORMS:-both}" in
             ios)   platforms='["iOS"]' ;;
             macos) platforms='["macOS"]' ;;
-            *)     platforms='["iOS","macOS"]' ;;
+            both)  platforms='["iOS","macOS"]' ;;
+            *) echo 'Invalid Apple platforms' >&2; exit 1 ;;
           esac
           if [ "${UPLOAD:-true}" = false ]; then destination=export; else destination=upload; fi
           echo "platforms=$platforms" >> "$GITHUB_OUTPUT"
@@ -118,7 +127,7 @@ jobs:
           echo "platforms=$platforms destination=$destination"
 
       - name: Select Xcode
-        if: steps.plan.outputs.release_tag == ''
+        if: steps.plan.outputs.release_tag == '' || inputs.build_core
         run: sudo xcode-select -s /Applications/Xcode.app
 
       - name: Download core from this release run
@@ -129,7 +138,7 @@ jobs:
           path: ${{ runner.temp }}/core
 
       - name: Download prebuilt core from the release
-        if: steps.plan.outputs.release_tag != '' && inputs.core_artifact == ''
+        if: steps.plan.outputs.release_tag != '' && inputs.core_artifact == '' && !inputs.build_core
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.app }}
@@ -144,7 +153,7 @@ jobs:
           awk -v name="VnidropCore-$VERSION.zip" '$2 == name' SHA256SUMS > "VnidropCore-$VERSION.zip.sha256"
 
       - name: Verify prebuilt core
-        if: steps.plan.outputs.release_tag != ''
+        if: steps.plan.outputs.release_tag != '' && !inputs.build_core
         env:
           VERSION: ${{ steps.version.outputs.app }}
         run: |
@@ -154,20 +163,20 @@ jobs:
           shasum -a 256 --check "VnidropCore-$VERSION.zip.sha256"
 
       - name: Install Rust toolchain
-        if: steps.plan.outputs.release_tag == ''
+        if: steps.plan.outputs.release_tag == '' || inputs.build_core
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # v1
         with:
           toolchain: stable
           targets: aarch64-apple-darwin,aarch64-apple-ios
 
       - name: Cache Cargo
-        if: steps.plan.outputs.release_tag == ''
+        if: steps.plan.outputs.release_tag == '' || inputs.build_core
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
           shared-key: apple
 
       - name: Build the core
-        if: steps.plan.outputs.release_tag == ''
+        if: steps.plan.outputs.release_tag == '' || inputs.build_core
         # Release profile only: a debug core roughly doubles the binary. Release
         # builds skip the simulator slices, which nothing shipped can use.
         run: |

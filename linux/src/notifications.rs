@@ -1,6 +1,19 @@
-use crate::{devices::DeviceState, session::Snapshot};
+use crate::{
+    devices::{Device, DeviceState},
+    localization::{format, text},
+    session::Snapshot,
+    targeted,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+
+fn device_name(devices: &[Device], peer: &str) -> String {
+    devices
+        .iter()
+        .find(|device| device.peer == peer)
+        .and_then(|device| device.name.clone())
+        .unwrap_or_else(|| text("approval_nearby_device"))
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Target {
@@ -44,6 +57,7 @@ impl Tracker {
     ) -> (Vec<Notice>, Vec<String>) {
         let mut states = BTreeMap::new();
         let mut candidates = Vec::new();
+        let devices = snapshot.devices.list(now);
         for request in &snapshot.requests {
             let id = format!("receiver:{}", request.id);
             states.insert(id.clone(), request.status.clone());
@@ -100,10 +114,14 @@ impl Tracker {
         for offer in &snapshot.offers {
             let id = format!("offer:{}", offer.transfer_id);
             states.insert(id.clone(), "pending".into());
+            let name = device_name(&devices, &offer.sender_endpoint_id);
             candidates.push(Notice {
                 id,
-                title: "saved_devices_transfers_title",
-                body: offer.transfer_name.clone(),
+                title: "targeted_offer_title",
+                body: format(
+                    "targeted_offer_body",
+                    &[("device", &name), ("transferName", &offer.transfer_name)],
+                ),
                 target: Target::Device(
                     offer.sender_endpoint_id.clone(),
                     Some(offer.transfer_id.clone()),
@@ -114,30 +132,30 @@ impl Tracker {
         for transfer in &snapshot.targeted {
             let id = format!("direct:{}", transfer.id);
             states.insert(id.clone(), format!("{:?}", transfer.state));
-            let title = match transfer.state {
-                vnidrop::TargetedTransferState::Completed => Some("status_completed"),
-                vnidrop::TargetedTransferState::Failed => Some("status_failed"),
-                _ => None,
-            };
-            if let Some(title) = title {
+            let peer = targeted::peer(transfer);
+            if let Some(copy) = targeted::notice_copy(transfer, &device_name(&devices, peer)) {
                 candidates.push(Notice {
                     id,
-                    title,
-                    body: transfer.transfer_name.clone(),
-                    target: Target::Device(crate::targeted::peer(transfer).into(), None),
+                    title: copy.title,
+                    body: copy.body,
+                    target: Target::Device(peer.into(), None),
                     pending: false,
                 });
             }
         }
-        for device in snapshot.devices.list(now) {
+        for device in &devices {
             let id = format!("device:{}", device.peer);
             states.insert(id.clone(), format!("{:?}", device.state));
             if matches!(device.state, DeviceState::Incoming { .. }) {
+                let name = device
+                    .name
+                    .clone()
+                    .unwrap_or_else(|| text("approval_nearby_device"));
                 candidates.push(Notice {
                     id,
-                    title: "saved_devices_attention_title",
-                    body: device.name.unwrap_or_default(),
-                    target: Target::Device(device.peer, None),
+                    title: "pairing_request_title",
+                    body: format("pairing_request_body", &[("device", &name)]),
+                    target: Target::Device(device.peer.clone(), None),
                     pending: true,
                 });
             }
@@ -179,9 +197,13 @@ impl Tracker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn notification_lifecycle_deduplicates_withdraws_and_ignores_old_completions() {
-        let mut snapshot = Snapshot {
+    use vnidrop::{
+        DeviceRelationship, DeviceRelationshipState, SavedDevice, TargetedTransfer,
+        TargetedTransferRole, TargetedTransferState,
+    };
+
+    fn empty_snapshot() -> Snapshot {
+        Snapshot {
             transfers: vec![],
             requests: vec![],
             artifacts: vec![],
@@ -196,10 +218,13 @@ mod tests {
                 active_targeted_transfers: 0,
                 targeted_provider_availability: 0,
             },
-        };
-        snapshot.targeted.push(vnidrop::TargetedTransfer {
+        }
+    }
+
+    fn transfer(role: TargetedTransferRole, state: TargetedTransferState) -> TargetedTransfer {
+        TargetedTransfer {
             id: "one".into(),
-            role: vnidrop::TargetedTransferRole::Receiver,
+            role,
             sender_endpoint_id: "sender".into(),
             receiver_endpoint_id: "receiver".into(),
             manifest_id: "manifest".into(),
@@ -207,17 +232,67 @@ mod tests {
             file_count: 1,
             total_size: 1,
             verified_bytes: 1,
-            state: vnidrop::TargetedTransferState::Completed,
+            state,
             created_at: 1,
             updated_at: 1,
-        });
+        }
+    }
+
+    fn devices(peer: &str, state: DeviceRelationshipState) -> crate::devices::Devices {
+        crate::devices::Devices {
+            saved: vec![SavedDevice {
+                endpoint_id: peer.into(),
+                local_label: Some(" Desk ".into()),
+                remote_display_name: Some("Remote".into()),
+                created_at: 1,
+                last_authenticated_at: None,
+            }],
+            relationships: vec![DeviceRelationship {
+                remote_endpoint_id: peer.into(),
+                state,
+                generation: 1,
+                minimum_protocol_version: 2,
+                created_at: 1,
+                updated_at: 1,
+            }],
+            ..Default::default()
+        }
+    }
+
+    fn emit(role: TargetedTransferRole, state: TargetedTransferState) -> Notice {
+        let mut snapshot = empty_snapshot();
+        snapshot.devices = devices(
+            match role {
+                TargetedTransferRole::Receiver => "sender",
+                TargetedTransferRole::Sender => "receiver",
+            },
+            DeviceRelationshipState::Saved,
+        );
+        snapshot.targeted.push(transfer(role, state));
+        let mut tracker = Tracker::default();
+        snapshot.targeted[0].state = TargetedTransferState::Transferring;
+        tracker.update(&snapshot, true, false, 0);
+        snapshot.targeted[0].state = state;
+        let sent = tracker.update(&snapshot, true, false, 0).0;
+        assert_eq!(sent.len(), 1);
+        sent.into_iter().next().unwrap()
+    }
+
+    #[test]
+    fn notification_lifecycle_deduplicates_withdraws_and_ignores_old_completions() {
+        let mut snapshot = empty_snapshot();
+        snapshot.targeted.push(transfer(
+            TargetedTransferRole::Receiver,
+            TargetedTransferState::Completed,
+        ));
         let mut tracker = Tracker::default();
         assert!(tracker.update(&snapshot, true, false, 0).0.is_empty());
-        snapshot.targeted[0].state = vnidrop::TargetedTransferState::Transferring;
+        snapshot.targeted[0].state = TargetedTransferState::Transferring;
         tracker.update(&snapshot, true, false, 0);
-        snapshot.targeted[0].state = vnidrop::TargetedTransferState::Completed;
+        snapshot.targeted[0].state = TargetedTransferState::Completed;
         let (sent, _) = tracker.update(&snapshot, true, false, 0);
         assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].title, "notifications_receive_completed_title");
         assert_eq!(sent[0].target, Target::Device("sender".into(), None));
         assert!(tracker.update(&snapshot, true, false, 0).0.is_empty());
         assert_eq!(
@@ -251,5 +326,87 @@ mod tests {
             tracker.update(&snapshot, true, false, 0).1,
             vec!["offer:offer"]
         );
+    }
+
+    #[test]
+    fn sender_completed_is_not_a_receive_completed_notice() {
+        let incoming = emit(
+            TargetedTransferRole::Receiver,
+            TargetedTransferState::Completed,
+        );
+        let outgoing = emit(
+            TargetedTransferRole::Sender,
+            TargetedTransferState::Completed,
+        );
+        assert_eq!(incoming.title, "notifications_receive_completed_title");
+        assert_eq!(outgoing.title, "notifications_receiver_completed_title");
+        assert_ne!(outgoing.title, "notifications_receive_completed_title");
+        assert!(outgoing.body.contains("Desk"));
+        assert!(!outgoing.body.contains("Remote"));
+        assert_eq!(
+            emit(TargetedTransferRole::Sender, TargetedTransferState::Failed).title,
+            "notifications_receiver_failed_title"
+        );
+        assert_eq!(
+            emit(
+                TargetedTransferRole::Receiver,
+                TargetedTransferState::Failed
+            )
+            .title,
+            "notifications_receive_failed_title"
+        );
+    }
+
+    fn offer() -> vnidrop::PendingTargetedOffer {
+        vnidrop::PendingTargetedOffer {
+            transfer_id: "offer".into(),
+            sender_endpoint_id: "sender".into(),
+            receiver_endpoint_id: "receiver".into(),
+            manifest_id: "manifest".into(),
+            content_hash: "hash".into(),
+            transfer_name: "Photos".into(),
+            file_count: 1,
+            total_size: 1,
+            protocol_version: 1,
+            received_at: 1,
+        }
+    }
+
+    #[test]
+    fn offers_and_pairing_use_device_names_and_withdraw_when_gone() {
+        let mut snapshot = empty_snapshot();
+        snapshot.devices = devices("sender", DeviceRelationshipState::Saved);
+        snapshot.offers.push(offer());
+        let mut tracker = Tracker::default();
+        let (sent, _) = tracker.update(&snapshot, true, false, 0);
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].title, "targeted_offer_title");
+        assert!(sent[0].body.contains("Desk"));
+        assert!(sent[0].body.contains("Photos"));
+        assert!(!sent[0].body.contains("Remote"));
+        snapshot.devices.saved[0].local_label = Some(" ".into());
+        snapshot.offers.clear();
+        let (sent, withdrawn) = tracker.update(&snapshot, true, false, 0);
+        assert_eq!(withdrawn, vec!["offer:offer"]);
+        assert!(sent.is_empty());
+        snapshot.devices.relationships[0].state = DeviceRelationshipState::PendingIncoming;
+        let (sent, _) = tracker.update(&snapshot, true, false, 0);
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].title, "pairing_request_title");
+        assert!(sent[0].body.contains("Remote"));
+        assert_eq!(tracker.withdraw_pending(), vec!["device:sender"]);
+        assert_eq!(tracker.update(&snapshot, true, false, 0).0.len(), 1);
+        snapshot.devices.relationships.clear();
+        snapshot.devices.saved.clear();
+        let (sent, withdrawn) = tracker.update(&snapshot, true, false, 0);
+        assert!(sent.is_empty());
+        assert_eq!(withdrawn, vec!["device:sender"]);
+        let mut remote = empty_snapshot();
+        remote.devices = devices("sender", DeviceRelationshipState::Saved);
+        remote.devices.saved[0].local_label = Some(" ".into());
+        remote.offers.push(offer());
+        let sent = Tracker::default().update(&remote, true, false, 0).0;
+        assert!(sent[0].body.contains("Remote"));
+        assert!(sent[0].body.contains("Photos"));
     }
 }

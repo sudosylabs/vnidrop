@@ -69,6 +69,56 @@ pub fn actions(transfer: &TargetedTransfer) -> Vec<Action> {
     actions
 }
 
+/// Role-aware notification copy for a terminal targeted transfer.
+///
+/// Sender Completed is the peer finishing a download, not a local receive.
+#[derive(Debug, PartialEq, Eq)]
+pub struct NoticeCopy {
+    pub title: &'static str,
+    pub body: String,
+}
+
+pub fn notice_copy(transfer: &TargetedTransfer, device_name: &str) -> Option<NoticeCopy> {
+    let (title, body) = match (transfer.role, transfer.state) {
+        (Role::Receiver, State::Completed) => (
+            "notifications_receive_completed_title",
+            crate::localization::format(
+                "notifications_receive_completed_body",
+                &[("transferName", &transfer.transfer_name)],
+            ),
+        ),
+        (Role::Receiver, State::Failed) => (
+            "notifications_receive_failed_title",
+            crate::localization::format(
+                "notifications_receive_failed_body",
+                &[("transferName", &transfer.transfer_name)],
+            ),
+        ),
+        (Role::Sender, State::Completed) => (
+            "notifications_receiver_completed_title",
+            crate::localization::format(
+                "notifications_receiver_completed_body",
+                &[
+                    ("receiver", device_name),
+                    ("transferName", &transfer.transfer_name),
+                ],
+            ),
+        ),
+        (Role::Sender, State::Failed) => (
+            "notifications_receiver_failed_title",
+            crate::localization::format(
+                "notifications_receiver_failed_body",
+                &[
+                    ("receiver", device_name),
+                    ("transferName", &transfer.transfer_name),
+                ],
+            ),
+        ),
+        _ => return None,
+    };
+    Some(NoticeCopy { title, body })
+}
+
 /// Holds cancellation intent until the core's preparation handle is available.
 pub struct Preparation {
     cancelled: AtomicBool,

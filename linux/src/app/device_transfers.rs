@@ -220,7 +220,9 @@ impl DeviceTransfers {
         }
         let can_pull = !offers.is_empty()
             || transfers.iter().any(|t| {
-                t.role == Role::Receiver && matches!(t.state, State::Approved | State::Interrupted)
+                targeted::actions(t)
+                    .iter()
+                    .any(|action| matches!(action, Action::Receive | Action::Resume))
             });
         if can_pull && !self.history {
             let folder = dialogs::fact(

@@ -101,6 +101,7 @@ class VniDropBackgroundRuntimeService : Service() {
 
 	@SuppressLint("WakelockTimeout")
 	private fun acquireLocks() {
+		// Cached Android processes freeze Iroh's relay; these locks keep the endpoint reachable.
 		if (wakeLock?.isHeld != true) {
 			val lock = getSystemService(PowerManager::class.java)
 				?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WakeLockTag)

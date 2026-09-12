@@ -263,7 +263,33 @@ public class SavedDevicesReadModelTests
         var incoming = Notice(snapshot, "pairing:incoming");
         Assert.Equal(SavedDeviceNotificationKind.PairingRequest, incoming.Kind);
         Assert.Equal("saved_devices_pending_incoming", SavedDevicesReadModel.TitleKey(incoming.Kind));
+        Assert.True(offer.Pending);
+        Assert.True(incoming.Pending);
+        Assert.False(Notice(snapshot, "pairing:outgoing").Pending);
         Assert.Null(Notice(snapshot, "pairing:outgoing").Kind);
+    }
+
+    [Fact]
+    public void PendingNoticesAreRememberedOnlyAfterShown()
+    {
+        Assert.False(SavedDevicesReadModel.RememberNotice(pending: true, shown: false));
+        Assert.True(SavedDevicesReadModel.RememberNotice(pending: true, shown: true));
+        Assert.True(SavedDevicesReadModel.RememberNotice(pending: false, shown: false));
+        Assert.True(SavedDevicesReadModel.RememberNotice(pending: false, shown: true));
+    }
+
+    [Fact]
+    public void SenderAndReceiverBodiesUseDifferentTemplates()
+    {
+        Assert.Equal("notifications_receiver_completed_body", SavedDevicesReadModel.BodyKey(SavedDeviceNotificationKind.TargetedSendCompleted));
+        Assert.Equal("notifications_receive_completed_body", SavedDevicesReadModel.BodyKey(SavedDeviceNotificationKind.TargetedReceiveCompleted));
+        Assert.Equal("notifications_receiver_failed_body", SavedDevicesReadModel.BodyKey(SavedDeviceNotificationKind.TargetedSendFailed));
+        Assert.Equal("notifications_receive_failed_body", SavedDevicesReadModel.BodyKey(SavedDeviceNotificationKind.TargetedReceiveFailed));
+        Assert.Equal("targeted_offer_body", SavedDevicesReadModel.BodyKey(SavedDeviceNotificationKind.TargetedOffer));
+        Assert.Equal("pairing_request_body", SavedDevicesReadModel.BodyKey(SavedDeviceNotificationKind.PairingRequest));
+        Assert.NotEqual(
+            SavedDevicesReadModel.BodyKey(SavedDeviceNotificationKind.TargetedSendCompleted),
+            SavedDevicesReadModel.BodyKey(SavedDeviceNotificationKind.TargetedReceiveCompleted));
     }
 
     [Fact]

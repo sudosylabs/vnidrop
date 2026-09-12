@@ -17,7 +17,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class RuntimeObligationCoordinatorTest {
+class ProcessRetentionCoordinatorTest {
 	@Test
 	fun applicationLifetimeCoordinatorTracksCoreFactsWithoutAComposableCollector() = runTest {
 		val core = FakeCoreGateway().apply {
@@ -179,10 +179,10 @@ class RuntimeObligationCoordinatorTest {
 
 	@Test
 	fun listenPolicyUnionsCoreObligationAndSavedDeviceListen() {
-		assertFalse(requiresBackgroundRuntime(coreObligation = false, savedDeviceListen = false))
-		assertTrue(requiresBackgroundRuntime(coreObligation = true, savedDeviceListen = false))
-		assertTrue(requiresBackgroundRuntime(coreObligation = false, savedDeviceListen = true))
-		assertTrue(requiresBackgroundRuntime(coreObligation = true, savedDeviceListen = true))
+		assertFalse(processRetentionRequired(coreObligation = false, savedDeviceListen = false))
+		assertTrue(processRetentionRequired(coreObligation = true, savedDeviceListen = false))
+		assertTrue(processRetentionRequired(coreObligation = false, savedDeviceListen = true))
+		assertTrue(processRetentionRequired(coreObligation = true, savedDeviceListen = true))
 	}
 
 	@Test
@@ -199,7 +199,7 @@ class RuntimeObligationCoordinatorTest {
 		keeper: RecordingRuntimeKeeper,
 		platform: UiPlatform = UiPlatform.Android,
 		listenIntent: MutableStateFlow<SavedDeviceListenIntent> = listenIntent(),
-	) = RuntimeObligationCoordinator(
+	) = ProcessRetentionCoordinator(
 		repository = core,
 		keeper = keeper,
 		platform = platform,

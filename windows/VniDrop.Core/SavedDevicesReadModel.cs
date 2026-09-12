@@ -66,7 +66,8 @@ public sealed record SavedDeviceNotificationFact(
     string State,
     SavedDeviceNotificationKind? Kind,
     string? TransferName,
-    string? DeviceName);
+    string? DeviceName,
+    bool Pending);
 
 public sealed record SavedDevicesReadSnapshot(
     IReadOnlyList<PairingEligibilitySummary> Eligibilities,
@@ -189,6 +190,22 @@ public static class SavedDevicesReadModel
     public static string? TitleKey(SavedDeviceNotificationKind? kind) =>
         kind is { } value ? TitleKey(value) : null;
 
+    public static string BodyKey(SavedDeviceNotificationKind kind) => kind switch
+    {
+        SavedDeviceNotificationKind.PairingRequest => "pairing_request_body",
+        SavedDeviceNotificationKind.TargetedOffer => "targeted_offer_body",
+        SavedDeviceNotificationKind.TargetedReceiveCompleted => "notifications_receive_completed_body",
+        SavedDeviceNotificationKind.TargetedReceiveFailed => "notifications_receive_failed_body",
+        SavedDeviceNotificationKind.TargetedSendCompleted => "notifications_receiver_completed_body",
+        SavedDeviceNotificationKind.TargetedSendFailed => "notifications_receiver_failed_body",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+    };
+
+    public static string? BodyKey(SavedDeviceNotificationKind? kind) =>
+        kind is { } value ? BodyKey(value) : null;
+
+    public static bool RememberNotice(bool pending, bool shown) => shown || !pending;
+
     private static SavedDeviceTransferAction[] Actions(TargetedTransferRole role, TargetedTransferState state)
     {
         if (state == TargetedTransferState.Deleted)
@@ -249,7 +266,8 @@ public static class SavedDevicesReadModel
                 "pending",
                 SavedDeviceNotificationKind.TargetedOffer,
                 offer.transferName,
-                displayNames.GetValueOrDefault(offer.senderEndpointId)));
+                displayNames.GetValueOrDefault(offer.senderEndpointId),
+                Pending: true));
         }
 
         foreach (var relationship in pendingRelationships)
@@ -261,7 +279,8 @@ public static class SavedDevicesReadModel
                     ? SavedDeviceNotificationKind.PairingRequest
                     : null,
                 null,
-                displayNames.GetValueOrDefault(relationship.remoteEndpointId)));
+                displayNames.GetValueOrDefault(relationship.remoteEndpointId),
+                Pending: relationship.state == DeviceRelationshipState.PendingIncoming));
         }
 
         foreach (var transfer in targetedTransfers)
@@ -271,7 +290,8 @@ public static class SavedDevicesReadModel
                 transfer.State.ToString(),
                 OutcomeKind(transfer.Direction, transfer.State),
                 transfer.TransferName,
-                transfer.PeerDisplayName));
+                transfer.PeerDisplayName,
+                Pending: false));
         }
 
         return [.. notices];

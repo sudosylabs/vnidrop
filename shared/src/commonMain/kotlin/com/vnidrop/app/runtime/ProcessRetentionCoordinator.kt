@@ -18,12 +18,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-internal fun requiresBackgroundRuntime(
+internal fun processRetentionRequired(
 	coreObligation: Boolean,
 	savedDeviceListen: Boolean,
 ): Boolean = coreObligation || savedDeviceListen
 
-internal class RuntimeObligationCoordinator(
+internal class ProcessRetentionCoordinator(
 	private val repository: CoreGateway,
 	private val keeper: BackgroundRuntimeKeeper,
 	platform: UiPlatform,
@@ -48,7 +48,7 @@ internal class RuntimeObligationCoordinator(
 	private fun observeObligations(listenIntent: Flow<SavedDeviceListenIntent>) {
 		scope.launch {
 			combine(facts, savedDeviceCount, listenIntent) { currentFacts, devices, intent ->
-				requiresBackgroundRuntime(
+				processRetentionRequired(
 					coreObligation = currentFacts?.requiresRuntime == true,
 					savedDeviceListen = savedDeviceListenActive(devices, intent),
 				)

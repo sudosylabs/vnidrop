@@ -128,6 +128,7 @@ internal fun plannedTargetedOutcomes(
 	transfers: List<SavedDeviceTransferItem>,
 	published: Set<String>,
 ): List<PlannedSavedDeviceNotification> = transfers.mapNotNull { transfer ->
+	// Sender Completed/Failed is the peer finishing, not a local receive.
 	val kind = when {
 		transfer.direction == SavedDeviceTransferDirection.Incoming &&
 			transfer.state == TargetedTransferStateModel.Completed ->

@@ -40,12 +40,24 @@ public sealed class NativeNotifications
     public void Update(CoreSnapshot snapshot, bool enabled)
     {
         var current = new Dictionary<string, string>();
-        void Notice(string id, string state, string? title, string body)
+        void Notice(string id, string state, string? title, string body, bool pending = false)
         {
-            current[id] = state;
-            if (!enabled || !Available || previous is null || previous.GetValueOrDefault(id) == state || title is null) return;
-            try { AppNotificationManager.Default.Show(new AppNotificationBuilder().AddText(title).AddText(body).BuildNotification()); }
-            catch (System.Runtime.InteropServices.COMException) { Available = false; }
+            var primed = previous is not null;
+            var already = primed && previous!.GetValueOrDefault(id) == state;
+            var shown = false;
+            if (enabled && Available && primed && !already && title is not null)
+            {
+                try
+                {
+                    AppNotificationManager.Default.Show(new AppNotificationBuilder().AddText(title).AddText(body).BuildNotification());
+                    shown = true;
+                }
+                catch (System.Runtime.InteropServices.COMException) { Available = false; }
+            }
+            if (SavedDevicesReadModel.RememberNotice(pending, shown) || already)
+            {
+                current[id] = state;
+            }
         }
         foreach (var transfer in snapshot.Transfers.Where(t => t.direction == "receive"))
             Notice("receive:" + transfer.localId, transfer.status, transfer.status switch
@@ -59,9 +71,26 @@ public sealed class NativeNotifications
                 notice.Id,
                 notice.State,
                 notice.Kind is { } kind ? Strings.Get(SavedDevicesReadModel.TitleKey(kind)) : null,
-                notice.Kind == SavedDeviceNotificationKind.PairingRequest
-                    ? Strings.Get("saved_devices_attention_title")
-                    : notice.TransferName ?? Strings.Get("receive_unknown_transfer"));
+                SavedDeviceNoticeBody(notice),
+                notice.Pending);
         previous = current;
+    }
+
+    private static string SavedDeviceNoticeBody(SavedDeviceNotificationFact notice)
+    {
+        var device = notice.DeviceName ?? Strings.Get("saved_devices_unnamed");
+        var transfer = notice.TransferName ?? Strings.Get("receive_unknown_transfer");
+        return notice.Kind switch
+        {
+            SavedDeviceNotificationKind.PairingRequest =>
+                Strings.Format(SavedDevicesReadModel.BodyKey(notice.Kind.Value), ("device", device)),
+            SavedDeviceNotificationKind.TargetedOffer =>
+                Strings.Format(SavedDevicesReadModel.BodyKey(notice.Kind.Value), ("device", device), ("transferName", transfer)),
+            SavedDeviceNotificationKind.TargetedReceiveCompleted or SavedDeviceNotificationKind.TargetedReceiveFailed =>
+                Strings.Format(SavedDevicesReadModel.BodyKey(notice.Kind.Value), ("transferName", transfer)),
+            SavedDeviceNotificationKind.TargetedSendCompleted or SavedDeviceNotificationKind.TargetedSendFailed =>
+                Strings.Format(SavedDevicesReadModel.BodyKey(notice.Kind.Value), ("receiver", device), ("transferName", transfer)),
+            _ => transfer,
+        };
     }
 }

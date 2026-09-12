@@ -14,7 +14,7 @@ import com.vnidrop.app.platform.AppVisibility
 import com.vnidrop.app.preferences.AppPreferencesDefaults
 import com.vnidrop.app.preferences.AppPreferencesRepository
 import com.vnidrop.app.preferences.createAppPreferencesDataStore
-import com.vnidrop.app.runtime.RuntimeObligationCoordinator
+import com.vnidrop.app.runtime.ProcessRetentionCoordinator
 import com.vnidrop.app.runtime.SavedDeviceListenIntent
 import com.vnidrop.app.ui.feedback.UiMessageController
 import com.vnidrop.app.ui.theme.ThemeMode
@@ -81,7 +81,7 @@ class AppGraph(
 		messages = messages,
 		scope = applicationScope,
 	)
-	private val runtimeObligationCoordinator = RuntimeObligationCoordinator(
+	private val processRetentionCoordinator = ProcessRetentionCoordinator(
 		repository = coreRepository,
 		keeper = dependencies.backgroundRuntimeKeeper,
 		platform = dependencies.environment.uiPlatform,
@@ -95,7 +95,7 @@ class AppGraph(
 	}
 
 	fun close() {
-		runtimeObligationCoordinator.close()
+		processRetentionCoordinator.close()
 		coreRepository.shutdown()
 		applicationScope.cancel()
 	}

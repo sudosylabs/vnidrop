@@ -110,7 +110,7 @@ public sealed class NativeShare : IDisposable
                 break;
         }
         package.ShareCompleted += (_, _) => Complete(payload);
-        package.ShareCanceled += (_, _) => Complete(payload);
+        package.ShareCanceled += (_, _) => Abort(payload);
     }
 
     public void Dispose()
@@ -122,7 +122,8 @@ public sealed class NativeShare : IDisposable
 
     private void Complete(SharePayload payload)
     {
-        if (payload.Descriptor.FilePath is { } path) staging.DeletePayload(path);
+        // Some targets finish the share contract before their attachment upload reads the file.
+        // Keep the staged invitation available through the store's bounded retention window.
         if (pending?.Id == payload.Id) pending = null;
         payload.Lease.Dispose();
         payload.Completion.TrySetResult();

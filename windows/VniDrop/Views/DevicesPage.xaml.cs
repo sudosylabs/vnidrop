@@ -10,7 +10,6 @@ public sealed partial class DevicesPage : Page
 {
     private readonly HashSet<string> busy = [];
     private SavedDeviceItem[] savedItems = [];
-    private DeviceTransferItem[] transferItems = [];
     private string? selectedEndpointId;
     private bool isWide;
     private bool rendering;
@@ -87,19 +86,11 @@ public sealed partial class DevicesPage : Page
             .Select(endpoint => DeviceActionRowItem.Blocked(endpoint, busy.Contains($"blocked:{endpoint}")))
             .ToArray();
 
-        transferItems = snapshot.TargetedTransfers
-            .Where(transfer => transfer.state != TargetedTransferState.Deleted)
-            .OrderByDescending(transfer => transfer.updatedAt)
-            .Select(transfer => new DeviceTransferItem(
-                transfer,
-                DeviceName(snapshot, PeerId(transfer)),
-                DetailsView.IsBusy($"transfer:{transfer.id}"),
-                App.Window.Model.IsTargetedReceiveRunning(transfer.id)))
-            .ToArray();
         savedItems = snapshot.Devices
             .Select(device => new SavedDeviceItem(
                 device,
-                transferItems.Count(transfer => transfer.PeerId == device.endpointId),
+                snapshot.TargetedTransfers.Count(transfer =>
+                    transfer.state != TargetedTransferState.Deleted && PeerId(transfer) == device.endpointId),
                 DetailsView.IsBusy($"device:{device.endpointId}")))
             .ToArray();
 
@@ -163,13 +154,6 @@ public sealed partial class DevicesPage : Page
         {
             DetailsView.ShowDevice(null);
         }
-
-        var savedIds = savedItems.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
-        var visibleTransfers = showDetails
-            ? transferItems.Where(transfer => !savedIds.Contains(transfer.PeerId)).ToArray()
-            : transferItems;
-        GlobalTransfers.ItemsSource = visibleTransfers;
-        TransfersSection.Visibility = visibleTransfers.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void DeviceSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -269,30 +253,6 @@ public sealed partial class DevicesPage : Page
         {
             busy.Remove(item.Key);
             Update();
-        }
-    }
-
-    private async void GlobalTransferPrimary(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { Tag: DeviceTransferItem item })
-        {
-            await DetailsView.ExecuteTransferAsync(item, item.PrimaryAction);
-        }
-    }
-
-    private void GlobalTransferMore(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { Tag: DeviceTransferItem item } target)
-        {
-            DetailsView.BuildTransferMenu(item).ShowAt(target);
-        }
-    }
-
-    private void GlobalTransferRowLoaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { Tag: DeviceTransferItem item } target)
-        {
-            target.ContextFlyout = DetailsView.BuildTransferMenu(item);
         }
     }
 

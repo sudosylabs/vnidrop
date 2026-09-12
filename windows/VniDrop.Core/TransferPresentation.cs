@@ -7,6 +7,10 @@ public sealed record TransferProgress(double? Fraction, string LabelKey, string?
 
 public static class TransferPresentation
 {
+    public static bool ShowsTargetedProgress(TargetedTransferState state, ulong totalSize) =>
+        totalSize > 0 && state is TargetedTransferState.Connecting
+            or TargetedTransferState.Transferring or TargetedTransferState.Interrupted;
+
     public static ulong[] DeletableHistoryIds(IEnumerable<StoredTransfer> transfers) => transfers
         .Where(transfer => transfer.status is "done" or "cancelled" or "stopped" or "failed")
         .Select(transfer => transfer.transferId)

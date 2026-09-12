@@ -42,6 +42,29 @@ public sealed class CoreIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SharedInvitationRemainsAValidTicketAfterHandoffAndStagingShutdown()
+    {
+        var source = Path.Combine(directory, "invitation.txt");
+        await File.WriteAllTextAsync(source, "Shared invitation contents");
+        var share = await sender.RunAsync(c => c.ShareFiles([new(SourceKind.Path, source, null, false)],
+            new(46, "Holiday photos", "Sender", TransferAccessMode.Public)));
+        string path;
+        using (var staging = new ShareStagingStore(Path.Combine(directory, "share-staging"), Environment.ProcessId))
+        {
+            path = staging.CreatePayloadPath(InvitationDocument.FileName("Holiday photos"));
+            await File.WriteAllTextAsync(path, share.ticket);
+        }
+
+        var ticket = await InvitationDocument.ReadAsync(path);
+        Assert.Equal(share.ticket, ticket);
+        await receiver.RunAsync(c => c.InspectTicket(ticket));
+        await receiver.RunAsync(c => c.Receive(ticket, Path.Combine(directory, "shared-invitation"), "Receiver"))
+            .WaitAsync(TimeSpan.FromSeconds(30));
+        var artifact = Assert.Single(await receiver.RunAsync(c => c.ListReceivedArtifacts()));
+        Assert.Equal("Shared invitation contents", await File.ReadAllTextAsync(artifact.locator));
+    }
+
+    [Fact]
     public async Task CancelReachesCoreWhileReceiveWaitsForApproval()
     {
         var source = Path.Combine(directory, "approval.txt"); await File.WriteAllTextAsync(source, "approval required");
@@ -85,6 +108,45 @@ public sealed class CoreIntegrationTests : IAsyncLifetime
         var after = (await sender.SnapshotAsync()).Obligations;
         Assert.Equal(0ul, after.targetedPreparations);
         Assert.Equal(obligations.targetedProviderAvailability, after.targetedProviderAvailability);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RemovingSavedDeviceUpdatesBothSnapshotsAndNotifiesRemoteSession(bool block)
+    {
+        var source = Path.Combine(directory, "pair.txt");
+        await File.WriteAllTextAsync(source, "Pair these devices");
+        var share = await sender.RunAsync(c => c.ShareFiles([new(SourceKind.Path, source, null, false)],
+            new(45, "Pair", "Sender", TransferAccessMode.Public)));
+        await receiver.RunAsync(c => c.Receive(share.ticket, Path.Combine(directory, "pairing"), "Receiver"));
+        var receiverId = (await receiver.SnapshotAsync()).Status.endpointId;
+        var senderId = (await sender.SnapshotAsync()).Status.endpointId;
+        await UntilAsync(async () => (await sender.SnapshotAsync()).EligibleDevices.Any(e => e.peerEndpointId == receiverId), "No pairing eligibility");
+        Assert.True(await sender.RunAsync(c => c.RequestSavedDevicePairing(receiverId)));
+        await UntilAsync(async () => (await receiver.SnapshotAsync()).Relationships.Any(r => r.state == DeviceRelationshipState.PendingIncoming), "No pairing request");
+        Assert.True(await receiver.RunAsync(c => c.RespondToDevicePairing(senderId, true)));
+        await UntilAsync(async () => (await sender.SnapshotAsync()).Devices.Length == 1 && (await receiver.SnapshotAsync()).Devices.Length == 1, "Pairing did not complete");
+        receiver.DrainEvents();
+        var revision = receiver.Revision;
+
+        await sender.RunAsync(c =>
+        {
+            if (block) c.BlockDevice(receiverId);
+            else c.ForgetSavedDevice(receiverId);
+        });
+
+        Assert.Empty((await sender.SnapshotAsync()).Devices);
+        await UntilAsync(async () => (await receiver.SnapshotAsync()).Devices.Length == 0, "The removed peer still lists the device");
+        Assert.True(receiver.Revision > revision);
+        Assert.Contains(receiver.DrainEvents(), e => e.kind == "relationship-changed");
+        Assert.Empty((await receiver.SnapshotAsync()).Relationships);
+        if (block)
+        {
+            Assert.Equal(new[] { receiverId }, (await sender.SnapshotAsync()).BlockedDevices);
+            await sender.RunAsync(c => c.UnblockDevice(receiverId));
+            Assert.Empty((await sender.SnapshotAsync()).Devices);
+        }
     }
 
     [Fact]

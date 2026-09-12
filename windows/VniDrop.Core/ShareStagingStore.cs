@@ -6,6 +6,7 @@ namespace VniDrop.Core;
 public sealed class ShareStagingStore : IDisposable
 {
     private const string OwnerFileName = ".owner";
+    private static readonly TimeSpan PayloadRetention = TimeSpan.FromHours(24);
     private readonly string rootDirectory;
     private readonly string ownerPath;
     private FileStream? ownerLease;
@@ -152,7 +153,10 @@ public sealed class ShareStagingStore : IDisposable
             {
                 EnsureDirectoryIsNotReparsePoint(directory);
                 foreach (var file in Directory.EnumerateFiles(directory, "*.vnd", SearchOption.TopDirectoryOnly))
-                    File.Delete(file);
+                {
+                    if (DateTime.UtcNow - File.GetLastWriteTimeUtc(file) >= PayloadRetention)
+                        File.Delete(file);
+                }
                 Directory.Delete(directory, false);
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException)

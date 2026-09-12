@@ -3,6 +3,10 @@ name: Android release package
 on:
   workflow_call:
     inputs:
+      source_ref:
+        description: Source commit selected by the release planner
+        type: string
+        default: ""
       preview_number:
         type: string
         default: ""
@@ -32,6 +36,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ inputs.source_ref || github.sha }}
           persist-credentials: false
 
       - name: Set up JDK 21

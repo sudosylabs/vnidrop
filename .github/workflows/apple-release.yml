@@ -15,6 +15,10 @@ name: Apple release (macOS DMG)
 on:
   workflow_call:
     inputs:
+      source_ref:
+        description: Source commit selected by the release planner
+        type: string
+        default: ""
       preview:
         type: boolean
         default: false
@@ -42,13 +46,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ inputs.source_ref || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Verify tag is on master
         if: github.event_name == 'push'
         run: |
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+          if ! git merge-base --is-ancestor HEAD origin/master; then
             echo "Release tags must point to a commit on master" >&2
             exit 1
           fi

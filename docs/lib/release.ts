@@ -19,9 +19,17 @@ type Manifest = {
   releaseChannel: string;
   tag: string;
   files: ManifestFile[];
+  downloads?: Partial<Record<"windows" | "linux" | "android" | "macos", {
+    version: string;
+    tag: string;
+    files: ManifestFile[];
+  }>>;
 };
 
 export type ReleaseAsset = {
+  version: string;
+  tag: string;
+  checksumsUrl: string;
   name: string;
   url: string;
   bytes: number;
@@ -32,11 +40,6 @@ export type PreviewRelease = LatestRelease & {
   number: number;
   publishedAt: string;
   manifestUrl: string;
-  dmg: ReleaseAsset;
-  deb: ReleaseAsset;
-  rpm: ReleaseAsset;
-  apk: ReleaseAsset;
-  windowsExe: ReleaseAsset;
 };
 
 export type LatestRelease = {
@@ -58,6 +61,9 @@ export function assetDownloadUrl(tag: string, name: string): string {
 
 function toAsset(tag: string, file: ManifestFile): ReleaseAsset {
   return {
+    version: tag.slice(1),
+    tag,
+    checksumsUrl: assetDownloadUrl(tag, "SHA256SUMS"),
     name: file.name,
     url: assetDownloadUrl(tag, file.name),
     bytes: file.bytes,
@@ -96,23 +102,43 @@ export async function loadLatestRelease(): Promise<LatestRelease> {
   }
 
   const manifest = (await response.json()) as Manifest;
+  return releaseFromManifest(manifest);
+}
+
+export function releaseFromManifest(manifest: Manifest): LatestRelease {
   const files = manifest.files ?? [];
   const tag = manifest.tag;
-  if (manifest.releaseChannel === "preview" || tag !== `v${manifest.productVersion}`) {
+  const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+  if (manifest.releaseChannel === "preview" || !versionPattern.test(manifest.productVersion) || tag !== `v${manifest.productVersion}`) {
     throw new Error("The public release manifest must identify a normal version tag");
   }
-
+  function download(platform: "windows" | "linux" | "android" | "macos", pattern: RegExp) {
+    const entry = manifest.downloads?.[platform];
+    if (!entry) return findFile(tag, files, pattern);
+    if (!versionPattern.test(entry.version) || entry.tag !== `v${entry.version}` || !Array.isArray(entry.files)) {
+      throw new Error(`Invalid ${platform} download identity`);
+    }
+    const current = manifest.productVersion.split(".").map(Number);
+    const candidate = entry.version.split(".").map(Number);
+    const differing = candidate.findIndex((value, index) => value !== current[index]);
+    if (differing >= 0 && candidate[differing] > current[differing]) throw new Error("Download version is newer than its manifest");
+    if (entry.files.some((file) => /[/\\]/.test(file.name) || !file.name.includes(entry.version) ||
+        !/^[a-f0-9]{64}$/.test(file.sha256) || !Number.isSafeInteger(file.bytes) || file.bytes <= 0)) {
+      throw new Error(`Invalid ${platform} download metadata`);
+    }
+    return findFile(entry.tag, entry.files, pattern);
+  }
   return {
     version: manifest.productVersion,
     channel: manifest.releaseChannel,
     tag,
     tagUrl: `https://github.com/${GITHUB_REPO}/releases/tag/${encodeURIComponent(tag)}`,
     checksumsUrl: assetDownloadUrl(tag, "SHA256SUMS"),
-    dmg: findFile(tag, files, /^VniDrop-.+\.dmg$/),
-    deb: findFile(tag, files, /\.deb$/),
-    rpm: findFile(tag, files, /\.rpm$/),
-    apk: findFile(tag, files, /play-universal\.apk$/),
-    windowsExe: findFile(tag, files, /^VniDrop_.+_x64\.exe$/),
+    dmg: download("macos", /^VniDrop-.+\.dmg$/),
+    deb: download("linux", /\.deb$/),
+    rpm: download("linux", /\.rpm$/),
+    apk: download("android", /play-universal\.apk$/),
+    windowsExe: download("windows", /^VniDrop_.+_x64\.exe$/),
   };
 }
 
@@ -141,6 +167,9 @@ export function selectLatestPreview(data: unknown): PreviewRelease | null {
       if (matches.length !== 1) return undefined;
       const file = matches[0];
       return {
+        version: label,
+        tag,
+        checksumsUrl: assetDownloadUrl(tag, "SHA256SUMS"),
         name,
         url: assetDownloadUrl(tag, name),
         bytes: file.size as number,
@@ -155,7 +184,9 @@ export function selectLatestPreview(data: unknown): PreviewRelease | null {
     const windowsExe = asset(`VniDrop-${label}-x64.exe`);
     const checksums = asset("SHA256SUMS");
     const manifest = asset("preview-manifest.json");
-    if (!dmg || !deb || !rpm || !apk || !windowsExe || !checksums || !manifest) continue;
+    if (!checksums || !manifest || (!dmg && !deb && !rpm && !apk && !windowsExe)) continue;
+    if (Boolean(deb) !== Boolean(rpm)) continue;
+    if (assets.some((file) => assets.filter((other) => other.name === file.name).length !== 1)) continue;
 
     previews.push({
       version, number: Number(number), channel: "preview", tag,
@@ -166,7 +197,17 @@ export function selectLatestPreview(data: unknown): PreviewRelease | null {
       dmg, deb, rpm, apk, windowsExe,
     });
   }
-  return previews.sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt) || b.number - a.number)[0] ?? null;
+  const ordered = previews.sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt) || b.number - a.number);
+  if (!ordered.length) return null;
+  const latest = { ...ordered[0] };
+  for (const release of ordered.slice(1)) {
+    latest.dmg ??= release.dmg;
+    latest.windowsExe ??= release.windowsExe;
+    latest.deb ??= release.deb;
+    latest.rpm ??= release.rpm;
+    latest.apk ??= release.apk;
+  }
+  return latest;
 }
 
 export async function loadLatestPreview(signal?: AbortSignal): Promise<PreviewRelease | null> {

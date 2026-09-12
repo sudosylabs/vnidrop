@@ -24,11 +24,10 @@ class ReleaseWorkflowsTest < Minitest::Test
 
   def test_store_failures_do_not_block_other_publication_destinations
     jobs = workflow("release").fetch("jobs")
-    builds = %w[preflight linux windows macos android]
-    %w[play-closed-testing publish-microsoft-store apple-appstore].each do |name|
-      assert_equal builds.sort, jobs.fetch(name).fetch("needs").sort, name
-    end
-    assert_equal %w[preflight linux windows macos play-closed-testing].sort,
+    assert_equal %w[preflight android].sort, jobs.fetch("play-closed-testing").fetch("needs").sort
+    assert_equal %w[preflight windows].sort, jobs.fetch("publish-microsoft-store").fetch("needs").sort
+    assert_equal %w[preflight macos].sort, jobs.fetch("apple-appstore").fetch("needs").sort
+    assert_equal %w[preflight linux windows macos android play-closed-testing].sort,
       jobs.fetch("publish-github").fetch("needs").sort
     assert_equal "play-closed-testing", jobs.fetch("play-closed-testing").fetch("environment")
     assert_equal "microsoft-store", jobs.fetch("publish-microsoft-store").fetch("environment")
@@ -37,7 +36,7 @@ class ReleaseWorkflowsTest < Minitest::Test
 
   def test_apple_core_and_app_check_out_the_selected_revision
     jobs = workflow("apple-appstore").fetch("jobs")
-    assert_equal "${{ inputs.release_tag != '' && format('refs/tags/{0}', inputs.release_tag) || github.sha }}",
+    assert_equal "${{ inputs.source_ref || (inputs.release_tag != '' && format('refs/tags/{0}', inputs.release_tag)) || github.sha }}",
       step(jobs.fetch("core"), "Checkout").fetch("with").fetch("ref")
     assert_equal "${{ needs.core.outputs.source_sha }}",
       step(jobs.fetch("appstore"), "Checkout").fetch("with").fetch("ref")
@@ -46,10 +45,13 @@ class ReleaseWorkflowsTest < Minitest::Test
 
   def test_release_reuses_its_own_core_without_waiting_for_github_publication
     apple = workflow("release").fetch("jobs").fetch("apple-appstore")
-    assert_equal "vnidrop-${{ needs.preflight.outputs.version }}-macos-dmg", apple.fetch("with").fetch("core_artifact")
+    assert_equal "${{ needs.macos.result == 'success' && format('vnidrop-{0}-macos-dmg', needs.preflight.outputs.version) || '' }}",
+      apple.fetch("with").fetch("core_artifact")
+    assert_equal "${{ needs.macos.result == 'skipped' }}", apple.fetch("with").fetch("build_core")
+    assert_equal "${{ needs.preflight.outputs.apple_platforms }}", apple.fetch("with").fetch("platforms")
     core = workflow("apple-appstore").fetch("jobs").fetch("core")
-    assert_equal "steps.plan.outputs.release_tag == ''", step(core, "Build the core").fetch("if")
-    assert_equal "steps.plan.outputs.release_tag != '' && inputs.core_artifact == ''",
+    assert_equal "steps.plan.outputs.release_tag == '' || inputs.build_core", step(core, "Build the core").fetch("if")
+    assert_equal "steps.plan.outputs.release_tag != '' && inputs.core_artifact == '' && !inputs.build_core",
       step(core, "Download prebuilt core from the release").fetch("if")
     assert_equal "${{ inputs.core_artifact }}", step(core, "Download core from this release run").fetch("with").fetch("name")
   end
@@ -64,7 +66,9 @@ class ReleaseWorkflowsTest < Minitest::Test
 
   def test_preview_is_manual_and_only_publishes_direct_packages
     preview = workflow("preview-release")
-    assert_equal({"workflow_dispatch" => nil}, preview.fetch(true))
+    assert_equal ["workflow_dispatch"], preview.fetch(true).keys
+    assert_equal %w[windows linux android macos].sort,
+      preview.fetch(true).fetch("workflow_dispatch").fetch("inputs").keys.sort
     jobs = preview.fetch("jobs")
     assert_equal %w[preflight linux windows macos android publish].sort, jobs.keys.sort
     assert_equal %w[preflight linux windows macos android].sort, jobs.fetch("publish").fetch("needs").sort
@@ -79,6 +83,27 @@ class ReleaseWorkflowsTest < Minitest::Test
     %w[android-release apple-release windows-store linux-packages].each do |name|
       assert_includes workflow(name).fetch("concurrency").fetch("group"), "${{ github.workflow }}"
     end
+  end
+
+  def test_normal_releases_are_manual_and_selected_jobs_can_be_skipped
+    release = workflow("release")
+    assert_equal ["workflow_dispatch"], release.fetch(true).keys
+    inputs = release.fetch(true).fetch("workflow_dispatch").fetch("inputs")
+    assert_equal %w[windows linux android macos ios distribution release_tag].sort, inputs.keys.sort
+    jobs = release.fetch("jobs")
+    %w[windows linux android macos].each do |platform|
+      assert_equal "needs.preflight.outputs.#{platform} == 'true'", jobs.fetch(platform).fetch("if")
+      assert_equal "${{ needs.preflight.outputs.source_sha }}", jobs.fetch(platform).fetch("with").fetch("source_ref")
+    end
+    condition = jobs.fetch("publish-github").fetch("if")
+    assert_includes condition, "!cancelled()"
+    assert_includes condition, "needs.preflight.result == 'success'"
+    assert_includes condition, "!contains(needs.*.result, 'failure')"
+    assert_includes condition, "!contains(needs.*.result, 'cancelled')"
+    assert_includes jobs.fetch("apple-appstore").fetch("if"), "needs.macos.result == 'skipped'"
+    publish = step(jobs.fetch("publish-github"), "Create GitHub Release").fetch("run")
+    assert_includes publish, "--verify-tag --draft"
+    assert_includes publish, "--draft=false --latest"
   end
 
   def test_preview_options_leave_normal_release_defaults_intact
@@ -130,13 +155,14 @@ class ReleaseWorkflowsTest < Minitest::Test
       FileUtils.cp(File.join(ROOT, "packaging/version/resolve-version.sh"), File.join(directory, "packaging/version"))
       FileUtils.chmod(0755, File.join(directory, "packaging/version/resolve-version.sh"))
       File.write(File.join(directory, "version.properties"), "PRODUCT_VERSION=0.3.3\nRELEASE_CHANNEL=beta\nWINDOWS_VERSION_EPOCH=1\n")
-      env.merge!("GITHUB_SHA" => release_sha, "GITHUB_REF_TYPE" => "tag", "GITHUB_REF_NAME" => "v0.3.3",
+      env.merge!("GITHUB_SHA" => release_sha, "GITHUB_REF_TYPE" => "branch", "GITHUB_REF" => "refs/heads/master", "RELEASE_TAG" => "v0.3.3",
         "GITHUB_OUTPUT" => File.join(directory, "outputs"))
+      run_command(env, "git", "checkout", "-q", release_sha, directory: directory)
       script = step(workflow("release").fetch("jobs").fetch("preflight"), "Verify canonical beta tag on master").fetch("run")
       run_command(env, "bash", "-eu", "-o", "pipefail", "-c", script, directory: directory)
-      assert_equal "app=0.3.3\nandroid_code=3003\n", File.read(env.fetch("GITHUB_OUTPUT"))
+      assert_equal "source_sha=#{release_sha}\napp=0.3.3\nandroid_code=3003\n", File.read(env.fetch("GITHUB_OUTPUT"))
 
-      output, status = Open3.capture2e(env.merge("GITHUB_REF_NAME" => "v0.3.4"), "bash", "-c", script, chdir: directory)
+      output, status = Open3.capture2e(env.merge("RELEASE_TAG" => "v0.3.4"), "bash", "-c", script, chdir: directory)
       refute status.success?
       assert_includes output, "Release tag must be v0.3.3"
 

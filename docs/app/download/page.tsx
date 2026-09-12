@@ -27,17 +27,17 @@ export default async function DownloadPage() {
       <section className={styles.downloadHero}>
         <div className={`${styles.downloadHeroInner} page-shell`}>
           <div>
-            <p className={styles.downloadKicker}>Current public release</p>
+            <p className={styles.downloadKicker}>Latest downloads by platform</p>
             <h1>Choose this device.</h1>
           </div>
           <div className={styles.releaseSummary}>
             <p className={styles.releaseIdentity}>
-              <span>{channelLabel}</span>
+              <span>{channelLabel} · Latest publication</span>
               <strong>{release.tag}</strong>
             </p>
             <p>
               Public builds come from GitHub Releases. Windows is available through the Microsoft
-              Store or as an unsigned direct installer. For earlier changes, try a preview below.
+              Store or as an unsigned direct installer. Platforms can receive updates separately; each download shows its version and checksums.
             </p>
             <p className={styles.channelLinks}><a className="text-link" href="#preview">Preview downloads ↓</a><Link className="text-link" href="/guide/">Installation and help</Link></p>
           </div>
@@ -55,7 +55,7 @@ export default async function DownloadPage() {
               <div className={styles.platformDetails}>
                 <p>Signed and notarized disk image for Apple Silicon. The direct app checks for release updates after installation.</p>
                 <p className={styles.downloadActions}>
-                  {release.dmg ? <FileLink asset={release.dmg} /> : <span>No disk image in this release.</span>}
+                  {release.dmg ? <FileLink asset={release.dmg} /> : <span>No disk image available.</span>}
                 </p>
                 <div className={styles.installCommand}>
                   <CopyCommand command={homebrewInstall} />
@@ -72,7 +72,7 @@ export default async function DownloadPage() {
                 <p className={styles.downloadActions}>
                   {release.deb ? <FileLink asset={release.deb} /> : null}
                   {release.rpm ? <FileLink asset={release.rpm} /> : null}
-                  {!release.deb && !release.rpm ? <span>No Linux packages in this release.</span> : null}
+                  {!release.deb && !release.rpm ? <span>No Linux packages available.</span> : null}
                 </p>
               </div>
             </li>
@@ -84,7 +84,7 @@ export default async function DownloadPage() {
               <div className={styles.platformDetails}>
                 <p>Play-signed APK for sideload. The Play listing is still in closed testing.</p>
                 <p className={styles.downloadActions}>
-                  {release.apk ? <FileLink asset={release.apk} /> : <span>No Android APK in this release.</span>}
+                  {release.apk ? <FileLink asset={release.apk} /> : <span>No Android APK available.</span>}
                 </p>
               </div>
             </li>
@@ -102,13 +102,13 @@ export default async function DownloadPage() {
                   {release.windowsExe ? (
                     <FileLink asset={release.windowsExe} />
                   ) : (
-                    <span>No direct installer in this release.</span>
+                    <span>No direct installer available.</span>
                   )}
                 </p>
                 {release.windowsExe ? (
                   <p className={styles.downloadWarning}>
                     The direct installer is unsigned, so SmartScreen may warn about its publisher.
-                    Verify it against this release&apos;s SHA256 checksums before running it.
+                    Verify it against the installer&apos;s linked SHA256 checksums before running it.
                   </p>
                 ) : null}
               </div>

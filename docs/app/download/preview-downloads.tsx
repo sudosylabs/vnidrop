@@ -53,7 +53,7 @@ export function PreviewDownloads() {
         {state.status === "ready" ? (
           <>
             <p className={styles.releaseIdentity}>
-              <span>Preview</span>
+              <span>Latest preview publication</span>
               <strong>{state.release.version}-preview.{state.release.number}</strong>
               <time dateTime={state.release.publishedAt}>{new Date(state.release.publishedAt).toISOString().slice(0, 10)}</time>
             </p>
@@ -62,28 +62,28 @@ export function PreviewDownloads() {
                 <div className={styles.platformName}><h3>macOS</h3><span>Apple Silicon · macOS 15+</span></div>
                 <div className={styles.platformDetails}>
                   <p>Signed and notarized DMG. Replaces the installed direct app; future previews are downloaded here.</p>
-                  <FileLink asset={state.release.dmg} />
+                  {state.release.dmg ? <FileLink asset={state.release.dmg} /> : <span>No preview download available.</span>}
                 </div>
               </li>
               <li>
                 <div className={styles.platformName}><h3>Windows</h3><span>x64 · Windows 10 2004+</span></div>
                 <div className={styles.platformDetails}>
                   <p>Native WinUI installer. Unsigned; SmartScreen may warn when you run it.</p>
-                  <FileLink asset={state.release.windowsExe} />
+                  {state.release.windowsExe ? <FileLink asset={state.release.windowsExe} /> : <span>No preview download available.</span>}
                 </div>
               </li>
               <li>
                 <div className={styles.platformName}><h3>Linux</h3><span>x64 · GTK / libadwaita</span></div>
                 <div className={styles.platformDetails}>
                   <p>DEB for Ubuntu 24.04 or newer. RPM built for Fedora 43. Replaces the installed VniDrop package.</p>
-                  <p className={styles.downloadActions}><FileLink asset={state.release.deb} /><FileLink asset={state.release.rpm} /></p>
+                  <p className={styles.downloadActions}>{state.release.deb ? <FileLink asset={state.release.deb} /> : <span>No preview download available.</span>}{state.release.rpm ? <FileLink asset={state.release.rpm} /> : <span>No preview download available.</span>}</p>
                 </div>
               </li>
               <li>
                 <div className={styles.platformName}><h3>Android</h3><span>Android 7+ · arm64 / x86_64</span></div>
                 <div className={styles.platformDetails}>
                   <p>Signed with the preview key. Installs alongside the Play Store app with separate app data.</p>
-                  <FileLink asset={state.release.apk} />
+                  {state.release.apk ? <FileLink asset={state.release.apk} /> : <span>No preview download available.</span>}
                 </div>
               </li>
             </ul>

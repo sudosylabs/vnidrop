@@ -98,6 +98,17 @@ class PreviewAssemblyTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "must be empty"):
             self.assemble()
 
+    def test_windows_and_linux_preview_needs_no_apple_or_android_assets(self):
+        self.payloads[2].unlink()
+        self.payloads[4].unlink()
+        self.android_metadata.unlink()
+        self.assemble(platforms="windows,linux")
+        manifest = json.loads((self.output / "preview-manifest.json").read_text())
+        self.assertEqual(manifest["platforms"], ["windows", "linux"])
+        self.assertEqual({Path(f["name"]).suffix for f in manifest["files"]}, {".exe", ".deb", ".rpm"})
+        self.assertNotIn("android", manifest)
+        self.assertNotIn("appleDirectBuildNumber", manifest)
+
 
 if __name__ == "__main__":
     unittest.main()

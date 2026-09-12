@@ -2,6 +2,23 @@ name: Preview release
 
 on:
   workflow_dispatch:
+    inputs:
+      windows:
+        description: Windows
+        type: boolean
+        default: true
+      linux:
+        description: Linux
+        type: boolean
+        default: true
+      android:
+        description: Android
+        type: boolean
+        default: true
+      macos:
+        description: macOS
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -16,6 +33,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
+      direct_platforms: ${{ steps.plan.outputs.direct_platforms }}
+      windows: ${{ steps.plan.outputs.windows }}
+      linux: ${{ steps.plan.outputs.linux }}
+      android: ${{ steps.plan.outputs.android }}
+      macos: ${{ steps.plan.outputs.macos }}
       version: ${{ steps.version.outputs.version }}
       number: ${{ steps.version.outputs.number }}
       label: ${{ steps.version.outputs.label }}
@@ -25,6 +47,13 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+
+      - name: Select preview platforms
+        id: plan
+        env:
+          RELEASE_INPUTS: ${{ toJSON(inputs) }}
+          PREVIEW: 'true'
+        run: python3 packaging/release/plan.py
 
       - name: Resolve preview identity
         id: version
@@ -47,6 +76,8 @@ jobs:
 
       - name: Check preview configuration
         env:
+          BUILD_ANDROID: ${{ steps.plan.outputs.android }}
+          BUILD_MACOS: ${{ steps.plan.outputs.macos }}
           ANDROID_PREVIEW_KEYSTORE_BASE64: ${{ secrets.ANDROID_PREVIEW_KEYSTORE_BASE64 }}
           ANDROID_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_PREVIEW_KEYSTORE_PASSWORD }}
           ANDROID_PREVIEW_KEY_ALIAS: ${{ secrets.ANDROID_PREVIEW_KEY_ALIAS }}
@@ -61,11 +92,16 @@ jobs:
           VNIDROP_DIAGNOSTICS_ENDPOINT: ${{ vars.VNIDROP_DIAGNOSTICS_ENDPOINT }}
           VNIDROP_DIAGNOSTICS_INGEST_KEY: ${{ secrets.VNIDROP_DIAGNOSTICS_INGEST_KEY }}
         run: |
-          for name in ANDROID_PREVIEW_KEYSTORE_BASE64 ANDROID_PREVIEW_KEYSTORE_PASSWORD \
-            ANDROID_PREVIEW_KEY_ALIAS ANDROID_PREVIEW_KEY_PASSWORD ANDROID_PREVIEW_CERT_SHA256 \
-            DEVELOPER_ID_CERT_P12 DEVELOPER_ID_CERT_PASSWORD DEVELOPER_ID_PROFILE \
-            APPLE_ASC_KEY_P8 APPLE_ASC_KEY_ID APPLE_ASC_ISSUER_ID \
-            VNIDROP_DIAGNOSTICS_ENDPOINT VNIDROP_DIAGNOSTICS_INGEST_KEY; do
+          required=(VNIDROP_DIAGNOSTICS_ENDPOINT VNIDROP_DIAGNOSTICS_INGEST_KEY)
+          if [ "$BUILD_ANDROID" = true ]; then
+            required+=(ANDROID_PREVIEW_KEYSTORE_BASE64 ANDROID_PREVIEW_KEYSTORE_PASSWORD
+              ANDROID_PREVIEW_KEY_ALIAS ANDROID_PREVIEW_KEY_PASSWORD ANDROID_PREVIEW_CERT_SHA256)
+          fi
+          if [ "$BUILD_MACOS" = true ]; then
+            required+=(DEVELOPER_ID_CERT_P12 DEVELOPER_ID_CERT_PASSWORD DEVELOPER_ID_PROFILE
+              APPLE_ASC_KEY_P8 APPLE_ASC_KEY_ID APPLE_ASC_ISSUER_ID)
+          fi
+          for name in "${required[@]}"; do
             if [ -z "${!name:-}" ]; then
               echo "Missing preview configuration: $name" >&2
               exit 1
@@ -83,11 +119,13 @@ jobs:
           fi
 
   linux:
+    if: needs.preflight.outputs.linux == 'true'
     needs: preflight
     uses: ./.github/workflows/linux-packages.yml
     secrets: inherit
 
   windows:
+    if: needs.preflight.outputs.windows == 'true'
     needs: preflight
     uses: ./.github/workflows/windows-store.yml
     with:
@@ -95,6 +133,7 @@ jobs:
     secrets: inherit
 
   macos:
+    if: needs.preflight.outputs.macos == 'true'
     needs: preflight
     uses: ./.github/workflows/apple-release.yml
     with:
@@ -102,6 +141,7 @@ jobs:
     secrets: inherit
 
   android:
+    if: needs.preflight.outputs.android == 'true'
     needs: preflight
     uses: ./.github/workflows/android-release.yml
     with:
@@ -110,6 +150,7 @@ jobs:
 
   publish:
     name: Publish GitHub prerelease
+    if: ${{ !cancelled() && needs.preflight.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     needs: [preflight, linux, windows, macos, android]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -131,9 +172,10 @@ jobs:
         env:
           VERSION: ${{ needs.preflight.outputs.version }}
           PREVIEW_NUMBER: ${{ needs.preflight.outputs.number }}
+          PLATFORMS: ${{ needs.preflight.outputs.direct_platforms }}
         run: |
           python3 packaging/release/assemble-preview.py \
-            --version "$VERSION" --number "$PREVIEW_NUMBER" --commit "$GITHUB_SHA" \
+            --version "$VERSION" --number "$PREVIEW_NUMBER" --commit "$GITHUB_SHA" --platforms "$PLATFORMS" \
             --input build/preview/downloads --output build/preview/final
 
       - name: Publish preview
@@ -141,6 +183,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.preflight.outputs.tag }}
           LABEL: ${{ needs.preflight.outputs.label }}
+          PLATFORMS: ${{ needs.preflight.outputs.direct_platforms }}
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/preview-notes.md" <<'NOTES'
@@ -155,6 +198,7 @@ jobs:
 
           No Microsoft Store, App Store, or Play Store submission is made. Stable downloads, Homebrew, and the Sparkle appcast are unchanged. `SHA256SUMS` covers every download.
           NOTES
+          printf '\nIncluded platforms: %s\n' "$PLATFORMS" >> "$RUNNER_TEMP/preview-notes.md"
           printf '\nSource commit: `%s`\nBuild: %s/%s/actions/runs/%s\n' \
             "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" \
             >> "$RUNNER_TEMP/preview-notes.md"

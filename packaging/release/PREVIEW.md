@@ -1,7 +1,7 @@
 # Preview releases
 
-Use **Actions → Preview release → Run workflow → master** after merging the
-workflow. Each dispatch builds the selected `master` commit in Release
+Use **Actions → Preview release → Run workflow → master** and select the platform
+checkboxes (all four default to selected). Each dispatch builds the selected `master` commit in Release
 configuration and publishes a GitHub prerelease such as `preview-0.3.3-17`.
 The run number distinguishes previews without changing `version.properties`.
 
@@ -28,8 +28,8 @@ Rust core slice and skips the prebuilt core ZIP and Sparkle appcast. Android
 lints and assembles the Release APK without building an AAB or Android debug
 variant. Normal CI retains unit tests and debug-package checks.
 
-The publisher checks each package's checksum, macOS build metadata, and Android
-preview identity before creating downloads. It publishes only the five packages,
+The publisher checks each selected package's checksum, macOS build metadata, and Android
+preview identity when applicable before creating downloads. It publishes only the selected packages,
 `preview-manifest.json`, and `SHA256SUMS`. The manifest records the exact commit,
 preview number, Android certificate fingerprint, and macOS build number.
 
@@ -37,8 +37,9 @@ Previews use `--prerelease --latest=false`, and their tags begin with `preview-`
 rather than `v`. They do not start the normal tag workflow, rebuild the website,
 or update the Homebrew cask or stable Sparkle feed. The website's
 [preview download section](https://vnidrop.sudosy.fr/download/#preview) loads
-recent previews from GitHub in the browser, so new downloads appear without a
-Pages workflow run. macOS preview installations continue to
+recent previews from GitHub in the browser and retains each platform's most recent
+available preview, so new downloads appear without a Pages workflow run.
+Each download links to its own version's checksums. macOS preview installations continue to
 check the stable feed and can move to a later stable build; preview updates are
 downloaded manually from GitHub Releases.
 
@@ -84,7 +85,7 @@ Copy the certificate's SHA-256 fingerprint into the repository **variable**
 The workflow reuses the existing Developer ID certificate, provisioning profile,
 notary credentials, and diagnostics settings documented in [README.md](README.md).
 It needs no Sparkle signing key or store submission credentials. Missing preview
-configuration fails the inexpensive preflight before platform builds start.
+configuration for a selected platform fails the inexpensive preflight before platform builds start.
 
 ## Reruns and validation
 

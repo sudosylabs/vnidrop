@@ -93,6 +93,7 @@
   display: block;
   width: 100%;
   height: auto;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1402 1122'%3E%3Crect x='47' y='110' width='1145' height='715' rx='16' fill='white'/%3E%3Crect x='868' y='291' width='367' height='763' rx='61' fill='white'/%3E%3Crect x='1233' y='508' width='5' height='83' rx='2' fill='white'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
 }
 
 .traits,

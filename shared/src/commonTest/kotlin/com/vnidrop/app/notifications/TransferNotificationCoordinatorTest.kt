@@ -4,21 +4,18 @@ import com.vnidrop.app.core.ReceiverDeliveryStatus
 import com.vnidrop.app.core.ReceiverRequestModel
 import com.vnidrop.app.core.CoreSignal
 import com.vnidrop.app.core.PendingTargetedOfferModel
-import com.vnidrop.app.core.ReceiveFolder
-import com.vnidrop.app.core.ReceiveFolderKind
 import com.vnidrop.app.core.SavedDeviceModel
 import com.vnidrop.app.core.ShareAccessPolicy
 import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.platform.AppVisibility
-import com.vnidrop.app.preferences.AppPreferences
+import com.vnidrop.app.runtime.SavedDeviceListenIntent
 import com.vnidrop.app.support.FakeCoreGateway
 import com.vnidrop.app.support.FakeNotificationService
-import com.vnidrop.app.support.FakePreferencesRepository
 import com.vnidrop.app.ui.feedback.UiMessageController
-import com.vnidrop.app.ui.theme.ThemeMode
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -56,13 +53,8 @@ class TransferNotificationCoordinatorTest {
 		val notifications = FakeNotificationService()
 		TransferNotificationCoordinator(
 			repository = core,
-			preferencesRepository = FakePreferencesRepository(
-				AppPreferences(
-					username = "Receiver",
-					receiveFolder = ReceiveFolder(ReceiveFolderKind.FileSystemPath, "/tmp", "tmp"),
-					themeMode = ThemeMode.System,
-					notificationsEnabled = true,
-				),
+			listenIntent = MutableStateFlow(
+				SavedDeviceListenIntent(optedIn = true, permissionGranted = true),
 			),
 			notifications = notifications,
 			visibility = AppVisibility(initiallyForeground = false),

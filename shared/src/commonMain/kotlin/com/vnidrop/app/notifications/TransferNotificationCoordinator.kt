@@ -10,10 +10,10 @@ import com.vnidrop.app.core.Transfer
 import com.vnidrop.app.core.TransferDirection
 import com.vnidrop.app.core.TransferStatus
 import com.vnidrop.app.platform.AppVisibility
-import com.vnidrop.app.preferences.PreferencesRepository
+import com.vnidrop.app.runtime.SavedDeviceListenIntent
 import com.vnidrop.app.ui.feedback.UiMessageController
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
 internal enum class TransferNotificationKind {
@@ -83,7 +83,7 @@ internal fun plannedTargetedOfferNotifications(
 
 class TransferNotificationCoordinator internal constructor(
 	private val repository: CoreGateway,
-	private val preferencesRepository: PreferencesRepository,
+	listenIntent: Flow<SavedDeviceListenIntent>,
 	private val notifications: LocalNotificationService,
 	private val visibility: AppVisibility,
 	private val messages: UiMessageController,
@@ -92,14 +92,14 @@ class TransferNotificationCoordinator internal constructor(
 ) {
 	constructor(
 		repository: CoreGateway,
-		preferencesRepository: PreferencesRepository,
+		listenIntent: Flow<SavedDeviceListenIntent>,
 		notifications: LocalNotificationService,
 		visibility: AppVisibility,
 		messages: UiMessageController,
 		scope: CoroutineScope,
 	) : this(
 		repository,
-		preferencesRepository,
+		listenIntent,
 		notifications,
 		visibility,
 		messages,
@@ -109,12 +109,12 @@ class TransferNotificationCoordinator internal constructor(
 
 	private val published = mutableSetOf<String>()
 	private var transfersPrimed = false
-	private var notificationsEnabled = false
+	private var listenEnabled = false
 
 	init {
 		scope.launch {
-			preferencesRepository.preferences.collectLatest { preferences ->
-				notificationsEnabled = preferences.notificationsEnabled
+			listenIntent.collect { intent ->
+				listenEnabled = intent.optedIn && intent.permissionGranted
 			}
 		}
 		scope.launch {
@@ -177,11 +177,7 @@ class TransferNotificationCoordinator internal constructor(
 
 	private suspend fun deliver(plan: PlannedTransferNotification) {
 		published += plan.id
-		if (
-			!notificationsEnabled ||
-			visibility.isForeground.value ||
-			notifications.permission.value != NotificationPermission.Granted
-		) return
+		if (!listenEnabled || visibility.isForeground.value) return
 		val text = notificationText.transfer(plan)
 		val notification = LocalNotification(plan.id, text.title, text.body)
 		notifications.publish(notification).onFailure(messages::error)

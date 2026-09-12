@@ -3,17 +3,11 @@ package com.vnidrop.app.runtime
 import com.vnidrop.app.BackgroundRuntimeKeeper
 import com.vnidrop.app.UiPlatform
 import com.vnidrop.app.core.CoreSignal
-import com.vnidrop.app.core.ReceiveFolder
-import com.vnidrop.app.core.ReceiveFolderKind
 import com.vnidrop.app.core.RuntimeObligationFactsModel
 import com.vnidrop.app.core.SavedDeviceModel
-import com.vnidrop.app.notifications.NotificationPermission
-import com.vnidrop.app.preferences.AppPreferences
 import com.vnidrop.app.support.FakeCoreGateway
-import com.vnidrop.app.support.FakeNotificationService
-import com.vnidrop.app.support.FakePreferencesRepository
-import com.vnidrop.app.ui.theme.ThemeMode
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -88,14 +82,13 @@ class RuntimeObligationCoordinatorTest {
 	}
 
 	@Test
-	fun savedDeviceWithNotificationsKeepsTheRuntimeWithoutActiveWork() = runTest {
+	fun savedDeviceWithListenIntentKeepsTheRuntimeWithoutActiveWork() = runTest {
 		val core = FakeCoreGateway().apply {
 			mutableState.value = mutableState.value.copy(isInitialized = true)
 			savedDevices = listOf(savedDevice())
 		}
 		val keeper = RecordingRuntimeKeeper()
-		val preferences = FakePreferencesRepository(preferences(notificationsEnabled = true))
-		val coordinator = coordinator(core, keeper, preferences = preferences)
+		val coordinator = coordinator(core, keeper, listenIntent = listenIntent(optedIn = true))
 		runCurrent()
 
 		assertEquals(true, keeper.requiredCalls.last())
@@ -104,30 +97,30 @@ class RuntimeObligationCoordinatorTest {
 	}
 
 	@Test
-	fun enablingNotificationsStartsSavedDeviceListening() = runTest {
+	fun enablingListenIntentStartsSavedDeviceListening() = runTest {
 		val core = FakeCoreGateway().apply {
 			mutableState.value = mutableState.value.copy(isInitialized = true)
 			savedDevices = listOf(savedDevice())
 		}
 		val keeper = RecordingRuntimeKeeper()
-		val preferences = FakePreferencesRepository(preferences(notificationsEnabled = false))
-		coordinator(core, keeper, preferences = preferences)
+		val intent = listenIntent(optedIn = false)
+		coordinator(core, keeper, listenIntent = intent)
 		runCurrent()
 		assertEquals(false, keeper.requiredCalls.last())
 
-		preferences.mutablePreferences.value = preferences(notificationsEnabled = true)
+		intent.value = SavedDeviceListenIntent(optedIn = true, permissionGranted = true)
 		runCurrent()
 		assertEquals(true, keeper.requiredCalls.last())
 	}
 
 	@Test
-	fun savedDeviceWithoutNotificationsDoesNotKeepTheRuntime() = runTest {
+	fun savedDeviceWithoutListenIntentDoesNotKeepTheRuntime() = runTest {
 		val core = FakeCoreGateway().apply {
 			mutableState.value = mutableState.value.copy(isInitialized = true)
 			savedDevices = listOf(savedDevice())
 		}
 		val keeper = RecordingRuntimeKeeper()
-		coordinator(core, keeper, preferences = FakePreferencesRepository(preferences(notificationsEnabled = false)))
+		coordinator(core, keeper, listenIntent = listenIntent(optedIn = false))
 		runCurrent()
 
 		assertEquals(false, keeper.requiredCalls.last())
@@ -139,8 +132,7 @@ class RuntimeObligationCoordinatorTest {
 			mutableState.value = mutableState.value.copy(isInitialized = true)
 		}
 		val keeper = RecordingRuntimeKeeper()
-		val preferences = FakePreferencesRepository(preferences(notificationsEnabled = true))
-		coordinator(core, keeper, preferences = preferences)
+		coordinator(core, keeper, listenIntent = listenIntent(optedIn = true))
 		runCurrent()
 		assertEquals(false, keeper.requiredCalls.last())
 
@@ -162,12 +154,10 @@ class RuntimeObligationCoordinatorTest {
 			savedDevices = listOf(savedDevice())
 		}
 		val keeper = RecordingRuntimeKeeper()
-		val notifications = FakeNotificationService(NotificationPermission.Denied)
 		coordinator(
 			core,
 			keeper,
-			preferences = FakePreferencesRepository(preferences(notificationsEnabled = true)),
-			notifications = notifications,
+			listenIntent = listenIntent(optedIn = true, permissionGranted = false),
 		)
 		runCurrent()
 
@@ -181,45 +171,40 @@ class RuntimeObligationCoordinatorTest {
 			runtimeObligationFactsResult = Result.success(facts(activeTargetedTransfers = 1UL))
 		}
 		val keeper = RecordingRuntimeKeeper()
-		coordinator(
-			core,
-			keeper,
-			preferences = FakePreferencesRepository(preferences(notificationsEnabled = false)),
-		)
+		coordinator(core, keeper, listenIntent = listenIntent(optedIn = false, permissionGranted = false))
 		runCurrent()
 
 		assertEquals(true, keeper.requiredCalls.last())
 	}
 
 	@Test
-	fun listenPolicyRequiresSavedDeviceNotificationsAndPermission() {
-		assertFalse(requiresBackgroundRuntime(facts(), 0, true, NotificationPermission.Granted))
-		assertFalse(requiresBackgroundRuntime(facts(), 1, false, NotificationPermission.Granted))
-		assertFalse(requiresBackgroundRuntime(facts(), 1, true, NotificationPermission.Denied))
-		assertTrue(requiresBackgroundRuntime(facts(), 1, true, NotificationPermission.Granted))
-		assertTrue(
-			requiresBackgroundRuntime(
-				facts(activeInvitationTransfers = 1UL),
-				0,
-				false,
-				NotificationPermission.Denied,
-			),
-		)
+	fun listenPolicyUnionsCoreObligationAndSavedDeviceListen() {
+		assertFalse(requiresBackgroundRuntime(coreObligation = false, savedDeviceListen = false))
+		assertTrue(requiresBackgroundRuntime(coreObligation = true, savedDeviceListen = false))
+		assertTrue(requiresBackgroundRuntime(coreObligation = false, savedDeviceListen = true))
+		assertTrue(requiresBackgroundRuntime(coreObligation = true, savedDeviceListen = true))
+	}
+
+	@Test
+	fun listenActiveRequiresSavedDevicesAndIntent() {
+		val granted = SavedDeviceListenIntent(optedIn = true, permissionGranted = true)
+		assertFalse(savedDeviceListenActive(0, granted))
+		assertFalse(savedDeviceListenActive(1, SavedDeviceListenIntent(optedIn = false, permissionGranted = true)))
+		assertFalse(savedDeviceListenActive(1, SavedDeviceListenIntent(optedIn = true, permissionGranted = false)))
+		assertTrue(savedDeviceListenActive(1, granted))
 	}
 
 	private fun TestScope.coordinator(
 		core: FakeCoreGateway,
 		keeper: RecordingRuntimeKeeper,
 		platform: UiPlatform = UiPlatform.Android,
-		preferences: FakePreferencesRepository = FakePreferencesRepository(preferences()),
-		notifications: FakeNotificationService = FakeNotificationService(),
+		listenIntent: MutableStateFlow<SavedDeviceListenIntent> = listenIntent(),
 	) = RuntimeObligationCoordinator(
 		repository = core,
 		keeper = keeper,
 		platform = platform,
 		applicationScope = backgroundScope,
-		preferencesRepository = preferences,
-		notifications = notifications,
+		listenIntent = listenIntent,
 	)
 
 	private class RecordingRuntimeKeeper : BackgroundRuntimeKeeper {
@@ -250,12 +235,10 @@ class RuntimeObligationCoordinatorTest {
 		targetedProviderAvailability,
 	)
 
-	private fun preferences(notificationsEnabled: Boolean = false) = AppPreferences(
-		username = "User",
-		receiveFolder = ReceiveFolder(ReceiveFolderKind.FileSystemPath, "/tmp", "tmp"),
-		themeMode = ThemeMode.System,
-		notificationsEnabled = notificationsEnabled,
-	)
+	private fun listenIntent(
+		optedIn: Boolean = false,
+		permissionGranted: Boolean = true,
+	) = MutableStateFlow(SavedDeviceListenIntent(optedIn, permissionGranted))
 
 	private fun savedDevice() = SavedDeviceModel(
 		endpointId = "peer",

@@ -67,7 +67,7 @@ class ProcessRetentionCoordinatorTest {
 	}
 
 	@Test
-	fun desktopDoesNotStartTheAndroidObligationMapping() = runTest {
+	fun desktopDoesNotStartAndroidProcessRetention() = runTest {
 		val core = FakeCoreGateway().apply {
 			mutableState.value = mutableState.value.copy(isInitialized = true)
 			runtimeObligationFactsResult = Result.success(facts(targetedPreparations = 1UL))

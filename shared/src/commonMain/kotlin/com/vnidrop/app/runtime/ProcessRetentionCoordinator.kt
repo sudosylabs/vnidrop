@@ -39,13 +39,13 @@ internal class ProcessRetentionCoordinator(
 
 	init {
 		if (platform == UiPlatform.Android) {
-			observeObligations(listenIntent)
+			observeRetention(listenIntent)
 			observeInitialization()
 			observeCoreSignals()
 		}
 	}
 
-	private fun observeObligations(listenIntent: Flow<SavedDeviceListenIntent>) {
+	private fun observeRetention(listenIntent: Flow<SavedDeviceListenIntent>) {
 		scope.launch {
 			combine(facts, savedDeviceCount, listenIntent) { currentFacts, devices, intent ->
 				processRetentionRequired(

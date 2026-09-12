@@ -262,3 +262,41 @@ fn direct_transfer_actions_follow_role_and_durable_state() {
     transfer.state = State::Deleted;
     assert!(targeted::actions(&transfer).is_empty());
 }
+
+#[test]
+fn targeted_notice_copy_follows_role() {
+    let mut transfer = vnidrop::TargetedTransfer {
+        id: "test".into(),
+        role: Role::Receiver,
+        sender_endpoint_id: "sender".into(),
+        receiver_endpoint_id: "receiver".into(),
+        manifest_id: "manifest".into(),
+        transfer_name: "files".into(),
+        file_count: 1,
+        total_size: 1,
+        verified_bytes: 0,
+        state: State::Completed,
+        created_at: 0,
+        updated_at: 0,
+    };
+    let incoming = targeted::notice_copy(&transfer, "Studio").unwrap();
+    assert_eq!(incoming.title, "notifications_receive_completed_title");
+    assert!(!incoming.body.contains("Studio"));
+    transfer.role = Role::Sender;
+    let outgoing = targeted::notice_copy(&transfer, "Studio").unwrap();
+    assert_eq!(outgoing.title, "notifications_receiver_completed_title");
+    assert_ne!(outgoing.title, "notifications_receive_completed_title");
+    assert!(outgoing.body.contains("Studio"));
+    transfer.state = State::Failed;
+    assert_eq!(
+        targeted::notice_copy(&transfer, "Studio").unwrap().title,
+        "notifications_receiver_failed_title"
+    );
+    transfer.role = Role::Receiver;
+    assert_eq!(
+        targeted::notice_copy(&transfer, "Studio").unwrap().title,
+        "notifications_receive_failed_title"
+    );
+    transfer.state = State::Cancelled;
+    assert!(targeted::notice_copy(&transfer, "Studio").is_none());
+}

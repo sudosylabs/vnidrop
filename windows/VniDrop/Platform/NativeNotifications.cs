@@ -1,7 +1,6 @@
 using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppNotifications.Builder;
 using VniDrop.Core;
-using VniDrop.Native;
 
 namespace VniDrop.Platform;
 
@@ -41,12 +40,24 @@ public sealed class NativeNotifications
     public void Update(CoreSnapshot snapshot, bool enabled)
     {
         var current = new Dictionary<string, string>();
-        void Notice(string id, string state, string? title, string body)
+        void Notice(string id, string state, string? title, string body, bool pending = false)
         {
-            current[id] = state;
-            if (!enabled || !Available || previous is null || previous.GetValueOrDefault(id) == state || title is null) return;
-            try { AppNotificationManager.Default.Show(new AppNotificationBuilder().AddText(title).AddText(body).BuildNotification()); }
-            catch (System.Runtime.InteropServices.COMException) { Available = false; }
+            var primed = previous is not null;
+            var already = primed && previous!.GetValueOrDefault(id) == state;
+            var shown = false;
+            if (enabled && Available && primed && !already && title is not null)
+            {
+                try
+                {
+                    AppNotificationManager.Default.Show(new AppNotificationBuilder().AddText(title).AddText(body).BuildNotification());
+                    shown = true;
+                }
+                catch (System.Runtime.InteropServices.COMException) { Available = false; }
+            }
+            if (SavedDevicesReadModel.RememberNotice(pending, shown) || already)
+            {
+                current[id] = state;
+            }
         }
         foreach (var transfer in snapshot.Transfers.Where(t => t.direction == "receive"))
             Notice("receive:" + transfer.localId, transfer.status, transfer.status switch
@@ -55,13 +66,31 @@ public sealed class NativeNotifications
         foreach (var request in snapshot.Requests)
             Notice("request:" + request.id, request.status, request.status switch
             { "requested" => Strings.Get("approval_connection_request"), "completed" => Strings.Get("notifications_receiver_completed_title"), "failed" => Strings.Get("notifications_receiver_failed_title"), _ => null }, request.transferName);
-        foreach (var offer in snapshot.Offers)
-            Notice("offer:" + offer.transferId, "pending", Strings.Get("receive_review_title"), offer.transferName);
-        foreach (var relationship in snapshot.Relationships)
-            Notice("pairing:" + relationship.remoteEndpointId, relationship.state.ToString(), relationship.state == DeviceRelationshipState.PendingIncoming ? Strings.Get("saved_devices_pending_incoming") : null, Strings.Get("saved_devices_attention_title"));
-        foreach (var transfer in snapshot.TargetedTransfers)
-            Notice("targeted:" + transfer.id, transfer.state.ToString(), transfer.state switch
-            { TargetedTransferState.Completed => Strings.Get("notifications_receive_completed_title"), TargetedTransferState.Failed => Strings.Get("notifications_receive_failed_title"), _ => null }, transfer.transferName);
+        foreach (var notice in SavedDevicesReadModel.Derive(SavedDevicesReadInputs.FromSnapshot(snapshot)).Notifications)
+            Notice(
+                notice.Id,
+                notice.State,
+                notice.Kind is { } kind ? Strings.Get(SavedDevicesReadModel.TitleKey(kind)) : null,
+                SavedDeviceNoticeBody(notice),
+                notice.Pending);
         previous = current;
+    }
+
+    private static string SavedDeviceNoticeBody(SavedDeviceNotificationFact notice)
+    {
+        var device = notice.DeviceName ?? Strings.Get("saved_devices_unnamed");
+        var transfer = notice.TransferName ?? Strings.Get("receive_unknown_transfer");
+        return notice.Kind switch
+        {
+            SavedDeviceNotificationKind.PairingRequest =>
+                Strings.Format(SavedDevicesReadModel.BodyKey(notice.Kind.Value), ("device", device)),
+            SavedDeviceNotificationKind.TargetedOffer =>
+                Strings.Format(SavedDevicesReadModel.BodyKey(notice.Kind.Value), ("device", device), ("transferName", transfer)),
+            SavedDeviceNotificationKind.TargetedReceiveCompleted or SavedDeviceNotificationKind.TargetedReceiveFailed =>
+                Strings.Format(SavedDevicesReadModel.BodyKey(notice.Kind.Value), ("transferName", transfer)),
+            SavedDeviceNotificationKind.TargetedSendCompleted or SavedDeviceNotificationKind.TargetedSendFailed =>
+                Strings.Format(SavedDevicesReadModel.BodyKey(notice.Kind.Value), ("receiver", device), ("transferName", transfer)),
+            _ => transfer,
+        };
     }
 }

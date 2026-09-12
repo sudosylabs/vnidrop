@@ -86,8 +86,13 @@ Targeted events are payload-independent refresh hints.
 
 Retention consumes neutral Runtime obligation facts from the core and is owned
 at application-graph lifetime. Notifications are a separate module: they may
-observe the same lifecycle, but notification visibility never decides whether
-the process must remain alive.
+observe the same lifecycle, but whether a notification is currently displayed
+never decides whether the process must remain alive.
+
+Android additionally keeps the Iroh endpoint in a `dataSync` foreground service
+while the user has opted into background notifications **and** at least one
+saved device exists. Incoming targeted offers are not a core receiver obligation
+until approved, but they cannot be delivered if the cached process is frozen.
 
 The core emits a payload-free `runtime_obligation/changed` wake-up around
 ephemeral preparation changes. Android and Apple respond by re-reading the fact

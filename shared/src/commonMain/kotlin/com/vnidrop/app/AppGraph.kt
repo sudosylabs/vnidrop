@@ -8,18 +8,23 @@ import com.vnidrop.app.feature.approvals.ApprovalCoordinator
 import com.vnidrop.app.feature.send.AppFilePreviewRepository
 import com.vnidrop.app.feature.send.createPlatformPreviewStore
 import com.vnidrop.app.logging.AppLogger
+import com.vnidrop.app.notifications.NotificationPermission
 import com.vnidrop.app.notifications.TransferNotificationCoordinator
 import com.vnidrop.app.platform.AppVisibility
 import com.vnidrop.app.preferences.AppPreferencesDefaults
 import com.vnidrop.app.preferences.AppPreferencesRepository
 import com.vnidrop.app.preferences.createAppPreferencesDataStore
-import com.vnidrop.app.runtime.RuntimeObligationCoordinator
+import com.vnidrop.app.runtime.ProcessRetentionCoordinator
+import com.vnidrop.app.runtime.SavedDeviceListenIntent
 import com.vnidrop.app.ui.feedback.UiMessageController
 import com.vnidrop.app.ui.theme.ThemeMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 class AppGraph(
 	val dependencies: AppDependencies,
@@ -51,6 +56,15 @@ class AppGraph(
 			installIdProvider = { preferencesRepository.ensureDiagnosticsInstallId() },
 		),
 	)
+	private val savedDeviceListenIntent = combine(
+		preferencesRepository.preferences.map { it.notificationsEnabled }.distinctUntilChanged(),
+		dependencies.localNotificationService.permission,
+	) { optedIn, permission ->
+		SavedDeviceListenIntent(
+			optedIn = optedIn,
+			permissionGranted = permission == NotificationPermission.Granted,
+		)
+	}.distinctUntilChanged()
 	val approvalCoordinator = ApprovalCoordinator(
 		repository = coreRepository,
 		preferencesRepository = preferencesRepository,
@@ -61,17 +75,18 @@ class AppGraph(
 	)
 	val transferNotificationCoordinator = TransferNotificationCoordinator(
 		repository = coreRepository,
-		preferencesRepository = preferencesRepository,
+		listenIntent = savedDeviceListenIntent,
 		notifications = dependencies.localNotificationService,
 		visibility = visibility,
 		messages = messages,
 		scope = applicationScope,
 	)
-	private val runtimeObligationCoordinator = RuntimeObligationCoordinator(
+	private val processRetentionCoordinator = ProcessRetentionCoordinator(
 		repository = coreRepository,
 		keeper = dependencies.backgroundRuntimeKeeper,
 		platform = dependencies.environment.uiPlatform,
 		applicationScope = applicationScope,
+		listenIntent = savedDeviceListenIntent,
 	)
 
 	init {
@@ -80,7 +95,7 @@ class AppGraph(
 	}
 
 	fun close() {
-		runtimeObligationCoordinator.close()
+		processRetentionCoordinator.close()
 		coreRepository.shutdown()
 		applicationScope.cancel()
 	}

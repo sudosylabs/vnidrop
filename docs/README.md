@@ -22,7 +22,10 @@ Open [http://localhost:3000](http://localhost:3000).
   troubleshooting, and the current native source builds.
 - `/download/` separates the current public release from previews.
 - `/og.png` is rendered at build time from the existing brand mark, local fonts,
-  and the macOS/iPhone screenshot in `public/shots/hero.png`.
+  and the macOS/iPhone screenshot in `public/shots/hero.png`. Page metadata
+  points at `/og.png?v=N` (`ogImageVersion` in `lib/release.ts`) so crawlers
+  fetch a new URL when the image changes. Bump that version whenever you edit
+  the Open Graph artwork.
 
 ## Checks
 

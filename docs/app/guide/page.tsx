@@ -34,16 +34,16 @@ export default function GuidePage() {
           <article className={styles.article}>
             <div className={styles.callout}>
               <strong>Your first transfer. Your next build.</strong>
-              <p>Start on the <Link href="/download/">download page</Link>. The current public release has versioned GitHub downloads, with a Microsoft Store option for Windows. Previews offer earlier changes for testing.</p>
+              <p>Start on the <Link href="/download/">download page</Link>. iPhone, iPad, and Mac are on the App Store. The current public release also has versioned GitHub downloads, with a Microsoft Store option for Windows. Previews offer earlier changes for testing.</p>
             </div>
             <section id="install" className={styles.section}>
               <h2>Choose a build</h2>
               <ul>
-                <li><strong>macOS:</strong> open the signed, notarized DMG and drag VniDrop into Applications. Direct release builds can check for updates; Homebrew is also available.</li>
+                <li><strong>macOS:</strong> install from the App Store, or open the signed, notarized DMG and drag VniDrop into Applications. Direct release builds can check for updates; Homebrew is also available.</li>
                 <li><strong>Windows:</strong> install through the Microsoft Store, or run the direct EXE. Direct installers are unsigned, so Windows may show a SmartScreen warning. Check the release and its checksum before running it.</li>
                 <li><strong>Linux:</strong> use the DEB or RPM for your distribution. Install the downloaded file with <code>sudo apt install ./filename.deb</code> or <code>sudo dnf install ./filename.rpm</code> so dependencies are resolved.</li>
                 <li><strong>Android:</strong> open the APK and allow installation from the browser or file manager when Android asks. You can turn that permission off afterward.</li>
-                <li><strong>iOS / iPadOS:</strong> build with Xcode using the <a href={`${githubRepoUrl}/blob/master/apple/README.md`}>Apple setup guide</a>. The preview workflow does not distribute an iOS app.</li>
+                <li><strong>iOS / iPadOS:</strong> install from the App Store. You can still build with Xcode using the <a href={`${githubRepoUrl}/blob/master/apple/README.md`}>Apple setup guide</a>. The preview workflow does not distribute an iOS app.</li>
               </ul>
               <p>Release notes describe the files you are downloading. The source on master may be newer: older Windows and Linux releases used Compose, while current builds use native WinUI and GTK frontends.</p>
             </section>

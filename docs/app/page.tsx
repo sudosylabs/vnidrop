@@ -60,7 +60,7 @@ const questions = [
   },
   {
     q: "Which platforms?",
-    a: "Android, iOS, macOS, Windows, and Linux. Windows has Store and direct downloads; macOS, Linux, and Android have GitHub downloads. iOS currently requires a source build with Xcode.",
+    a: "Android, iOS, macOS, Windows, and Linux. iPhone, iPad, and Mac are on the App Store. Windows has Store and direct downloads. macOS, Linux, and Android also have GitHub downloads.",
   },
   {
     q: "Can I try changes before a store release?",
@@ -74,10 +74,10 @@ const questions = [
 
 const platforms = [
   { href: "/download/#macos", label: "macOS" },
+  { href: "/download/#ios", label: "iOS" },
+  { href: "/download/#windows", label: "Windows" },
   { href: "/download/#linux", label: "Linux" },
   { href: "/download/#android", label: "Android" },
-  { href: "/download/#windows", label: "Windows" },
-  { href: "/download/#ios", label: "iOS" },
 ];
 
 export default function HomePage() {
@@ -86,11 +86,6 @@ export default function HomePage() {
       <section className={styles.hero}>
         <div className={`${styles.heroInner} page-shell`}>
           <div className={styles.heroCopy}>
-            <p className={styles.heroRoute} aria-label="From this device to that one">
-              <span>This device</span>
-              <span className={styles.routeLine} aria-hidden="true" />
-              <span>That one</span>
-            </p>
             <h1>Send files from this device to that one.</h1>
             <p className={styles.heroLead}>
               Move a file, a folder, or a whole batch across Android, iOS, macOS, Windows, and Linux.
@@ -186,8 +181,8 @@ export default function HomePage() {
           <div>
             <h2>Make the next handoff.</h2>
             <p>
-              Public downloads for macOS, Windows, Linux, and Android, with a separate preview
-              channel for early testing. iOS is available to build from source.
+              App Store for iPhone, iPad, and Mac. Direct downloads for macOS, Windows, Linux, and
+              Android, plus a preview channel for early testing.
             </p>
             <ul className={styles.osList}>
               {platforms.map((platform) => (

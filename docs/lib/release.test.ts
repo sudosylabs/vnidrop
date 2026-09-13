@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assetDownloadUrl, loadLatestRelease, loadLatestPreview, releaseFromManifest, selectLatestPreview } from "./release.ts";
+import { assetDownloadUrl, loadLatestRelease, loadLatestPreview, ogImagePath, releaseFromManifest, selectLatestPreview } from "./release.ts";
+
+test("Open Graph metadata URLs are versioned so crawlers do not reuse a cached image", () => {
+  assert.equal(ogImagePath(2), "/og.png?v=2");
+  assert.match(ogImagePath(), /^\/og\.png\?v=[1-9]\d*$/);
+  assert.notEqual(ogImagePath(), "/og.png");
+});
 
 test("asset URLs pin the file to its release tag, not /latest/", () => {
   const url = assetDownloadUrl("v0.3.0", "VniDrop-0.3.0.dmg");

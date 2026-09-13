@@ -2,20 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CopyCommand } from "@/components/copy-command";
 import {
+  appleStoreUrl,
   githubLatestUrl,
-  githubRepoUrl,
   homebrewInstall,
   loadLatestRelease,
   windowsStoreUrl,
 } from "@/lib/release";
-import { FileLink } from "./file-link";
+import { FileLink, StoreLink } from "./file-link";
 import { PreviewDownloads } from "./preview-downloads";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
   title: "Download",
   description:
-    "Download VniDrop for macOS, Windows, Linux, and Android. Choose the current release or a preview for early testing, with installation help and checksums.",
+    "Download VniDrop for iOS, macOS, Windows, Linux, and Android. Choose the App Store, the current release, or a preview for early testing, with installation help and checksums.",
 };
 
 export default async function DownloadPage() {
@@ -36,8 +36,9 @@ export default async function DownloadPage() {
               <strong>{release.tag}</strong>
             </p>
             <p>
-              Public builds come from GitHub Releases. Windows is available through the Microsoft
-              Store or as an unsigned direct installer. Platforms can receive updates separately; each download shows its version and checksums.
+              Public builds come from GitHub Releases. iPhone, iPad, and Mac are on the App Store.
+              Windows is available through the Microsoft Store or as an unsigned direct installer.
+              Platforms can receive updates separately; each download shows its version and checksums.
             </p>
             <p className={styles.channelLinks}><a className="text-link" href="#preview">Preview downloads ↓</a><Link className="text-link" href="/guide/">Installation and help</Link></p>
           </div>
@@ -50,16 +51,29 @@ export default async function DownloadPage() {
             <li id="macos">
               <div className={styles.platformName}>
                 <h2>macOS</h2>
-                <span>Download</span>
+                <span>Store or direct</span>
               </div>
               <div className={styles.platformDetails}>
-                <p>Signed and notarized disk image for Apple Silicon. The direct app checks for release updates after installation.</p>
+                <p>Install from the Mac App Store, or download the signed and notarized disk image for Apple Silicon. The direct app checks for release updates after installation.</p>
                 <p className={styles.downloadActions}>
+                  <StoreLink href={`${appleStoreUrl}?platform=mac`}>Open App Store</StoreLink>
                   {release.dmg ? <FileLink asset={release.dmg} /> : <span>No disk image available.</span>}
                 </p>
                 <div className={styles.installCommand}>
                   <CopyCommand command={homebrewInstall} />
                 </div>
+              </div>
+            </li>
+            <li id="ios">
+              <div className={styles.platformName}>
+                <h2>iOS</h2>
+                <span>App Store</span>
+              </div>
+              <div className={styles.platformDetails}>
+                <p>Available on the App Store for iPhone and iPad. Preview builds are not distributed for iOS.</p>
+                <p className={styles.downloadActions}>
+                  <StoreLink href={`${appleStoreUrl}?platform=iphone`}>Open App Store</StoreLink>
+                </p>
               </div>
             </li>
             <li id="linux">
@@ -96,9 +110,7 @@ export default async function DownloadPage() {
               <div className={styles.platformDetails}>
                 <p>Choose the signed Microsoft Store build or download the unsigned 64-bit installer.</p>
                 <p className={styles.downloadActions}>
-                  <a className="text-link" href={windowsStoreUrl} rel="noreferrer">
-                    Open Microsoft Store
-                  </a>
+                  <StoreLink href={windowsStoreUrl}>Open Microsoft Store</StoreLink>
                   {release.windowsExe ? (
                     <FileLink asset={release.windowsExe} />
                   ) : (
@@ -111,20 +123,6 @@ export default async function DownloadPage() {
                     Verify it against the installer&apos;s linked SHA256 checksums before running it.
                   </p>
                 ) : null}
-              </div>
-            </li>
-            <li id="ios">
-              <div className={styles.platformName}>
-                <h2>iOS</h2>
-                <span>Source only</span>
-              </div>
-              <div className={styles.platformDetails}>
-                <p>The native SwiftUI app can be built with Xcode. iOS is not included in direct preview downloads.</p>
-                <p className={styles.downloadActions}>
-                  <a className="text-link" href={`${githubRepoUrl}/blob/master/apple/README.md`} target="_blank" rel="noreferrer">
-                    Apple build guide
-                  </a>
-                </p>
               </div>
             </li>
           </ul>

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { formatBytes, type ReleaseAsset } from "@/lib/release";
 import styles from "./page.module.css";
 
@@ -11,6 +12,16 @@ export function FileLink({ asset }: { asset: ReleaseAsset }) {
       <span className={styles.downloadMeta}>
         {asset.version}{" · "}<a className="text-link" href={asset.checksumsUrl} rel="noreferrer">SHA256 checksums</a>
       </span>
+    </span>
+  );
+}
+
+export function StoreLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <span className={styles.downloadFile}>
+      <a className="text-link" href={href} rel="noreferrer">
+        {children}
+      </a>
     </span>
   );
 }

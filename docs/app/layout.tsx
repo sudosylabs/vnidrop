@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { ogImagePath } from "@/lib/release";
 import "./globals.css";
 
 const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://vnidrop.sudosy.fr";
@@ -46,7 +47,7 @@ export const metadata: Metadata = {
     description,
     images: [
       {
-        url: "/og.png",
+        url: ogImagePath(),
         width: 1200,
         height: 630,
         alt: "VniDrop file sharing, with the macOS and iPhone apps.",
@@ -59,7 +60,7 @@ export const metadata: Metadata = {
     description,
     images: [
       {
-        url: "/og.png",
+        url: ogImagePath(),
         alt: "VniDrop file sharing, with the macOS and iPhone apps.",
       },
     ],

@@ -15,47 +15,6 @@
   max-width: 34rem;
 }
 
-.heroRoute {
-  display: flex;
-  max-width: 19rem;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 22px;
-  color: var(--brand-ink);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.routeLine {
-  position: relative;
-  flex: 1;
-  height: 1px;
-  background: var(--brand);
-}
-
-.routeLine::before,
-.routeLine::after {
-  position: absolute;
-  top: 50%;
-  width: 5px;
-  height: 5px;
-  transform: translateY(-50%);
-  border-radius: 50%;
-  background: var(--brand);
-  content: "";
-}
-
-.routeLine::before {
-  left: 0;
-}
-
-.routeLine::after {
-  right: 0;
-}
-
 .hero h1 {
   margin-bottom: 24px;
   font-size: clamp(3.25rem, 5.4vw, 4.8rem);
@@ -369,10 +328,6 @@
 
   .hero h1 {
     font-size: clamp(2.75rem, 14vw, 3.7rem);
-  }
-
-  .heroRoute {
-    margin-bottom: 18px;
   }
 
   .heroFigure {

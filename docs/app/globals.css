@@ -141,7 +141,8 @@ code {
   transform: translateY(0);
 }
 
-.text-link {
+.text-link,
+.text-link:visited {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -155,7 +156,8 @@ code {
   color: var(--ink);
 }
 
-.file-link {
+.file-link,
+.file-link:visited {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
@@ -183,18 +185,22 @@ code {
   line-height: 1.2;
 }
 
-.btn-primary {
+.btn-primary,
+.btn-primary:visited {
   background: var(--brand);
   color: #fff;
 }
 
-.btn-primary:hover {
+.btn-primary:hover,
+.btn-primary:visited:hover {
   background: #9333ea;
   color: #fff;
 }
 
-.btn-primary:active {
+.btn-primary:active,
+.btn-primary:visited:active {
   background: var(--brand-deep);
+  color: #fff;
 }
 
 @media (max-width: 720px) {

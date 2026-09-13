@@ -4,7 +4,15 @@ export const githubLatestUrl = `https://github.com/${GITHUB_REPO}/releases/lates
 export const githubRepoUrl = `https://github.com/${GITHUB_REPO}`;
 export const githubPreviewUrl = `${githubRepoUrl}/releases?q=preview-&expanded=true`;
 export const windowsStoreUrl = "https://apps.microsoft.com/detail/9NJ5Q0FG7TGL";
+export const appleStoreUrl = "https://apps.apple.com/app/vnidrop/id6792560316";
 export const homebrewInstall = "brew install --cask sudosylabs/vnidrop/vnidrop";
+
+/** Bump when the generated Open Graph image changes so crawlers fetch a new URL. */
+export const ogImageVersion = 2;
+
+export function ogImagePath(version = ogImageVersion): string {
+  return `/og.png?v=${version}`;
+}
 
 const manifestUrl = `https://github.com/${GITHUB_REPO}/releases/latest/download/release-manifest.json`;
 

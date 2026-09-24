@@ -129,6 +129,16 @@ if [ "$WITH_SIMULATOR" = "1" ]; then
 		-output "$SIM_LIB"
 fi
 
+# create-xcframework rejects two libraries for the same platform
+# ("macos-arm64 and macos-x86_64 represent two equivalent library definitions").
+# One fat macOS archive is the supported input. Each app archive still sets a
+# single ARCHS value, so the downloaded binary stays one architecture.
+MAC_XC_LIB="$MAC_LIB"
+if [ "$WITH_INTEL" = "1" ]; then
+	MAC_XC_LIB="$BUILD_DIR/libvnidrop-macos.a"
+	lipo -create "$MAC_LIB" "$MAC_INTEL_LIB" -output "$MAC_XC_LIB"
+fi
+
 echo "==> Generating Swift bindings (library mode)"
 ( cd "$REPO_ROOT" && cargo run -p uniffi-bindgen -- generate \
 	--library "$MAC_LIB" \
@@ -152,9 +162,7 @@ rm -rf "$XCFRAMEWORK"
 XCF_ARGS=()
 [ "$WITH_IOS" = "1" ] && XCF_ARGS+=(-library "$IOS_LIB" -headers "$HEADERS_DIR")
 [ "$WITH_SIMULATOR" = "1" ] && XCF_ARGS+=(-library "$SIM_LIB" -headers "$HEADERS_DIR")
-XCF_ARGS+=(-library "$MAC_LIB" -headers "$HEADERS_DIR")
-# Separate slices, not one fat library. Xcode links only the slice selected by ARCHS.
-[ "$WITH_INTEL" = "1" ] && XCF_ARGS+=(-library "$MAC_INTEL_LIB" -headers "$HEADERS_DIR")
+XCF_ARGS+=(-library "$MAC_XC_LIB" -headers "$HEADERS_DIR")
 xcodebuild -create-xcframework "${XCF_ARGS[@]}" -output "$XCFRAMEWORK"
 
 echo "==> Done."

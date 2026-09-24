@@ -81,7 +81,7 @@ version_code="$("$resolver" android-code)"
 "$resolver" verify >/dev/null
 
 tasks=(:androidApp:lintRelease :androidApp:assembleRelease)
-properties=()
+properties=(-Pvnidrop.diagnostics.included=true)
 application_id=com.vnidrop.app
 if [[ $mode == preview ]]; then
 	require_environment VNIDROP_PREVIEW_NUMBER
@@ -101,7 +101,6 @@ fi
 cd "$repo_root"
 ./gradlew \
 	"${tasks[@]}" "${properties[@]}" \
-	-Pvnidrop.diagnostics.included=true \
 	--no-daemon \
 	--no-configuration-cache \
 	--stacktrace
@@ -124,10 +123,23 @@ actual_version_code="$(jq -r '.elements[0].versionCode' "$metadata")"
 
 if [[ $mode == preview ]]; then
 	apkanalyzer="${APKANALYZER:-${ANDROID_HOME:?Android SDK is required}/cmdline-tools/latest/bin/apkanalyzer}"
-	[[ $("$apkanalyzer" manifest application-id "$source_apk") == "$application_id" ]]
-	[[ $("$apkanalyzer" manifest debuggable "$source_apk") == false ]]
-	[[ $("$apkanalyzer" manifest version-name "$source_apk") == "$version" ]]
-	[[ $("$apkanalyzer" manifest version-code "$source_apk") == "$version_code" ]]
+	for field in application-id debuggable version-name version-code; do
+		case "$field" in
+			application-id) expected="$application_id" ;;
+			debuggable) expected=false ;;
+			version-name) expected="$version" ;;
+			version-code) expected="$version_code" ;;
+		esac
+		actual="$("$apkanalyzer" manifest "$field" "$source_apk")" || {
+			printf 'Failed to read Android manifest field %s\n' "$field" >&2
+			exit 1
+		}
+		[[ $actual == "$expected" ]] || {
+			printf 'Android manifest %s mismatch: expected %s, got %s\n' \
+				"$field" "$expected" "$actual" >&2
+			exit 1
+		}
+	done
 fi
 
 if [[ $mode == release ]]; then

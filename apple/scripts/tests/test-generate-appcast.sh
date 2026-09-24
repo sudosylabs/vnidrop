@@ -24,9 +24,15 @@ for argument in "$@"; do
   previous=$argument
   directory=$argument
 done
-mapfile -t images < <(find "$directory" -name '*.dmg' -printf '%f\n' | sort)
-[[ ${#images[@]} -eq 1 ]]
-printf '<enclosure>%s</enclosure>\n' "${images[0]}" > "$output"
+image=""
+count=0
+for path in "$directory"/*.dmg; do
+  [[ -e $path ]] || continue
+  image=$(basename "$path")
+  count=$((count + 1))
+done
+[[ $count -eq 1 ]]
+printf '<enclosure>%s</enclosure>\n' "$image" > "$output"
 printf '%s\n' "$*" >> "$FAKE_CALLS"
 SCRIPT
 chmod +x "$scratch/packaging/version/resolve-version.sh" "$scratch/bin/generate_appcast"

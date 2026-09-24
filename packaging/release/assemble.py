@@ -28,10 +28,43 @@ def verify_checksum(payload, checksum):
         raise ValueError(f"Missing, duplicate, or invalid checksum for {payload.name}")
 
 
+def copy_previous_feed(previous, manifest, payloads, name, required):
+    feeds = [file for file in manifest["files"] if file["name"] == name]
+    if not feeds:
+        if required:
+            raise ValueError("Previous macOS download has no update feed")
+        return
+    if len(feeds) != 1:
+        raise ValueError("Previous macOS download has no update feed")
+    feed = previous.with_name(name)
+    if digest(feed) != feeds[0]["sha256"] or feed.stat().st_size != feeds[0]["bytes"]:
+        raise ValueError("Previous update feed checksum mismatch")
+    payloads.append(feed)
+
+
 def version_tuple(version):
     if not isinstance(version, str) or not re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", version):
         raise ValueError("Invalid release version")
     return tuple(map(int, version.split(".")))
+
+
+def macos_disk_images(files):
+    images = [file for file in files if file["name"].endswith(".dmg")]
+    if len(images) != len(files):
+        raise ValueError("Incomplete or duplicate downloads for macos")
+    arm = [file for file in images if not file["name"].endswith("-x86_64.dmg")]
+    intel = [file for file in images if file["name"].endswith("-x86_64.dmg")]
+    if len(arm) != 1 or len(intel) > 1:
+        raise ValueError("Incomplete or duplicate downloads for macos")
+    return arm, intel
+
+
+def download_files_ok(platform, files):
+    if platform == "macos":
+        macos_disk_images(files)
+        return
+    if len(files) != len(SUFFIXES[platform]) or any(sum(file["name"].endswith(suffix) for file in files) != 1 for suffix in SUFFIXES[platform]):
+        raise ValueError(f"Incomplete or duplicate downloads for {platform}")
 
 
 def download_index(manifest):
@@ -51,8 +84,7 @@ def download_index(manifest):
         if version_tuple(entry["version"]) > version_tuple(manifest["productVersion"]) or entry["tag"] != "v" + entry["version"]:
             raise ValueError("Invalid download version or tag")
         files = entry["files"]
-        if len(files) != len(SUFFIXES[platform]) or any(sum(f["name"].endswith(suffix) for f in files) != 1 for suffix in SUFFIXES[platform]):
-            raise ValueError(f"Incomplete or duplicate downloads for {platform}")
+        download_files_ok(platform, files)
         for file in files:
             if (Path(file["name"]).name != file["name"] or "/" in file["name"] or "\\" in file["name"]
                     or entry["version"] not in file["name"] or not re.fullmatch(r"[a-f0-9]{64}", file["sha256"])
@@ -99,24 +131,28 @@ def assemble(input_dir, output_dir, version, tag, commit, android_code, windows_
             package(folder, name, name + ".sha256")
     if "macos" in selected:
         dmg = package("macos", f"VniDrop-{version}.dmg")
+        intel = package("macos", f"VniDrop-{version}-x86_64.dmg")
         appcast = package("macos", "appcast.xml")
+        intel_appcast = package("macos", "appcast-x86_64.xml")
         package("macos", f"VnidropCore-{version}.zip", f"VnidropCore-{version}.zip.sha256")
         apple = json.loads(dmg.with_suffix(".build-info.json").read_text())
+        apple_intel = json.loads(intel.with_suffix(".build-info.json").read_text())
+        arm_feed = appcast.read_text()
+        intel_feed = intel_appcast.read_text()
         if ((apple["productVersion"], apple["distribution"], apple["artifact"]) != (version, "direct", dmg.name)
+                or (apple_intel["productVersion"], apple_intel["distribution"], apple_intel["artifact"]) != (version, "direct", intel.name)
+                or apple["directBuildNumber"] != apple_intel["directBuildNumber"]
                 or not re.fullmatch(r"[1-9][0-9]*(\.[0-9]+){0,2}", apple["directBuildNumber"])
-                or dmg.name not in appcast.read_text()):
+                or dmg.name not in arm_feed or intel.name in arm_feed
+                or intel.name not in intel_feed or dmg.name in intel_feed):
             raise ValueError("Invalid macOS package metadata")
         manifest["platformVersions"]["appleDirectBuildNumber"] = apple["directBuildNumber"]
     elif previous_manifest:
-        # Installed Macs still request /releases/latest/download/appcast.xml.
-        feeds = [f for f in previous_manifest["files"] if f["name"] == "appcast.xml"]
-        if "macos" in downloads and len(feeds) != 1:
-            raise ValueError("Previous macOS download has no update feed")
-        if feeds:
-            feed = previous.with_name("appcast.xml")
-            if len(feeds) != 1 or digest(feed) != feeds[0]["sha256"] or feed.stat().st_size != feeds[0]["bytes"]:
-                raise ValueError("Previous update feed checksum mismatch")
-            payloads.append(feed)
+        # Installed Macs still request /releases/latest/download/<their feed>.
+        copy_previous_feed(previous, previous_manifest, payloads, "appcast.xml", "macos" in downloads)
+        previous_images = downloads.get("macos", {}).get("files", [])
+        intel_required = any(file["name"].endswith("-x86_64.dmg") for file in previous_images)
+        copy_previous_feed(previous, previous_manifest, payloads, "appcast-x86_64.xml", intel_required)
     if "android" in selected:
         apk = package("play", f"VniDrop-{version}-{android_code}-play-universal.apk", "SHA256SUMS")
         metadata = apk.with_name("play-release.json")

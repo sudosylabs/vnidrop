@@ -57,7 +57,7 @@ signing_line="$(
 		"$repo_root/apple/scripts/build-dmg.sh"
 )"
 dmg_line="$(
-	awk '/echo "==> Building DMG"/ {print NR; exit}' \
+	awk '/==> Building DMG/ {print NR; exit}' \
 		"$repo_root/apple/scripts/build-dmg.sh"
 )"
 [[ -n $signing_line && -n $dmg_line && $signing_line -lt $dmg_line ]] || {

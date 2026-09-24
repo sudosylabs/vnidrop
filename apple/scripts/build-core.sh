@@ -56,6 +56,7 @@ IOS_TARGET="aarch64-apple-ios"
 SIM_ARM_TARGET="aarch64-apple-ios-sim"
 SIM_X64_TARGET="x86_64-apple-ios"
 MAC_TARGET="aarch64-apple-darwin"
+MAC_INTEL_TARGET="x86_64-apple-darwin"
 
 # Simulator slices are development-only: neither the App Store archives nor the
 # notarized DMG can use them, and they are half of the four targets. Release
@@ -79,10 +80,19 @@ if [ "$WITH_IOS" = "0" ] && [ "$WITH_SIMULATOR" = "1" ]; then
 	exit 1
 fi
 
+# Intel Macs get their own thin direct download. The slice stays out of ordinary
+# builds; build-dmg.sh opts in so the Apple Silicon archive is unchanged.
+case "${VNIDROP_APPLE_INTEL:-0}" in
+	1) WITH_INTEL=1 ;;
+	0) WITH_INTEL=0 ;;
+	*) echo "VNIDROP_APPLE_INTEL must be 0 or 1" >&2; exit 1 ;;
+esac
+
 # Direct preview releases have no iOS consumer for this expensive cross-build.
 TARGETS=("$MAC_TARGET")
 [ "$WITH_IOS" = "1" ] && TARGETS+=("$IOS_TARGET")
 [ "$WITH_SIMULATOR" = "1" ] && TARGETS+=("$SIM_ARM_TARGET" "$SIM_X64_TARGET")
+[ "$WITH_INTEL" = "1" ] && TARGETS+=("$MAC_INTEL_TARGET")
 
 echo "==> Building vnidrop staticlib ($PROFILE) for Apple targets"
 [ "$WITH_SIMULATOR" = "1" ] || echo "    (simulator slices skipped)"
@@ -102,6 +112,7 @@ LIB_SUBDIR="$PROFILE"
 [ "$PROFILE" = "debug" ] && LIB_SUBDIR="debug"
 
 MAC_LIB="$TARGET_DIR/$MAC_TARGET/$LIB_SUBDIR/libvnidrop.a"
+MAC_INTEL_LIB="$TARGET_DIR/$MAC_INTEL_TARGET/$LIB_SUBDIR/libvnidrop.a"
 IOS_LIB="$TARGET_DIR/$IOS_TARGET/$LIB_SUBDIR/libvnidrop.a"
 
 # Fresh scratch dir for the bindgen output and the universal simulator lib.
@@ -116,6 +127,16 @@ if [ "$WITH_SIMULATOR" = "1" ]; then
 		"$TARGET_DIR/$SIM_ARM_TARGET/$LIB_SUBDIR/libvnidrop.a" \
 		"$TARGET_DIR/$SIM_X64_TARGET/$LIB_SUBDIR/libvnidrop.a" \
 		-output "$SIM_LIB"
+fi
+
+# create-xcframework rejects two libraries for the same platform
+# ("macos-arm64 and macos-x86_64 represent two equivalent library definitions").
+# One fat macOS archive is the supported input. Each app archive still sets a
+# single ARCHS value, so the downloaded binary stays one architecture.
+MAC_XC_LIB="$MAC_LIB"
+if [ "$WITH_INTEL" = "1" ]; then
+	MAC_XC_LIB="$BUILD_DIR/libvnidrop-macos.a"
+	lipo -create "$MAC_LIB" "$MAC_INTEL_LIB" -output "$MAC_XC_LIB"
 fi
 
 echo "==> Generating Swift bindings (library mode)"
@@ -141,7 +162,7 @@ rm -rf "$XCFRAMEWORK"
 XCF_ARGS=()
 [ "$WITH_IOS" = "1" ] && XCF_ARGS+=(-library "$IOS_LIB" -headers "$HEADERS_DIR")
 [ "$WITH_SIMULATOR" = "1" ] && XCF_ARGS+=(-library "$SIM_LIB" -headers "$HEADERS_DIR")
-XCF_ARGS+=(-library "$MAC_LIB" -headers "$HEADERS_DIR")
+XCF_ARGS+=(-library "$MAC_XC_LIB" -headers "$HEADERS_DIR")
 xcodebuild -create-xcframework "${XCF_ARGS[@]}" -output "$XCFRAMEWORK"
 
 echo "==> Done."

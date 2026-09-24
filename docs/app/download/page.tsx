@@ -54,10 +54,11 @@ export default async function DownloadPage() {
                 <span>Store or direct</span>
               </div>
               <div className={styles.platformDetails}>
-                <p>Install from the Mac App Store, or download the signed and notarized disk image for Apple Silicon. The direct app checks for release updates after installation.</p>
+                <p>Install from the Mac App Store, or download a signed and notarized disk image. The file without an architecture suffix is Apple Silicon. The x86_64 file is Intel. Each direct app updates from its own feed. The Mac App Store build is Apple Silicon.</p>
                 <p className={styles.downloadActions}>
                   <StoreLink href={`${appleStoreUrl}?platform=mac`}>Open App Store</StoreLink>
-                  {release.dmg ? <FileLink asset={release.dmg} /> : <span>No disk image available.</span>}
+                  {release.dmg ? <FileLink asset={release.dmg} /> : <span>No Apple Silicon disk image available.</span>}
+                  {release.dmgIntel ? <FileLink asset={release.dmgIntel} /> : null}
                 </p>
                 <div className={styles.installCommand}>
                   <CopyCommand command={homebrewInstall} />

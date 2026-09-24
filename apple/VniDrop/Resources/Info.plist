@@ -62,11 +62,13 @@
 	     The feed is appcast.xml attached as an asset to each GitHub Release; the
 	     /releases/latest/download/ path always redirects to the newest (non-
 	     prerelease) release's copy, and its <enclosure> points at that same release's
-	     .dmg — no GitHub Pages or repo commits needed. SUPublicEDKey must be the EdDSA
+	     .dmg — no GitHub Pages or repo commits needed. SUFeedURL comes from the
+	     SU_FEED_URL build setting so the Intel archive can use appcast-x86_64.xml.
+	     SUPublicEDKey must be the EdDSA
 	     public key printed by Sparkle's `generate_keys` — replace the placeholder
 	     before shipping (see apple/RELEASE-MACOS.md). -->
 	<key>SUFeedURL</key>
-	<string>https://github.com/sudosylabs/vnidrop/releases/latest/download/appcast.xml</string>
+	<string>$(SU_FEED_URL)</string>
 	<key>SUPublicEDKey</key>
 	<string>/vcOgyrhPi3e58yL8M7hZvDCOgsAKyBsQu/7ChAUk1M=</string>
 	<key>SUEnableAutomaticChecks</key>

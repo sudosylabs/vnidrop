@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 #
-# Generates/updates the Sparkle appcast for the direct-download build. Runs
-# Sparkle's `generate_appcast` over the DMGs in apple/dist/, writing:
-#   - apple/dist/appcast.xml
+# Generates/updates the Sparkle appcasts for the direct-download builds. Runs
+# Sparkle's `generate_appcast` once per thin DMG, writing:
+#   - apple/dist/appcast.xml           Apple Silicon
+#   - apple/dist/appcast-x86_64.xml    Intel
 #
-# The <enclosure> URLs point at the matching GitHub Release download assets, and
-# each item is signed with the project's EdDSA key (from a key file or the
-# keychain). The resulting appcast.xml is uploaded as a release asset; the app's
-# SUFeedURL (/releases/latest/download/appcast.xml) always resolves to the newest.
+# Sparkle rejects two archives of the same version in one directory, so each
+# DMG is staged alone. The <enclosure> URLs point at the matching GitHub Release
+# download assets, and each item is signed with the project's EdDSA key (from a
+# key file or the keychain). Each installed app requests only its own feed.
 #
 # Usage: apple/scripts/generate-appcast.sh
 #
@@ -56,11 +57,24 @@ fi
 echo "==> Using $GENERATE_APPCAST"
 
 # --- Generate ----------------------------------------------------------------
-args=( --download-url-prefix "$DOWNLOAD_PREFIX/" -o "$DIST_DIR/appcast.xml" )
+# One feed per architecture. A shared directory makes generate_appcast treat the
+# second DMG as a duplicate version and refuse to write either enclosure.
+args=( --download-url-prefix "$DOWNLOAD_PREFIX/" )
 if [ -n "${SPARKLE_ED_KEY_FILE:-}" ]; then
 	args+=( --ed-key-file "$SPARKLE_ED_KEY_FILE" )
 fi
-echo "==> Generating appcast (v$VERSION) → $DIST_DIR/appcast.xml"
-"$GENERATE_APPCAST" "${args[@]}" "$DIST_DIR"
+generate_feed() {
+	local dmg="$1"
+	local output="$2"
+	local stage
+	[ -f "$dmg" ] || { echo "error: missing disk image $dmg" >&2; exit 1; }
+	stage="$(mktemp -d)"
+	cp "$dmg" "$stage/"
+	echo "==> Generating $(basename "$output") from $(basename "$dmg")"
+	"$GENERATE_APPCAST" "${args[@]}" -o "$output" "$stage"
+	rm -rf "$stage"
+}
+generate_feed "$DIST_DIR/VniDrop-$VERSION.dmg" "$DIST_DIR/appcast.xml"
+generate_feed "$DIST_DIR/VniDrop-$VERSION-x86_64.dmg" "$DIST_DIR/appcast-x86_64.xml"
 
 echo "==> Done. Enclosure prefix: $DOWNLOAD_PREFIX/"

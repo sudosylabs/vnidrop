@@ -44,7 +44,7 @@ brew uninstall --zap --cask vnidrop
 
 ## Requirements
 
-- macOS 15 (Sequoia) or later, Apple Silicon.
+- macOS 15 (Sequoia) or later, Apple Silicon or Intel.
 
 ## What you get
 

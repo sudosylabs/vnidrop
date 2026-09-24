@@ -59,10 +59,13 @@ export function PreviewDownloads() {
             </p>
             <ul className={styles.downloadList}>
               <li>
-                <div className={styles.platformName}><h3>macOS</h3><span>Apple Silicon · macOS 15+</span></div>
+                <div className={styles.platformName}><h3>macOS</h3><span>macOS 15+</span></div>
                 <div className={styles.platformDetails}>
-                  <p>Signed and notarized DMG. Replaces the installed direct app; future previews are downloaded here.</p>
-                  {state.release.dmg ? <FileLink asset={state.release.dmg} /> : <span>No preview download available.</span>}
+                  <p>Signed and notarized DMG. The arm64 file is Apple Silicon and the x86_64 file is Intel. A preview replaces the installed direct app; later previews are downloaded here.</p>
+                  <p className={styles.downloadActions}>
+                    {state.release.dmg ? <FileLink asset={state.release.dmg} /> : <span>No Apple Silicon preview available.</span>}
+                    {state.release.dmgIntel ? <FileLink asset={state.release.dmgIntel} /> : null}
+                  </p>
                 </div>
               </li>
               <li>

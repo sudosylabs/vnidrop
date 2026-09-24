@@ -38,6 +38,10 @@ for ios in 0 1; do
   grep -F -- '--target aarch64-apple-darwin' "$FAKE_CARGO_CALLS" >/dev/null
   grep -F -- '--release' "$FAKE_CARGO_CALLS" >/dev/null
   grep -F '/aarch64-apple-darwin/release/libvnidrop.a' "$FAKE_XCODE_CALLS" >/dev/null
+  if grep -F 'x86_64-apple-darwin' "$FAKE_CARGO_CALLS" "$FAKE_XCODE_CALLS" >/dev/null; then
+    echo 'Intel macOS slice must stay opt-in' >&2
+    exit 1
+  fi
   if [[ $ios == 1 ]]; then
     grep -F -- '--target aarch64-apple-ios' "$FAKE_CARGO_CALLS" >/dev/null
     grep -F '/aarch64-apple-ios/release/libvnidrop.a' "$FAKE_XCODE_CALLS" >/dev/null
@@ -50,6 +54,16 @@ for ios in 0 1; do
 done
 if VNIDROP_APPLE_IOS=0 VNIDROP_APPLE_SIMULATOR=1 bash "$scratch/apple/scripts/build-core.sh" release >/dev/null 2>&1; then
   echo 'Simulator requests without iOS must fail' >&2
+  exit 1
+fi
+: > "$FAKE_CARGO_CALLS"
+: > "$FAKE_XCODE_CALLS"
+VNIDROP_APPLE_IOS=0 VNIDROP_APPLE_INTEL=1 bash "$scratch/apple/scripts/build-core.sh" release >/dev/null
+grep -F -- '--target x86_64-apple-darwin' "$FAKE_CARGO_CALLS" >/dev/null
+grep -F '/x86_64-apple-darwin/release/libvnidrop.a' "$FAKE_XCODE_CALLS" >/dev/null
+grep -F -- '--target aarch64-apple-darwin' "$FAKE_CARGO_CALLS" >/dev/null
+if VNIDROP_APPLE_INTEL=auto bash "$scratch/apple/scripts/build-core.sh" release >/dev/null 2>&1; then
+  echo 'Invalid Intel slice requests must fail' >&2
   exit 1
 fi
 printf 'Apple core platform tests passed.\n'

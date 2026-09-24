@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+export LC_ALL=C
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
@@ -24,7 +25,9 @@ apple_direct_build=20260728.1432.17
 printf 'deb\n' > "$input_dir/deb/vnidrop_${version}-1_amd64.deb"
 printf 'rpm\n' > "$input_dir/rpm/vnidrop-${version}-1.x86_64.rpm"
 printf 'dmg\n' > "$input_dir/macos/VniDrop-${version}.dmg"
+printf 'intel\n' > "$input_dir/macos/VniDrop-${version}-x86_64.dmg"
 printf '<url>VniDrop-%s.dmg</url>\n' "$version" > "$input_dir/macos/appcast.xml"
+printf '<url>VniDrop-%s-x86_64.dmg</url>\n' "$version" > "$input_dir/macos/appcast-x86_64.xml"
 printf 'core\n' > "$input_dir/macos/VnidropCore-${version}.zip"
 printf 'apk\n' > "$input_dir/play/VniDrop-${version}-${android_code}-play-universal.apk"
 printf 'msix\n' > "$input_dir/windows/VniDrop_${version}_x64.msix"
@@ -41,6 +44,16 @@ jq -n \
 		distribution: "direct",
 		artifact: $artifact
 	}' > "$input_dir/macos/VniDrop-${version}.build-info.json"
+jq -n \
+	--arg productVersion "$version" \
+	--arg directBuildNumber "$apple_direct_build" \
+	--arg artifact "VniDrop-${version}-x86_64.dmg" \
+	'{
+		productVersion: $productVersion,
+		directBuildNumber: $directBuildNumber,
+		distribution: "direct",
+		artifact: $artifact
+	}' > "$input_dir/macos/VniDrop-${version}-x86_64.build-info.json"
 
 jq -n \
 	--arg releaseName "$version" \
@@ -110,9 +123,11 @@ GITHUB_REF_NAME="v$version" \
 expected_public_files=(
 	"SHA256SUMS"
 	"VniDrop-${version}-${android_code}-play-universal.apk"
+	"VniDrop-${version}-x86_64.dmg"
 	"VniDrop-${version}.dmg"
 	"VniDrop_${version}_x64.exe"
 	"VnidropCore-${version}.zip"
+	"appcast-x86_64.xml"
 	"appcast.xml"
 	"release-manifest.json"
 	"vnidrop-${version}-1.x86_64.rpm"

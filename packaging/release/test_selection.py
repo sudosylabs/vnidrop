@@ -87,10 +87,16 @@ class ReleaseAssemblyTest(unittest.TestCase):
             "directInstaller": {"artifact": self.exe.name, "unsigned": True, "smartScreenWarningExpected": True},
         }).encode(), "SHA256SUMS")
         self.write("macos", "VniDrop-0.3.5.dmg", b"dmg")
+        self.write("macos", "VniDrop-0.3.5-x86_64.dmg", b"intel")
         self.write("macos", "appcast.xml", b"VniDrop-0.3.5.dmg")
+        self.write("macos", "appcast-x86_64.xml", b"VniDrop-0.3.5-x86_64.dmg")
         self.write("macos", "VnidropCore-0.3.5.zip", b"core", "VnidropCore-0.3.5.zip.sha256")
         self.write("macos", "VniDrop-0.3.5.build-info.json", json.dumps({
             "productVersion": "0.3.5", "distribution": "direct", "artifact": "VniDrop-0.3.5.dmg",
+            "directBuildNumber": "20260912.1200.00",
+        }).encode())
+        self.write("macos", "VniDrop-0.3.5-x86_64.build-info.json", json.dumps({
+            "productVersion": "0.3.5", "distribution": "direct", "artifact": "VniDrop-0.3.5-x86_64.dmg",
             "directBuildNumber": "20260912.1200.00",
         }).encode())
         self.write("play", "VniDrop-0.3.5-3005-play-universal.apk", b"apk", "SHA256SUMS")
@@ -128,7 +134,10 @@ class ReleaseAssemblyTest(unittest.TestCase):
                         if path.name != "SHA256SUMS":
                             release.verify_checksum(path, self.output / "SHA256SUMS")
                     self.assertEqual(self.exe.name in [f["name"] for f in manifest["files"]], "windows" in selected)
-                    self.assertEqual("appcast.xml" in [f["name"] for f in manifest["files"]], "macos" in selected)
+                    names = [f["name"] for f in manifest["files"]]
+                    self.assertEqual("appcast.xml" in names, "macos" in selected)
+                    self.assertEqual("appcast-x86_64.xml" in names, "macos" in selected)
+                    self.assertEqual("VniDrop-0.3.5-x86_64.dmg" in names, "macos" in selected)
                     shutil.rmtree(self.output)
 
     def test_skipped_platform_artifacts_are_not_required(self):
@@ -165,6 +174,39 @@ class ReleaseAssemblyTest(unittest.TestCase):
         feed.write_bytes(b"tampered")
         with self.assertRaisesRegex(ValueError, "checksum"):
             self.assemble(previous=path)
+
+    def test_preserves_previous_intel_update_feed(self):
+        previous = self.root / "previous-intel"
+        previous.mkdir()
+        arm = previous / "appcast.xml"
+        intel = previous / "appcast-x86_64.xml"
+        arm.write_bytes(b"https://github.com/sudosylabs/vnidrop/releases/download/v0.3.4/VniDrop-0.3.4.dmg")
+        intel.write_bytes(b"https://github.com/sudosylabs/vnidrop/releases/download/v0.3.4/VniDrop-0.3.4-x86_64.dmg")
+        old = {"productVersion": "0.3.4", "releaseChannel": "beta", "tag": "v0.3.4", "files": [
+            {"name": "VniDrop-0.3.4.dmg", "sha256": "a" * 64, "bytes": 123},
+            {"name": "VniDrop-0.3.4-x86_64.dmg", "sha256": "b" * 64, "bytes": 456},
+            {"name": "appcast.xml", "sha256": release.digest(arm), "bytes": arm.stat().st_size},
+            {"name": "appcast-x86_64.xml", "sha256": release.digest(intel), "bytes": intel.stat().st_size},
+        ], "downloads": {"macos": {"version": "0.3.4", "tag": "v0.3.4", "files": [
+            {"name": "VniDrop-0.3.4.dmg", "sha256": "a" * 64, "bytes": 123},
+            {"name": "VniDrop-0.3.4-x86_64.dmg", "sha256": "b" * 64, "bytes": 456},
+        ]}}}
+        path = previous / "release-manifest.json"
+        path.write_text(json.dumps(old))
+        manifest = self.assemble(previous=path)
+        self.assertEqual((self.output / "appcast-x86_64.xml").read_bytes(), intel.read_bytes())
+        self.assertEqual([f["name"] for f in manifest["downloads"]["macos"]["files"]],
+                         ["VniDrop-0.3.4.dmg", "VniDrop-0.3.4-x86_64.dmg"])
+        shutil.rmtree(self.output)
+        intel.unlink()
+        with self.assertRaises(OSError):
+            self.assemble(previous=path)
+
+    def test_rejects_a_mac_feed_that_points_at_the_other_architecture(self):
+        (self.inputs / "macos/appcast.xml").write_bytes(b"VniDrop-0.3.5.dmg VniDrop-0.3.5-x86_64.dmg")
+        with self.assertRaisesRegex(ValueError, "macOS package metadata"):
+            self.assemble(platforms="macos")
+        self.assertFalse(self.output.exists())
 
     def test_rejects_wrong_tag_empty_selection_and_missing_store_package(self):
         for overrides in ({"tag": "v0.3.6"}, {"platforms": ""}, {"platforms": "ios"}, {"stores": "windows"}):

@@ -13,7 +13,7 @@ include $(ROOT)/make/release.mk
 .PHONY: test-rust-transfer test-rust-approval test-rust-lifecycle test-rust-output-sink test-rust-saved-devices
 .PHONY: check-shared test-shared test-android-host check-android verify-android-libs build-android
 .PHONY: build-linux run-linux check-linux test-linux-ui
-.PHONY: apple-core apple-version-config apple-app-config apple-project open-apple-project open-apple build-apple-macos build-apple-ios check-apple package-apple-core
+.PHONY: apple-core apple-version-config apple-app-config apple-project open-apple-project open-apple build-apple-macos build-apple-macos-direct-intel build-apple-ios check-apple package-apple-core
 .PHONY: prepare-release check-version check-release check-localization localization localization-migrate
 .PHONY: check-docs run-docs check-diagnostics run-diagnostics diagnostics-db-local diagnostics-db-remote diagnostics-typegen deploy-diagnostics
 
@@ -74,12 +74,13 @@ check-version: ## Validate the canonical version and its platform mappings.
 check-release: ## Validate coordinated release scripts and workflow YAML.
 	cd $(ROOT) && bash -n apple/scripts/build-core.sh apple/scripts/tests/test-build-core.sh
 	cd $(ROOT) && bash -n apple/scripts/build-dmg.sh apple/scripts/tests/test-build-dmg.sh packaging/android/tests/test-build-release.sh
-	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh make/tests/test-open-apple.sh make/tests/test-with-secret-service.sh make/with-secret-service.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh linux/packaging/package.sh linux/packaging/verify.sh linux/packaging/verify-mime.sh linux/packaging/tests/test-verify-mime.sh
+	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh apple/scripts/generate-appcast.sh apple/scripts/tests/test-generate-appcast.sh make/tests/test-open-apple.sh make/tests/test-with-secret-service.sh make/with-secret-service.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh linux/packaging/package.sh linux/packaging/verify.sh linux/packaging/verify-mime.sh linux/packaging/tests/test-verify-mime.sh
 	cd $(ROOT) && apple/scripts/tests/test-notarize.sh
 	cd $(ROOT) && apple/scripts/tests/test-generate-appconfig.sh
 	cd $(ROOT) && apple/scripts/tests/test-sign-exported-app.sh
 	cd $(ROOT) && bash apple/scripts/tests/test-build-dmg.sh
 	cd $(ROOT) && bash apple/scripts/tests/test-build-core.sh
+	cd $(ROOT) && bash apple/scripts/tests/test-generate-appcast.sh
 	cd $(ROOT) && bash packaging/android/tests/test-build-release.sh
 	cd $(ROOT) && packaging/android/tests/test_verify_apk_signature.sh
 	cd $(ROOT) && packaging/release/test-assemble-release.sh
@@ -186,6 +187,15 @@ build-apple-macos: apple-project ## Build the native macOS app (unsigned by defa
 
 build-apple-macos-direct: apple-project ## Build the direct-download macOS target (Sparkle, unsigned) â€” CI compile check.
 	cd $(ROOT)/apple && $(XCODEBUILD) -project VniDrop.xcodeproj -scheme VniDropDirect -configuration Release-Direct -derivedDataPath "$(APPLE_DERIVED_DATA)" -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+
+build-apple-macos-direct-intel: ## Unsigned Intel direct target, linked against the x86_64 core slice.
+	APPLE_PROFILE=release VNIDROP_APPLE_INTEL=1 VNIDROP_APPLE_IOS=0 VNIDROP_APPLE_SIMULATOR=0 $(MAKE) apple-project
+	cd $(ROOT)/apple && $(XCODEBUILD) -project VniDrop.xcodeproj -scheme VniDropDirect -configuration Release-Direct -derivedDataPath "$(ROOT)/apple/DerivedData/intel" -destination 'platform=macOS' ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO SU_FEED_URL='https://github.com/sudosylabs/vnidrop/releases/latest/download/appcast-x86_64.xml' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+	app="$(ROOT)/apple/DerivedData/intel/Build/Products/Release-Direct/VniDrop.app"; \
+	arches="$$(lipo -archs "$$app/Contents/MacOS/VniDrop")"; \
+	test "$$arches" = "x86_64" || { printf 'Intel direct build produced architectures: %s\n' "$$arches" >&2; exit 1; }; \
+	feed="$$(/usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$$app/Contents/Info.plist")"; \
+	test "$$feed" = "https://github.com/sudosylabs/vnidrop/releases/latest/download/appcast-x86_64.xml" || { printf 'Intel direct build feed is: %s\n' "$$feed" >&2; exit 1; }
 
 build-apple-dmg: localization ## Build the signed/notarized direct-download .dmg (see apple/RELEASE-MACOS.md for required env).
 	cd $(ROOT) && apple/scripts/build-dmg.sh

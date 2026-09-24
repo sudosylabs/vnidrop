@@ -33,7 +33,8 @@ apple/
 
 Prerequisites: Xcode, Rust with the Apple targets
 (`aarch64-apple-ios`, `aarch64-apple-ios-sim`, `x86_64-apple-ios`,
-`aarch64-apple-darwin`), Bun for localization, XcodeGen, and SwiftLint
+`aarch64-apple-darwin`, and `x86_64-apple-darwin` for the Intel direct
+download), Bun for localization, XcodeGen, and SwiftLint
 (`brew install xcodegen swiftlint`).
 
 ```bash
@@ -59,13 +60,18 @@ The macOS app ships through two targets that build identical sources:
 
 - **`VniDrop`** (`Release`) — Mac App Store / TestFlight. Sandboxed, no
   self-updater.
-- **`VniDropDirect`** (`Release-Direct`) — direct-download `.dmg` on GitHub
-  Releases + Homebrew cask. Adds the **Sparkle** auto-updater behind the
+- **`VniDropDirect`** (`Release-Direct`) — direct-download `.dmg` files on GitHub
+  Releases + Homebrew cask. Apple Silicon stays `VniDrop-<version>.dmg` and
+  updates from `appcast.xml`. Intel is a separate thin download,
+  `VniDrop-<version>-x86_64.dmg`, and updates from `appcast-x86_64.xml`.
+  Adds the **Sparkle** auto-updater behind the
   `DIRECT_DISTRIBUTION` compile flag, so the App Store binary never links Sparkle.
+  The Mac App Store build stays Apple Silicon.
 
 ```bash
 make build-apple-macos-direct   # unsigned compile-check of the direct target
-make build-apple-dmg                # signed (+ notarized) .dmg
+make build-apple-macos-direct-intel   # unsigned Intel direct target
+make build-apple-dmg                # signed (+ notarized) Apple Silicon and Intel .dmg files
 ```
 
 The [DMG workflow](../.github/workflows/apple-release.yml) configures Developer ID

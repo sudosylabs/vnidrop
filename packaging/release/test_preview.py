@@ -32,9 +32,19 @@ class PreviewAssemblyTest(unittest.TestCase):
             self.payloads.append(payload)
             (folder / checksum).write_text(f"{preview.digest(payload)}  {name}\n")
         apple = self.inputs / "vnidrop-0.3.3-macos-dmg"
+        intel = apple / "VniDrop-0.3.3-x86_64.dmg"
+        intel.write_bytes(b"VniDrop-0.3.3-x86_64.dmg")
+        self.payloads.append(intel)
+        (apple / "preview-dmg.sha256").write_text(
+            f"{preview.digest(apple / 'VniDrop-0.3.3.dmg')}  VniDrop-0.3.3.dmg\n"
+            f"{preview.digest(intel)}  {intel.name}\n")
         (apple / "VniDrop-0.3.3.build-info.json").write_text(json.dumps({
             "productVersion": "0.3.3", "distribution": "direct", "artifact": "VniDrop-0.3.3.dmg",
             "directBuildNumber": "20260908.1200.00",
+        }))
+        (apple / "VniDrop-0.3.3-x86_64.build-info.json").write_text(json.dumps({
+            "productVersion": "0.3.3", "distribution": "direct",
+            "artifact": "VniDrop-0.3.3-x86_64.dmg", "directBuildNumber": "20260908.1200.00",
         }))
         self.android_metadata = self.inputs / "vnidrop-0.3.3-android-release/android-preview.json"
         self.android_metadata.write_text(json.dumps({
@@ -55,7 +65,8 @@ class PreviewAssemblyTest(unittest.TestCase):
         names = {path.name for path in self.output.iterdir()}
         self.assertEqual(names, {
             "vnidrop_0.3.3-preview.17_amd64.deb", "vnidrop-0.3.3-preview.17.x86_64.rpm",
-            "VniDrop-0.3.3-preview.17-arm64.dmg", "VniDrop-0.3.3-preview.17-x64.exe",
+            "VniDrop-0.3.3-preview.17-arm64.dmg", "VniDrop-0.3.3-preview.17-x86_64.dmg",
+            "VniDrop-0.3.3-preview.17-x64.exe",
             "VniDrop-0.3.3-preview.17.apk", "preview-manifest.json", "SHA256SUMS",
         })
         for name in names - {"SHA256SUMS"}:

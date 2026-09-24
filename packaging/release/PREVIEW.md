@@ -14,7 +14,7 @@ and minute limits still apply to both pipelines.
 
 | Platform | Artifact | Installation |
 | --- | --- | --- |
-| macOS | Apple Silicon `.dmg` | Developer ID signed, notarized, and stapled; replaces the existing direct app |
+| macOS | Apple Silicon `.dmg` and Intel `.dmg` | Developer ID signed, notarized, and stapled; each replaces the installed direct app of that architecture |
 | Windows | x64 `.exe` | Unsigned current-user installer; SmartScreen may warn |
 | Linux | x64 `.deb` and `.rpm` | Existing GTK app identity; Ubuntu 24.04+ and Fedora 43 baselines |
 | Android | arm64-v8a + x86_64 `.apk` | Signed with the preview key; separate `com.vnidrop.app.preview` installation |

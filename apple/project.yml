@@ -26,10 +26,13 @@ configs:
 # Project-wide build settings (applied to every target/config).
 settings:
   base:
-    # Apple Silicon only. Intel Macs are unsupported (going EOL with macOS 28), and
-    # the Rust core's macOS slice (vnidrop.xcframework) is built arm64-only, so a
-    # universal link would fail looking for x86_64 symbols anyway.
+    # Apple Silicon for every ordinary archive. The Intel direct download passes
+    # ARCHS=x86_64 and links the matching xcframework slice. Setting both here
+    # would ship one universal app.
     ARCHS: arm64
+    # Sparkle feed for the direct build. The Intel archive overrides this so each
+    # thin app updates from its own appcast.
+    SU_FEED_URL: https://github.com/sudosylabs/vnidrop/releases/latest/download/appcast.xml
     # Strip unreachable code from release binaries.
     DEAD_CODE_STRIPPING: YES
     # Flag user-facing strings that aren't localized (the app ships 9 languages).

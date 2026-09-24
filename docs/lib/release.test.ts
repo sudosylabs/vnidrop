@@ -25,7 +25,7 @@ function preview(number: number, publishedAt = "2026-09-08T12:00:00Z") {
     prerelease: true,
     published_at: publishedAt,
     assets: [
-      `VniDrop-${label}-arm64.dmg`, `VniDrop-${label}-x64.exe`,
+      `VniDrop-${label}-arm64.dmg`, `VniDrop-${label}-x86_64.dmg`, `VniDrop-${label}-x64.exe`,
       `vnidrop_${label}_amd64.deb`, `vnidrop-${label}.x86_64.rpm`,
       `VniDrop-${label}.apk`, "SHA256SUMS", "preview-manifest.json",
     ].map((name) => ({
@@ -35,13 +35,13 @@ function preview(number: number, publishedAt = "2026-09-08T12:00:00Z") {
   };
 }
 
-test("preview downloads pin all five packages and metadata to the validated tag", () => {
+test("preview downloads pin each package and its metadata to the validated tag", () => {
   const release = selectLatestPreview([preview(17)]);
   assert.ok(release);
   assert.equal(release.tag, "preview-0.3.3-17");
   assert.equal(release.version, "0.3.3");
   assert.equal(release.number, 17);
-  for (const asset of [release.dmg, release.windowsExe, release.deb, release.rpm, release.apk]) {
+  for (const asset of [release.dmg, release.dmgIntel, release.windowsExe, release.deb, release.rpm, release.apk]) {
     assert.ok(asset);
     assert.equal(asset.url, assetDownloadUrl(release.tag, asset.name));
     assert.equal(asset.sha256, "a".repeat(64));
@@ -166,6 +166,19 @@ test("partial releases preserve each platform's original version, URL, and check
   });
   assert.equal(release.windowsExe?.tag, "v0.3.5");
   assert.equal(release.apk, undefined);
+  assert.equal(release.dmgIntel, undefined);
+});
+
+test("macOS downloads keep Apple Silicon and Intel disk images distinct", () => {
+  const arm = { name: "VniDrop-0.3.5.dmg", sha256: "c".repeat(64), bytes: 10 };
+  const intel = { name: "VniDrop-0.3.5-x86_64.dmg", sha256: "d".repeat(64), bytes: 11 };
+  const release = releaseFromManifest({
+    productVersion: "0.3.5", releaseChannel: "beta", tag: "v0.3.5", files: [intel, arm],
+  });
+  assert.equal(release.dmg?.name, arm.name);
+  assert.equal(release.dmg?.url, assetDownloadUrl("v0.3.5", arm.name));
+  assert.equal(release.dmgIntel?.name, intel.name);
+  assert.equal(release.dmgIntel?.url, assetDownloadUrl("v0.3.5", intel.name));
 });
 
 test("download index rejects wrong tags, future versions, and path traversal", () => {
@@ -186,7 +199,7 @@ test("a Windows-only preview retains older Apple, Android, and Linux downloads",
   current.assets = current.assets.filter((file) => /\.exe$|\.json$|SHA256SUMS/.test(file.name));
   const selected = selectLatestPreview([old, current]);
   assert.equal(selected?.windowsExe?.tag, current.tag_name);
-  for (const asset of [selected?.dmg, selected?.apk, selected?.deb, selected?.rpm]) {
+  for (const asset of [selected?.dmg, selected?.dmgIntel, selected?.apk, selected?.deb, selected?.rpm]) {
     assert.ok(asset);
     assert.equal(asset.tag, old.tag_name);
     assert.equal(asset.checksumsUrl, assetDownloadUrl(old.tag_name, "SHA256SUMS"));

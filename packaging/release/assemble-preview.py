@@ -42,25 +42,31 @@ def assemble(input_dir, output_dir, version, number, commit, platforms="windows,
     deb = input_dir / f"{prefix}-linux-deb-x64" / f"vnidrop_{version}-1_amd64.deb"
     rpm = input_dir / f"{prefix}-linux-rpm-x64" / f"vnidrop-{version}-1.x86_64.rpm"
     dmg = input_dir / f"{prefix}-macos-dmg" / f"VniDrop-{version}.dmg"
+    intel = input_dir / f"{prefix}-macos-dmg" / f"VniDrop-{version}-x86_64.dmg"
     exe = input_dir / f"{prefix}-windows-x64" / f"VniDrop_{version}_x64.exe"
     apk = input_dir / f"{prefix}-android-release" / f"VniDrop-{label}.apk"
     packages = [
         (deb, deb.with_name(deb.name + ".sha256"), f"vnidrop_{label}_amd64.deb"),
         (rpm, rpm.with_name(rpm.name + ".sha256"), f"vnidrop-{label}.x86_64.rpm"),
         (dmg, dmg.with_name("preview-dmg.sha256"), f"VniDrop-{label}-arm64.dmg"),
+        (intel, intel.with_name("preview-dmg.sha256"), f"VniDrop-{label}-x86_64.dmg"),
         (exe, exe.with_name("SHA256SUMS"), f"VniDrop-{label}-x64.exe"),
         (apk, apk.with_name("SHA256SUMS"), apk.name),
     ]
-    packages = [package for platform, package in zip(("linux", "linux", "macos", "windows", "android"), packages) if platform in selected]
+    packages = [package for platform, package in zip(
+        ("linux", "linux", "macos", "macos", "windows", "android"), packages) if platform in selected]
     for payload, checksum, _ in packages:
         verify_checksum(payload, checksum)
 
     apple = {}
     if "macos" in selected:
         apple = json.loads(dmg.with_suffix(".build-info.json").read_text())
+        apple_intel = json.loads(intel.with_suffix(".build-info.json").read_text())
         if (apple.get("productVersion"), apple.get("distribution"), apple.get("artifact")) != (
             version, "direct", dmg.name
-        ):
+        ) or (apple_intel.get("productVersion"), apple_intel.get("distribution"), apple_intel.get("artifact")) != (
+            version, "direct", intel.name
+        ) or apple.get("directBuildNumber") != apple_intel.get("directBuildNumber"):
             raise ValueError("Unexpected macOS package identity")
     android = {}
     if "android" in selected:

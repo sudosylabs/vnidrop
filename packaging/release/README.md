@@ -65,7 +65,8 @@ Each new source release uses a new product version. For a Windows/Linux-only
 and Linux packages. Its manifest's `downloads` index retains the original `0.3.4`
 macOS and Android URLs and checksums. The website shows the version and checksum
 link beside each download. Older binaries are not copied or relabelled.
-The previous `appcast.xml` is copied byte-for-byte after checksum verification
+The previous `appcast.xml` and, when the earlier Mac download includes Intel,
+`appcast-x86_64.xml` are copied byte-for-byte after checksum verification
 when macOS is skipped, preserving the feed used by installed Macs. A normal
 release must advance the last published product version. Preview manifests
 cannot become the normal download index.
@@ -81,7 +82,7 @@ including debug unit tests and debug APK verification, alongside the Gradle
 diagnostics tests. `make check-release` exercises packaging and publication
 scripts without repeating those Gradle builds.
 
-Public GitHub Release assets are the DEB, RPM, notarized DMG, Sparkle appcast,
+Public GitHub Release assets are the DEB, RPM, notarized Apple Silicon and Intel DMGs, Sparkle appcasts,
 Play-signed universal APK, unsigned Windows direct installer,
 `VnidropCore-<version>.zip`, checksum file, and release manifest.
 

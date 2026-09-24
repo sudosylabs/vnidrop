@@ -12,6 +12,12 @@ for tool in apple/scripts/build-core.sh apple/scripts/generate-appconfig.sh pack
 	printf '#!/usr/bin/env bash\nexit 0\n' > "$scratch/$tool"
 	chmod +x "$scratch/$tool"
 done
+cat > "$scratch/apple/scripts/build-core.sh" <<'SCRIPT'
+#!/usr/bin/env bash
+printf '%s\n' "${VNIDROP_APPLE_INTEL:-}" > "${FAKE_INTEL:?}"
+exit 0
+SCRIPT
+chmod +x "$scratch/apple/scripts/build-core.sh"
 cat > "$scratch/packaging/version/resolve-version.sh" <<'SCRIPT'
 #!/usr/bin/env bash
 case "$1" in
@@ -41,6 +47,7 @@ if PATH="$scratch/bin:$PATH" \
 	DEVELOPER_ID_APP='Developer ID Application: Example (ABCDEFGHIJ)' \
 	DEVELOPMENT_TEAM=ABCDEFGHIJ \
 	FAKE_XCODE_CALLS="$scratch/calls" \
+	FAKE_INTEL="$scratch/intel" \
 	bash "$scratch/apple/scripts/build-dmg.sh" > "$scratch/output" 2>&1; then
 	echo 'A failed archive must stop DMG packaging' >&2
 	exit 1
@@ -50,4 +57,11 @@ if grep -F -- '-exportArchive' "$scratch/calls" >/dev/null; then
 	echo 'A partially created archive must never be exported after xcodebuild fails' >&2
 	exit 1
 fi
+grep -F 'ARCHS=arm64' "$scratch/calls" >/dev/null
+grep -F 'SU_FEED_URL=https://github.com/sudosylabs/vnidrop/releases/latest/download/appcast.xml' "$scratch/calls" >/dev/null
+if grep -F 'ARCHS=x86_64' "$scratch/calls" >/dev/null; then
+	echo 'Intel archive must not start after the Apple Silicon archive fails' >&2
+	exit 1
+fi
+[[ "$(cat "$scratch/intel")" == 1 ]]
 printf 'DMG archive failure tests passed.\n'

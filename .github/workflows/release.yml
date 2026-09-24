@@ -482,8 +482,12 @@ jobs:
           set -euo pipefail
           if [ -n "$PREVIOUS_TAG" ]; then
             gh release download "$PREVIOUS_TAG" --repo "$GITHUB_REPOSITORY" --pattern release-manifest.json --dir "$RUNNER_TEMP/previous"
-            if [ "$BUILD_MACOS" != true ] && jq -e '.files[] | select(.name == "appcast.xml")' "$RUNNER_TEMP/previous/release-manifest.json" >/dev/null; then
-              gh release download "$PREVIOUS_TAG" --repo "$GITHUB_REPOSITORY" --pattern appcast.xml --dir "$RUNNER_TEMP/previous"
+            if [ "$BUILD_MACOS" != true ]; then
+              for feed in appcast.xml appcast-x86_64.xml; do
+                if jq -e --arg name "$feed" '.files[] | select(.name == $name)' "$RUNNER_TEMP/previous/release-manifest.json" >/dev/null; then
+                  gh release download "$PREVIOUS_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$feed" --dir "$RUNNER_TEMP/previous"
+                fi
+              done
             fi
           fi
 
@@ -567,10 +571,17 @@ jobs:
           VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           set -euo pipefail
-          sha="$(sha256sum "dist/VniDrop-${VERSION}.dmg" | cut -d' ' -f1)"
+          arm_sha="$(sha256sum "dist/VniDrop-${VERSION}.dmg" | cut -d' ' -f1)"
+          intel_sha="$(sha256sum "dist/VniDrop-${VERSION}-x86_64.dmg" | cut -d' ' -f1)"
           sed -e "s/^  version \".*\"/  version \"${VERSION}\"/" \
-              -e "s/^  sha256 \".*\"/  sha256 \"${sha}\"/" \
+              -e "s/0000000000000000000000000000000000000000000000000000000000000000/${arm_sha}/" \
+              -e "s/1111111111111111111111111111111111111111111111111111111111111111/${intel_sha}/" \
               packaging/homebrew/vnidrop.rb > /tmp/vnidrop.rb
+          if grep -q '0000000000000000000000000000000000000000000000000000000000000000' /tmp/vnidrop.rb \
+              || grep -q '1111111111111111111111111111111111111111111111111111111111111111' /tmp/vnidrop.rb; then
+            echo "Homebrew cask still has a placeholder checksum" >&2
+            exit 1
+          fi
 
       - name: Push cask to tap
         env:

@@ -57,6 +57,7 @@ export type LatestRelease = {
   tagUrl: string;
   checksumsUrl: string;
   dmg?: ReleaseAsset;
+  dmgIntel?: ReleaseAsset;
   deb?: ReleaseAsset;
   rpm?: ReleaseAsset;
   apk?: ReleaseAsset;
@@ -142,7 +143,8 @@ export function releaseFromManifest(manifest: Manifest): LatestRelease {
     tag,
     tagUrl: `https://github.com/${GITHUB_REPO}/releases/tag/${encodeURIComponent(tag)}`,
     checksumsUrl: assetDownloadUrl(tag, "SHA256SUMS"),
-    dmg: download("macos", /^VniDrop-.+\.dmg$/),
+    dmg: download("macos", /^VniDrop-(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\.dmg$/),
+    dmgIntel: download("macos", /^VniDrop-(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-x86_64\.dmg$/),
     deb: download("linux", /\.deb$/),
     rpm: download("linux", /\.rpm$/),
     apk: download("android", /play-universal\.apk$/),
@@ -186,6 +188,7 @@ export function selectLatestPreview(data: unknown): PreviewRelease | null {
       };
     };
     const dmg = asset(`VniDrop-${label}-arm64.dmg`);
+    const dmgIntel = asset(`VniDrop-${label}-x86_64.dmg`);
     const deb = asset(`vnidrop_${label}_amd64.deb`);
     const rpm = asset(`vnidrop-${label}.x86_64.rpm`);
     const apk = asset(`VniDrop-${label}.apk`);
@@ -202,7 +205,7 @@ export function selectLatestPreview(data: unknown): PreviewRelease | null {
       publishedAt: release.published_at,
       checksumsUrl: checksums.url,
       manifestUrl: manifest.url,
-      dmg, deb, rpm, apk, windowsExe,
+      dmg, dmgIntel, deb, rpm, apk, windowsExe,
     });
   }
   const ordered = previews.sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt) || b.number - a.number);
@@ -210,6 +213,7 @@ export function selectLatestPreview(data: unknown): PreviewRelease | null {
   const latest = { ...ordered[0] };
   for (const release of ordered.slice(1)) {
     latest.dmg ??= release.dmg;
+    latest.dmgIntel ??= release.dmgIntel;
     latest.windowsExe ??= release.windowsExe;
     latest.deb ??= release.deb;
     latest.rpm ??= release.rpm;

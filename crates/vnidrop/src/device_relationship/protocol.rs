@@ -11,7 +11,7 @@ use iroh::{
     Endpoint, EndpointAddr,
 };
 use irpc::{channel::oneshot, rpc_requests, Client, WithChannels};
-use irpc_iroh::{read_request, IrohLazyRemoteConnection};
+use irpc::{iroh::IrohLazyRemoteConnection, rpc::read_request};
 use serde::{Deserialize, Serialize};
 
 use super::DeviceRelationshipService;

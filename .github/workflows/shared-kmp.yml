@@ -89,7 +89,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: platform-tools platforms;android-36
+          packages: platform-tools platforms;android-37.0
 
       - name: Set up Android NDK
         uses: nttld/setup-ndk@v1

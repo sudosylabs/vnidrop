@@ -27,7 +27,7 @@ actual fun rememberReceiveInvitationActions(): ReceiveInvitationActions {
 		val callback = fileResult.also { fileResult = null } ?: return@rememberLauncherForActivityResult
 		if (uri == null) return@rememberLauncherForActivityResult
 		callback(runCatching {
-			val bytes = context.contentResolver.openInputStream(uri)?.use { it.readNBytes(MaxInvitationBytes + 1) }
+			val bytes = context.contentResolver.openInputStream(uri)?.use { it.readInvitationBytes() }
 				?: error("The invitation could not be opened")
 			decodeInvitationBytes(bytes)
 		})

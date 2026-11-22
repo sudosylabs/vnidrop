@@ -10,9 +10,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import com.vnidrop.app.core.initializeAndroidCoreRuntime
 import com.vnidrop.app.feature.receive.ExternalInvitationController
-import com.vnidrop.app.feature.receive.MaxVniDropInvitationBytes
 import com.vnidrop.app.feature.receive.decodeInvitationBytes
 import com.vnidrop.app.feature.receive.isVniDropInvitationDocument
+import com.vnidrop.app.feature.receive.readInvitationBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -60,7 +60,7 @@ class MainActivity : ComponentActivity() {
 			}
 		}.getOrNull()
 		require(isVniDropInvitationDocument(resolvedType, uri.path, displayName)) { "This is not a VniDrop invitation" }
-		val bytes = contentResolver.openInputStream(uri)?.use { it.readNBytes(MaxVniDropInvitationBytes + 1) }
+		val bytes = contentResolver.openInputStream(uri)?.use { it.readInvitationBytes() }
 			?: error("The invitation could not be opened")
 		decodeInvitationBytes(bytes)
 	}

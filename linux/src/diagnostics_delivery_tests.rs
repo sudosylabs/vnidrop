@@ -27,6 +27,8 @@ fn service(statuses: Vec<u16>) -> (Configuration, thread::JoinHandle<Vec<Value>>
                     Err(e) => panic!("fixture accept: {e}"),
                 }
             };
+            // macOS accepted sockets inherit the listener's non-blocking mode.
+            stream.set_nonblocking(false).unwrap();
             stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
                 .unwrap();

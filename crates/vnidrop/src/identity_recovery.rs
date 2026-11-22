@@ -75,7 +75,7 @@ impl IdentityRecoveryStore {
             "targeted_completion_outbox",
             "targeted_payload_release_outbox",
         ] {
-            sqlx::query(&format!("DELETE FROM {table}"))
+            sqlx::query(sqlx::AssertSqlSafe(format!("DELETE FROM {table}")))
                 .execute(&mut *transaction)
                 .await
                 .map_err(VnidropError::repository)?;
@@ -113,7 +113,7 @@ impl IdentityRecoveryStore {
             "relationship_generation_tombstones",
             "protected_secret_refs",
         ] {
-            sqlx::query(&format!("DELETE FROM {table}"))
+            sqlx::query(sqlx::AssertSqlSafe(format!("DELETE FROM {table}")))
                 .execute(&mut *transaction)
                 .await
                 .map_err(VnidropError::repository)?;

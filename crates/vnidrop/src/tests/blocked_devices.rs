@@ -52,9 +52,10 @@ async fn opening_app_data_drops_unreleased_prototype_tables() {
         sqlx::SqlitePool::connect_with(options).await.unwrap()
     };
     for table in ["contacts", "grants_issued", "grants_held", "held_offers"] {
-        let row = sqlx::query(&format!(
-            "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = '{table}'"
-        ))
+        let row = sqlx::query(
+            "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ?1",
+        )
+        .bind(table)
         .fetch_one(&pool)
         .await
         .unwrap();

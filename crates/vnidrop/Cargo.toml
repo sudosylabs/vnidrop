@@ -28,7 +28,7 @@ n0-future = "0.3.1"
 num_cpus = "1.17.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
+sqlx = { version = "0.9.1", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
 thiserror = "2.0.21"
 tracing = "0.1.44"
 tracing-appender = "0.2.5"

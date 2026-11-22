@@ -46,7 +46,7 @@ pub(crate) async fn open_all(app_data_dir: &Path) -> Result<AppDataStores> {
 
     // Unreleased device-history prototype tables — no migration path.
     for table in ["held_offers", "grants_held", "grants_issued", "contacts"] {
-        sqlx::query(&format!("DROP TABLE IF EXISTS {table}"))
+        sqlx::query(sqlx::AssertSqlSafe(format!("DROP TABLE IF EXISTS {table}")))
             .execute(&pool)
             .await?;
     }

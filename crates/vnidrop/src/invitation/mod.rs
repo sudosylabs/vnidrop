@@ -344,9 +344,11 @@ impl Repository {
                 .await?;
         }
 
-        sqlx::query(&format!("PRAGMA user_version = {SCHEMA_VERSION}"))
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "PRAGMA user_version = {SCHEMA_VERSION}"
+        )))
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 

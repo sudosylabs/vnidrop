@@ -42,9 +42,10 @@ async fn open_all_returns_all_domain_stores_and_schemas() {
         "targeted_payload_release_outbox",
         "transfers",
     ] {
-        let row = sqlx::query(&format!(
-            "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = '{table}'"
-        ))
+        let row = sqlx::query(
+            "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ?1",
+        )
+        .bind(table)
         .fetch_one(&pool)
         .await
         .unwrap();

@@ -1,15 +1,4 @@
-# Known transitive advisories we cannot fully clear without upstream iroh bumps.
-# cargo audit in CI fails on new unlisted vulnerabilities.
+# cargo audit in CI fails on new unlisted vulnerabilities. List an advisory here
+# only with the reason it cannot be fixed yet.
 [advisories]
-ignore = [
-    # rsa: Marvin timing side-channel; no fixed release; pulled by iroh stack.
-    "RUSTSEC-2023-0071",
-    # quick-xml / crossbeam-epoch: transitive; track via iroh/dependency updates.
-    "RUSTSEC-2026-0194",
-    "RUSTSEC-2026-0195",
-    "RUSTSEC-2026-0204",
-    # Bundled SQLite in libsqlite3-sys 0.30 (via sqlx 0.8): stale page-cache
-    # reads need a crafted database and -wal pair written by someone else; we
-    # only open our own app-data database. Remove with the sqlx 0.9 upgrade.
-    "RUSTSEC-2026-0459",
-]
+ignore = []

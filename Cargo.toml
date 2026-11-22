@@ -7,6 +7,12 @@ resolver = "2"
 debug = 0
 strip = "debuginfo"
 
+# Stripping a proc-macro dylib on macOS 27 leaves a mis-aligned LINKEDIT string
+# pool, so rustc cannot dlopen it (seen with sqlx-macros). Proc macros and build
+# scripts use build-override, so Android libraries are still stripped.
+[profile.dev.build-override]
+strip = "none"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1

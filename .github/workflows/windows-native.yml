@@ -52,6 +52,17 @@ jobs:
       - name: Build and test native app
         shell: pwsh
         run: ./windows/scripts/build.ps1 -Test -Publish
+      - name: Run interactive WinUI smoke test
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms
+          Write-Host "Interactive=$([Environment]::UserInteractive) Session=$((Get-Process -Id $PID).SessionId) Desktop=$([Windows.Forms.Screen]::PrimaryScreen.Bounds)"
+          if (![Environment]::UserInteractive -or (Get-Process -Id $PID).SessionId -eq 0) {
+            throw 'The runner has no interactive Windows session.'
+          }
+          & powershell.exe -NoProfile -File windows/scripts/smoke-ui.ps1 -Executable build/windows/publish/VniDrop.exe
+          if ($LASTEXITCODE) { throw 'Interactive WinUI smoke test failed.' }
       - name: Verify generated localization
         shell: pwsh
         run: |

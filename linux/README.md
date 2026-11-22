@@ -16,7 +16,7 @@ the original audit, implementation evidence, and remaining release acceptance ga
 
 ## Run on Linux
 
-Use GTK **4.10+**, libadwaita **1.5+**, and Rust stable (verified with 1.91).
+Use GTK **4.10+**, libadwaita **1.5+**, and Rust stable (verified with 1.92).
 Ubuntu 24.04 provides suitable development libraries:
 
 ```sh

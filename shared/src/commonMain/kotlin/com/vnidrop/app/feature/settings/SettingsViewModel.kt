@@ -223,7 +223,6 @@ class SettingsViewModel(
 		viewModelScope.launch {
 			_state.update { it.copy(isCalculatingStorage = true, storageLoadFailed = false) }
 			try {
-				val receiveFolder = _state.value.receiveFolder ?: fileSystemService.defaultReceiveFolder()
 				val coreUsage = repository.storageUsage().getOrThrow()
 				val artifacts = repository.receivedArtifacts().getOrThrow()
 				val received = fileSystemService.inspectReceivedArtifacts(artifacts)
@@ -232,7 +231,7 @@ class SettingsViewModel(
 						storage = StorageBreakdown(
 							transferCacheBytes = coreUsage.blobStoreBytes,
 							appDataBytes = coreUsage.appDataBytes,
-							temporaryBytes = fileSystemService.temporaryUsage(receiveFolder),
+							temporaryBytes = fileSystemService.temporaryUsage(environment.defaultCoreDataDir),
 							receivedBytes = received.existingBytes,
 							receivedFileCount = received.existingCount,
 							missingReceivedFileCount = received.missingCount,

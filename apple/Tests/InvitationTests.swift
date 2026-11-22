@@ -6,6 +6,36 @@ import XCTest
 @MainActor
 final class InvitationTests: XCTestCase {
 
+	func testInvitationsSurviveObserverReplacementAndDrainInOrder() async throws {
+		let controller = ExternalInvitationController()
+		controller.openInvitation(raw: "cold-start-ticket")
+		let (first, _) = controller.observePendingInvitations()
+		controller.stopObserving(first)
+		controller.openInvitation(raw: "second-ticket")
+
+		let (second, changes) = controller.observePendingInvitations()
+		defer { controller.stopObserving(second) }
+		var changesIterator = changes.makeAsyncIterator()
+		_ = await changesIterator.next()
+		let firstInvitation = try XCTUnwrap(controller.nextInvitation)
+		XCTAssertEqual(try controller.takeInvitation(firstInvitation.id)?.result.get(), "cold-start-ticket")
+		let secondInvitation = try XCTUnwrap(controller.nextInvitation)
+		XCTAssertEqual(try controller.takeInvitation(secondInvitation.id)?.result.get(), "second-ticket")
+		XCTAssertNil(controller.nextInvitation)
+	}
+
+	func testInvitationReaderEnforcesByteLimit() throws {
+		let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		defer { try? FileManager.default.removeItem(at: file) }
+		let contents = Data(repeating: 65, count: maxVniDropInvitationBytes)
+		try contents.write(to: file)
+		XCTAssertEqual(try readInvitationFile(file), String(decoding: contents, as: UTF8.self))
+		try (contents + Data([65])).write(to: file)
+		XCTAssertThrowsError(try readInvitationFile(file)) { error in
+			guard case .tooLarge? = error as? InvitationError else { return XCTFail("expected size limit") }
+		}
+	}
+
 	func testValidateInvitationAcceptsValid() {
 		guard case .success(let raw) = validateInvitation("some-ticket") else { return XCTFail("expected success") }
 		XCTAssertEqual(raw, "some-ticket")

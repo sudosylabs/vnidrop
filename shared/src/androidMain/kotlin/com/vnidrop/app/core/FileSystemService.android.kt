@@ -17,6 +17,7 @@ import androidx.core.net.toUri
 import uniffi.vnidrop.PublishedOutput
 import uniffi.vnidrop.ReceiveOutputSinkV2
 import uniffi.vnidrop.ReceivedLocatorKind
+import uniffi.vnidrop.TargetedOutputVerifier
 import uniffi.vnidrop.VnidropException
 import java.io.File
 import java.io.IOException
@@ -103,7 +104,7 @@ private class AndroidFileSystemService(
 		return ReceivedStorageInspection(bytes, existing, missing, inaccessible)
 	}
 
-	override suspend fun temporaryUsage(receiveFolder: ReceiveFolder): ULong = directorySize(context.cacheDir)
+	override suspend fun temporaryUsage(appDataDir: String): ULong = directorySize(context.cacheDir)
 
 	override suspend fun reclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong {
 		var reclaimed = 0UL
@@ -220,7 +221,7 @@ private fun Throwable.toReceiveSinkException(): VnidropException {
  */
 private class AndroidMediaStoreDownloadsSink(
 	private val context: Context,
-) : ReceiveOutputSinkV2 {
+) : ReceiveOutputSinkV2, TargetedOutputVerifier {
 	private data class PendingDocument(
 		val stream: OutputStream,
 		val uri: Uri,
@@ -307,6 +308,32 @@ private class AndroidMediaStoreDownloadsSink(
 		}
 	}
 
+	override fun destinationKey(): String = downloadsCollection().toString()
+
+	override fun pendingOutputLocator(relativePath: String): String = receiveSinkCall {
+		checkNotNull(pending[relativePath]).uri.toString()
+	}
+
+	override fun openPublishedOutput(relativePath: String, locator: String, published: Boolean): Int? = receiveSinkCall {
+		val collection = downloadsCollection()
+		val parts = requireSafeRelativePathParts(relativePath)
+		val expectedDirectory = mediaStoreRelativePath(parts.dropLast(1)).trimEnd('/')
+		val uri = Uri.parse(locator)
+		if (uri.authority != collection.authority || uri.pathSegments.dropLast(1) != collection.pathSegments) {
+			return@receiveSinkCall null
+		}
+		val projection = arrayOf(
+			MediaStore.MediaColumns.DISPLAY_NAME,
+			MediaStore.MediaColumns.RELATIVE_PATH,
+			MediaStore.MediaColumns.IS_PENDING,
+		)
+		val matches = resolver.query(uri, projection, null, null, null)?.use { cursor ->
+			cursor.moveToFirst() && cursor.getString(0) == parts.last() &&
+				cursor.getString(1)?.trimEnd('/') == expectedDirectory && cursor.getInt(2) == 0
+		} == true
+		if (matches) resolver.openFileDescriptor(uri, "r")?.use { it.detachFd() } else null
+	}
+
 	private fun mediaStoreItemExists(displayName: String, relativePath: String): Boolean {
 		val projection = arrayOf(MediaStore.MediaColumns._ID)
 		val selection =
@@ -349,7 +376,7 @@ private class AndroidMediaStoreDownloadsSink(
 private class AndroidTreeReceiveOutputSink(
 	private val context: Context,
 	private val treeUri: Uri,
-) : ReceiveOutputSinkV2 {
+) : ReceiveOutputSinkV2, TargetedOutputVerifier {
 	private data class PendingDocument(
 		val stream: OutputStream,
 		val temporaryUri: Uri,
@@ -364,19 +391,25 @@ private class AndroidTreeReceiveOutputSink(
 			check(relativePath !in pending) { "Output stream is already open for $relativePath" }
 			// Defense in depth: Rust also validates, but sinks must reject traversal alone.
 			requireSafeRelativePathParts(relativePath)
-			val (parent, finalName) = resolveParent(relativePath)
+			val (parent, finalName) = checkNotNull(resolveParent(relativePath))
 			if (findChild(parent, finalName) != null) {
 				throw VnidropException.DestinationExists("Destination already exists: $relativePath")
 			}
-			val temporaryName = ".$finalName.vnidrop-${UUID.randomUUID()}.part"
+			val temporaryName = ".vnidrop-${UUID.randomUUID()}.part"
 			val temporaryUri = DocumentsContract.createDocument(
 				context.contentResolver,
 				parent,
 				"application/octet-stream",
 				temporaryName,
 			) ?: error("Could not create temporary file for $relativePath")
-			val stream = context.contentResolver.openOutputStream(temporaryUri, "w")
-				?: error("Could not open output stream for $relativePath")
+			val stream = try {
+				context.contentResolver.openOutputStream(temporaryUri, "w")
+					?: error("Could not open output stream for $relativePath")
+			} catch (error: Exception) {
+				runCatching { DocumentsContract.deleteDocument(context.contentResolver, temporaryUri) }
+					.exceptionOrNull()?.let { cleanupError -> error.addSuppressed(cleanupError) }
+				throw error
+			}
 			pending[relativePath] = PendingDocument(stream, temporaryUri, parent, finalName)
 		}
 	}
@@ -418,21 +451,55 @@ private class AndroidTreeReceiveOutputSink(
 		}
 	}
 
-	private fun resolveParent(relativePath: String): Pair<Uri, String> {
+
+	override fun destinationKey(): String = treeUri.toString()
+
+	override fun pendingOutputLocator(relativePath: String): String = receiveSinkCall {
+		checkNotNull(pending[relativePath]).temporaryUri.toString()
+	}
+
+	override fun openPublishedOutput(relativePath: String, locator: String, published: Boolean): Int? = receiveSinkCall {
+		val (parent, name) = resolveParent(relativePath, createMissing = false) ?: return@receiveSinkCall null
+		val uri = findChild(parent, name) ?: return@receiveSinkCall null
+		val recorded = Uri.parse(locator)
+		if (uri.authority != recorded.authority || !DocumentsContract.isDocumentUri(context, recorded)) {
+			return@receiveSinkCall null
+		}
+		val recordedId = DocumentsContract.getDocumentId(recorded)
+		if (DocumentsContract.getDocumentId(uri) != recordedId) {
+			// Some providers issue a new ID on rename. An owned stage still present
+			// under its old ID has not been published.
+			if (published || findChildMatching(parent) { id, _ -> id == recordedId } != null) {
+				return@receiveSinkCall null
+			}
+		}
+		context.contentResolver.openFileDescriptor(uri, "r")?.use { it.detachFd() }
+	}
+
+	private fun resolveParent(relativePath: String, createMissing: Boolean = true): Pair<Uri, String>? {
 		val parts = requireSafeRelativePathParts(relativePath)
 		var parent = DocumentsContract.buildDocumentUriUsingTree(
 			treeUri,
 			DocumentsContract.getTreeDocumentId(treeUri),
 		)
-		parts.dropLast(1).forEach { name ->
-			parent = findChild(parent, name)
-				?: DocumentsContract.createDocument(context.contentResolver, parent, DocumentsContract.Document.MIME_TYPE_DIR, name)
-					?: error("Could not create directory $name")
+		for (name in parts.dropLast(1)) {
+			val existing = findChild(parent, name)
+			if (existing != null) {
+				parent = existing
+			} else {
+				if (!createMissing) return null
+				parent = DocumentsContract.createDocument(
+					context.contentResolver, parent, DocumentsContract.Document.MIME_TYPE_DIR, name,
+				) ?: error("Could not create directory $name")
+			}
 		}
 		return parent to parts.last()
 	}
 
-	private fun findChild(parent: Uri, name: String): Uri? {
+	private fun findChild(parent: Uri, name: String): Uri? =
+		findChildMatching(parent) { _, displayName -> displayName == name }
+
+	private fun findChildMatching(parent: Uri, matches: (String, String) -> Boolean): Uri? {
 		val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
 			treeUri,
 			DocumentsContract.getDocumentId(parent),
@@ -447,8 +514,10 @@ private class AndroidTreeReceiveOutputSink(
 			val idIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
 			val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
 			while (cursor.moveToNext()) {
-				if (cursor.getString(nameIndex) == name) {
-					return DocumentsContract.buildDocumentUriUsingTree(treeUri, cursor.getString(idIndex))
+				val id = cursor.getString(idIndex) ?: continue
+				val displayName = cursor.getString(nameIndex) ?: continue
+				if (matches(id, displayName)) {
+					return DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
 				}
 			}
 		}

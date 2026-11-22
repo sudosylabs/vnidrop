@@ -5,9 +5,8 @@ use std::{io::Read, os::fd::AsRawFd};
 use crate::{
     api::{CoreLimits, ShareSource, SourceKind},
     filesystem::{
-        cleanup_stale_temporary_files, collect_import_files, collect_import_files_with_limits,
-        default_collection_name, path_to_string, percent_decode_file_url_path,
-        validated_relative_string, AtomicOutputFile,
+        collect_import_files, collect_import_files_with_limits, default_collection_name,
+        path_to_string, percent_decode_file_url_path, validated_relative_string, AtomicOutputFile,
     },
 };
 
@@ -199,8 +198,8 @@ fn atomic_output_rejects_symlinked_parent() {
     let outside = tempfile::tempdir().unwrap();
     symlink(outside.path(), output.path().join("link")).unwrap();
 
-    assert!(AtomicOutputFile::create(output.path(), "link/escape.txt").is_err());
-    assert!(!outside.path().join("escape.txt").exists());
+    assert!(AtomicOutputFile::create(output.path(), "link/nested/escape.txt").is_err());
+    assert!(!outside.path().join("nested").exists());
 }
 
 #[cfg(unix)]
@@ -218,17 +217,98 @@ fn atomic_output_never_replaces_symlink_destination() {
 }
 
 #[test]
-fn cleanup_removes_only_vnidrop_temporary_files() {
+fn output_preserves_long_names_and_unowned_partial_files() {
     let output = tempfile::tempdir().unwrap();
-    std::fs::write(output.path().join(".file.vnidrop-old.part"), b"partial").unwrap();
-    std::fs::write(output.path().join("keep.part"), b"keep").unwrap();
+    let unrelated = output.path().join(".file.vnidrop-old.part");
+    std::fs::write(&unrelated, b"user data").unwrap();
+    let name = "a".repeat(224);
+    let (output_file, mut stream) = AtomicOutputFile::create(output.path(), &name).unwrap();
+    std::io::Write::write_all(&mut stream, b"payload").unwrap();
+    drop(stream);
+    output_file.commit().unwrap();
+    assert_eq!(std::fs::read(&unrelated).unwrap(), b"user data");
+    assert_eq!(std::fs::read(output.path().join(name)).unwrap(), b"payload");
+}
 
-    assert_eq!(
-        cleanup_stale_temporary_files(output.path(), std::time::Duration::ZERO).unwrap(),
-        1
-    );
-    assert!(!output.path().join(".file.vnidrop-old.part").exists());
-    assert!(output.path().join("keep.part").exists());
+#[test]
+fn receive_staging_reclaims_only_unlocked_owned_payloads() {
+    use crate::output_staging::{inspect_or_reclaim, OutputStaging};
+
+    let profile = tempfile::tempdir().unwrap();
+    let output = tempfile::tempdir().unwrap();
+    let output_dir = output.path().canonicalize().unwrap();
+    let (staging, mut file) = OutputStaging::create(&output_dir, Some(profile.path())).unwrap();
+    std::io::Write::write_all(&mut file, b"owned").unwrap();
+    let owned_directory = staging.path.parent().unwrap().to_path_buf();
+    let unrelated = output_dir.join(".file.vnidrop-ignored.part");
+    std::fs::write(&unrelated, b"user data").unwrap();
+    assert_eq!(inspect_or_reclaim(profile.path(), true).unwrap(), 0);
+    drop(file);
+    drop(staging);
+
+    let id = uuid::Uuid::new_v4();
+    let nonce = uuid::Uuid::new_v4().to_string();
+    let stale = output_dir.join(format!(".vnidrop-{id}"));
+    std::fs::create_dir(&stale).unwrap();
+    std::fs::write(stale.join("owner"), &nonce).unwrap();
+    std::fs::write(stale.join("payload"), b"owned").unwrap();
+    let record = profile.path().join("receive-staging").join(id.to_string());
+    std::fs::write(&record, serde_json::to_vec(&(&stale, &nonce)).unwrap()).unwrap();
+
+    assert_eq!(inspect_or_reclaim(profile.path(), false).unwrap(), 5);
+    assert_eq!(inspect_or_reclaim(profile.path(), true).unwrap(), 5);
+    assert_eq!(inspect_or_reclaim(profile.path(), true).unwrap(), 0);
+    assert_eq!(std::fs::read(&unrelated).unwrap(), b"user data");
+    assert!(!owned_directory.exists());
+    assert!(!stale.exists());
+    assert!(!record.exists());
+}
+
+#[test]
+fn exclusive_rename_preserves_a_concurrently_created_destination() {
+    let root = tempfile::tempdir().unwrap();
+    let from = root.path().join("from");
+    let to = root.path().join("to");
+    std::fs::write(&from, b"replacement").unwrap();
+    std::fs::write(&to, b"existing").unwrap();
+    assert!(crate::filesystem::rename_no_replace(&from, &to).is_err());
+    assert_eq!(std::fs::read(&from).unwrap(), b"replacement");
+    assert_eq!(std::fs::read(&to).unwrap(), b"existing");
+}
+
+#[cfg(unix)]
+#[test]
+fn published_output_verification_accepts_bounded_stream_descriptors() {
+    use std::{io::Write, net::Shutdown, os::fd::IntoRawFd, os::unix::net::UnixStream};
+
+    for data in [
+        b"payload".as_slice(),
+        b"payload-with-extra-bytes".as_slice(),
+    ] {
+        let (mut sender, receiver) = UnixStream::pair().unwrap();
+        sender.write_all(data).unwrap();
+        sender.shutdown(Shutdown::Write).unwrap();
+        assert_eq!(
+            crate::filesystem::verify_owned_descriptor(
+                receiver.into_raw_fd(),
+                iroh_blobs::Hash::new(b"payload"),
+                7,
+                std::time::Duration::from_secs(1),
+            )
+            .unwrap(),
+            data == b"payload",
+        );
+    }
+    let (mut sender, receiver) = UnixStream::pair().unwrap();
+    sender.write_all(b"payload").unwrap();
+    let error = crate::filesystem::verify_owned_descriptor(
+        receiver.into_raw_fd(),
+        iroh_blobs::Hash::new(b"payload"),
+        7,
+        std::time::Duration::from_millis(20),
+    )
+    .unwrap_err();
+    assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
 }
 
 #[test]

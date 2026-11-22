@@ -57,6 +57,10 @@ final class ReceiveModel: ObservableObject {
 	private let messages: UiMessageController
 	private var cancellables = Set<AnyCancellable>()
 
+	private var inspectionID: UUID?
+	private var receiveRegistered = false
+	private var cancelPending = false
+
 	init(
 		repository: CoreGateway,
 		fileSystemService: FileSystemService,
@@ -85,14 +89,29 @@ final class ReceiveModel: ObservableObject {
 		repository.signals
 			.sink { [weak self] signal in
 				guard let self else { return }
-				if case .transfersChanged(let id) = signal {
-					Task { _ = await self.repository.refresh() }
-					if self.state.isReceiving && id != 0 {
-						self.state.activeReceiveTransferId = id
+				if case .transfersChanged(let id, let receiveStarted) = signal {
+					if receiveStarted && id == self.state.activeReceiveTransferId {
+						self.receiveRegistered = true
+						if self.cancelPending { self.cancelActiveReceive() }
 					}
+					Task { _ = await self.repository.refresh() }
 				}
 			}
 			.store(in: &cancellables)
+	}
+
+	func waitUntilReadyForExternalInvitation() async -> Bool {
+		let (readiness, continuation) = AsyncStream<Bool>.makeStream(bufferingPolicy: .bufferingNewest(1))
+		let subscription = repository.statePublisher.combineLatest($state).sink { core, receive in
+			continuation.yield(core.isInitialized && !receive.isAcquisitionOpen && !receive.isInspecting && !receive.isReceiving
+				&& receive.ticket.isEmpty)
+		}
+		defer {
+			subscription.cancel()
+			continuation.finish()
+		}
+		for await ready in readiness where ready { return !Task.isCancelled }
+		return false
 	}
 
 	func openAcquisition() { state.isAcquisitionOpen = true }
@@ -191,9 +210,12 @@ final class ReceiveModel: ObservableObject {
 		let current = state
 		guard let folder = current.receiveFolder else { return }
 		if !current.canReceive(coreInitialized: coreState.isInitialized) { return }
+		guard let transferId = current.inspection?.metadata.transferId else { return }
+		receiveRegistered = false
+		cancelPending = false
 		state.isReceiving = true
 		state.lastReceiveError = nil
-		state.activeReceiveTransferId = nil
+		state.activeReceiveTransferId = transferId
 		Task {
 			let result: Result<Void, Error>
 			if folder.kind == .iosSecurityScopedUrl {
@@ -237,17 +259,19 @@ final class ReceiveModel: ObservableObject {
 	}
 
 	func cancelActiveReceive() {
-		let transferId = state.activeReceiveTransferId
+		let activeId = state.activeReceiveTransferId
+		if activeId != nil && !receiveRegistered {
+			cancelPending = true
+			return
+		}
+		let transferId = activeId
 			?? coreState.transfers.first { $0.direction == .receive && $0.status == .receiving }?.transferId
-			?? coreState.events.first { $0.eventDirection == .receive && $0.transferId != nil }?.transferId
 		guard let transferId else { return }
+		cancelPending = false
 		Task {
 			let result = await repository.cancel(transferId: transferId)
 			switch result {
 			case .success:
-				state.isReceiving = false
-				state.activeReceiveTransferId = nil
-				state.lastReceiveError = nil
 				_ = await repository.refresh()
 			case .failure(let error):
 				messages.error(error)
@@ -265,6 +289,7 @@ final class ReceiveModel: ObservableObject {
 	}
 
 	private func inspectInvitation(_ method: ReceiveMethod, _ raw: String) {
+		guard !state.isReceiving else { return }
 		let ticket = raw.trimmingCharacters(in: .whitespacesAndNewlines)
 		if ticket.isEmpty { return messages.error(.resource(L10n.Error.invitationEmpty)) }
 		state.isAcquisitionOpen = true
@@ -272,8 +297,11 @@ final class ReceiveModel: ObservableObject {
 		state.method = method
 		state.inspection = nil
 		state.isInspecting = true
+		let attempt = UUID()
+		inspectionID = attempt
 		Task {
 			let result = await repository.inspectTicket(ticket)
+			guard inspectionID == attempt else { return }
 			switch result {
 			case .success(let inspection):
 				state.inspection = inspection
@@ -289,6 +317,7 @@ final class ReceiveModel: ObservableObject {
 	}
 
 	private func resetAcquisition() {
+		inspectionID = nil
 		state.isAcquisitionOpen = false
 		state.ticket = ""
 		state.method = nil

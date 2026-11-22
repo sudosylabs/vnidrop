@@ -52,26 +52,6 @@ class FileSystemServiceTest {
 	}
 
 	@Test
-	fun desktopTemporaryUsageCountsOnlyVnidropPartFiles() {
-		val root = createTempDirectory("vnidrop-temporary-usage")
-		try {
-			val nested = root.resolve("nested").createDirectories()
-			Files.write(nested.resolve(".photo.jpg.vnidrop-test.part"), ByteArray(7))
-			Files.write(nested.resolve("photo.jpg"), ByteArray(13))
-			Files.write(nested.resolve(".unrelated.part"), ByteArray(17))
-
-			assertEquals(
-				7UL,
-				desktopTemporaryUsage(
-					ReceiveFolder(ReceiveFolderKind.FileSystemPath, root.toString(), "Test"),
-				),
-			)
-		} finally {
-			root.toFile().deleteRecursively()
-		}
-	}
-
-	@Test
 	fun desktopReclaimTemporaryStorageKeepsUserFiles() {
 		val root = createTempDirectory("vnidrop-storage-cleanup")
 		try {
@@ -85,13 +65,10 @@ class FileSystemServiceTest {
 			Files.write(trash.resolve("stale.bin"), ByteArray(11))
 
 			assertEquals(
-				18UL,
-				desktopReclaimTemporaryStorage(
-					appData.toString(),
-					ReceiveFolder(ReceiveFolderKind.FileSystemPath, receive.toString(), "Test"),
-				),
+				11UL,
+				desktopReclaimTemporaryStorage(appData.toString()),
 			)
-			assertFalse(Files.exists(partial))
+			assertTrue(Files.exists(partial))
 			assertFalse(Files.exists(trash))
 			assertTrue(Files.exists(received))
 		} finally {

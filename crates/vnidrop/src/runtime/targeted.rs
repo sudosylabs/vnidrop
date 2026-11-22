@@ -232,8 +232,9 @@ impl CoreInner {
         self.active_targeted_transfers
             .lock()
             .expect("active_targeted_transfers")
-            .remove(id)
-            .is_some_and(|active| active.cancel.send(()).is_ok())
+            .get_mut(id)
+            .and_then(|active| active.cancel.take())
+            .is_some_and(|cancel| cancel.send(()).is_ok())
     }
 
     pub(super) async fn cancel_targeted_transfer(&self, id: String) -> Result<(), VnidropError> {

@@ -690,6 +690,26 @@ async fn event_reads_respect_configured_history_limit() {
 }
 
 #[tokio::test]
+async fn deleting_history_refuses_an_active_receive() {
+    let temp = tempfile::tempdir().unwrap();
+    let repository = Repository::open(temp.path()).await.unwrap();
+    repository
+        .start_receive(transfer(
+            81,
+            TransferDirection::Receive,
+            TransferStatus::Receiving,
+        ))
+        .await
+        .unwrap();
+
+    assert!(repository.delete_transfer(81).await.is_err());
+    assert_eq!(
+        repository.list_transfers().await.unwrap()[0].status,
+        "receiving"
+    );
+}
+
+#[tokio::test]
 async fn deleting_transfer_removes_related_history_transactionally() {
     let temp = tempfile::tempdir().unwrap();
     let repository = Repository::open(temp.path()).await.unwrap();

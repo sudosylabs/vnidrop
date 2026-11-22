@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 use anyhow::Result;
 use serde_json::json;
 
-use super::{share_tag_name, CoreInner};
+use super::{share_tag_name, CoreInner, ReceiveAttempt};
 use crate::{
     access_policy::mode_to_storage,
     api::{RuntimeObligationFacts, RuntimeStatus, TransferAccessMode},
@@ -12,11 +12,7 @@ use crate::{
 
 impl CoreInner {
     pub(super) async fn status(&self) -> RuntimeStatus {
-        let active_transfers = self
-            .active_transfers
-            .lock()
-            .expect("active_transfers")
-            .len() as u64;
+        let active_transfers = self.active_invitation_work();
         let active_shares = self.active_shares.lock().await.len() as u64;
         RuntimeStatus {
             endpoint_id: self.endpoint.id().to_string(),
@@ -29,11 +25,7 @@ impl CoreInner {
     pub(super) async fn runtime_obligation_facts(
         &self,
     ) -> Result<RuntimeObligationFacts, crate::error::VnidropError> {
-        let active_invitation_transfers = self
-            .active_transfers
-            .lock()
-            .expect("active_transfers")
-            .len() as u64;
+        let active_invitation_transfers = self.active_invitation_work();
         let invitation_provider_availability = self.active_shares.lock().await.len() as u64;
         let active_targeted_transfers = self.targeted_transfers.receiver_obligation_count().await?;
         let targeted_provider_availability =
@@ -47,16 +39,36 @@ impl CoreInner {
         })
     }
 
-    /// Remove an in-flight transfer and fire its cancel oneshot synchronously.
-    pub(super) fn take_active_transfer(&self, transfer_id: u64) -> Option<TransferDirection> {
+    fn active_invitation_work(&self) -> u64 {
+        let receiving = self
+            .active_receive_attempts
+            .lock()
+            .expect("active_receive_attempts")
+            .len();
+        let importing = self
+            .active_transfers
+            .lock()
+            .expect("active_transfers")
+            .values()
+            .filter(|transfer| transfer.direction == TransferDirection::Send)
+            .count();
+        (receiving + importing) as u64
+    }
+
+    /// Signal synchronously and hold a receive reservation through the durable cancellation.
+    pub(super) fn take_active_transfer(
+        &self,
+        transfer_id: u64,
+    ) -> Option<(TransferDirection, Option<std::sync::Arc<ReceiveAttempt>>)> {
         let active = self
             .active_transfers
             .lock()
             .expect("active_transfers")
             .remove(&transfer_id)?;
-        let direction = active.direction;
-        let _ = active.cancel.send(());
-        Some(direction)
+        if let Some(cancel) = active.cancel {
+            let _ = cancel.send(());
+        }
+        Some((active.direction, active.receive_attempt))
     }
 
     pub(super) async fn cancel_share_preparation(&self, transfer_id: u64) -> Result<()> {
@@ -96,11 +108,17 @@ impl CoreInner {
     }
 
     pub(super) async fn delete_transfer(&self, transfer_id: u64) -> Result<()> {
-        if self
-            .active_transfers
+        let is_receiving = self
+            .active_receive_attempts
             .lock()
-            .expect("active_transfers")
-            .contains_key(&transfer_id)
+            .expect("active_receive_attempts")
+            .contains(&transfer_id);
+        if is_receiving
+            || self
+                .active_transfers
+                .lock()
+                .expect("active_transfers")
+                .contains_key(&transfer_id)
         {
             anyhow::bail!("an active transfer must finish or be cancelled before deletion");
         }

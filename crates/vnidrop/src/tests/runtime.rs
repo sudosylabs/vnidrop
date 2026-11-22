@@ -141,6 +141,7 @@ async fn protected_runtime_restart_preserves_identity_without_plaintext_fallback
         IdentityMode::Protected {
             store: store.clone(),
             profile_lock: lock_profile(temp.path()).unwrap(),
+            test_loopback: true,
         },
     )
     .await
@@ -158,6 +159,7 @@ async fn protected_runtime_restart_preserves_identity_without_plaintext_fallback
         IdentityMode::Protected {
             store,
             profile_lock: lock_profile(temp.path()).unwrap(),
+            test_loopback: true,
         },
     )
     .await

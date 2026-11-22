@@ -448,7 +448,7 @@ impl App {
         }
         self.settings_reads.set(self.settings_reads.get() + 1);
         let rows = rows.clone();
-        let directory = self.preferences.borrow().receive_directory.clone();
+        let profile = self.profile.clone();
         self.dispatch(
             move |session| {
                 let (usage, artifacts) = session
@@ -459,7 +459,7 @@ impl App {
                     .filter(|metadata| metadata.is_file())
                     .map(|metadata| metadata.len())
                     .sum::<u64>();
-                let temporary = vnidrop_gnome::storage::temporary_usage(&directory);
+                let temporary = vnidrop_gnome::storage::temporary_usage(&profile);
                 Ok((usage, received, temporary))
             },
             move |app, result| {

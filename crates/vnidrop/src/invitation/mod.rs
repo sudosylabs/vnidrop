@@ -907,6 +907,7 @@ impl Repository {
         status: ReceiverRequestStatus,
         reason: Option<&str>,
     ) -> Result<()> {
+        self.maybe_fail_write()?;
         let result = sqlx::query(
             r#"
             UPDATE receiver_requests
@@ -1155,10 +1156,13 @@ impl Repository {
             .bind(transfer_id)
             .execute(&mut *transaction)
             .await?;
-        let deleted = sqlx::query("DELETE FROM transfers WHERE transfer_id = ?1")
-            .bind(transfer_id)
-            .execute(&mut *transaction)
-            .await?;
+        let deleted = sqlx::query(
+            "DELETE FROM transfers WHERE transfer_id = ?1
+             AND status NOT IN ('receiving', 'importing', 'sharing')",
+        )
+        .bind(transfer_id)
+        .execute(&mut *transaction)
+        .await?;
         require_one_changed(deleted.rows_affected(), "delete transfer")?;
         transaction.commit().await?;
         Ok(())

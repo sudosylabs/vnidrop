@@ -43,20 +43,15 @@ struct VniDropApp: App {
 			externalInvitations.reportOpenFailure(message: "This is not a VniDrop invitation")
 			return
 		}
-		let started = url.startAccessingSecurityScopedResource()
-		defer { if started { url.stopAccessingSecurityScopedResource() } }
-		do {
-			let values = try url.resourceValues(forKeys: [.fileSizeKey])
-			if let size = values.fileSize, size > maxVniDropInvitationBytes {
-				throw InvitationError.tooLarge
+		Task {
+			switch await Task.detached(operation: { Result { try readInvitationFile(url) } }).value {
+			case .success(let raw):
+				externalInvitations.openInvitation(raw: raw)
+			case .failure(let error):
+				externalInvitations.reportOpenFailure(
+					message: (error as? LocalizedError)?.errorDescription ?? "The invitation could not be opened"
+				)
 			}
-			let data = try Data(contentsOf: url, options: .mappedIfSafe)
-			let raw = try decodeInvitationBytes(data)
-			externalInvitations.openInvitation(raw: raw)
-		} catch {
-			externalInvitations.reportOpenFailure(
-				message: (error as? LocalizedError)?.errorDescription ?? "The invitation could not be opened"
-			)
 		}
 	}
 }

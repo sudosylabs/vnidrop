@@ -57,6 +57,71 @@ final class ReceiveModelTests: XCTestCase {
 		XCTAssertNil(model.state.historyDeleteTarget) // in-flight receive can't be deleted from history
 	}
 
+	func testSupersededInvitationInspectionCannotReplaceTheCurrentTicketMetadata() async {
+		let core = FakeCoreGateway()
+		let model = makeModel(core)
+		func inspection(_ id: UInt64) -> TicketInspectionModel {
+			TicketInspectionModel(kind: "vnidrop", metadata: TransferMetadataModel(
+				transferId: id, transferName: "Test", senderName: nil,
+				contentHash: "hash", fileCount: 1, totalSize: 1
+			))
+		}
+		var first: CheckedContinuation<Result<TicketInspectionModel, Error>, Never>?
+		core.inspectHook = { ticket in
+			if ticket == "first" { return await withCheckedContinuation { first = $0 } }
+			return .success(inspection(2))
+		}
+
+		model.onInvitationResult(.invitationFile, .success("first"))
+		await waitUntil { first != nil }
+		model.onInvitationResult(.invitationFile, .success("second"))
+		await waitUntil { model.state.inspection?.metadata.transferId == 2 }
+		first?.resume(returning: .success(inspection(1)))
+		await Task.yield()
+
+		XCTAssertEqual(model.state.ticket, "second")
+		XCTAssertEqual(model.state.inspection?.metadata.transferId, 2)
+	}
+
+	func testExternalInvitationWaitsForCoreStartup() async {
+		let core = FakeCoreGateway()
+		let model = makeModel(core)
+		var ready = false
+		let pending = Task { ready = await model.waitUntilReadyForExternalInvitation() }
+		await Task.yield()
+		XCTAssertFalse(ready)
+		core.setState(CoreState(isInitialized: true))
+		await pending.value
+		XCTAssertTrue(ready)
+	}
+
+	func testCancelWaitsForTheInspectedReceiveToRegister() async {
+		let core = FakeCoreGateway()
+		let model = makeModel(core)
+		core.setState(CoreState(isInitialized: true))
+		core.inspectionResult = .success(TicketInspectionModel(
+			kind: "vnidrop",
+			metadata: TransferMetadataModel(
+				transferId: 7, transferName: "Test", senderName: nil,
+				contentHash: "hash", fileCount: 1, totalSize: 1
+			)
+		))
+		var receiveContinuation: CheckedContinuation<Void, Never>?
+		core.receiveGate = { await withCheckedContinuation { receiveContinuation = $0 } }
+		model.onInvitationResult(.invitationFile, .success("ticket"))
+		await waitUntil { model.state.inspection != nil && model.state.receiveFolder != nil }
+		model.receive()
+		await waitUntil { receiveContinuation != nil }
+		defer { receiveContinuation?.resume() }
+
+		core.emit(.transfersChanged(transferId: 88))
+		model.cancelActiveReceive()
+		XCTAssertTrue(core.cancelledTransfers.isEmpty)
+		core.emit(.transfersChanged(transferId: 7, receiveStarted: true))
+		await waitUntil { core.cancelledTransfers == [7] }
+		XCTAssertEqual(core.cancelledTransfers, [7])
+	}
+
 	func testCancelActiveReceiveCancelsTheReceivingTransfer() async {
 		let core = FakeCoreGateway()
 		let model = makeModel(core)

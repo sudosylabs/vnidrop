@@ -24,10 +24,9 @@ final class MacReceiveInvitationActions: ReceiveInvitationActions {
 				onResult(.failure(InvitationError.cancelled))
 				return
 			}
-			onResult(Result {
-				let data = try Data(contentsOf: url)
-				return try decodeInvitationBytes(data)
-			})
+			Task {
+				onResult(await Task.detached { Result { try readInvitationFile(url) } }.value)
+			}
 		}
 	}
 

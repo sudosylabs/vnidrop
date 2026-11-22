@@ -4,8 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import uniffi.vnidrop.ReceiveOutputSinkV2
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.LinkOption
 
 @Composable
 actual fun rememberFileSystemService(): FileSystemService =
@@ -44,54 +42,19 @@ private class JvmFileSystemService : FileSystemService {
 		return ReceivedStorageInspection(bytes, existing, missing, 0)
 	}
 
-	override suspend fun temporaryUsage(receiveFolder: ReceiveFolder): ULong {
-		return desktopTemporaryUsage(receiveFolder)
-	}
+	override suspend fun temporaryUsage(appDataDir: String): ULong =
+		uniffi.vnidrop.receiveStagingBytes(appDataDir, reclaim = false)
 
 	override suspend fun reclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong =
-		desktopReclaimTemporaryStorage(appDataDir, receiveFolder)
+		desktopReclaimTemporaryStorage(appDataDir)
 
 	override fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2? = null
 
 
 }
 
-internal fun desktopTemporaryUsage(receiveFolder: ReceiveFolder): ULong {
-	if (receiveFolder.kind != ReceiveFolderKind.FileSystemPath) return 0UL
-	val root = File(receiveFolder.value).toPath()
-	if (!Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)) return 0UL
-	return runCatching {
-		Files.walk(root).use { paths ->
-			paths.iterator().asSequence()
-				.filter { path ->
-					val name = path.fileName?.toString().orEmpty()
-					Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) &&
-						name.startsWith(".") &&
-						name.contains(".vnidrop-") &&
-						name.endsWith(".part")
-				}
-				.fold(0UL) { total, path -> total + Files.size(path).toULong() }
-		}
-	}.getOrDefault(0UL)
-}
-
-internal fun desktopReclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong {
-	var reclaimed = 0UL
-	if (receiveFolder.kind == ReceiveFolderKind.FileSystemPath) {
-		val receiveRoot = File(receiveFolder.value)
-		receiveRoot.walkTopDown()
-			.filter { file ->
-				file.isFile &&
-					file.name.startsWith(".") &&
-					file.name.contains(".vnidrop-") &&
-					file.name.endsWith(".part")
-			}
-			.toList()
-			.forEach { file ->
-				val size = file.length().coerceAtLeast(0L).toULong()
-				if (file.delete()) reclaimed += size
-			}
-	}
+internal fun desktopReclaimTemporaryStorage(appDataDir: String): ULong {
+	var reclaimed = uniffi.vnidrop.receiveStagingBytes(appDataDir, reclaim = true)
 	val appDataRoot = File(appDataDir)
 	if (appDataRoot.isDirectory) {
 		appDataRoot.walkTopDown()

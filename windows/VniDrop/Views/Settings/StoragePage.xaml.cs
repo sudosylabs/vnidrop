@@ -42,7 +42,6 @@ public sealed partial class StoragePage : Page
             var artifacts = await App.Window.Model.Session.RunAsync(c => c.ListReceivedArtifacts());
             var storage = await Task.Run(() => WindowsStorage.Inspect(
                 App.Window.Model.Session.ProfileDirectory,
-                App.Window.Model.Preferences.ReceiveDirectory,
                 core,
                 artifacts));
             ReceivedUsage.Value = Strings.Size(storage.Received);
@@ -75,8 +74,7 @@ public sealed partial class StoragePage : Page
             if (facts.activeInvitationTransfers + facts.activeTargetedTransfers + facts.invitationProviderAvailability + facts.targetedProviderAvailability + facts.targetedPreparations > 0)
                 throw new InvalidOperationException("windows_network_busy");
             await Task.Run(() => WindowsStorage.ReclaimTemporary(
-                App.Window.Model.Session.ProfileDirectory,
-                App.Window.Model.Preferences.ReceiveDirectory));
+                App.Window.Model.Session.ProfileDirectory));
         }
         catch (Exception ex) { App.Window.Model.Report(ex); }
         finally

@@ -64,6 +64,7 @@ impl VnidropCore {
             IdentityMode::Protected {
                 store,
                 profile_lock,
+                test_loopback: false,
             },
         )
     }

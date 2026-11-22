@@ -197,7 +197,7 @@ enum CoreSignal: Equatable, Sendable {
 	case approvalChanged(transferId: UInt64)
 	case receiverHistoryChanged(transferId: UInt64)
 	/// Transfer status/history changed enough to re-read the durable snapshot.
-	case transfersChanged(transferId: UInt64)
+	case transfersChanged(transferId: UInt64, receiveStarted: Bool = false)
 	/// Pairing / saved-device state changed; refresh eligibility, relationships,
 	/// and the saved list. Carries no payload: core events are wake-ups, not
 	/// authoritative state, so consumers re-query rather than apply a delta.

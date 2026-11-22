@@ -14,17 +14,17 @@ use iroh_blobs::{
 use serde_json::json;
 use tokio::sync::oneshot;
 
-use super::{filter_peer_addr_for_relay_mode, ActiveTransfer, CoreInner};
+use super::{filter_peer_addr_for_relay_mode, ActiveTransfer, CoreInner, ReceiveAttempt};
 use crate::{
     access_policy::mode_to_storage,
     api::{
-        ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedLocatorKind, TransferAccessMode,
-        TransferMetadata,
+        ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedLocatorKind, TargetedOutputVerifier,
+        TransferAccessMode, TransferMetadata,
     },
     error::VnidropError,
     filesystem::{
-        validated_relative_string, wait_for_writer, write_stream_to_blocking_writer,
-        AtomicOutputFile,
+        output_file_identity, safe_output_path, validated_relative_string, verify_published_output,
+        wait_for_writer, write_stream_to_blocking_writer, AtomicOutputFile,
     },
     handshake::{DeliveryReceipt, HandshakeResponse, HandshakeService},
     invitation::{PendingDeliveryReceiptInsert, ReceivedArtifactInsert, TransferUpsert},
@@ -37,13 +37,18 @@ use crate::{
 pub(super) enum ReceiveTarget {
     Directory(PathBuf),
     OutputSink(Arc<dyn ReceiveOutputSink>),
-    OutputSinkV2(Arc<dyn ReceiveOutputSinkV2>),
+    OutputSinkV2(
+        Arc<dyn ReceiveOutputSinkV2>,
+        Option<Arc<dyn TargetedOutputVerifier>>,
+    ),
 }
 
 #[derive(Clone, Copy)]
 struct ReceivedTransfer<'a> {
     protocol_id: u64,
     local_id: Option<&'a str>,
+    targeted_id: Option<&'a str>,
+    sink_destination: Option<&'a str>,
 }
 
 pub(super) struct OutputSinkFile<'a> {
@@ -176,7 +181,7 @@ impl CoreInner {
     ) -> Result<()> {
         self.receive_to_target(
             ticket,
-            ReceiveTarget::OutputSinkV2(output_sink),
+            ReceiveTarget::OutputSinkV2(output_sink, None),
             receiver_name,
         )
         .await
@@ -192,12 +197,6 @@ impl CoreInner {
         target: ReceiveTarget,
         receiver_name: Option<String>,
     ) -> Result<()> {
-        let _permit = self
-            .transfer_slots
-            .acquire()
-            .await
-            .context("transfer limiter is closed")
-            .map_err(VnidropError::internal)?;
         let mut parsed = match parse_transfer_ticket_with_limits(&ticket, &self.limits)
             .context("failed to parse transfer ticket")
         {
@@ -223,7 +222,22 @@ impl CoreInner {
             parsed.blob_ticket.format(),
         );
         let transfer_id = parsed.metadata.transfer_id;
-        self.persist_receive_start(transfer_id, &parsed, receiver_name.as_deref())
+        if !self
+            .active_receive_attempts
+            .lock()
+            .expect("active_receive_attempts")
+            .insert(transfer_id)
+        {
+            return Err(VnidropError::InvalidTransition {
+                reason: "invitation receive is already active".to_string(),
+            }
+            .into());
+        }
+        let receive_attempt = Arc::new(ReceiveAttempt {
+            id: transfer_id,
+            active: self.active_receive_attempts.clone(),
+        });
+        self.persist_receive_start(transfer_id, &parsed)
             .await
             .map_err(VnidropError::repository)?;
         let persisted_sender_address =
@@ -240,22 +254,46 @@ impl CoreInner {
                 transfer_id,
                 ActiveTransfer {
                     direction: TransferDirection::Receive,
-                    cancel: shutdown_tx,
+                    cancel: Some(shutdown_tx),
+                    receive_attempt: Some(receive_attempt.clone()),
                 },
             );
 
-        let (result, cancelled) = tokio::select! {
-            result = self.receive_inner(
+        let metadata_json =
+            serde_json::to_value(&parsed.metadata).unwrap_or(serde_json::Value::Null);
+        self.emit_transfer(
+            transfer_id,
+            "receive",
+            "lifecycle",
+            "started",
+            json!({
+                "metadata": metadata_json,
+                "receiver_name": receiver_name.as_deref(),
+            }),
+        );
+
+        let receive = async {
+            let _permit = self
+                .transfer_slots
+                .acquire()
+                .await
+                .context("transfer limiter is closed")
+                .map_err(VnidropError::internal)?;
+            self.receive_inner(
                 transfer_id,
                 parsed,
                 target,
                 receiver_name,
                 persisted_sender_address.clone(),
                 delivery_receipt.clone(),
-            ) => {
-                (result.map_err(VnidropError::transfer), false)
-            },
+            )
+            .await
+            .map_err(VnidropError::transfer)
+        };
+        let (result, cancelled) = tokio::select! {
+            biased;
             _ = &mut shutdown_rx => (Err(VnidropError::cancelled("transfer cancelled")), true),
+            result = receive => (result, false),
         };
 
         self.active_transfers
@@ -264,6 +302,17 @@ impl CoreInner {
             .remove(&transfer_id);
         if let Err(error) = &result {
             if cancelled {
+                if let Err(error) = self
+                    .repository
+                    .transition_transfer_status(
+                        transfer_id,
+                        TransferStatus::Receiving,
+                        TransferStatus::Cancelled,
+                    )
+                    .await
+                {
+                    tracing::warn!(%error, transfer_id, "failed to persist receive cancellation");
+                }
                 self.emit_transfer(transfer_id, "receive", "lifecycle", "cancelled", json!({}));
             } else {
                 self.emit_transfer(
@@ -450,7 +499,6 @@ impl CoreInner {
         &self,
         transfer_id: u64,
         parsed: &ParsedTransferTicket,
-        receiver_name: Option<&str>,
     ) -> Result<()> {
         let peer_id = parsed.blob_ticket.addr().id.to_string();
         self.repository
@@ -469,18 +517,6 @@ impl CoreInner {
             })
             .await
             .map_err(VnidropError::repository)?;
-        let metadata_json =
-            serde_json::to_value(&parsed.metadata).unwrap_or(serde_json::Value::Null);
-        self.emit_transfer(
-            transfer_id,
-            "receive",
-            "lifecycle",
-            "started",
-            json!({
-                "metadata": metadata_json,
-                "receiver_name": receiver_name,
-            }),
-        );
         Ok(())
     }
 
@@ -556,7 +592,51 @@ impl CoreInner {
         let received_transfer = ReceivedTransfer {
             protocol_id: transfer_id,
             local_id: Some(&transfer_local_id),
+            targeted_id: None,
+            sink_destination: None,
         };
+        self.export_received_collection(received_transfer, total_files, target, collection)
+            .await
+    }
+
+    pub(super) async fn export_targeted_collection(
+        &self,
+        targeted_id: &str,
+        transfer_id: u64,
+        total_files: u64,
+        target: ReceiveTarget,
+        collection: Collection,
+    ) -> Result<()> {
+        let destination = match &target {
+            ReceiveTarget::OutputSinkV2(_, Some(verifier)) => Some(verifier.destination_key()),
+            _ => None,
+        };
+        if destination
+            .as_ref()
+            .is_some_and(|key| key.is_empty() || key.len() as u64 > self.limits.max_path_bytes)
+        {
+            return Err(VnidropError::invalid_input(anyhow::anyhow!(
+                "invalid output destination key"
+            ))
+            .into());
+        }
+        let transfer = ReceivedTransfer {
+            protocol_id: transfer_id,
+            local_id: None,
+            targeted_id: Some(targeted_id),
+            sink_destination: destination.as_deref(),
+        };
+        self.export_received_collection(transfer, total_files, target, collection)
+            .await
+    }
+
+    async fn export_received_collection(
+        &self,
+        received_transfer: ReceivedTransfer<'_>,
+        total_files: u64,
+        target: ReceiveTarget,
+        collection: Collection,
+    ) -> Result<()> {
         for (i, (name, hash)) in collection.iter().enumerate() {
             match &target {
                 ReceiveTarget::Directory(output_dir) => {
@@ -572,7 +652,7 @@ impl CoreInner {
                 }
                 ReceiveTarget::OutputSink(output_sink) => {
                     self.export_blob_to_sink(
-                        transfer_id,
+                        received_transfer.protocol_id,
                         total_files,
                         i as u64,
                         output_sink.as_ref(),
@@ -581,13 +661,31 @@ impl CoreInner {
                     )
                     .await?;
                 }
-                ReceiveTarget::OutputSinkV2(output_sink) => {
+                ReceiveTarget::OutputSinkV2(output_sink, verifier) => {
+                    if let (Some(id), Some(destination), Some(verifier)) = (
+                        received_transfer.targeted_id,
+                        received_transfer.sink_destination,
+                        verifier,
+                    ) {
+                        if self
+                            .verify_targeted_sink_output(
+                                id,
+                                destination,
+                                name,
+                                *hash,
+                                verifier.clone(),
+                            )
+                            .await?
+                        {
+                            continue;
+                        }
+                    }
                     self.export_blob_to_sink_v2(
                         received_transfer,
                         total_files,
                         i as u64,
-                        output_sink.as_ref(),
-                        name.as_ref(),
+                        (output_sink.as_ref(), verifier.as_deref()),
+                        name,
                         *hash,
                     )
                     .await?;
@@ -597,55 +695,39 @@ impl CoreInner {
         Ok(())
     }
 
-    pub(super) async fn export_collection_untracked(
+    async fn verify_targeted_sink_output(
         &self,
-        transfer_id: u64,
-        total_files: u64,
-        target: ReceiveTarget,
-        collection: Collection,
-    ) -> Result<()> {
-        let received_transfer = ReceivedTransfer {
-            protocol_id: transfer_id,
-            local_id: None,
+        id: &str,
+        destination: &str,
+        relative_path: &str,
+        hash: Hash,
+        verifier: Arc<dyn TargetedOutputVerifier>,
+    ) -> Result<bool> {
+        let relative_path = validated_relative_string(relative_path)?;
+        let Some((locator, published)) = self
+            .targeted_transfers
+            .sink_output_checkpoint(id, &relative_path, destination)
+            .await?
+        else {
+            return Ok(false);
         };
-        for (i, (name, hash)) in collection.iter().enumerate() {
-            match &target {
-                ReceiveTarget::Directory(output_dir) => {
-                    self.export_blob_to_directory(
-                        received_transfer,
-                        total_files,
-                        i as u64,
-                        output_dir,
-                        name.as_ref(),
-                        *hash,
-                    )
-                    .await?;
-                }
-                ReceiveTarget::OutputSink(output_sink) => {
-                    self.export_blob_to_sink(
-                        transfer_id,
-                        total_files,
-                        i as u64,
-                        output_sink.as_ref(),
-                        name.as_ref(),
-                        *hash,
-                    )
-                    .await?;
-                }
-                ReceiveTarget::OutputSinkV2(output_sink) => {
-                    self.export_blob_to_sink_v2(
-                        received_transfer,
-                        total_files,
-                        i as u64,
-                        output_sink.as_ref(),
-                        name.as_ref(),
-                        *hash,
-                    )
-                    .await?;
-                }
-            }
-        }
-        Ok(())
+        let iroh_blobs::api::proto::BlobStatus::Complete { size } =
+            self.store.blobs().status(hash).await?
+        else {
+            anyhow::bail!("verified blob is unavailable for receive resumption");
+        };
+        let timeout = self.connection_timeout();
+        tokio::task::spawn_blocking(move || {
+            let Some(descriptor) =
+                verifier.open_published_output(relative_path, locator, published)?
+            else {
+                return Ok(false);
+            };
+            Ok(crate::filesystem::verify_owned_descriptor(
+                descriptor, hash, size, timeout,
+            )?)
+        })
+        .await?
     }
 
     async fn export_blob_to_directory(
@@ -663,8 +745,32 @@ impl CoreInner {
                 self.limits.max_path_bytes
             );
         }
-        let (pending_file, writer) = AtomicOutputFile::create(output_dir, relative_path)
-            .map_err(VnidropError::filesystem)?;
+        let checkpoint = if let Some(id) = transfer.targeted_id {
+            let path = std::path::absolute(safe_output_path(output_dir, relative_path)?)
+                .map_err(VnidropError::filesystem)?;
+            let locator = path.to_string_lossy().into_owned();
+            if let Some(identity) = self
+                .targeted_transfers
+                .receive_output_identity(id, &locator)
+                .await?
+            {
+                let verified = tokio::task::spawn_blocking(move || {
+                    verify_published_output(&path, &identity, hash)
+                })
+                .await
+                .map_err(VnidropError::internal)?
+                .map_err(VnidropError::filesystem)?;
+                if verified {
+                    return Ok(());
+                }
+            }
+            Some((id, locator))
+        } else {
+            None
+        };
+        let (pending_file, writer) =
+            AtomicOutputFile::create_tracked(output_dir, relative_path, Some(&self.app_data_dir))
+                .map_err(VnidropError::filesystem)?;
         let (tx, rx) = async_channel::bounded::<io::Result<Option<Bytes>>>(2);
         let writer_task = std::thread::spawn(move || write_stream_to_blocking_writer(writer, rx));
         let mut stream = self.store.export_ranges(hash, 0..u64::MAX).stream();
@@ -711,12 +817,34 @@ impl CoreInner {
             .await
             .map_err(VnidropError::internal)?
             .map_err(VnidropError::filesystem)?;
-        tokio::task::spawn_blocking(move || writer.sync_all())
-            .await
-            .map_err(VnidropError::internal)?
-            .map_err(VnidropError::filesystem)?;
+        let track_output = checkpoint.is_some();
+        let identity = tokio::task::spawn_blocking(move || {
+            writer.sync_all()?;
+            track_output
+                .then(|| output_file_identity(&writer))
+                .transpose()
+        })
+        .await
+        .map_err(VnidropError::internal)?
+        .map_err(VnidropError::filesystem)?;
+        if let (Some((id, locator)), Some(identity)) = (&checkpoint, &identity) {
+            // Rename and hard-link preserve this identity, so a crash just before
+            // or after publication still leaves an unambiguous checkpoint.
+            self.targeted_transfers
+                .record_receive_output(id, locator, identity)
+                .await?;
+        }
         let locator = pending_file.target().to_string_lossy().to_string();
-        pending_file.commit().map_err(VnidropError::filesystem)?;
+        if let Err(error) = pending_file.commit().map_err(VnidropError::filesystem) {
+            if matches!(error, VnidropError::DestinationExists { .. }) {
+                if let Some((id, target)) = checkpoint {
+                    self.targeted_transfers
+                        .forget_receive_output(id, &target)
+                        .await?;
+                }
+            }
+            return Err(error.into());
+        }
         if let Some(local_id) = transfer.local_id {
             self.repository
                 .record_received_artifact(ReceivedArtifactInsert {
@@ -798,7 +926,10 @@ impl CoreInner {
         transfer: ReceivedTransfer<'_>,
         total_files: u64,
         current_file_index: u64,
-        output_sink: &dyn ReceiveOutputSinkV2,
+        sink: (
+            &dyn ReceiveOutputSinkV2,
+            Option<&dyn TargetedOutputVerifier>,
+        ),
         relative_path: &str,
         hash: Hash,
     ) -> Result<()> {
@@ -809,7 +940,7 @@ impl CoreInner {
             );
         }
         let relative_path = validated_relative_string(relative_path)?;
-        let output_file = OutputSinkFileV2::start(output_sink, relative_path.clone())?;
+        let output_file = OutputSinkFileV2::start(sink.0, relative_path.clone())?;
         let mut stream = self.store.export_ranges(hash, 0..u64::MAX).stream();
         let mut file_size = 0;
         let mut exported = 0;
@@ -846,7 +977,37 @@ impl CoreInner {
             }
         }
 
-        let published = output_file.finish()?;
+        let checkpoint = transfer
+            .targeted_id
+            .zip(transfer.sink_destination)
+            .zip(sink.1);
+        if let Some(((id, destination), verifier)) = checkpoint {
+            let locator = verifier.pending_output_locator(relative_path.clone())?;
+            self.targeted_transfers
+                .record_sink_output(id, &relative_path, destination, &locator, false)
+                .await?;
+        }
+        let published = match output_file.finish() {
+            Ok(published) => published,
+            Err(error) => {
+                if matches!(
+                    error.downcast_ref::<VnidropError>(),
+                    Some(VnidropError::DestinationExists { .. })
+                ) {
+                    if let Some(((id, destination), _)) = checkpoint {
+                        self.targeted_transfers
+                            .forget_sink_output(id, &relative_path, destination)
+                            .await?;
+                    }
+                }
+                return Err(error);
+            }
+        };
+        if let Some(((id, destination), _)) = checkpoint {
+            self.targeted_transfers
+                .record_sink_output(id, &relative_path, destination, &published.locator, true)
+                .await?;
+        }
         if let Some(local_id) = transfer.local_id {
             self.repository
                 .record_received_artifact(ReceivedArtifactInsert {

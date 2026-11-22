@@ -60,7 +60,7 @@ pub(crate) fn apply_with(
             .map(|_| ())
             .map_err(crate::error::message_key)
     } else if maintenance == Maintenance::Temporary {
-        crate::storage::cleanup(&next.receive_directory).map(|_| ())
+        crate::storage::cleanup(profile).map(|_| ())
     } else {
         Ok(())
     };

@@ -96,7 +96,8 @@ impl CoreInner {
                 transfer_id,
                 ActiveTransfer {
                     direction: TransferDirection::Send,
-                    cancel,
+                    cancel: Some(cancel),
+                    receive_attempt: None,
                 },
             );
         let (result, was_cancelled) = tokio::select! {

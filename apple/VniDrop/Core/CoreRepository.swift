@@ -15,8 +15,8 @@ enum CoreNetworkLifecycleError: Error, Equatable, LocalizedError, Sendable {
 }
 
 enum CoreNetworkLifecycle {
-	nonisolated static func requireIdle(activeTransfers: UInt64, activeShares: UInt64) throws {
-		guard activeTransfers == 0, activeShares == 0 else {
+	nonisolated static func requireIdle(_ obligations: RuntimeObligationFactsModel) throws {
+		guard !obligations.requiresRuntime else {
 			throw CoreNetworkLifecycleError.activeNetworkWork
 		}
 	}
@@ -124,11 +124,7 @@ final class CoreRepository: ObservableObject, CoreGateway {
 
 		let result = await runCore { [sink] in
 			if let existing = self.core {
-				let status = existing.status()
-				try CoreNetworkLifecycle.requireIdle(
-					activeTransfers: status.activeTransfers,
-					activeShares: status.activeShares
-				)
+				try CoreNetworkLifecycle.requireIdle(existing.runtimeObligationFacts().toModel())
 				existing.shutdown()
 				self.core = nil
 			}
@@ -501,7 +497,9 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		default: break
 		}
 		if model.shouldRefreshTransfers {
-			signalsSubject.send(.transfersChanged(transferId: transferId))
+			let receiveStarted = model.eventDirection == .receive && model.eventPhase == .lifecycle
+				&& model.eventKind == .started
+			signalsSubject.send(.transfersChanged(transferId: transferId, receiveStarted: receiveStarted))
 		}
 	}
 

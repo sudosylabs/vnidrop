@@ -1,27 +1,22 @@
 #[cfg(unix)]
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::{
-    fs::{File, OpenOptions},
+    fs::File,
     io::{self, Read, Write},
     path::{Component, Path, PathBuf},
-    time::{Duration, SystemTime},
 };
-
-#[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
 
 use anyhow::{Context, Result};
 use bytes::Bytes;
 use iroh_blobs::{api::TempTag, Hash};
-use uuid::Uuid;
 
 use crate::{
     api::{CoreLimits, ShareSource, SourceKind},
+    output_staging::OutputStaging,
     util::non_empty,
 };
 
 const STREAM_BUFFER_LEN: usize = 1024 * 1024;
-const STALE_PART_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 
 #[derive(Debug)]
 pub(crate) struct TransferImport {
@@ -50,24 +45,48 @@ pub(crate) enum ImportSource {
 
 pub(crate) struct AtomicOutputFile {
     target: PathBuf,
-    temporary: PathBuf,
-    committed: bool,
+    canonical_target: PathBuf,
+    staging: OutputStaging,
 }
 
 impl AtomicOutputFile {
+    #[cfg(test)]
     pub(crate) fn create(output_dir: &Path, relative_path: &str) -> Result<(Self, File)> {
+        Self::create_tracked(output_dir, relative_path, None)
+    }
+
+    pub(crate) fn create_tracked(
+        output_dir: &Path,
+        relative_path: &str,
+        profile: Option<&Path>,
+    ) -> Result<(Self, File)> {
         let target = safe_output_path(output_dir, relative_path)?;
         let parent = target
             .parent()
             .context("output file must have a parent directory")?;
-        std::fs::create_dir_all(parent)?;
-
         let canonical_root = std::fs::canonicalize(output_dir)?;
-        let canonical_parent = std::fs::canonicalize(parent)?;
-        if !canonical_parent.starts_with(&canonical_root) {
-            anyhow::bail!("output path escapes the selected directory");
+        let relative_parent = parent
+            .strip_prefix(output_dir)
+            .context("output parent is outside its root")?;
+        let mut canonical_parent = canonical_root.clone();
+        for component in relative_parent.components() {
+            if let Component::Normal(name) = component {
+                canonical_parent.push(name);
+                match std::fs::create_dir(&canonical_parent) {
+                    Ok(()) => {}
+                    Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+                    Err(error) => return Err(error.into()),
+                }
+                let metadata = std::fs::symlink_metadata(&canonical_parent)?;
+                if !metadata.is_dir() || is_reparse_directory(&metadata) {
+                    anyhow::bail!("output path contains a linked directory");
+                }
+                canonical_parent = std::fs::canonicalize(&canonical_parent)?;
+                if !canonical_parent.starts_with(&canonical_root) {
+                    anyhow::bail!("output path escapes the selected directory");
+                }
+            }
         }
-        cleanup_stale_temporary_files(parent, STALE_PART_AGE)?;
         if std::fs::symlink_metadata(&target).is_ok() {
             return Err(io::Error::new(
                 io::ErrorKind::AlreadyExists,
@@ -76,47 +95,51 @@ impl AtomicOutputFile {
             .into());
         }
 
-        let final_name = target
-            .file_name()
-            .and_then(|name| name.to_str())
-            .context("output filename is not valid UTF-8")?;
-        let temporary = parent.join(format!(".{final_name}.vnidrop-{}.part", Uuid::new_v4()));
-        let mut options = OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        options.custom_flags(libc::O_NOFOLLOW);
-        let file = options
-            .open(&temporary)
-            .with_context(|| format!("failed to create {}", temporary.display()))?;
-
-        // Recheck after opening the temporary file so a swapped ancestor is
-        // detected before bytes are published to the final destination.
-        let canonical_parent_after_open = std::fs::canonicalize(parent)?;
-        if canonical_parent_after_open != canonical_parent {
-            let _ = std::fs::remove_file(&temporary);
+        let canonical_target =
+            canonical_parent.join(target.file_name().context("missing output filename")?);
+        let (staging, file) = OutputStaging::create(&canonical_parent, profile)?;
+        if std::fs::canonicalize(parent)? != canonical_parent {
+            drop(file);
             anyhow::bail!("output directory changed while opening destination");
         }
-
         Ok((
             Self {
                 target,
-                temporary,
-                committed: false,
+                canonical_target,
+                staging,
             },
             file,
         ))
     }
 
-    pub(crate) fn commit(mut self) -> Result<()> {
-        publish_temp_as_final(&self.temporary, &self.target)
-            .with_context(|| format!("failed to commit {}", self.target.display()))?;
-        self.committed = true;
-        Ok(())
+    pub(crate) fn commit(self) -> Result<()> {
+        let parent = self
+            .canonical_target
+            .parent()
+            .context("missing output parent")?;
+        if std::fs::canonicalize(parent)? != parent {
+            anyhow::bail!("output directory changed before publication");
+        }
+        publish_temp_as_final(&self.staging.path, &self.canonical_target)
+            .with_context(|| format!("failed to commit {}", self.target.display()))
     }
 
     pub(crate) fn target(&self) -> &Path {
         &self.target
     }
+}
+
+#[cfg(windows)]
+fn is_reparse_directory(metadata: &std::fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    use windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT;
+
+    metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+}
+
+#[cfg(not(windows))]
+fn is_reparse_directory(_: &std::fs::Metadata) -> bool {
+    false
 }
 
 /// Publish a fully written temporary file as the final destination without
@@ -163,37 +186,45 @@ fn is_hard_link_unsupported(error: &io::Error) -> bool {
     }
 }
 
-fn rename_no_replace(from: &Path, to: &Path) -> io::Result<()> {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    {
-        match renameat2_noreplace(from, to) {
-            Ok(()) => return Ok(()),
-            Err(error)
-                if error.raw_os_error() == Some(libc::ENOSYS)
-                    || error.raw_os_error() == Some(libc::EINVAL) => {}
-            Err(error) => return Err(error),
-        }
-    }
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub(crate) fn rename_no_replace(from: &Path, to: &Path) -> io::Result<()> {
+    renameat2_noreplace(from, to)
+}
 
-    #[cfg(target_os = "macos")]
-    {
-        match renamex_np_excl(from, to) {
-            Ok(()) => return Ok(()),
-            Err(error) if error.raw_os_error() == Some(libc::ENOTSUP) => {}
-            Err(error) => return Err(error),
-        }
-    }
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub(crate) fn rename_no_replace(from: &Path, to: &Path) -> io::Result<()> {
+    renamex_np_excl(from, to)
+}
 
-    // Last resort: refuse an existing destination, then rename. There is a
-    // small race versus concurrent writers, but this path only runs when the
-    // platform lacks both hard links and exclusive rename.
-    if std::fs::symlink_metadata(to).is_ok() {
-        return Err(io::Error::new(
-            io::ErrorKind::AlreadyExists,
-            format!("destination already exists: {}", to.display()),
-        ));
+#[cfg(windows)]
+pub(crate) fn rename_no_replace(from: &Path, to: &Path) -> io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::MoveFileExW;
+
+    let from = from
+        .as_os_str()
+        .encode_wide()
+        .chain([0])
+        .collect::<Vec<_>>();
+    let to = to.as_os_str().encode_wide().chain([0]).collect::<Vec<_>>();
+    if unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), 0) } == 0 {
+        return Err(io::Error::last_os_error());
     }
-    std::fs::rename(from, to)
+    Ok(())
+}
+
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "ios",
+    windows
+)))]
+pub(crate) fn rename_no_replace(_: &Path, _: &Path) -> io::Result<()> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "exclusive publication is unavailable",
+    ))
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -223,7 +254,7 @@ fn renameat2_noreplace(from: &Path, to: &Path) -> io::Result<()> {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 fn renamex_np_excl(from: &Path, to: &Path) -> io::Result<()> {
     use std::ffi::CString;
     use std::os::unix::ffi::OsStrExt;
@@ -237,41 +268,6 @@ fn renamex_np_excl(from: &Path, to: &Path) -> io::Result<()> {
         Ok(())
     } else {
         Err(io::Error::last_os_error())
-    }
-}
-
-pub(crate) fn cleanup_stale_temporary_files(
-    directory: &Path,
-    minimum_age: Duration,
-) -> Result<u64> {
-    let now = SystemTime::now();
-    let mut removed = 0;
-    for entry in std::fs::read_dir(directory)? {
-        let entry = entry?;
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        if !(name.starts_with('.') && name.contains(".vnidrop-") && name.ends_with(".part")) {
-            continue;
-        }
-        let metadata = entry.metadata()?;
-        let age = metadata
-            .modified()
-            .ok()
-            .and_then(|modified| now.duration_since(modified).ok())
-            .unwrap_or_default();
-        if age >= minimum_age && metadata.is_file() {
-            std::fs::remove_file(entry.path())?;
-            removed += 1;
-        }
-    }
-    Ok(removed)
-}
-
-impl Drop for AtomicOutputFile {
-    fn drop(&mut self) {
-        if !self.committed {
-            let _ = std::fs::remove_file(&self.temporary);
-        }
     }
 }
 
@@ -458,6 +454,194 @@ pub(crate) fn safe_output_path(output_dir: &Path, relative_path: &str) -> Result
     let relative = Path::new(relative_path);
     path_to_string(relative, true)?;
     Ok(output_dir.join(relative))
+}
+
+#[cfg(unix)]
+pub(crate) fn output_file_identity(file: &File) -> io::Result<String> {
+    use std::os::unix::fs::MetadataExt;
+
+    let metadata = file.metadata()?;
+    Ok(format!("{}:{}", metadata.dev(), metadata.ino()))
+}
+
+#[cfg(windows)]
+pub(crate) fn output_file_identity(file: &File) -> io::Result<String> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+    };
+
+    let mut info = BY_HANDLE_FILE_INFORMATION::default();
+    if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(format!(
+        "{}:{}:{}",
+        info.dwVolumeSerialNumber, info.nFileIndexHigh, info.nFileIndexLow
+    ))
+}
+
+pub(crate) fn verify_published_output(path: &Path, identity: &str, hash: Hash) -> io::Result<bool> {
+    match std::fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.is_file() => {}
+        Ok(_) => return Ok(false),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error),
+    }
+    let file = File::open(path)?;
+    let actual_identity = output_file_identity(&file)?;
+    if actual_identity != identity
+        && !moved_output_on_same_volume(&file, &actual_identity, identity)
+    {
+        return Ok(false);
+    }
+    verify_file_contents(file, hash)
+}
+
+#[cfg(windows)]
+fn moved_output_on_same_volume(file: &File, actual: &str, checkpoint: &str) -> bool {
+    use std::{os::windows::io::AsRawHandle, ptr::null_mut};
+    use windows_sys::Win32::Storage::FileSystem::GetVolumeInformationByHandleW;
+
+    if actual
+        .split_once(':')
+        .zip(checkpoint.split_once(':'))
+        .is_none_or(|((actual_volume, _), (expected_volume, _))| actual_volume != expected_volume)
+    {
+        return false;
+    }
+
+    // FAT indexes can change when a file moves out of staging.
+    let mut name = [0u16; 16];
+    let result = unsafe {
+        GetVolumeInformationByHandleW(
+            file.as_raw_handle(),
+            null_mut(),
+            0,
+            null_mut(),
+            null_mut(),
+            null_mut(),
+            name.as_mut_ptr(),
+            name.len() as u32,
+        )
+    };
+    let length = name
+        .iter()
+        .position(|value| *value == 0)
+        .unwrap_or(name.len());
+    result != 0
+        && matches!(
+            String::from_utf16_lossy(&name[..length])
+                .to_ascii_lowercase()
+                .as_str(),
+            "fat" | "fat32" | "exfat"
+        )
+}
+
+#[cfg(not(windows))]
+fn moved_output_on_same_volume(_: &File, _: &str, _: &str) -> bool {
+    false
+}
+
+fn verify_file_contents(file: File, hash: Hash) -> io::Result<bool> {
+    if !file.metadata()?.is_file() {
+        return Ok(false);
+    }
+    let mut hasher = blake3::Hasher::new();
+    hasher.update_reader(file)?;
+    Ok(hasher.finalize().as_bytes() == hash.as_bytes())
+}
+
+#[cfg(unix)]
+pub(crate) fn verify_owned_descriptor(
+    descriptor: i32,
+    hash: Hash,
+    size: u64,
+    timeout: std::time::Duration,
+) -> io::Result<bool> {
+    use std::os::unix::fs::FileTypeExt;
+
+    if descriptor < 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid output descriptor",
+        ));
+    }
+    // The foreign verifier transfers ownership of the valid descriptor.
+    let file = unsafe { File::from_raw_fd(descriptor) };
+    let kind = file.metadata()?.file_type();
+    let limit = size.checked_add(1).ok_or(io::ErrorKind::InvalidData)?;
+    let mut input = if kind.is_file() {
+        (Box::new(file) as Box<dyn Read>).take(limit)
+    } else if kind.is_fifo() || kind.is_socket() {
+        (Box::new(TimedDescriptor::new(file, timeout)?) as Box<dyn Read>).take(limit)
+    } else {
+        return Ok(false);
+    };
+    let mut hasher = blake3::Hasher::new();
+    hasher.update_reader(&mut input)?;
+    Ok(limit - input.limit() == size && hasher.finalize().as_bytes() == hash.as_bytes())
+}
+
+#[cfg(unix)]
+struct TimedDescriptor {
+    file: File,
+    timeout: std::time::Duration,
+}
+
+#[cfg(unix)]
+impl TimedDescriptor {
+    fn new(file: File, timeout: std::time::Duration) -> io::Result<Self> {
+        use std::os::fd::AsRawFd;
+        let fd = file.as_raw_fd();
+        let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+        if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(Self { file, timeout })
+    }
+}
+
+#[cfg(unix)]
+impl Read for TimedDescriptor {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        use std::{os::fd::AsRawFd, time::Instant};
+
+        let started = Instant::now();
+        loop {
+            match self.file.read(buffer) {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+                result => return result,
+            }
+            let remaining = self.timeout.saturating_sub(started.elapsed());
+            if remaining.is_zero() {
+                return Err(io::ErrorKind::TimedOut.into());
+            }
+            let mut descriptor = libc::pollfd {
+                fd: self.file.as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            };
+            let wait_ms = remaining.as_millis().clamp(1, i32::MAX as u128) as i32;
+            let ready = unsafe { libc::poll(&mut descriptor, 1, wait_ms) };
+            if ready < 0 && io::Error::last_os_error().kind() != io::ErrorKind::Interrupted {
+                return Err(io::Error::last_os_error());
+            }
+        }
+    }
+}
+
+#[cfg(not(unix))]
+pub(crate) fn verify_owned_descriptor(
+    _: i32,
+    _: Hash,
+    _: u64,
+    _: std::time::Duration,
+) -> io::Result<bool> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "output descriptors are unavailable",
+    ))
 }
 
 pub(crate) fn read_stream_from_blocking_reader<R>(

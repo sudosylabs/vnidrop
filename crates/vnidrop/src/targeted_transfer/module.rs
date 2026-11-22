@@ -766,6 +766,68 @@ impl TargetedTransferModule {
         self.authorizations.load(row).await
     }
 
+    pub(crate) async fn receive_output_identity(
+        &self,
+        id: &str,
+        locator: &str,
+    ) -> Result<Option<String>, VnidropError> {
+        self.store.receive_output_identity(id, locator).await
+    }
+
+    pub(crate) async fn record_receive_output(
+        &self,
+        id: &str,
+        locator: &str,
+        identity: &str,
+    ) -> Result<(), VnidropError> {
+        self.store
+            .record_receive_output(id, locator, identity)
+            .await
+    }
+
+    pub(crate) async fn sink_output_checkpoint(
+        &self,
+        id: &str,
+        relative_path: &str,
+        destination: &str,
+    ) -> Result<Option<(String, bool)>, VnidropError> {
+        self.store
+            .sink_output_checkpoint(id, relative_path, destination)
+            .await
+    }
+
+    pub(crate) async fn record_sink_output(
+        &self,
+        id: &str,
+        relative_path: &str,
+        destination: &str,
+        locator: &str,
+        published: bool,
+    ) -> Result<(), VnidropError> {
+        self.store
+            .record_sink_output(id, relative_path, destination, locator, published)
+            .await
+    }
+
+    pub(crate) async fn forget_receive_output(
+        &self,
+        id: &str,
+        locator: &str,
+    ) -> Result<(), VnidropError> {
+        self.store.forget_receive_output(id, locator).await
+    }
+
+    pub(crate) async fn forget_sink_output(
+        &self,
+        id: &str,
+        relative_path: &str,
+        destination: &str,
+    ) -> Result<(), VnidropError> {
+        self.store
+            .forget_sink_output(id, relative_path, destination)
+            .await
+    }
+
     pub(crate) async fn begin_receive(
         &self,
         id: &str,

@@ -189,8 +189,14 @@ impl CoreInner {
             }
         }
         let collection = Collection::load(hash_and_format.hash, self.store.as_ref()).await?;
-        self.export_collection_untracked(transfer_id, total_files, target, collection)
-            .await?;
+        self.export_targeted_collection(
+            targeted_transfer_id,
+            transfer_id,
+            total_files,
+            target,
+            collection,
+        )
+        .await?;
         drop(download_tag);
         Ok(())
     }

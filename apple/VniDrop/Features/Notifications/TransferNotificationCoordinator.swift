@@ -109,7 +109,7 @@ final class TransferNotificationCoordinator: ObservableObject {
 			.sink { [weak self] signal in
 				guard let self else { return }
 				switch signal {
-				case .receiverHistoryChanged(let transferId), .transfersChanged(let transferId):
+				case .receiverHistoryChanged(let transferId), .transfersChanged(let transferId, _):
 					Task { await self.syncReceivers(transferId: transferId) }
 				case .approvalChanged:
 					break

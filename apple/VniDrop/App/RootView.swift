@@ -229,13 +229,18 @@ struct RootView: View {
 	}
 
 	private func consumeExternalInvitations() async {
-		for await invitation in graph.dependencies.externalInvitations.invitations {
-			appModel.selectDestination(.receive)
-			switch invitation {
-			case .success(let raw):
-				receiveModel.onInvitationResult(.invitationFile, .success(raw))
-			case .failure(let error):
-				receiveModel.onInvitationResult(.invitationFile, .failure(error))
+		let controller = graph.dependencies.externalInvitations
+		let (observer, changes) = controller.observePendingInvitations()
+		defer { controller.stopObserving(observer) }
+		for await _ in changes {
+			while let invitation = controller.nextInvitation {
+				appModel.selectDestination(.receive)
+				if case .success = invitation.result {
+					guard await receiveModel.waitUntilReadyForExternalInvitation() else { return }
+				}
+				guard !Task.isCancelled else { return }
+				guard let delivery = controller.takeInvitation(invitation.id) else { continue }
+				receiveModel.onInvitationResult(.invitationFile, delivery.result)
 			}
 		}
 	}

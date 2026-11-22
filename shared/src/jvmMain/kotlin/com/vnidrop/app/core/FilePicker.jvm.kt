@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import io.github.vinceglb.filekit.FileKit
+import io.github.vinceglb.filekit.dialogs.FileKitDialogParent
 import io.github.vinceglb.filekit.dialogs.FileKitDialogSettings
 import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.openDirectoryPicker
@@ -204,12 +205,12 @@ private fun pickShareFiles(): List<PickedShareFile> {
 private suspend fun pickShareFilesWithPortal(): List<PickedShareFile> =
 	FileKit.openFilePicker(
 		mode = FileKitMode.Multiple(),
-		dialogSettings = FileKitDialogSettings(title = "Select files to share", parentWindow = activeFrame()),
+		dialogSettings = FileKitDialogSettings(title = "Select files to share", parent = activeFrame()?.let(FileKitDialogParent::awt)),
 	).orEmpty().map { it.file.toPickedShareFile(isDirectory = false) }
 
 private suspend fun pickDirectoryWithPortal(title: String): File? =
 	FileKit.openDirectoryPicker(
-		dialogSettings = FileKitDialogSettings(title = title, parentWindow = activeFrame()),
+		dialogSettings = FileKitDialogSettings(title = title, parent = activeFrame()?.let(FileKitDialogParent::awt)),
 	)?.file
 
 internal fun File.toPickedShareFile(isDirectory: Boolean): PickedShareFile =

@@ -24,6 +24,7 @@ import uniffi.vnidrop.PairingEligibilitySummary
 import uniffi.vnidrop.PendingTargetedOffer
 import uniffi.vnidrop.ReceiveOutputSink
 import uniffi.vnidrop.ReceiveOutputSinkV2
+import uniffi.vnidrop.TargetedOutputVerifier
 import uniffi.vnidrop.ReceiverRequest
 import uniffi.vnidrop.RuntimeObligationFacts
 import uniffi.vnidrop.SavedDevice
@@ -73,7 +74,9 @@ class CoreRepository internal constructor(
 			}
 			val transferId = model.transferId
 			if (transferId != null && model.shouldRefreshTransfers()) {
-				_signals.tryEmit(CoreSignal.TransfersChanged(transferId))
+				val receiveStarted = model.direction == "receive" && model.phase == "lifecycle" &&
+					model.kind == "started"
+				_signals.tryEmit(CoreSignal.TransfersChanged(transferId, receiveStarted))
 			}
 		}
 	}
@@ -82,8 +85,7 @@ class CoreRepository internal constructor(
 		runReconfiguration {
 			val previousCore = core
 			if (previousCore != null) {
-				val status = previousCore.status()
-				require(status.activeTransfers == 0UL && status.activeShares == 0UL) {
+				require(!previousCore.runtimeObligationFacts().toModel().requiresRuntime) {
 					"Stop active transfers and shares before changing relay settings"
 				}
 			}
@@ -188,8 +190,7 @@ class CoreRepository internal constructor(
 
 	override suspend fun clearTransferCache(): Result<ULong> = runReconfiguration {
 		val activeCore = requireCore()
-		val status = activeCore.status()
-		require(status.activeTransfers == 0UL && status.activeShares == 0UL) {
+		require(!activeCore.runtimeObligationFacts().toModel().requiresRuntime) {
 			"Wait for active transfers and shares to finish before clearing the transfer cache"
 		}
 		val appDataDir = requireNotNull(currentAppDataDir) { "Core data directory is unavailable" }
@@ -357,7 +358,11 @@ class CoreRepository internal constructor(
 		transferId: String,
 		outputSink: ReceiveOutputSinkV2,
 	): Result<Unit> = runCore { activeCore ->
-		activeCore.receiveTargetedTransferWithOutputSinkV2(transferId, outputSink)
+		if (outputSink is TargetedOutputVerifier) {
+			activeCore.receiveTargetedTransferWithResumableSink(transferId, outputSink, outputSink)
+		} else {
+			activeCore.receiveTargetedTransferWithOutputSinkV2(transferId, outputSink)
+		}
 	}
 
 	override suspend fun resumeTargetedTransfer(id: String, outputDir: String): Result<Unit> = runCore { activeCore ->
@@ -368,7 +373,11 @@ class CoreRepository internal constructor(
 		id: String,
 		outputSink: ReceiveOutputSinkV2,
 	): Result<Unit> = runCore { activeCore ->
-		activeCore.resumeTargetedTransferWithOutputSinkV2(id, outputSink)
+		if (outputSink is TargetedOutputVerifier) {
+			activeCore.receiveTargetedTransferWithResumableSink(id, outputSink, outputSink)
+		} else {
+			activeCore.resumeTargetedTransferWithOutputSinkV2(id, outputSink)
+		}
 	}
 
 	override suspend fun cancelTargetedTransfer(id: String): Result<Unit> = runCore { activeCore ->

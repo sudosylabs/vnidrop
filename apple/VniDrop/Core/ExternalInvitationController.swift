@@ -9,21 +9,44 @@ let maxVniDropInvitationBytes = 64 * 1024
 /// during a cold launch; each document is consumed exactly once.
 @MainActor
 final class ExternalInvitationController: ObservableObject {
-	/// Emits validated (or failed) invitations. The app-level receive workflow
-	/// consumes each exactly once.
-	private var continuation: AsyncStream<Result<String, Error>>.Continuation?
-	lazy var invitations: AsyncStream<Result<String, Error>> = {
-		AsyncStream { continuation in
-			self.continuation = continuation
-		}
-	}()
+	struct PendingInvitation {
+		let id = UUID()
+		let result: Result<String, Error>
+	}
+
+	private var pending: [PendingInvitation] = []
+	private var observers: [UUID: AsyncStream<Void>.Continuation] = [:]
+
+	var nextInvitation: PendingInvitation? { pending.first }
+
+	func observePendingInvitations() -> (UUID, AsyncStream<Void>) {
+		let id = UUID()
+		let (changes, continuation) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+		observers[id] = continuation
+		continuation.yield()
+		return (id, changes)
+	}
+
+	func stopObserving(_ id: UUID) {
+		observers.removeValue(forKey: id)?.finish()
+	}
+
+	func takeInvitation(_ id: UUID) -> PendingInvitation? {
+		guard pending.first?.id == id else { return nil }
+		return pending.removeFirst()
+	}
 
 	func openInvitation(raw: String) {
-		continuation?.yield(validateInvitation(raw))
+		enqueue(validateInvitation(raw))
 	}
 
 	func reportOpenFailure(message: String) {
-		continuation?.yield(.failure(InvitationError.raw(message)))
+		enqueue(.failure(InvitationError.raw(message)))
+	}
+
+	private func enqueue(_ result: Result<String, Error>) {
+		pending.append(PendingInvitation(result: result))
+		for observer in observers.values { observer.yield() }
 	}
 }
 
@@ -79,4 +102,18 @@ func decodeInvitationBytes(_ bytes: Data) throws -> String {
 	}
 	guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw InvitationError.empty }
 	return text
+}
+
+func readInvitationFile(_ url: URL) throws -> String {
+	let started = url.startAccessingSecurityScopedResource()
+	defer { if started { url.stopAccessingSecurityScopedResource() } }
+	let file = try FileHandle(forReadingFrom: url)
+	defer { try? file.close() }
+	var bytes = Data()
+	while bytes.count <= maxVniDropInvitationBytes,
+	      let chunk = try file.read(upToCount: maxVniDropInvitationBytes + 1 - bytes.count),
+	      !chunk.isEmpty {
+		bytes.append(chunk)
+	}
+	return try decodeInvitationBytes(bytes)
 }

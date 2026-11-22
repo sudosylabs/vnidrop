@@ -21,7 +21,9 @@ final class FakeCoreGateway: CoreGateway {
 	var responseResult: Result<Void, Error> = .success(())
 	var shareResult: Result<Share, Error> = .failure(TestError.unimplemented)
 	var inspectionResult: Result<TicketInspectionModel, Error> = .failure(TestError.unimplemented)
+	var inspectHook: ((String) async -> Result<TicketInspectionModel, Error>)?
 	var receiveResult: Result<Void, Error> = .success(())
+	var receiveGate: (() async -> Void)?
 	var cancelResult: Result<Void, Error> = .success(())
 	var deleteResult: Result<Void, Error> = .success(())
 	var clearReceiveHistoryResult: Result<UInt64, Error> = .success(0)
@@ -75,13 +77,18 @@ final class FakeCoreGateway: CoreGateway {
 		lastShareAccessPolicy = accessPolicy
 		return shareResult
 	}
-	func inspectTicket(_ ticket: String) async -> Result<TicketInspectionModel, Error> { inspectionResult }
+	func inspectTicket(_ ticket: String) async -> Result<TicketInspectionModel, Error> {
+		if let inspectHook { return await inspectHook(ticket) }
+		return inspectionResult
+	}
 	func receive(ticket: String, outputDir: String, receiverName: String) async -> Result<Void, Error> {
 		receiveCount += 1; lastReceiveTicket = ticket; lastReceiveReceiverName = receiverName
+		await receiveGate?()
 		return receiveResult
 	}
 	func receiveIntoSecurityScopedDirectory(ticket: String, outputDirectoryUrl: String, receiverName: String) async -> Result<Void, Error> {
 		receiveCount += 1; lastReceiveTicket = ticket; lastReceiveReceiverName = receiverName
+		await receiveGate?()
 		return receiveResult
 	}
 	func cancel(transferId: UInt64) async -> Result<Void, Error> { cancelledTransfers.append(transferId); return cancelResult }

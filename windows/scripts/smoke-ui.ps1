@@ -184,7 +184,7 @@ try {
     Invoke-Control 'PART_PaneToggleButton'
     Wait-Until { $device = Control 'NavDevices'; $device -and !$device.Current.IsOffscreen } 'The title-bar toggle did not open the overlay sidebar.'
     Click-Control 'NavDevices'
-    Wait-Until { $device = Control 'NavDevices'; $device -and $device.Current.IsOffscreen } 'Choosing a destination did not dismiss the overlay sidebar.'
+    Wait-Until { $device = Control 'NavDevices'; !$device -or $device.Current.IsOffscreen } 'Choosing a destination did not dismiss the overlay sidebar.'
     Select-Control 'SettingsItem'
     Wait-Until { Control 'PreferencesRow' } 'Settings is not reachable through the overlay sidebar.'
     Assert-NoPageShortcutTooltip

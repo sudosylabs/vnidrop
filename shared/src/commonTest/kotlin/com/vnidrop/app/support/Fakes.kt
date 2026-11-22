@@ -461,7 +461,7 @@ class FakeFileSystemService(
 	override suspend fun validateReceiveFolder(folder: ReceiveFolder) = FolderAccessStatus.Writable
 	override suspend fun inspectReceivedArtifacts(artifacts: List<ReceivedArtifactModel>) =
 		ReceivedStorageInspection(artifacts.fold(0UL) { total, item -> total + item.logicalSize }, artifacts.size, 0, 0)
-	override suspend fun temporaryUsage(receiveFolder: ReceiveFolder): ULong = 0UL
+	override suspend fun temporaryUsage(appDataDir: String): ULong = 0UL
 	override suspend fun reclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong {
 		reclaimTemporaryStorageCount += 1
 		return reclaimedTemporaryBytes

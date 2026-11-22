@@ -253,6 +253,12 @@ cargo {
 			// Desktop distributions are built per host. Do not publish disabled
 			// cross-platform native jars into the app runtime classpath.
 			embedRustLibrary.set(rustTarget == GobleyHost.current.rustTarget)
+			if (System.getProperty("os.name").startsWith("Mac") && rustTarget == GobleyHost.current.rustTarget) {
+				buildTaskProvider.configure {
+					// macOS rejects stripped debug dylibs with a misaligned LINKEDIT.
+					extraArguments.addAll("--config", "profile.dev.package.vnidrop.strip='none'")
+				}
+			}
 		}
 	}
 	builds.configureEach {

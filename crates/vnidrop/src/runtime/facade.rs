@@ -46,6 +46,7 @@ impl VnidropCore {
         event_sink: Arc<dyn CoreEventSink>,
         limits: CoreLimits,
         network_config: CoreNetworkConfig,
+        test_loopback: bool,
     ) -> Result<Arc<Self>, VnidropError> {
         let app_data_path = PathBuf::from(app_data_dir);
         std::fs::create_dir_all(&app_data_path).map_err(VnidropError::filesystem)?;
@@ -61,6 +62,7 @@ impl VnidropCore {
             IdentityMode::Protected {
                 store,
                 profile_lock,
+                test_loopback,
             },
         )
     }
@@ -142,11 +144,12 @@ impl VnidropCore {
             &path,
             Arc::new(crate::secure_secret::FaultInjectingSecretStore::default()),
         );
-        Self::initialize_with_limits_and_network_config(
+        Self::initialize_protected(
             path.to_string_lossy().into_owned(),
             event_sink,
             limits,
             network_config,
+            true,
         )
     }
 }
@@ -180,6 +183,23 @@ impl VnidropCore {
             CoreLimits::default(),
             network_config,
         )
+    }
+
+    pub(crate) fn register_provider_request_for_test(&self, transfer_id: u64) {
+        self.block_on(
+            self.inner
+                .access_policy
+                .approve_endpoint(transfer_id, "test-peer".to_string()),
+        );
+        self.block_on(self.inner.register_provider_request_for_test(transfer_id));
+    }
+
+    pub(crate) fn provider_request_is_active_for_test(&self) -> bool {
+        self.block_on(self.inner.provider_request_is_active((1, 1)))
+    }
+
+    pub(crate) fn fail_next_invitation_write_for_test(&self) {
+        self.inner.repository.fail_next_write();
     }
 
     pub(crate) fn targeted_blob_ticket_for_test(
@@ -355,6 +375,7 @@ impl VnidropCore {
             IdentityMode::Protected {
                 store,
                 profile_lock,
+                test_loopback: true,
             },
         )
     }
@@ -503,7 +524,7 @@ impl VnidropCore {
         limits: CoreLimits,
         network_config: CoreNetworkConfig,
     ) -> Result<Arc<Self>, VnidropError> {
-        Self::initialize_protected(app_data_dir, event_sink, limits, network_config)
+        Self::initialize_protected(app_data_dir, event_sink, limits, network_config, false)
     }
 
     /// Explicitly replace an endpoint identity whose protected credential is
@@ -613,7 +634,7 @@ impl VnidropCore {
         // Fire the oneshot on this thread before entering the runtime so a
         // blocked export write cannot prevent the cancel signal from being
         // delivered (the receive `select!` observes it on the next yield).
-        if let Some(direction) = self.inner.take_active_transfer(transfer_id) {
+        if let Some((direction, _receive_attempt)) = self.inner.take_active_transfer(transfer_id) {
             if direction == TransferDirection::Send {
                 return self
                     .block_on(self.inner.cancel_share_preparation(transfer_id))
@@ -625,14 +646,13 @@ impl VnidropCore {
             };
             return self
                 .block_on(async {
-                    self.inner
-                        .repository
-                        .transition_transfer_status(
-                            transfer_id,
-                            expected,
-                            TransferStatus::Cancelled,
-                        )
-                        .await?;
+                    let transition = || self.inner.repository.transition_transfer_status(
+                        transfer_id, expected, TransferStatus::Cancelled,
+                    );
+                    if let Err(error) = transition().await {
+                        tracing::warn!(transfer_id, %error, "retrying interrupted cancellation write");
+                        transition().await?;
+                    }
                     self.inner.emit_transfer(
                         transfer_id,
                         direction.as_str(),
@@ -850,6 +870,20 @@ impl VnidropCore {
             self.inner
                 .receive_targeted_transfer_with_output_sink_v2(transfer_id, output_sink),
         )
+    }
+
+    /// Receives or resumes into a sink that can reopen its published outputs.
+    pub fn receive_targeted_transfer_with_resumable_sink(
+        &self,
+        id: String,
+        output_sink: Arc<dyn ReceiveOutputSinkV2>,
+        verifier: Arc<dyn crate::TargetedOutputVerifier>,
+    ) -> Result<(), VnidropError> {
+        self.block_on(self.inner.receive_targeted_transfer_with_resumable_sink(
+            id,
+            output_sink,
+            verifier,
+        ))
     }
 
     pub fn get_targeted_transfer(

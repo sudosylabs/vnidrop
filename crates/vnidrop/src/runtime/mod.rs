@@ -126,6 +126,7 @@ pub(super) struct CoreInner {
     /// Sync mutex so cancel can remove + signal without awaiting (and without
     /// holding a Tokio lock across repository I/O).
     pub(super) active_transfers: Arc<std::sync::Mutex<HashMap<u64, ActiveTransfer>>>,
+    active_receive_attempts: Arc<std::sync::Mutex<HashSet<u64>>>,
     pub(super) active_targeted_transfers: Arc<std::sync::Mutex<HashMap<String, ActiveTransfer>>>,
     pub(super) active_targeted_preparations: AtomicU64,
     // Active shares are protected by persistent Iroh tags.
@@ -134,6 +135,7 @@ pub(super) struct CoreInner {
     /// Multiple transfers can share the same content-addressed hash.
     pub(super) hash_to_transfer: Arc<TokioMutex<HashMap<String, HashSet<u64>>>>,
     pub(super) connection_endpoints: TokioMutex<HashMap<u64, String>>,
+    provider_requests: TokioMutex<HashMap<(u64, u64), provider::ProviderAccess>>,
     pub(super) provider_task: TokioMutex<Option<JoinHandle<()>>>,
     pub(super) delivery_receipt_notify: Notify,
     pub(super) delivery_receipt_task: TokioMutex<Option<JoinHandle<()>>>,
@@ -166,13 +168,29 @@ pub(super) struct CoreInner {
 
 pub(super) struct ActiveTransfer {
     pub(super) direction: TransferDirection,
-    pub(super) cancel: oneshot::Sender<()>,
+    pub(super) cancel: Option<oneshot::Sender<()>>,
+    receive_attempt: Option<Arc<ReceiveAttempt>>,
+}
+
+struct ReceiveAttempt {
+    id: u64,
+    active: Arc<std::sync::Mutex<HashSet<u64>>>,
+}
+
+impl Drop for ReceiveAttempt {
+    fn drop(&mut self) {
+        self.active
+            .lock()
+            .expect("active_receive_attempts")
+            .remove(&self.id);
+    }
 }
 
 pub(super) enum IdentityMode {
     Protected {
         store: Arc<dyn SecureSecretStore>,
         profile_lock: ProfileLock,
+        test_loopback: bool,
     },
 }
 
@@ -191,10 +209,11 @@ impl CoreInner {
         let repository = stores.invitation.clone();
         let targeted_transfers = stores.targeted.clone();
         let blocked_devices = stores.blocked.clone();
-        let (secret_key, secret_custody, profile_lock) = match identity_mode {
+        let (secret_key, secret_custody, profile_lock, test_loopback) = match identity_mode {
             IdentityMode::Protected {
                 store,
                 profile_lock,
+                test_loopback,
             } => {
                 let (secret_key, custody) = start_endpoint_identity(
                     stores.secrets.clone(),
@@ -202,9 +221,22 @@ impl CoreInner {
                     &app_data_dir.join("iroh.secret"),
                 )
                 .await?;
-                (secret_key, Some(Arc::new(custody)), Some(profile_lock))
+                (
+                    secret_key,
+                    Some(Arc::new(custody)),
+                    Some(profile_lock),
+                    test_loopback,
+                )
             }
         };
+        let staging_profile = app_data_dir.clone();
+        let cleanup = tokio::task::spawn_blocking(move || {
+            crate::output_staging::inspect_or_reclaim(&staging_profile, true)
+        })
+        .await?;
+        if let Err(error) = cleanup {
+            tracing::warn!(%error, "failed to reclaim interrupted receive staging");
+        }
         let store_root = app_data_dir.join("blobs");
         let mut store_options = FsStoreOptions::new(&store_root);
         store_options.gc = Some(GcConfig {
@@ -212,13 +244,8 @@ impl CoreInner {
             add_protected: None,
         });
         let store = FsStore::load_with_opts(store_root.join("blobs.db"), store_options).await?;
-        let endpoint = match relay_mode {
-            CoreRelayMode::Automatic => {
-                Endpoint::builder(presets::N0)
-                    .secret_key(secret_key)
-                    .bind()
-                    .await?
-            }
+        let endpoint_builder = match relay_mode {
+            CoreRelayMode::Automatic => Endpoint::builder(presets::N0).secret_key(secret_key),
             CoreRelayMode::StrictCustom | CoreRelayMode::CustomWithDirectFallback => {
                 let relay_map = RelayMap::from_iter(relay_urls.iter().cloned().map(|url| {
                     // Loopback HTTP is a development escape hatch. Without TLS the
@@ -235,16 +262,20 @@ impl CoreInner {
                     .relay_mode(RelayMode::Custom(relay_map))
                     .ca_tls_config(CaTlsConfig::embedded())
                     .secret_key(secret_key)
-                    .bind()
-                    .await?
             }
-            CoreRelayMode::LocalOnly => {
-                Endpoint::builder(presets::Minimal)
-                    .relay_mode(RelayMode::Disabled)
-                    .secret_key(secret_key)
-                    .bind()
-                    .await?
-            }
+            CoreRelayMode::LocalOnly => Endpoint::builder(presets::Minimal)
+                .relay_mode(RelayMode::Disabled)
+                .secret_key(secret_key),
+        };
+        // Keep in-process macOS test peers reachable independently of host LAN routes.
+        let endpoint = if cfg!(target_os = "macos") && (cfg!(test) || test_loopback) {
+            endpoint_builder
+                .clear_ip_transports()
+                .bind_addr("127.0.0.1:0")?
+                .bind()
+                .await?
+        } else {
+            endpoint_builder.bind().await?
         };
         let relay_status =
             match wait_for_relay(&endpoint, relay_mode, &relay_urls, RELAY_CONNECT_TIMEOUT).await {
@@ -465,9 +496,10 @@ impl CoreInner {
                     let active_targeted = targeted
                         .lock()
                         .expect("active_targeted_transfers")
-                        .remove(&row.id);
-                    if let Some(active_targeted) = active_targeted {
-                        let _ = active_targeted.cancel.send(());
+                        .get_mut(&row.id)
+                        .and_then(|active| active.cancel.take());
+                    if let Some(cancel) = active_targeted {
+                        let _ = cancel.send(());
                     }
                     {
                         let mut hashes = hashes.lock().await;
@@ -549,11 +581,13 @@ impl CoreInner {
             limits,
             access_policy,
             active_transfers,
+            active_receive_attempts: Default::default(),
             active_targeted_transfers,
             active_targeted_preparations: AtomicU64::new(0),
             active_shares: TokioMutex::new(restored_active_shares),
             hash_to_transfer,
             connection_endpoints: TokioMutex::new(HashMap::new()),
+            provider_requests: TokioMutex::new(HashMap::new()),
             provider_task: TokioMutex::new(None),
             delivery_receipt_notify: Notify::new(),
             delivery_receipt_task: TokioMutex::new(None),

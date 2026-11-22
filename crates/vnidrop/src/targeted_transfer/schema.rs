@@ -95,6 +95,47 @@ pub(crate) async fn ensure_schema(pool: &SqlitePool) -> anyhow::Result<()> {
     )
     .execute(pool)
     .await?;
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS targeted_receive_outputs (
+            transfer_id TEXT NOT NULL,
+            locator TEXT NOT NULL,
+            file_identity TEXT NOT NULL,
+            PRIMARY KEY (transfer_id, locator),
+            FOREIGN KEY(transfer_id) REFERENCES targeted_transfers(id) ON DELETE CASCADE
+        );
+        "#,
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS targeted_sink_outputs (
+            transfer_id TEXT NOT NULL,
+            relative_path TEXT NOT NULL,
+            destination TEXT NOT NULL,
+            locator TEXT NOT NULL,
+            published INTEGER NOT NULL,
+            PRIMARY KEY (transfer_id, relative_path, destination),
+            FOREIGN KEY(transfer_id) REFERENCES targeted_transfers(id) ON DELETE CASCADE
+        );
+        "#,
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        r#"
+        CREATE TRIGGER IF NOT EXISTS clear_terminal_targeted_receive_outputs
+        AFTER UPDATE OF state ON targeted_transfers
+        WHEN NEW.state IN ('completed', 'cancelled', 'failed', 'deleted')
+        BEGIN
+            DELETE FROM targeted_receive_outputs WHERE transfer_id = NEW.id;
+            DELETE FROM targeted_sink_outputs WHERE transfer_id = NEW.id;
+        END;
+        "#,
+    )
+    .execute(pool)
+    .await?;
     let columns = sqlx::query("PRAGMA table_info(targeted_transfers)")
         .fetch_all(pool)
         .await?;

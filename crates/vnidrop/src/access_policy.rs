@@ -1,4 +1,10 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 use tokio::sync::RwLock;
 
@@ -16,8 +22,23 @@ pub(crate) enum AccessDecision {
 
 #[derive(Debug, Default)]
 pub(crate) struct AccessPolicy {
-    modes: RwLock<HashMap<u64, TransferAccessMode>>,
+    modes: RwLock<HashMap<u64, TransferAccess>>,
     approved_sessions: RwLock<HashMap<(u64, String), ApprovalSession>>,
+}
+
+#[derive(Debug)]
+struct TransferAccess {
+    mode: TransferAccessMode,
+    lease: AccessLease,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct AccessLease(Arc<AtomicBool>);
+
+impl AccessLease {
+    pub(crate) fn is_active(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
 }
 
 impl AccessPolicy {
@@ -26,11 +47,25 @@ impl AccessPolicy {
     }
 
     pub(crate) async fn set_mode(&self, transfer_id: u64, mode: TransferAccessMode) {
-        self.modes.write().await.insert(transfer_id, mode);
+        let mut modes = self.modes.write().await;
+        if let Some(access) = modes.get_mut(&transfer_id) {
+            access.mode = mode;
+        } else {
+            modes.insert(
+                transfer_id,
+                TransferAccess {
+                    mode,
+                    lease: AccessLease(Arc::new(AtomicBool::new(true))),
+                },
+            );
+        }
     }
 
     pub(crate) async fn remove_transfer(&self, transfer_id: u64) {
-        self.modes.write().await.remove(&transfer_id);
+        let mut modes = self.modes.write().await;
+        if let Some(access) = modes.remove(&transfer_id) {
+            access.lease.0.store(false, Ordering::Release);
+        }
         self.approved_sessions
             .write()
             .await
@@ -64,34 +99,33 @@ impl AccessPolicy {
         transfer_id: u64,
         endpoint_id: Option<&str>,
     ) -> AccessDecision {
-        // Unknown transfers fail closed. Never treat a missing mode as Public.
-        match self.modes.read().await.get(&transfer_id).cloned() {
-            None => AccessDecision::Deny {
-                reason: "unknown-transfer",
-            },
-            Some(TransferAccessMode::Public) => AccessDecision::Allow,
-            Some(TransferAccessMode::ApprovalRequired) => {
-                let Some(endpoint_id) = endpoint_id else {
-                    return AccessDecision::Deny {
-                        reason: "missing-endpoint-id",
-                    };
-                };
-                let key = (transfer_id, endpoint_id.to_string());
-                let mut sessions = self.approved_sessions.write().await;
-                match sessions.get(&key) {
-                    Some(session) if session.is_valid(now_ms()) => AccessDecision::Allow,
-                    Some(_) => {
-                        sessions.remove(&key);
-                        AccessDecision::Deny {
-                            reason: "approval-expired",
-                        }
-                    }
-                    None => AccessDecision::Deny {
-                        reason: "approval-required",
-                    },
+        match self.authorize(transfer_id, endpoint_id).await {
+            Ok(_) => AccessDecision::Allow,
+            Err(reason) => AccessDecision::Deny { reason },
+        }
+    }
+
+    pub(crate) async fn authorize(
+        &self,
+        transfer_id: u64,
+        endpoint_id: Option<&str>,
+    ) -> Result<AccessLease, &'static str> {
+        let modes = self.modes.read().await;
+        let access = modes.get(&transfer_id).ok_or("unknown-transfer")?;
+        if access.mode == TransferAccessMode::ApprovalRequired {
+            let endpoint_id = endpoint_id.ok_or("missing-endpoint-id")?;
+            let key = (transfer_id, endpoint_id.to_string());
+            let mut sessions = self.approved_sessions.write().await;
+            match sessions.get(&key) {
+                Some(session) if session.is_valid(now_ms()) => {}
+                Some(_) => {
+                    sessions.remove(&key);
+                    return Err("approval-expired");
                 }
+                None => return Err("approval-required"),
             }
         }
+        Ok(access.lease.clone())
     }
 }
 

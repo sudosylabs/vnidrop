@@ -157,7 +157,7 @@ impl ApprovalService {
         accepted: bool,
         reason: Option<String>,
     ) -> anyhow::Result<()> {
-        let sender = self.pending.lock().await.remove(&request_id);
+        let mut pending = self.pending.lock().await;
         let status = if accepted {
             ReceiverRequestStatus::Accepted
         } else {
@@ -167,7 +167,7 @@ impl ApprovalService {
             .update_receiver_request_status(&request_id, status, reason.as_deref())
             .await?;
 
-        if let Some(sender) = sender {
+        if let Some(sender) = pending.remove(&request_id) {
             let _ = sender.send(ApprovalDecision {
                 request_id,
                 accepted,

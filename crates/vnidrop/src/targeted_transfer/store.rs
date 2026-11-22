@@ -21,6 +21,110 @@ impl TargetedTransferStore {
         Self { pool }
     }
 
+    pub(super) async fn receive_output_identity(
+        &self,
+        id: &str,
+        locator: &str,
+    ) -> Result<Option<String>, VnidropError> {
+        sqlx::query_scalar(
+            "SELECT file_identity FROM targeted_receive_outputs WHERE transfer_id = ? AND locator = ?",
+        )
+        .bind(id)
+        .bind(locator)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(VnidropError::repository)
+    }
+
+    pub(super) async fn record_receive_output(
+        &self,
+        id: &str,
+        locator: &str,
+        identity: &str,
+    ) -> Result<(), VnidropError> {
+        sqlx::query(
+            "INSERT INTO targeted_receive_outputs (transfer_id, locator, file_identity)
+             SELECT ?, ?, ? FROM targeted_transfers WHERE id = ? AND state = 'transferring'
+             ON CONFLICT (transfer_id, locator) DO UPDATE SET file_identity = excluded.file_identity",
+        )
+        .bind(id)
+        .bind(locator)
+        .bind(identity)
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(())
+    }
+
+    pub(super) async fn sink_output_checkpoint(
+        &self,
+        id: &str,
+        relative_path: &str,
+        destination: &str,
+    ) -> Result<Option<(String, bool)>, VnidropError> {
+        sqlx::query_as(
+            "SELECT locator, published FROM targeted_sink_outputs
+             WHERE transfer_id = ? AND relative_path = ? AND destination = ?",
+        )
+        .bind(id)
+        .bind(relative_path)
+        .bind(destination)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(VnidropError::repository)
+    }
+
+    pub(super) async fn record_sink_output(
+        &self,
+        id: &str,
+        relative_path: &str,
+        destination: &str,
+        locator: &str,
+        published: bool,
+    ) -> Result<(), VnidropError> {
+        sqlx::query(
+            "INSERT INTO targeted_sink_outputs (transfer_id, relative_path, destination, locator, published)
+             SELECT ?, ?, ?, ?, ? FROM targeted_transfers WHERE id = ? AND state = 'transferring'
+             ON CONFLICT (transfer_id, relative_path, destination) DO UPDATE SET locator = excluded.locator, published = excluded.published",
+        )
+        .bind(id)
+        .bind(relative_path)
+        .bind(destination)
+        .bind(locator)
+        .bind(published)
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(())
+    }
+
+    pub(super) async fn forget_receive_output(
+        &self,
+        id: &str,
+        locator: &str,
+    ) -> Result<(), VnidropError> {
+        sqlx::query("DELETE FROM targeted_receive_outputs WHERE transfer_id = ? AND locator = ?")
+            .bind(id)
+            .bind(locator)
+            .execute(&self.pool)
+            .await
+            .map_err(VnidropError::repository)?;
+        Ok(())
+    }
+
+    pub(super) async fn forget_sink_output(
+        &self,
+        id: &str,
+        relative_path: &str,
+        destination: &str,
+    ) -> Result<(), VnidropError> {
+        sqlx::query("DELETE FROM targeted_sink_outputs WHERE transfer_id = ? AND relative_path = ? AND destination = ?")
+            .bind(id).bind(relative_path).bind(destination).execute(&self.pool).await.map_err(VnidropError::repository)?;
+        Ok(())
+    }
+
     pub(crate) async fn persist_accepted_offer_intent(
         &self,
         offer: &crate::api::PendingTargetedOffer,

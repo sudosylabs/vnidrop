@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use iroh_blobs::{
     provider::events::{ProviderMessage, RequestUpdate},
@@ -8,7 +8,12 @@ use serde_json::json;
 use tokio::sync::mpsc;
 
 use super::CoreInner;
-use crate::access_policy::AccessDecision;
+use crate::access_policy::AccessLease;
+
+pub(super) struct ProviderAccess {
+    transfer_id: u64,
+    leases: Vec<AccessLease>,
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum RequestStreamOutcome {
@@ -97,12 +102,12 @@ impl CoreInner {
             }
             ProviderMessage::GetRequestReceived(message) => {
                 match self
-                    .authorize_hash(message.inner.request.hash, message.inner.connection_id)
+                    .authorize_hashes(&[message.inner.request.hash], message.inner.connection_id)
                     .await
                 {
-                    Ok(transfer_id) => {
+                    Ok(transfer_ids) => {
                         self.track_request_updates(
-                            transfer_id,
+                            transfer_ids,
                             message.inner.connection_id,
                             message.inner.request_id,
                             message.rx,
@@ -124,12 +129,12 @@ impl CoreInner {
                 }
             }
             ProviderMessage::GetRequestReceivedNotify(message) => {
-                if let Ok(transfer_id) = self
-                    .authorize_hash(message.inner.request.hash, message.inner.connection_id)
+                if let Ok(transfer_ids) = self
+                    .authorize_hashes(&[message.inner.request.hash], message.inner.connection_id)
                     .await
                 {
                     self.track_request_updates(
-                        transfer_id,
+                        transfer_ids,
                         message.inner.connection_id,
                         message.inner.request_id,
                         message.rx,
@@ -142,9 +147,9 @@ impl CoreInner {
                     .authorize_hashes(&message.inner.request.hashes, message.inner.connection_id)
                     .await
                 {
-                    Ok(transfer_id) => {
+                    Ok(transfer_ids) => {
                         self.track_request_updates(
-                            transfer_id,
+                            transfer_ids,
                             message.inner.connection_id,
                             message.inner.request_id,
                             message.rx,
@@ -166,12 +171,12 @@ impl CoreInner {
                 }
             }
             ProviderMessage::GetManyRequestReceivedNotify(message) => {
-                if let Ok(transfer_id) = self
+                if let Ok(transfer_ids) = self
                     .authorize_hashes(&message.inner.request.hashes, message.inner.connection_id)
                     .await
                 {
                     self.track_request_updates(
-                        transfer_id,
+                        transfer_ids,
                         message.inner.connection_id,
                         message.inner.request_id,
                         message.rx,
@@ -224,16 +229,13 @@ impl CoreInner {
                 );
             }
             ProviderMessage::Throttle(message) => {
-                self.emit_endpoint(
-                    "provider",
-                    "throttle-request",
-                    json!({
-                        "connection_id": message.inner.connection_id,
-                        "request_id": message.inner.request_id,
-                        "size": message.inner.size,
-                    }),
-                );
-                let _ = message.tx.send(Ok(())).await;
+                let key = (message.inner.connection_id, message.inner.request_id);
+                let decision = if self.provider_request_is_active(key).await {
+                    Ok(())
+                } else {
+                    Err(iroh_blobs::provider::events::AbortReason::Permission)
+                };
+                let _ = message.tx.send(decision).await;
             }
             other => {
                 self.emit_endpoint(
@@ -257,35 +259,75 @@ impl CoreInner {
         );
     }
 
+    #[cfg(test)]
+    pub(super) async fn register_provider_request_for_test(&self, transfer_id: u64) {
+        let lease = self
+            .access_policy
+            .authorize(transfer_id, Some("test-peer"))
+            .await
+            .unwrap();
+        self.provider_requests.lock().await.insert(
+            (1, 1),
+            ProviderAccess {
+                transfer_id,
+                leases: vec![lease],
+            },
+        );
+    }
+
+    pub(super) async fn provider_request_is_active(&self, key: (u64, u64)) -> bool {
+        self.provider_requests
+            .lock()
+            .await
+            .get(&key)
+            .is_some_and(|request| request.leases.iter().all(AccessLease::is_active))
+    }
+
     /// Default-deny: hash must belong to an active share the peer may read.
-    pub(super) async fn authorize_hash(
+    async fn authorize_hash(
         &self,
         hash: Hash,
         connection_id: u64,
-    ) -> Result<u64, &'static str> {
+    ) -> Result<(u64, AccessLease), &'static str> {
         let transfer_ids = self.transfer_ids_for_hash(hash).await;
         if transfer_ids.is_empty() {
             return Err("unknown-hash");
         }
-        self.allow_any_transfer(&transfer_ids, connection_id).await
+        let endpoint = self
+            .connection_endpoints
+            .lock()
+            .await
+            .get(&connection_id)
+            .cloned();
+        let mut last_reason = "approval-required";
+        for id in transfer_ids {
+            match self.access_policy.authorize(id, endpoint.as_deref()).await {
+                Ok(lease) => return Ok((id, lease)),
+                Err(reason) => last_reason = reason,
+            }
+        }
+        Err(last_reason)
     }
 
-    /// Every hash in a multi-get must be authorized; progress is attributed to
-    /// the first allowing transfer id.
-    pub(super) async fn authorize_hashes(
+    async fn authorize_hashes(
         &self,
         hashes: &[Hash],
         connection_id: u64,
-    ) -> Result<u64, &'static str> {
-        if hashes.is_empty() {
-            return Err("empty-request");
-        }
-        let mut attributed = None;
+    ) -> Result<ProviderAccess, &'static str> {
+        let mut transfer_id = None;
+        let mut seen = HashSet::new();
+        let mut leases = Vec::new();
         for hash in hashes {
-            let transfer_id = self.authorize_hash(*hash, connection_id).await?;
-            attributed.get_or_insert(transfer_id);
+            let (id, lease) = self.authorize_hash(*hash, connection_id).await?;
+            transfer_id.get_or_insert(id);
+            if seen.insert(id) {
+                leases.push(lease);
+            }
         }
-        attributed.ok_or("empty-request")
+        Ok(ProviderAccess {
+            transfer_id: transfer_id.ok_or("empty-request")?,
+            leases,
+        })
     }
 
     pub(super) async fn transfer_ids_for_hash(&self, hash: Hash) -> Vec<u64> {
@@ -297,34 +339,9 @@ impl CoreInner {
             .unwrap_or_default()
     }
 
-    async fn allow_any_transfer(
-        &self,
-        transfer_ids: &[u64],
-        connection_id: u64,
-    ) -> Result<u64, &'static str> {
-        let endpoint_id = self
-            .connection_endpoints
-            .lock()
-            .await
-            .get(&connection_id)
-            .cloned();
-        let mut last_reason = "approval-required";
-        for transfer_id in transfer_ids {
-            match self
-                .access_policy
-                .decide(*transfer_id, endpoint_id.as_deref())
-                .await
-            {
-                AccessDecision::Allow => return Ok(*transfer_id),
-                AccessDecision::Deny { reason } => last_reason = reason,
-            }
-        }
-        Err(last_reason)
-    }
-
-    pub(super) async fn track_request_updates(
+    async fn track_request_updates(
         self: &Arc<Self>,
-        transfer_id: u64,
+        access: ProviderAccess,
         connection_id: u64,
         request_id: u64,
         rx: irpc::channel::mpsc::Receiver<RequestUpdate>,
@@ -341,6 +358,12 @@ impl CoreInner {
             .await
             .get(&connection_id)
             .cloned();
+        let transfer_id = access.transfer_id;
+        let request_key = (connection_id, request_id);
+        self.provider_requests
+            .lock()
+            .await
+            .insert(request_key, access);
         let core = self.clone();
         tokio::spawn(async move {
             let outcome = consume_request_updates(rx, |update| match update {
@@ -398,6 +421,7 @@ impl CoreInner {
                 }
             })
             .await;
+            core.provider_requests.lock().await.remove(&request_key);
             if outcome == RequestStreamOutcome::Aborted {
                 core.emit_transfer(
                     transfer_id,

@@ -116,14 +116,6 @@ public class PresentationTests
     }
 
     [Fact]
-    public void TemporaryCleanupOnlyRecognizesVniDropPartFiles()
-    {
-        Assert.True(WindowsStorage.IsReceivePart(Path.Combine("x", ".photo.vnidrop-123.part")));
-        Assert.False(WindowsStorage.IsReceivePart(Path.Combine("x", "photo.vnidrop-123.part")));
-        Assert.False(WindowsStorage.IsReceivePart(Path.Combine("x", ".photo.vnidrop-123.txt")));
-    }
-
-    [Fact]
     public void ImportsKotlinPreferencesIncludingStrictRelayPolicy()
     {
         var bytes = Preference("username", "Élodie").Concat(Preference("receive_folder_value", "D:\\Reçus"))

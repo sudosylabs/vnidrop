@@ -12,6 +12,7 @@ mod handshake;
 mod identity_recovery;
 mod invitation;
 mod logging;
+mod output_staging;
 mod pairing_eligibility;
 mod persistence;
 mod runtime;
@@ -27,14 +28,15 @@ mod util;
 
 pub use api::{
     clear_inactive_transfer_cache, default_core_limits, default_core_network_config,
-    saved_device_capabilities, CoreEvent, CoreEventSink, CoreLimits, CoreNetworkConfig,
-    CoreRelayMode, CoreStorageUsage, DeviceRelationship, DeviceRelationshipState,
-    PairingEligibilitySummary, PendingTargetedOffer, PublishedOutput, ReceiveOutputSink,
-    ReceiveOutputSinkV2, ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest,
+    receive_staging_bytes, saved_device_capabilities, CoreEvent, CoreEventSink, CoreLimits,
+    CoreNetworkConfig, CoreRelayMode, CoreStorageUsage, DeviceRelationship,
+    DeviceRelationshipState, PairingEligibilitySummary, PendingTargetedOffer, PublishedOutput,
+    ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest,
     RuntimeObligationFacts, RuntimeStatus, SavedDevice, SavedDeviceCapabilities,
     ShareMetadataInput, ShareResult, ShareSource, SourceKind, StoredTransfer,
-    TargetedOfferResponse, TargetedPreparationStopOutcome, TargetedTransfer, TargetedTransferRole,
-    TargetedTransferState, TicketInspection, TransferAccessMode, TransferMetadata,
+    TargetedOfferResponse, TargetedOutputVerifier, TargetedPreparationStopOutcome,
+    TargetedTransfer, TargetedTransferRole, TargetedTransferState, TicketInspection,
+    TransferAccessMode, TransferMetadata,
 };
 pub use error::VnidropError;
 pub use runtime::{TargetedTransferPreparation, VnidropCore};

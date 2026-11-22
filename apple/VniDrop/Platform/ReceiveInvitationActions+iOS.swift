@@ -59,14 +59,14 @@ final class IosReceiveInvitationActions: NSObject, ReceiveInvitationActions, UID
 	func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
 		let result = documentResult
 		documentResult = nil
-		result?(Result {
-			guard let url = urls.first else { throw InvitationError.invalidInvitationURL }
-			let started = url.startAccessingSecurityScopedResource()
-			defer { if started { url.stopAccessingSecurityScopedResource() } }
-			let data = try Data(contentsOf: url)
-			guard data.count <= maxVniDropInvitationBytes else { throw InvitationError.tooLarge }
-			return try decodeInvitationBytes(data)
-		})
+		guard let result else { return }
+		guard let url = urls.first else {
+			result(.failure(InvitationError.invalidInvitationURL))
+			return
+		}
+		Task {
+			result(await Task.detached { Result { try readInvitationFile(url) } }.value)
+		}
 	}
 
 	func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {

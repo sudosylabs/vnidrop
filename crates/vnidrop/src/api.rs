@@ -298,6 +298,18 @@ pub fn clear_inactive_transfer_cache(app_data_dir: String) -> Result<u64, Vnidro
     result.map_err(VnidropError::filesystem)
 }
 
+/// Counts or reclaims interrupted receive staging owned by this app profile.
+#[uniffi::export]
+pub fn receive_staging_bytes(app_data_dir: String, reclaim: bool) -> Result<u64, VnidropError> {
+    let profile = PathBuf::from(app_data_dir);
+    if !profile.is_absolute() || profile.file_name().is_none() {
+        return Err(VnidropError::invalid_input(anyhow::anyhow!(
+            "invalid app data directory"
+        )));
+    }
+    crate::output_staging::inspect_or_reclaim(&profile, reclaim).map_err(VnidropError::filesystem)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 pub struct CoreLimits {
     pub max_sources: u64,
@@ -647,4 +659,23 @@ pub struct ReceiverRequest {
     pub requested_at: i64,
     pub responded_at: Option<i64>,
     pub completed_at: Option<i64>,
+}
+
+/// Opens a previously published output from the selected destination for verification.
+/// A returned descriptor is owned by Rust, including when verification fails.
+#[uniffi::export(with_foreign)]
+pub trait TargetedOutputVerifier: Send + Sync {
+    /// Stable identifier for the selected receive destination.
+    fn destination_key(&self) -> String;
+
+    /// Identifies the staged item before the sink attempts publication.
+    fn pending_output_locator(&self, relative_path: String) -> Result<String, VnidropError>;
+
+    /// Resolves an output from a recorded staging or publication locator.
+    fn open_published_output(
+        &self,
+        relative_path: String,
+        locator: String,
+        published: bool,
+    ) -> Result<Option<i32>, VnidropError>;
 }

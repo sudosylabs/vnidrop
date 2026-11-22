@@ -41,7 +41,17 @@ impl CoreInner {
         transfer_id: String,
         output_sink: Arc<dyn crate::ReceiveOutputSinkV2>,
     ) -> Result<(), VnidropError> {
-        self.receive_targeted_to_target(transfer_id, ReceiveTarget::OutputSinkV2(output_sink))
+        self.receive_targeted_to_target(transfer_id, ReceiveTarget::OutputSinkV2(output_sink, None))
+            .await
+    }
+
+    pub(super) async fn receive_targeted_transfer_with_resumable_sink(
+        self: &Arc<Self>,
+        id: String,
+        output_sink: Arc<dyn crate::ReceiveOutputSinkV2>,
+        verifier: Arc<dyn crate::TargetedOutputVerifier>,
+    ) -> Result<(), VnidropError> {
+        self.resume_targeted_to_target(id, ReceiveTarget::OutputSinkV2(output_sink, Some(verifier)))
             .await
     }
 
@@ -70,7 +80,7 @@ impl CoreInner {
         id: String,
         output_sink: Arc<dyn crate::ReceiveOutputSinkV2>,
     ) -> Result<(), VnidropError> {
-        self.resume_targeted_to_target(id, ReceiveTarget::OutputSinkV2(output_sink))
+        self.resume_targeted_to_target(id, ReceiveTarget::OutputSinkV2(output_sink, None))
             .await
     }
 
@@ -143,7 +153,8 @@ impl CoreInner {
                 std::collections::hash_map::Entry::Vacant(entry) => {
                     entry.insert(crate::runtime::ActiveTransfer {
                         direction: crate::transfer_state::TransferDirection::Receive,
-                        cancel,
+                        cancel: Some(cancel),
+                        receive_attempt: None,
                     });
                 }
                 std::collections::hash_map::Entry::Occupied(_) => {
@@ -156,6 +167,19 @@ impl CoreInner {
         let result = self
             .run_registered_targeted_receive(auth, target, cancelled)
             .await;
+        if result.is_err() {
+            let store = &self.targeted_transfers;
+            if let Ok(Some(row)) = store.get_row(&auth.transfer_id).await {
+                if matches!(
+                    row.state,
+                    TargetedTransferState::Connecting | TargetedTransferState::Transferring
+                ) {
+                    if let Err(error) = store.interrupt_receive(&auth.transfer_id).await {
+                        tracing::warn!(transfer_id = %auth.transfer_id, %error, "failed to persist targeted receive interruption");
+                    }
+                }
+            }
+        }
         self.active_targeted_transfers
             .lock()
             .expect("active_targeted_transfers")
@@ -170,77 +194,49 @@ impl CoreInner {
         cancelled: tokio::sync::oneshot::Receiver<()>,
     ) -> Result<(), VnidropError> {
         let store = &self.targeted_transfers;
-        if let Some(row) = store.get_row(&auth.transfer_id).await? {
-            match row.state {
-                TargetedTransferState::Approved | TargetedTransferState::Interrupted => {
-                    store.begin_receive(&auth.transfer_id, row.state).await?;
-                }
-                TargetedTransferState::Connecting | TargetedTransferState::Transferring => {
-                    return Err(VnidropError::InvalidTransition {
-                        reason: "targeted receive is already active".to_string(),
-                    });
-                }
-                other => {
-                    return Err(VnidropError::InvalidTransition {
-                        reason: format!(
-                            "cannot receive from {}",
-                            crate::targeted_transfer::state_as_str(other)
-                        ),
-                    });
-                }
+        let row = store.get_row(&auth.transfer_id).await?.ok_or_else(|| {
+            VnidropError::invalid_input(anyhow::anyhow!("targeted transfer missing"))
+        })?;
+        let start_state = match row.state {
+            TargetedTransferState::Approved | TargetedTransferState::Interrupted => row.state,
+            TargetedTransferState::Connecting | TargetedTransferState::Transferring => {
+                // Holding the receive registration proves these are leftovers from a failed attempt.
+                store.interrupt_receive(&auth.transfer_id).await?;
+                TargetedTransferState::Interrupted
             }
-        }
+            other => {
+                return Err(VnidropError::InvalidTransition {
+                    reason: format!(
+                        "cannot receive from {}",
+                        crate::targeted_transfer::state_as_str(other)
+                    ),
+                });
+            }
+        };
+        store.begin_receive(&auth.transfer_id, start_state).await?;
 
         let blob_ticket = BlobTicket::from_str_compat(&auth.blob_ticket)
             .map_err(|error| VnidropError::ticket(anyhow::anyhow!(error)))?;
-        let receive_result = self
-            .receive_targeted_payload(
-                &auth.transfer_id,
-                auth.protocol_transfer_id,
-                auth.file_count,
-                auth.total_size,
-                blob_ticket,
-                target,
-                cancelled,
-            )
-            .await;
-
-        match receive_result {
-            Ok(()) => {
-                let row = store.get_row(&auth.transfer_id).await?.ok_or_else(|| {
-                    VnidropError::internal(anyhow::anyhow!("targeted transfer missing"))
-                })?;
-                store
-                    .complete_receiver(&auth.transfer_id, row.total_size)
-                    .await?;
-                if self.acknowledge_targeted_completion(auth).await.is_ok() {
-                    store.clear_pending_completion(&auth.transfer_id).await?;
-                }
-                Ok(())
-            }
-            Err(error) => {
-                match store.get_row(&auth.transfer_id).await {
-                    Ok(Some(row))
-                        if matches!(
-                            row.state,
-                            TargetedTransferState::Connecting | TargetedTransferState::Transferring
-                        ) =>
-                    {
-                        match store.interrupt_receive(&auth.transfer_id).await {
-                            Ok(()) => {}
-                            Err(state_error) => {
-                                tracing::warn!(transfer_id = %auth.transfer_id, %state_error, "failed to persist targeted receive interruption")
-                            }
-                        }
-                    }
-                    Ok(_) => {}
-                    Err(state_error) => {
-                        tracing::warn!(transfer_id = %auth.transfer_id, %state_error, "failed to load targeted receive state after error")
-                    }
-                }
-                Err(VnidropError::transfer(error))
+        self.receive_targeted_payload(
+            &auth.transfer_id,
+            auth.protocol_transfer_id,
+            auth.file_count,
+            auth.total_size,
+            blob_ticket,
+            target,
+            cancelled,
+        )
+        .await
+        .map_err(VnidropError::transfer)?;
+        store
+            .complete_receiver(&auth.transfer_id, row.total_size)
+            .await?;
+        if self.acknowledge_targeted_completion(auth).await.is_ok() {
+            if let Err(error) = store.clear_pending_completion(&auth.transfer_id).await {
+                tracing::warn!(transfer_id = %auth.transfer_id, %error, "failed to clear recorded targeted completion");
             }
         }
+        Ok(())
     }
 
     pub(super) async fn acknowledge_targeted_completion(

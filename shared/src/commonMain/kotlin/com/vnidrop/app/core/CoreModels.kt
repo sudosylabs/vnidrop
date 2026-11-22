@@ -167,7 +167,7 @@ sealed interface CoreSignal {
 	data class ApprovalChanged(val transferId: ULong) : CoreSignal
 	data class ReceiverHistoryChanged(val transferId: ULong) : CoreSignal
 	/** Transfer status/history changed enough to re-read the durable snapshot. */
-	data class TransfersChanged(val transferId: ULong) : CoreSignal
+	data class TransfersChanged(val transferId: ULong, val receiveStarted: Boolean = false) : CoreSignal
 	/** Pairing / saved-device state changed; refresh eligibility, relationships, and saved list. */
 	data object PairingChanged : CoreSignal
 	/** Targeted-transfer offer or lifecycle changed; refresh pending offers and transfers. */

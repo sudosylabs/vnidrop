@@ -68,16 +68,17 @@ private final class BlockingCoreBindingFactory: CoreBindingFactory, @unchecked S
 
 @MainActor
 final class CoreRepositoryLifecycleTests: XCTestCase {
-	func testIdleRequirementRejectsTransfersAndShares() throws {
-		XCTAssertNoThrow(try CoreNetworkLifecycle.requireIdle(activeTransfers: 0, activeShares: 0))
-		XCTAssertThrowsError(
-			try CoreNetworkLifecycle.requireIdle(activeTransfers: 1, activeShares: 0)
-		) { error in
-			XCTAssertEqual(error as? CoreNetworkLifecycleError, .activeNetworkWork)
-		}
-		XCTAssertThrowsError(
-			try CoreNetworkLifecycle.requireIdle(activeTransfers: 0, activeShares: 1)
-		) { error in
+	func testIdleRequirementRejectsInvitationAndTargetedObligations() {
+		let idle = RuntimeObligationFactsModel(
+			activeInvitationTransfers: 0, invitationProviderAvailability: 0,
+			targetedPreparations: 0, activeTargetedTransfers: 0, targetedProviderAvailability: 0
+		)
+		XCTAssertNoThrow(try CoreNetworkLifecycle.requireIdle(idle))
+		let active = RuntimeObligationFactsModel(
+			activeInvitationTransfers: 0, invitationProviderAvailability: 0,
+			targetedPreparations: 0, activeTargetedTransfers: 0, targetedProviderAvailability: 1
+		)
+		XCTAssertThrowsError(try CoreNetworkLifecycle.requireIdle(active)) { error in
 			XCTAssertEqual(error as? CoreNetworkLifecycleError, .activeNetworkWork)
 		}
 	}

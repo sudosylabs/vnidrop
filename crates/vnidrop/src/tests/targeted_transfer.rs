@@ -1911,6 +1911,322 @@ fn targeted_path_receive_preserves_no_overwrite_and_resumes_elsewhere() {
     );
 }
 
+fn approve_targeted_files(
+    alice: &ProtectedNode,
+    bob: &ProtectedNode,
+    paths: &[&Path],
+) -> crate::TargetedTransfer {
+    let receiver = bob.core();
+    let accept = std::thread::spawn(move || {
+        let offer = wait_for_pending_offer(&receiver);
+        receiver
+            .respond_to_targeted_offer(offer.transfer_id, true)
+            .unwrap()
+    });
+    let transfer = alice
+        .core()
+        .run_targeted_transfer_for_test(
+            bob.core().status().endpoint_id,
+            paths.iter().map(|path| targeted_source(path)).collect(),
+            Some("Two files".to_string()),
+        )
+        .unwrap();
+    assert!(matches!(
+        accept.join().unwrap(),
+        crate::TargetedOfferResponse::Approved { .. }
+    ));
+    transfer
+}
+
+#[test]
+fn targeted_path_receive_recovers_after_partial_publication_and_restart() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_028);
+    let source = tempfile::tempdir().unwrap();
+    let first = source.path().join("a.txt");
+    let second = source.path().join("b.txt");
+    std::fs::write(&first, b"first").unwrap();
+    std::fs::write(&second, b"second").unwrap();
+    let transfer = approve_targeted_files(&alice, &bob, &[&first, &second]);
+
+    let output = tempfile::tempdir().unwrap();
+    let destination = output.path().to_string_lossy().into_owned();
+    std::fs::write(output.path().join("b.txt"), b"existing").unwrap();
+    assert!(bob
+        .core()
+        .receive_targeted_transfer(transfer.id.clone(), destination.clone())
+        .is_err());
+    assert_eq!(
+        std::fs::read(output.path().join("a.txt")).unwrap(),
+        b"first"
+    );
+    assert_eq!(
+        std::fs::read(output.path().join("b.txt")).unwrap(),
+        b"existing"
+    );
+
+    std::fs::remove_file(output.path().join("b.txt")).unwrap();
+    let bob = bob.restart();
+    bob.core()
+        .resume_targeted_transfer(transfer.id.clone(), destination)
+        .unwrap();
+    assert_eq!(
+        std::fs::read(output.path().join("a.txt")).unwrap(),
+        b"first"
+    );
+    assert_eq!(
+        std::fs::read(output.path().join("b.txt")).unwrap(),
+        b"second"
+    );
+    assert_eq!(
+        bob.core()
+            .get_targeted_transfer(transfer.id)
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Completed,
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn targeted_sink_resumes_verified_published_output_after_restart() {
+    use crate::TargetedOutputVerifier;
+    use std::{fs::File, io::Write, os::fd::IntoRawFd, path::PathBuf};
+
+    struct FileSink {
+        directory: PathBuf,
+        pending: Mutex<Option<File>>,
+        lose_receipt: bool,
+    }
+
+    impl ReceiveOutputSinkV2 for FileSink {
+        fn start_file(&self, relative_path: String) -> Result<(), VnidropError> {
+            let file = File::create_new(self.directory.join(relative_path))
+                .map_err(VnidropError::filesystem)?;
+            *self.pending.lock().unwrap() = Some(file);
+            Ok(())
+        }
+
+        fn write_chunk(&self, _: String, bytes: Vec<u8>) -> Result<(), VnidropError> {
+            self.pending
+                .lock()
+                .unwrap()
+                .as_mut()
+                .unwrap()
+                .write_all(&bytes)
+                .map_err(VnidropError::filesystem)
+        }
+
+        fn finish_file(&self, relative_path: String) -> Result<PublishedOutput, VnidropError> {
+            self.pending
+                .lock()
+                .unwrap()
+                .take()
+                .unwrap()
+                .sync_all()
+                .map_err(VnidropError::filesystem)?;
+            if self.lose_receipt {
+                return Err(VnidropError::internal(anyhow::anyhow!(
+                    "publication receipt was lost"
+                )));
+            }
+            Ok(PublishedOutput {
+                locator_kind: ReceivedLocatorKind::AndroidDocument,
+                locator: self
+                    .directory
+                    .join(relative_path)
+                    .to_string_lossy()
+                    .into_owned(),
+            })
+        }
+
+        fn abort_file(&self, relative_path: String, _: String) -> Result<(), VnidropError> {
+            self.pending.lock().unwrap().take();
+            std::fs::remove_file(self.directory.join(relative_path))
+                .map_err(VnidropError::filesystem)
+        }
+    }
+
+    impl TargetedOutputVerifier for FileSink {
+        fn destination_key(&self) -> String {
+            self.directory.to_string_lossy().into_owned()
+        }
+
+        fn pending_output_locator(&self, relative_path: String) -> Result<String, VnidropError> {
+            Ok(self
+                .directory
+                .join(relative_path)
+                .to_string_lossy()
+                .into_owned())
+        }
+
+        fn open_published_output(
+            &self,
+            relative_path: String,
+            locator: String,
+            _: bool,
+        ) -> Result<Option<i32>, VnidropError> {
+            let path = self.directory.join(relative_path);
+            if path != Path::new(&locator) || !path.is_file() {
+                return Ok(None);
+            }
+            Ok(Some(
+                File::open(path)
+                    .map_err(VnidropError::filesystem)?
+                    .into_raw_fd(),
+            ))
+        }
+    }
+
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_036);
+    let source = tempfile::tempdir().unwrap();
+    let first = source.path().join("a.txt");
+    let second = source.path().join("b.txt");
+    std::fs::write(&first, b"first").unwrap();
+    std::fs::write(&second, b"second").unwrap();
+    let transfer = approve_targeted_files(&alice, &bob, &[&first, &second]);
+
+    let output = tempfile::tempdir().unwrap();
+    let make_sink = |lose_receipt| {
+        Arc::new(FileSink {
+            directory: output.path().to_path_buf(),
+            pending: Mutex::new(None),
+            lose_receipt,
+        })
+    };
+    let sink = make_sink(true);
+    assert!(bob
+        .core()
+        .receive_targeted_transfer_with_resumable_sink(transfer.id.clone(), sink.clone(), sink)
+        .is_err());
+    assert_eq!(
+        std::fs::read(output.path().join("a.txt")).unwrap(),
+        b"first"
+    );
+    assert!(!output.path().join("b.txt").exists());
+    let bob = bob.restart();
+    let sink = make_sink(false);
+    bob.core()
+        .receive_targeted_transfer_with_resumable_sink(transfer.id.clone(), sink.clone(), sink)
+        .unwrap();
+    assert_eq!(
+        std::fs::read(output.path().join("a.txt")).unwrap(),
+        b"first"
+    );
+    assert_eq!(
+        std::fs::read(output.path().join("b.txt")).unwrap(),
+        b"second"
+    );
+    assert_eq!(
+        bob.core()
+            .get_targeted_transfer(transfer.id)
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Completed
+    );
+}
+
+#[test]
+fn cancelled_invitation_receive_reserves_its_id_until_it_unwinds() {
+    let sender = ProtectedNode::new();
+    let receiver = ProtectedNode::new();
+    let source = tempfile::tempdir().unwrap();
+    let source_path = source.path().join("hello.txt");
+    std::fs::write(&source_path, b"receive retry").unwrap();
+    let transfer_id = 11_037;
+    let share = share_path(&sender.core(), &source_path, transfer_id);
+    sender
+        .core()
+        .set_transfer_access_mode(transfer_id, TransferAccessMode::Public)
+        .unwrap();
+    let sink = Arc::new(GatedSink::default());
+    let receiving_core = receiver.core();
+    let blocking_sink = sink.clone();
+    let ticket = share.ticket.clone();
+    let receive = std::thread::spawn(move || {
+        receiving_core.receive_with_output_sink(ticket, blocking_sink, None)
+    });
+    sink.wait_until_entered();
+
+    let receiver = receiver.core();
+    receiver.fail_next_invitation_write_for_test();
+    receiver.cancel_transfer(transfer_id).unwrap();
+    assert_eq!(
+        receiver
+            .runtime_obligation_facts()
+            .unwrap()
+            .active_invitation_transfers,
+        1
+    );
+    let output = tempfile::tempdir().unwrap();
+    let destination = output.path().to_string_lossy().into_owned();
+    let retry = receiver.receive(share.ticket.clone(), destination.clone(), None);
+    sink.release();
+    assert!(matches!(retry, Err(VnidropError::InvalidTransition { .. })));
+    assert!(receive.join().unwrap().is_err());
+    receiver.receive(share.ticket, destination, None).unwrap();
+    assert_eq!(
+        std::fs::read(output.path().join("hello.txt")).unwrap(),
+        b"receive retry"
+    );
+}
+
+#[test]
+fn stopping_a_share_revokes_its_in_flight_provider_request() {
+    let sender = ProtectedNode::new();
+    let source = tempfile::tempdir().unwrap();
+    let source_path = source.path().join("hello.txt");
+    std::fs::write(&source_path, b"active stream").unwrap();
+    share_path(&sender.core(), &source_path, 11_035);
+
+    let sender = sender.core();
+    sender.register_provider_request_for_test(11_035);
+    assert!(sender.provider_request_is_active_for_test());
+    sender.cancel_transfer(11_035).unwrap();
+    assert!(!sender.provider_request_is_active_for_test());
+    sender.delete_transfer(11_035).unwrap();
+    share_path(&sender, &source_path, 11_035);
+    assert!(!sender.provider_request_is_active_for_test());
+}
+
+#[test]
+fn failed_invitation_approval_write_can_be_retried() {
+    let sender = ProtectedNode::new();
+    let receiver = ProtectedNode::new();
+    let source = tempfile::tempdir().unwrap();
+    let source_path = source.path().join("hello.txt");
+    std::fs::write(&source_path, b"approval retry").unwrap();
+    let output = tempfile::tempdir().unwrap();
+    let destination = output.path().to_string_lossy().into_owned();
+    let share = share_path(&sender.core(), &source_path, 11_029);
+    let receiver = receiver.core();
+    let receive = std::thread::spawn(move || receiver.receive(share.ticket, destination, None));
+    let sender = sender.core();
+    let request = wait_for_receiver_request(&sender, 11_029);
+
+    sender.fail_next_invitation_write_for_test();
+    assert!(sender
+        .respond_receiver_request(request.id.clone(), true, None)
+        .is_err());
+    assert_eq!(
+        sender.list_receiver_requests(11_029).unwrap()[0].status,
+        "requested"
+    );
+    sender
+        .respond_receiver_request(request.id, true, None)
+        .unwrap();
+    receive.join().unwrap().unwrap();
+    assert_eq!(
+        std::fs::read(output.path().join("hello.txt")).unwrap(),
+        b"approval retry"
+    );
+}
+
 #[test]
 fn manifest_change_requires_new_transfer_identity() {
     let alice = ProtectedNode::new();

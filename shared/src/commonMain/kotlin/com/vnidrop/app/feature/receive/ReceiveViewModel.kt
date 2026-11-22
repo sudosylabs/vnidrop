@@ -68,6 +68,9 @@ class ReceiveViewModel(
 	val state: StateFlow<ReceiveState> = _state.asStateFlow()
 	val coreState = repository.state
 
+	private var receiveRegistered = false
+	private var cancelPending = false
+
 	init {
 		viewModelScope.launch {
 			preferencesRepository.preferences.collect { preferences ->
@@ -83,13 +86,27 @@ class ReceiveViewModel(
 			}
 		}
 		viewModelScope.launch {
+			coreState.collect { snapshot ->
+				val activeId = _state.value.activeReceiveTransferId ?: return@collect
+				if (!receiveRegistered && snapshot.transfers.any {
+					it.transferId == activeId && it.direction == TransferDirection.Receive &&
+						it.status == TransferStatus.Receiving
+				}) {
+					receiveRegistered = true
+					if (cancelPending) cancelActiveReceive()
+				}
+			}
+		}
+
+		viewModelScope.launch {
 			repository.signals.collect { signal ->
 				when (signal) {
 					is CoreSignal.TransfersChanged -> {
-						repository.refresh()
-						if (_state.value.isReceiving && signal.transferId != 0UL) {
-							_state.update { it.copy(activeReceiveTransferId = signal.transferId) }
+						if (signal.receiveStarted && signal.transferId == _state.value.activeReceiveTransferId) {
+							receiveRegistered = true
+							if (cancelPending) cancelActiveReceive()
 						}
+						repository.refresh()
 					}
 					is CoreSignal.ApprovalChanged,
 					is CoreSignal.ReceiverHistoryChanged,
@@ -157,10 +174,13 @@ class ReceiveViewModel(
 		val current = state.value
 		val folder = current.receiveFolder ?: return
 		if (!current.canReceive(coreState.value.isInitialized)) return
+		val transferId = current.inspection?.metadata?.transferId ?: return
+		receiveRegistered = false
+		cancelPending = false
+		_state.update {
+			it.copy(isReceiving = true, lastReceiveError = null, activeReceiveTransferId = transferId)
+		}
 		viewModelScope.launch {
-			_state.update {
-				it.copy(isReceiving = true, lastReceiveError = null, activeReceiveTransferId = null)
-			}
 			val outputSink = fileSystemService.createReceiveOutputSink(folder)
 			val result = if (outputSink != null) {
 				repository.receiveWithOutputSinkV2(current.ticket, outputSink, current.receiverName)
@@ -221,22 +241,18 @@ class ReceiveViewModel(
 	}
 
 	fun cancelActiveReceive() {
-		val transferId = _state.value.activeReceiveTransferId
-			?: coreState.value.transfers.firstOrNull {
-				it.direction == TransferDirection.Receive && it.status == TransferStatus.Receiving
-			}?.transferId
-			?: coreState.value.events.firstOrNull {
-				it.direction == "receive" && it.transferId != null
-			}?.transferId
-			?: return
+		val activeId = _state.value.activeReceiveTransferId
+		if (activeId != null && !receiveRegistered) {
+			cancelPending = true
+			return
+		}
+		val transferId = activeId ?: coreState.value.transfers.firstOrNull {
+			it.direction == TransferDirection.Receive && it.status == TransferStatus.Receiving
+		}?.transferId ?: return
+		cancelPending = false
 		viewModelScope.launch {
 			repository.cancel(transferId).fold(
-				onSuccess = {
-					_state.update {
-						it.copy(isReceiving = false, activeReceiveTransferId = null, lastReceiveError = null)
-					}
-					repository.refresh()
-				},
+				onSuccess = { repository.refresh() },
 				onFailure = messages::error,
 			)
 		}

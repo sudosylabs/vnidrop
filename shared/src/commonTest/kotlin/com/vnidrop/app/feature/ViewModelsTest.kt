@@ -823,6 +823,32 @@ class ViewModelsTest {
 	}
 
 	@Test
+	fun receiveViewModelQueuesCancelForTheInspectedInvitation() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val core = FakeCoreGateway().apply {
+			mutableState.value = CoreState(isInitialized = true)
+			inspectionResult = Result.success(sampleTicketInspection())
+			receiveSuspend = true
+		}
+		val viewModel = ReceiveViewModel(core, FakeFileSystemService(folder), preferences(), UiMessageController())
+		advanceUntilIdle()
+		viewModel.onInvitationResult(com.vnidrop.app.feature.receive.ReceiveMethod.QrCode, Result.success("ticket"))
+		advanceUntilIdle()
+		viewModel.receive()
+		advanceUntilIdle()
+		core.mutableSignals.emit(CoreSignal.TransfersChanged(88UL))
+		advanceUntilIdle()
+		viewModel.cancelActiveReceive()
+		advanceUntilIdle()
+		assertTrue(core.cancelledTransfers.isEmpty())
+		core.mutableSignals.emit(CoreSignal.TransfersChanged(1UL, receiveStarted = true))
+		advanceUntilIdle()
+		assertEquals(listOf(1UL), core.cancelledTransfers)
+		core.completeSuspendedReceive()
+		advanceUntilIdle()
+	}
+
+	@Test
 	fun receiveViewModelClearsTicketWhenInspectionFailsButKeepsAcquisitionOpen() = runTest {
 		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 		val core = FakeCoreGateway().apply {

@@ -37,8 +37,18 @@ final class UserFacingErrorTests: XCTestCase {
 
 	func testIsUserCancellation() {
 		XCTAssertTrue(InvitationError.cancelled.isUserCancellation)
-		XCTAssertTrue(InvitationError.raw("User canceled the picker").isUserCancellation)
+		XCTAssertTrue(CancellationError().isUserCancellation)
+		XCTAssertTrue(CocoaError(.userCancelled).isUserCancellation)
+		XCTAssertTrue(URLError(.cancelled).isUserCancellation)
 		XCTAssertFalse(InvitationError.raw("A database error occurred").isUserCancellation)
+		XCTAssertFalse(NSError(
+			domain: "VniDrop.TestTransport", code: NSUserCancelledError,
+			userInfo: [NSLocalizedDescriptionKey: ""]
+		).isUserCancellation)
+	}
+
+	func testRemoteCancellationTextDoesNotHideAnError() {
+		XCTAssertFalse(InvitationError.raw("The sender canceled the connection unexpectedly").isUserCancellation)
 	}
 
 	func testToUiTextMapsKnownReasons() {

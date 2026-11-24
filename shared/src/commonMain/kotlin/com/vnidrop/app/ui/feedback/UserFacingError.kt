@@ -1,5 +1,6 @@
 package com.vnidrop.app.ui.feedback
 
+import kotlinx.coroutines.CancellationException
 import uniffi.vnidrop.VnidropException
 import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.error_device_info
@@ -46,15 +47,8 @@ fun Throwable.toUiText(): UiText =
 	}
 
 /** User intentionally backed out of a flow — do not treat as a failure snackbar. */
-fun Throwable.isUserCancellation(): Boolean {
-	if (this is VnidropException.Cancelled) return true
-	val haystack = technicalDetail().lowercase()
-	if (haystack.isBlank()) return false
-	return haystack.contains("cancelled") ||
-		haystack.contains("canceled") ||
-		haystack.contains("user cancelled") ||
-		haystack.contains("user canceled")
-}
+fun Throwable.isUserCancellation(): Boolean =
+	this is VnidropException.Cancelled || this is CancellationException
 
 fun Throwable.canRetryWithoutChangingInput(): Boolean =
 	this !is VnidropException.FilesystemPermission &&

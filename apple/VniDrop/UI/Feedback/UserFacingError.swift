@@ -66,16 +66,10 @@ extension Error {
 	var isUserCancellation: Bool {
 		if let invitation = self as? InvitationError, case .cancelled = invitation { return true }
 		if let vni = self as? VnidropError, case .Cancelled = vni { return true }
-		let haystack = technicalDetail.lowercased()
-		if haystack.isEmpty {
-			// URLError / CocoaError cancellation without a message.
-			if let urlError = self as? URLError, urlError.code == .cancelled { return true }
-			return (self as NSError).code == NSUserCancelledError
-		}
-		return haystack.contains("cancelled")
-			|| haystack.contains("canceled")
-			|| haystack.contains("user cancelled")
-			|| haystack.contains("user canceled")
+		if self is CancellationError { return true }
+		let native = self as NSError
+		return (native.domain == NSCocoaErrorDomain && native.code == NSUserCancelledError)
+			|| (native.domain == NSURLErrorDomain && native.code == URLError.Code.cancelled.rawValue)
 	}
 
 	/// The other device answered, and the answer was no.

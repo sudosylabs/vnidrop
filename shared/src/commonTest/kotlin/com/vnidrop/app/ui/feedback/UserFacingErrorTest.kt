@@ -1,5 +1,7 @@
 package com.vnidrop.app.ui.feedback
 
+import kotlinx.coroutines.CancellationException
+
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -135,11 +137,14 @@ class UserFacingErrorTest {
 
 	@Test
 	fun detectsUserCancellations() {
-		assertTrue(IllegalStateException("QR scanning was cancelled").isUserCancellation())
-		assertTrue(IllegalStateException("File selection was cancelled").isUserCancellation())
-		assertTrue(VnidropException.Transfer("transfer cancelled by user").isUserCancellation())
+		assertTrue(CancellationException().isUserCancellation())
 		assertTrue(VnidropException.Cancelled("cancel requested").isUserCancellation())
 		assertFalse(IllegalStateException("sender refused").isUserCancellation())
+	}
+
+	@Test
+	fun remoteCancellationTextDoesNotHideAnError() {
+		assertFalse(VnidropException.Network("The sender cancelled the connection unexpectedly").isUserCancellation())
 	}
 
 	@Test

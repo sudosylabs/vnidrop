@@ -379,7 +379,7 @@ impl CoreInner {
             was_idle
         };
         if was_idle {
-            self.emit_endpoint("runtime_obligation", "changed", json!({}));
+            self.emit_endpoint("runtime_obligation", "outgoing-work-changed", json!({}));
         }
         let core = self.clone();
         tokio::spawn(async move {
@@ -444,7 +444,7 @@ impl CoreInner {
                 requests.is_empty()
             };
             if became_idle {
-                core.emit_endpoint("runtime_obligation", "changed", json!({}));
+                core.emit_endpoint("runtime_obligation", "outgoing-work-changed", json!({}));
             }
             if outcome == RequestStreamOutcome::Aborted {
                 core.emit_transfer(

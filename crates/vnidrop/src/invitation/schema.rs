@@ -4,6 +4,15 @@ const SCHEMA_VERSION: i64 = 13;
 
 impl Repository {
     pub(crate) async fn ensure_schema(&self) -> Result<()> {
+        let mut transaction = self.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let current: i64 = sqlx::query_scalar("PRAGMA user_version")
+            .fetch_one(&mut *transaction)
+            .await?;
+        anyhow::ensure!(
+            current <= SCHEMA_VERSION,
+            "profile schema version {current} is newer than supported version {SCHEMA_VERSION}"
+        );
+
         // Invitation-transfer tables only. Other domains apply schema from
         // [`crate::persistence::open_all`]. Keep migrations explicit so releases
         // can move invitation history forward in place.
@@ -28,11 +37,11 @@ impl Repository {
             );
             "#,
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
 
         let columns = sqlx::query("PRAGMA table_info(transfers)")
-            .fetch_all(&self.pool)
+            .fetch_all(&mut *transaction)
             .await?;
         let has_access_mode = columns
             .iter()
@@ -42,14 +51,14 @@ impl Repository {
             .any(|row| row.get::<String, _>(1) == "sender_name")
         {
             sqlx::query("ALTER TABLE transfers ADD COLUMN sender_name TEXT")
-                .execute(&self.pool)
+                .execute(&mut *transaction)
                 .await?;
         }
         if !has_access_mode {
             sqlx::query(
                 "ALTER TABLE transfers ADD COLUMN access_mode TEXT NOT NULL DEFAULT 'approval_required'",
             )
-            .execute(&self.pool)
+            .execute(&mut *transaction)
             .await?;
         }
 
@@ -58,7 +67,7 @@ impl Repository {
             .any(|row| row.get::<String, _>(1) == "local_id");
         if !has_local_id {
             sqlx::query("ALTER TABLE transfers ADD COLUMN local_id TEXT")
-                .execute(&self.pool)
+                .execute(&mut *transaction)
                 .await?;
         }
         let has_protocol_transfer_id = columns
@@ -66,7 +75,7 @@ impl Repository {
             .any(|row| row.get::<String, _>(1) == "protocol_transfer_id");
         if !has_protocol_transfer_id {
             sqlx::query("ALTER TABLE transfers ADD COLUMN protocol_transfer_id INTEGER")
-                .execute(&self.pool)
+                .execute(&mut *transaction)
                 .await?;
         }
         let has_peer_id = columns
@@ -74,7 +83,7 @@ impl Repository {
             .any(|row| row.get::<String, _>(1) == "peer_id");
         if !has_peer_id {
             sqlx::query("ALTER TABLE transfers ADD COLUMN peer_id TEXT")
-                .execute(&self.pool)
+                .execute(&mut *transaction)
                 .await?;
         }
         sqlx::query(
@@ -85,12 +94,12 @@ impl Repository {
             WHERE local_id IS NULL OR protocol_transfer_id IS NULL
             "#,
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
         sqlx::query(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_transfers_local_id ON transfers(local_id)",
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
 
         sqlx::query(
@@ -108,7 +117,7 @@ impl Repository {
             );
             "#,
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
 
         sqlx::query(
@@ -126,11 +135,11 @@ impl Repository {
             );
             "#,
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
 
         let event_columns = sqlx::query("PRAGMA table_info(transfer_events)")
-            .fetch_all(&self.pool)
+            .fetch_all(&mut *transaction)
             .await?;
         if !event_columns
             .iter()
@@ -139,14 +148,14 @@ impl Repository {
             sqlx::query(
                 "ALTER TABLE transfer_events ADD COLUMN revision INTEGER NOT NULL DEFAULT 0",
             )
-            .execute(&self.pool)
+            .execute(&mut *transaction)
             .await?;
         }
 
         sqlx::query(
             "CREATE INDEX IF NOT EXISTS idx_transfer_events_transfer_id ON transfer_events(transfer_id, timestamp);",
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
 
         sqlx::query(
@@ -168,18 +177,18 @@ impl Repository {
             );
             "#,
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
 
         let receiver_columns = sqlx::query("PRAGMA table_info(receiver_requests)")
-            .fetch_all(&self.pool)
+            .fetch_all(&mut *transaction)
             .await?;
         if !receiver_columns
             .iter()
             .any(|row| row.get::<String, _>(1) == "receipt_token_hash")
         {
             sqlx::query("ALTER TABLE receiver_requests ADD COLUMN receipt_token_hash TEXT")
-                .execute(&self.pool)
+                .execute(&mut *transaction)
                 .await?;
         }
         if !receiver_columns
@@ -187,14 +196,14 @@ impl Repository {
             .any(|row| row.get::<String, _>(1) == "completed_at")
         {
             sqlx::query("ALTER TABLE receiver_requests ADD COLUMN completed_at INTEGER")
-                .execute(&self.pool)
+                .execute(&mut *transaction)
                 .await?;
         }
 
         sqlx::query(
             "CREATE INDEX IF NOT EXISTS idx_receiver_requests_transfer_id ON receiver_requests(transfer_id, requested_at DESC);",
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
 
         sqlx::query(
@@ -210,25 +219,26 @@ impl Repository {
             );
             "#,
         )
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
         let receipt_columns = sqlx::query("PRAGMA table_info(pending_delivery_receipts)")
-            .fetch_all(&self.pool)
+            .fetch_all(&mut *transaction)
             .await?;
         if !receipt_columns
             .iter()
             .any(|row| row.get::<String, _>(1) == "failure_reason")
         {
             sqlx::query("ALTER TABLE pending_delivery_receipts ADD COLUMN failure_reason TEXT")
-                .execute(&self.pool)
+                .execute(&mut *transaction)
                 .await?;
         }
 
         sqlx::query(sqlx::AssertSqlSafe(format!(
             "PRAGMA user_version = {SCHEMA_VERSION}"
         )))
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await?;
+        transaction.commit().await?;
         Ok(())
     }
 

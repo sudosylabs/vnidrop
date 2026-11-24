@@ -43,6 +43,8 @@ pub(crate) struct AppDataStores {
 /// Create the profile pool, apply all domain schemas, return [`AppDataStores`].
 pub(crate) async fn open_all(app_data_dir: &Path) -> Result<AppDataStores> {
     let pool = open_pool(app_data_dir).await?;
+    let invitation = Repository::from_pool(pool.clone());
+    invitation.ensure_schema().await?;
 
     // Unreleased device-history prototype tables — no migration path.
     for table in ["held_offers", "grants_held", "grants_issued", "contacts"] {
@@ -51,8 +53,6 @@ pub(crate) async fn open_all(app_data_dir: &Path) -> Result<AppDataStores> {
             .await?;
     }
 
-    let invitation = Repository::from_pool(pool.clone());
-    invitation.ensure_schema().await?;
     blocked_devices::ensure_schema(&pool).await?;
     secure_secret::ensure_schema(&pool).await?;
     DeviceRelationshipStore::ensure_schema(&pool).await?;

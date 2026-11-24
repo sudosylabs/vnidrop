@@ -5,7 +5,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use iroh_blobs::ticket::BlobTicket;
 
-use super::{receive::ReceiveTarget, targeted::BlobTicketParse, CoreInner};
+use super::{receive::ReceiveTarget, CoreInner};
 use crate::{
     api::TargetedTransferState,
     error::VnidropError,
@@ -133,9 +133,7 @@ impl CoreInner {
                 "targeted transfer has no durable authorization"
             ))
         })?;
-        let auth = TargetedAuthorization::decode(&encoded)?;
-        auth.verify_for_receiver(&self.endpoint.id().to_string())?;
-        Ok(auth)
+        TargetedAuthorization::decode(&encoded)
     }
 
     async fn run_targeted_receive(
@@ -143,6 +141,7 @@ impl CoreInner {
         auth: &TargetedAuthorization,
         target: ReceiveTarget,
     ) -> Result<(), VnidropError> {
+        let blob_ticket = auth.verify_for_receiver(&self.endpoint.id().to_string())?;
         let (cancel, cancelled) = tokio::sync::oneshot::channel();
         {
             let mut active = self
@@ -165,7 +164,7 @@ impl CoreInner {
             }
         }
         let result = self
-            .run_registered_targeted_receive(auth, target, cancelled)
+            .run_registered_targeted_receive(auth, blob_ticket, target, cancelled)
             .await;
         if result.is_err() {
             let store = &self.targeted_transfers;
@@ -190,6 +189,7 @@ impl CoreInner {
     async fn run_registered_targeted_receive(
         self: &Arc<Self>,
         auth: &TargetedAuthorization,
+        blob_ticket: BlobTicket,
         target: ReceiveTarget,
         cancelled: tokio::sync::oneshot::Receiver<()>,
     ) -> Result<(), VnidropError> {
@@ -215,8 +215,6 @@ impl CoreInner {
         };
         store.begin_receive(&auth.transfer_id, start_state).await?;
 
-        let blob_ticket = BlobTicket::from_str_compat(&auth.blob_ticket)
-            .map_err(|error| VnidropError::ticket(anyhow::anyhow!(error)))?;
         self.receive_targeted_payload(
             &auth.transfer_id,
             auth.protocol_transfer_id,

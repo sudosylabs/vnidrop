@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use iroh_blobs::ticket::BlobTicket;
 
 use super::{targeted_tag_name, CoreInner};
 use crate::{
@@ -469,15 +468,4 @@ pub(super) fn map_connect_failure(error: irpc::Error) -> VnidropError {
         ));
     }
     VnidropError::device_unavailable(anyhow::anyhow!("device is not reachable: {rendered}"))
-}
-
-pub(super) trait BlobTicketParse {
-    fn from_str_compat(value: &str) -> Result<BlobTicket, String>;
-}
-
-impl BlobTicketParse for BlobTicket {
-    fn from_str_compat(value: &str) -> Result<BlobTicket, String> {
-        use std::str::FromStr;
-        BlobTicket::from_str(value).map_err(|error| error.to_string())
-    }
 }

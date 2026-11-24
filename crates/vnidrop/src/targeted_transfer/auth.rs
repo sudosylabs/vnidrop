@@ -9,6 +9,7 @@
 use std::fmt;
 
 use data_encoding::{BASE64URL_NOPAD, HEXLOWER};
+use iroh_blobs::ticket::BlobTicket;
 use serde::{Deserialize, Serialize};
 
 use crate::{error::VnidropError, secure_secret::SecretMaterial};
@@ -103,14 +104,35 @@ impl TargetedAuthorization {
         Ok(auth)
     }
 
-    pub(crate) fn verify_for_receiver(&self, local_endpoint_id: &str) -> Result<(), VnidropError> {
+    pub(crate) fn verify_for_receiver(
+        &self,
+        local_endpoint_id: &str,
+    ) -> Result<BlobTicket, VnidropError> {
         self.verify_integrity()?;
         if self.receiver_endpoint_id != local_endpoint_id {
             return Err(VnidropError::permission(anyhow::anyhow!(
                 "targeted authorization is bound to a different receiver"
             )));
         }
-        Ok(())
+        self.parse_bound_blob_ticket()
+    }
+
+    pub(crate) fn parse_bound_blob_ticket(&self) -> Result<BlobTicket, VnidropError> {
+        let ticket = self
+            .blob_ticket
+            .parse::<BlobTicket>()
+            .map_err(|error| VnidropError::ticket(anyhow::anyhow!(error)))?;
+        if ticket.addr().id.to_string() != self.sender_endpoint_id {
+            return Err(VnidropError::permission(anyhow::anyhow!(
+                "targeted payload ticket names a different sender"
+            )));
+        }
+        if ticket.hash().to_string() != self.manifest_id || self.manifest_id != self.content_hash {
+            return Err(VnidropError::permission(anyhow::anyhow!(
+                "targeted payload ticket does not match the authorized manifest"
+            )));
+        }
+        Ok(ticket)
     }
 
     fn verify_integrity(&self) -> Result<(), VnidropError> {
@@ -198,6 +220,42 @@ pub(crate) fn reconstruct_authorization(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn receiver_requires_the_payload_ticket_to_name_the_authorized_sender() {
+        use iroh::{EndpointAddr, SecretKey};
+        use iroh_blobs::{BlobFormat, Hash};
+
+        let sender = SecretKey::generate().public();
+        let other_peer = SecretKey::generate().public();
+        let hash = Hash::new(b"collection");
+        for (ticket_endpoint, should_accept) in [(sender, true), (other_peer, false)] {
+            let ticket = BlobTicket::new(
+                EndpointAddr::new(ticket_endpoint),
+                hash,
+                BlobFormat::HashSeq,
+            );
+            let authorization = TargetedAuthorization::issue(TargetedAuthorizationDraft {
+                transfer_id: "transfer-id".to_owned(),
+                protocol_transfer_id: 1,
+                sender_endpoint_id: sender.to_string(),
+                receiver_endpoint_id: "receiver".to_owned(),
+                manifest_id: hash.to_string(),
+                content_hash: hash.to_string(),
+                file_count: 1,
+                total_size: 10,
+                protocol_version: 1,
+                transfer_name: "payload.txt".to_owned(),
+                blob_ticket: ticket.to_string(),
+            })
+            .unwrap();
+
+            assert_eq!(
+                authorization.verify_for_receiver("receiver").is_ok(),
+                should_accept
+            );
+        }
+    }
 
     #[test]
     fn targeted_authorization_debug_is_redacted() {

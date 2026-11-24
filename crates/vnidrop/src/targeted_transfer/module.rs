@@ -340,10 +340,7 @@ impl TargetedTransferModule {
         {
             return DeliverAuthorizationResponse::Rejected;
         }
-        let Ok(ticket) = auth.blob_ticket.parse::<iroh_blobs::ticket::BlobTicket>() else {
-            return DeliverAuthorizationResponse::Rejected;
-        };
-        if ticket.hash().to_string() != auth.manifest_id || auth.manifest_id != auth.content_hash {
+        if auth.parse_bound_blob_ticket().is_err() {
             return DeliverAuthorizationResponse::Rejected;
         }
         if self.persist_authorization(auth).await.is_err() {

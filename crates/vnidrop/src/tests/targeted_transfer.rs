@@ -1860,6 +1860,55 @@ fn completion_retries_after_receiver_restart_without_failing_published_receive()
 }
 
 #[test]
+fn targeted_completion_waits_for_the_senders_protected_authorization() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_060);
+    let transfer = approve_one(&alice, &bob, b"protected completion", "payload.txt");
+    alice
+        .secret_store
+        .fail_with(Some(ReferenceStoreFailure::Locked));
+
+    let output = tempfile::tempdir().unwrap();
+    bob.core()
+        .receive_targeted_transfer(
+            transfer.id.clone(),
+            output.path().to_string_lossy().into_owned(),
+        )
+        .unwrap();
+    assert_eq!(
+        std::fs::read(output.path().join("payload.txt")).unwrap(),
+        b"protected completion"
+    );
+    assert_eq!(
+        alice
+            .core()
+            .get_targeted_transfer(transfer.id.clone())
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Approved
+    );
+
+    alice.secret_store.fail_with(None);
+    let started = Instant::now();
+    while alice
+        .core()
+        .get_targeted_transfer(transfer.id.clone())
+        .unwrap()
+        .unwrap()
+        .state
+        != TargetedTransferState::Completed
+    {
+        assert!(
+            started.elapsed() < Duration::from_secs(15),
+            "completion was not recorded after custody unlocked"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+#[test]
 fn targeted_path_receive_preserves_no_overwrite_and_resumes_elsewhere() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();

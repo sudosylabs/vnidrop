@@ -1,10 +1,10 @@
 //! Bound post-approval authorization for a single targeted transfer.
 //!
 //! The pre-approval offer never carries this material. After explicit approval,
-//! the sender issues a capability whose MAC binds the exact recipient, sender,
-//! transfer, manifest, hashes, sizes, and protocol generation. Tampering with
-//! the receiver identity invalidates the MAC; presenting an intact capability
-//! from another endpoint still fails provider ACL and local identity checks.
+//! the sender issues a capability whose MAC covers the authorization fields.
+//! The capability carries its MAC key. To authenticate a completion, the
+//! sender checks the peer identity and matches that key against protected
+//! custody. The blob provider independently restricts access to the receiver.
 
 use std::fmt;
 

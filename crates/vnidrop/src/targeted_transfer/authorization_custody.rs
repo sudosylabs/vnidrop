@@ -165,6 +165,23 @@ impl AuthorizationCustody {
         Ok(())
     }
 
+    pub(super) async fn matches_issued_secret(
+        &self,
+        row: &TargetedTransferRow,
+        authorization: &TargetedAuthorization,
+    ) -> Result<bool, VnidropError> {
+        let Some(handle) = &row.authorization_secret_handle else {
+            return Ok(false);
+        };
+        let stored = self
+            .require_custody()?
+            .load(&SecretHandle::from_stored(handle.clone()))
+            .await?;
+        // The byte comparison on blake3::Hash is constant-time.
+        let presented = blake3::Hash::from_bytes(authorization.secret_bytes()?);
+        Ok(presented.eq(stored.as_bytes()))
+    }
+
     pub(super) async fn load(
         &self,
         row: &TargetedTransferRow,

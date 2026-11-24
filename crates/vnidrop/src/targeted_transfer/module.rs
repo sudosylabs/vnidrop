@@ -422,9 +422,6 @@ impl TargetedTransferModule {
         {
             return CompletionResponse::Rejected;
         }
-        if row.state == TargetedTransferState::Completed {
-            return CompletionResponse::Recorded;
-        }
         if matches!(
             row.state,
             TargetedTransferState::Cancelled
@@ -433,6 +430,15 @@ impl TargetedTransferModule {
                 | TargetedTransferState::Deleted
         ) {
             return CompletionResponse::Rejected;
+        }
+        if !matches!(
+            self.authorizations.matches_issued_secret(&row, &auth).await,
+            Ok(true)
+        ) {
+            return CompletionResponse::Rejected;
+        }
+        if row.state == TargetedTransferState::Completed {
+            return CompletionResponse::Recorded;
         }
         match self.mark_sender_completed(&completion.transfer_id).await {
             Ok(_) => CompletionResponse::Recorded,

@@ -102,6 +102,7 @@ pub(crate) struct PendingDeliveryReceipt {
     pub(crate) sender_transfer_id: u64,
     pub(crate) token: String,
     pub(crate) failure_reason: Option<String>,
+    pub(crate) created_at: i64,
 }
 
 pub(crate) struct PendingDeliveryReceiptInsert<'a> {

@@ -30,7 +30,8 @@ impl Repository {
                 sender_blob_ticket = excluded.sender_blob_ticket,
                 sender_transfer_id = excluded.sender_transfer_id,
                 token = excluded.token,
-                failure_reason = excluded.failure_reason
+                failure_reason = excluded.failure_reason,
+                created_at = excluded.created_at
             "#,
         )
         .bind(receipt.request_id)
@@ -91,7 +92,7 @@ impl Repository {
         let rows = sqlx::query(
             r#"
             SELECT local_transfer_id, sender_blob_ticket, request_id,
-                   sender_transfer_id, token, failure_reason
+                   sender_transfer_id, token, failure_reason, created_at
             FROM pending_delivery_receipts
             ORDER BY created_at ASC
             "#,
@@ -107,15 +108,23 @@ impl Repository {
                 sender_transfer_id: row.get::<i64, _>("sender_transfer_id") as u64,
                 token: row.get("token"),
                 failure_reason: row.get("failure_reason"),
+                created_at: row.get("created_at"),
             })
             .collect())
     }
 
-    pub(crate) async fn delete_pending_delivery_receipt(&self, request_id: &str) -> Result<()> {
-        sqlx::query("DELETE FROM pending_delivery_receipts WHERE request_id = ?1")
-            .bind(request_id)
-            .execute(&self.pool)
-            .await?;
-        Ok(())
+    pub(crate) async fn delete_pending_delivery_receipt(
+        &self,
+        receipt: &PendingDeliveryReceipt,
+    ) -> Result<bool> {
+        let deleted = sqlx::query(
+            "DELETE FROM pending_delivery_receipts WHERE request_id = ?1 AND created_at = ?2 AND failure_reason IS ?3",
+        )
+        .bind(&receipt.request_id)
+        .bind(receipt.created_at)
+        .bind(&receipt.failure_reason)
+        .execute(&self.pool)
+        .await?;
+        Ok(deleted.rows_affected() != 0)
     }
 }

@@ -9,8 +9,10 @@ use crate::{
     },
     invitation::PendingDeliveryReceipt,
     ticket::parse_persisted_sender_address,
+    util::now_ms,
 };
 
+const DELIVERY_RECEIPT_TTL_MS: i64 = 24 * 60 * 60 * 1_000;
 const DELIVERY_RECEIPT_TIMEOUT: Duration = Duration::from_secs(5);
 const DELIVERY_RECEIPT_RETRY_INTERVAL: Duration = Duration::from_secs(5);
 const DELIVERY_RECEIPT_MAX_RETRY_INTERVAL: Duration = Duration::from_secs(5 * 60);
@@ -62,21 +64,21 @@ impl CoreInner {
     }
 
     async fn deliver_pending_receipt(&self, pending: PendingDeliveryReceipt) {
+        if now_ms() >= pending.created_at.saturating_add(DELIVERY_RECEIPT_TTL_MS) {
+            self.settle_delivery_receipt(&pending, "receipt-expired", json!({}))
+                .await;
+            return;
+        }
         let sender_addr = match parse_persisted_sender_address(&pending.sender_blob_ticket) {
             Ok(addr) => addr,
             Err(error) => {
                 tracing::warn!(%error, request_id = %pending.request_id, "discarded invalid pending delivery receipt");
-                let _ = self
-                    .repository
-                    .delete_pending_delivery_receipt(&pending.request_id)
-                    .await;
-                self.emit_transfer(
-                    pending.local_transfer_id,
-                    "receive",
-                    "delivery",
+                self.settle_delivery_receipt(
+                    &pending,
                     "receipt-rejected",
                     json!({ "reason": "invalid-sender-ticket" }),
-                );
+                )
+                .await;
                 return;
             }
         };
@@ -100,12 +102,12 @@ impl CoreInner {
         let client = HandshakeService::client(self.endpoint.clone(), sender_addr);
         let request_id = pending.request_id.clone();
         let response = tokio::time::timeout(DELIVERY_RECEIPT_TIMEOUT, async {
-            if let Some(reason) = pending.failure_reason {
+            if let Some(reason) = pending.failure_reason.clone() {
                 client
                     .report_delivery_failure(DeliveryFailureReceipt {
                         request_id,
                         transfer_id: pending.sender_transfer_id,
-                        token: pending.token,
+                        token: pending.token.clone(),
                         reason,
                     })
                     .await
@@ -114,7 +116,7 @@ impl CoreInner {
                     .report_delivery(DeliveryReceipt {
                         request_id,
                         transfer_id: pending.sender_transfer_id,
-                        token: pending.token,
+                        token: pending.token.clone(),
                     })
                     .await
             }
@@ -122,34 +124,20 @@ impl CoreInner {
         .await;
         match response {
             Ok(Ok(DeliveryReceiptResponse::Recorded)) => {
-                if let Err(error) = self
-                    .repository
-                    .delete_pending_delivery_receipt(&pending.request_id)
-                    .await
-                {
-                    tracing::warn!(%error, request_id = %pending.request_id, "failed to clear recorded delivery receipt");
-                    return;
-                }
-                self.emit_transfer(
-                    pending.local_transfer_id,
-                    "receive",
-                    "delivery",
+                self.settle_delivery_receipt(
+                    &pending,
                     "receipt-recorded",
                     json!({ "sender_transfer_id": pending.sender_transfer_id }),
-                );
+                )
+                .await;
             }
             Ok(Ok(DeliveryReceiptResponse::Rejected { reason })) => {
-                let _ = self
-                    .repository
-                    .delete_pending_delivery_receipt(&pending.request_id)
-                    .await;
-                self.emit_transfer(
-                    pending.local_transfer_id,
-                    "receive",
-                    "delivery",
+                self.settle_delivery_receipt(
+                    &pending,
                     "receipt-rejected",
                     json!({ "reason": reason }),
-                );
+                )
+                .await;
             }
             Ok(Err(error)) => self.emit_transfer(
                 pending.local_transfer_id,
@@ -165,6 +153,27 @@ impl CoreInner {
                 "receipt-failed",
                 json!({ "reason": "delivery receipt timed out" }),
             ),
+        }
+    }
+
+    async fn settle_delivery_receipt(
+        &self,
+        pending: &PendingDeliveryReceipt,
+        kind: &str,
+        data: serde_json::Value,
+    ) {
+        match self
+            .repository
+            .delete_pending_delivery_receipt(pending)
+            .await
+        {
+            Ok(true) => {
+                self.emit_transfer(pending.local_transfer_id, "receive", "delivery", kind, data)
+            }
+            Ok(false) => {}
+            Err(error) => {
+                tracing::warn!(%error, request_id = %pending.request_id, "failed to clear pending delivery receipt");
+            }
         }
     }
 }

@@ -119,6 +119,8 @@ Domain contract v2 does not transport transfer identity in these event payloads.
 - Imports and receives are recorded before work begins. A process restart marks
   interrupted work failed and expires approval requests that no longer have an
   in-memory responder.
+- Pending invitation delivery receipts retry for up to 24 hours after the
+  receive outcome. Expiry leaves the local transfer outcome intact.
 - Persisted shares are restored only when their root collection is complete and
   readable. Missing or corrupt roots fail closed and emit a recovery event.
 - Receive destinations use a no-overwrite policy. Rust syncs each file in

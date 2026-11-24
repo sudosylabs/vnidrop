@@ -160,7 +160,7 @@ async fn receive_completion_persists_delivery_receipt_until_recorded() {
     assert_eq!(pending[0].request_id, "request-93");
     assert_eq!(pending[0].token, "receipt-token");
     reopened
-        .delete_pending_delivery_receipt("request-93")
+        .delete_pending_delivery_receipt(&pending[0])
         .await
         .unwrap();
     assert!(reopened
@@ -203,7 +203,7 @@ async fn cancelled_receive_cannot_replace_or_recreate_a_completed_receipt() {
     assert_eq!(pending[0].failure_reason, None);
 
     repository
-        .delete_pending_delivery_receipt("request-94")
+        .delete_pending_delivery_receipt(&pending[0])
         .await
         .unwrap();
     repository

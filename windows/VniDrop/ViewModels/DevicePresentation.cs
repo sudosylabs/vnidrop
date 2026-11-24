@@ -26,7 +26,7 @@ public enum DeviceTransferAction
     Delete,
 }
 
-public sealed class SavedDeviceItem
+public sealed record SavedDeviceItem
 {
     public SavedDeviceItem(SavedDevice device, int transferCount, bool isBusy)
     {
@@ -61,7 +61,7 @@ public sealed class SavedDeviceItem
     public string AutomationName => $"{Name}. {Detail}";
 }
 
-public sealed class DeviceActionRowItem
+public sealed record DeviceActionRowItem
 {
     private DeviceActionRowItem(
         string key,

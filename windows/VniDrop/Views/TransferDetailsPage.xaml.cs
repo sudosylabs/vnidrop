@@ -50,13 +50,14 @@ public sealed partial class TransferDetailsPage : Page
         await App.Window.Model.PerformAsync(async () =>
         {
             var artifacts = await App.Window.Model.Session.RunAsync(c => c.ListReceivedArtifacts());
-            Files.ItemsSource = artifacts.Where(a => a.transferLocalId == Item.Transfer.localId).Select(a =>
-            {
-                var button = new HyperlinkButton { Content = a.relativePath };
-                button.Click += (_, _) => { try { WindowsFiles.OpenFolder(Path.GetDirectoryName(a.locator)!); } catch (Exception ex) { App.Window.Model.Report(ex); } };
-                return button;
-            }).ToArray();
+            Files.ItemsSource = artifacts.Where(a => a.transferLocalId == Item.Transfer.localId).ToArray();
         });
+    }
+    private void OpenFileFolder(object sender, RoutedEventArgs e)
+    {
+        if (sender is not HyperlinkButton { Tag: string locator }) return;
+        try { WindowsFiles.OpenFolder(Path.GetDirectoryName(locator)!); }
+        catch (Exception ex) { App.Window.Model.Report(ex); }
     }
     private void Back(object sender, RoutedEventArgs e)
     {

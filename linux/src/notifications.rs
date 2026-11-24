@@ -92,7 +92,7 @@ impl Tracker {
             let id = format!("transfer:{}:{}", transfer.transfer_id, transfer.direction);
             states.insert(id.clone(), transfer.status.clone());
             let title = match (transfer.direction.as_str(), transfer.status.as_str()) {
-                ("receive", "completed") => Some("notifications_receive_completed_title"),
+                ("receive", "done") => Some("notifications_receive_completed_title"),
                 ("receive", "failed") => Some("notifications_receive_failed_title"),
                 ("send", "failed") => Some("notifications_send_failed_title"),
                 _ => None,
@@ -276,6 +276,41 @@ mod tests {
         let sent = tracker.update(&snapshot, true, false, 0).0;
         assert_eq!(sent.len(), 1);
         sent.into_iter().next().unwrap()
+    }
+
+    #[test]
+    fn invitation_receive_done_sends_one_completion_notice() {
+        let mut snapshot = empty_snapshot();
+        snapshot.transfers.push(vnidrop::StoredTransfer {
+            local_id: "local-transfer".into(),
+            transfer_id: 7,
+            peer_id: None,
+            direction: "receive".into(),
+            status: "receiving".into(),
+            transfer_name: Some("Files".into()),
+            content_hash: None,
+            ticket: None,
+            file_count: 1,
+            total_size: 1,
+            access_mode: vnidrop::TransferAccessMode::ApprovalRequired,
+            created_at: 1,
+            updated_at: 1,
+        });
+        let mut tracker = Tracker::default();
+        assert!(tracker.update(&snapshot, true, false, 0).0.is_empty());
+        snapshot.transfers[0].status = "done".into();
+        let (sent, _) = tracker.update(&snapshot, true, false, 0);
+        assert_eq!(
+            sent,
+            vec![Notice {
+                id: "transfer:7:receive".into(),
+                title: "notifications_receive_completed_title",
+                body: "Files".into(),
+                target: Target::Transfer(7, "receive".into(), None),
+                pending: false,
+            }]
+        );
+        assert!(tracker.update(&snapshot, true, false, 0).0.is_empty());
     }
 
     #[test]

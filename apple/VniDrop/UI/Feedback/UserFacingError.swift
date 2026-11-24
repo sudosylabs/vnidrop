@@ -15,6 +15,14 @@ extension Error {
 		if let invitation = self as? InvitationError {
 			return invitation.uiText
 		}
+		let native = self as NSError
+		if native.domain == NSCocoaErrorDomain {
+			switch CocoaError.Code(rawValue: native.code) {
+			case .fileNoSuchFile, .fileReadNoSuchFile: return .resource(L10n.Error.selectionFailed)
+			case .fileReadNoPermission: return .resource(L10n.Error.filesystem)
+			default: break
+			}
+		}
 		if let vni = self as? VnidropError {
 			switch vni {
 			case .Ticket:

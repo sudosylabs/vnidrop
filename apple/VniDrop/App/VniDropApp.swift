@@ -36,22 +36,7 @@ struct VniDropApp: App {
 		#endif
 	}
 
-	/// Reads a `.vnd` invitation document under a security scope, enforcing the
-	/// 64 KiB / strict-UTF-8 rules from `ContentView.swift`.
 	private func openInvitation(_ url: URL) {
-		guard url.pathExtension.caseInsensitiveCompare(vniDropInvitationExtension) == .orderedSame else {
-			externalInvitations.reportOpenFailure(message: "This is not a VniDrop invitation")
-			return
-		}
-		Task {
-			switch await Task.detached(operation: { Result { try readInvitationFile(url) } }).value {
-			case .success(let raw):
-				externalInvitations.openInvitation(raw: raw)
-			case .failure(let error):
-				externalInvitations.reportOpenFailure(
-					message: (error as? LocalizedError)?.errorDescription ?? "The invitation could not be opened"
-				)
-			}
-		}
+		Task { await externalInvitations.openInvitation(from: url) }
 	}
 }

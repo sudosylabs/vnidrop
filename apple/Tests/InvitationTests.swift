@@ -39,6 +39,41 @@ final class InvitationTests: XCTestCase {
 		}
 	}
 
+	func testExternalInvitationKeepsDocumentAndFileErrorsTyped() async throws {
+		let controller = ExternalInvitationController()
+		let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+		defer { try? FileManager.default.removeItem(at: directory) }
+		let malformed = directory.appendingPathComponent("malformed.VND")
+		try Data([0xFF]).write(to: malformed)
+
+		await controller.openInvitation(from: malformed)
+		let first = try XCTUnwrap(controller.nextInvitation)
+		XCTAssertThrowsError(try controller.takeInvitation(first.id)?.result.get()) { error in
+			guard case .invalidEncoding? = error as? InvitationError else {
+				return XCTFail("Expected a typed invalid encoding error, got \(error)")
+			}
+			XCTAssertEqual(error.toUiText(), .resource(L10n.Error.invalidTicket))
+		}
+
+		await controller.openInvitation(from: directory.appendingPathComponent("missing.vnd"))
+		let second = try XCTUnwrap(controller.nextInvitation)
+		XCTAssertThrowsError(try controller.takeInvitation(second.id)?.result.get()) { error in
+			let native = error as NSError
+			XCTAssertEqual(native.domain, NSCocoaErrorDomain)
+			XCTAssertTrue([CocoaError.fileNoSuchFile, .fileReadNoSuchFile].contains(.init(rawValue: native.code)))
+			XCTAssertEqual(error.toUiText(), .resource(L10n.Error.selectionFailed))
+		}
+
+		await controller.openInvitation(from: directory.appendingPathComponent("document.txt"))
+		let third = try XCTUnwrap(controller.nextInvitation)
+		XCTAssertThrowsError(try controller.takeInvitation(third.id)?.result.get()) { error in
+			guard case .invalidInvitationURL? = error as? InvitationError else {
+				return XCTFail("Expected a typed unsupported invitation URL error")
+			}
+		}
+	}
+
 	func testValidateInvitationAcceptsValid() {
 		guard case .success(let raw) = validateInvitation("some-ticket") else { return XCTFail("expected success") }
 		XCTAssertEqual(raw, "some-ticket")

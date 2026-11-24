@@ -273,6 +273,61 @@ async fn inbox_with_limits(
 }
 
 #[tokio::test]
+async fn inbox_bounds_recent_settled_offer_decisions() {
+    let (inbox, sink) = inbox_with_limits(1, 60_000, 5).await;
+
+    for index in 0..=256 {
+        let transfer_id = format!("offer-{index}");
+        let offer = sample_offer(&transfer_id, &format!("sender-{index}"));
+        let event_count = sink.events.lock().unwrap().len();
+        let submission = {
+            let inbox = inbox.clone();
+            tokio::spawn(async move { inbox.submit(offer).await })
+        };
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while sink.events.lock().unwrap().len() == event_count {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("offer should become visible");
+        inbox.respond(&transfer_id, false).await.unwrap();
+        assert!(matches!(
+            submission.await.unwrap(),
+            TargetedOfferDecision::Declined { .. }
+        ));
+    }
+
+    assert!(!inbox.is_settled("offer-0").await);
+    assert!(inbox.is_settled("offer-256").await);
+}
+
+#[tokio::test]
+async fn inbox_delivers_a_durable_authorization_signal_when_the_listener_arrives_later() {
+    let (inbox, sink) = inbox_with_limits(1, 60_000, 5).await;
+    let submission = {
+        let inbox = inbox.clone();
+        tokio::spawn(async move { inbox.submit(sample_offer("approved-offer", "sender")).await })
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        while sink.events.lock().unwrap().is_empty() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("offer should become visible");
+
+    inbox.accept_live("approved-offer").await.unwrap();
+    inbox.authorization_stored("approved-offer").await;
+    inbox
+        .wait_for_authorization("approved-offer")
+        .await
+        .unwrap();
+    assert_eq!(submission.await.unwrap(), TargetedOfferDecision::Accepted);
+    assert!(inbox.is_settled("approved-offer").await);
+}
+
+#[tokio::test]
 async fn one_unresolved_offer_per_sender_and_global_queue_bound() {
     let (inbox, sink) = inbox_with_limits(1, 60_000, 5).await;
 

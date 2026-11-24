@@ -375,7 +375,7 @@ impl CoreInner {
         }
 
         match self.targeted_offers.respond(&transfer_id, accepted).await {
-            Ok(Some(_auth)) => match self.targeted_transfers.get_row(&transfer_id).await? {
+            Ok(true) => match self.targeted_transfers.get_row(&transfer_id).await? {
                 Some(row)
                     if row.role == TargetedTransferRole::Receiver
                         && row.state == TargetedTransferState::Approved
@@ -387,7 +387,7 @@ impl CoreInner {
                     "receiver acknowledged authorization without durable custody"
                 ))),
             },
-            Ok(None) => {
+            Ok(false) => {
                 self.targeted_transfers
                     .clear_accepted_offer_intent(&transfer_id)
                     .await?;

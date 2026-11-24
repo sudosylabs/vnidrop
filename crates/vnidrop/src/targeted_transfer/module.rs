@@ -346,9 +346,9 @@ impl TargetedTransferModule {
         if self.persist_authorization(auth).await.is_err() {
             return DeliverAuthorizationResponse::Rejected;
         }
-        let _ = authority
+        authority
             .inbox
-            .deliver_authorization(&delivery.transfer_id, delivery.authorization)
+            .authorization_stored(&delivery.transfer_id)
             .await;
         DeliverAuthorizationResponse::Stored
     }

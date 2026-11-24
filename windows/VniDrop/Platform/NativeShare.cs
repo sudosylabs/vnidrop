@@ -16,6 +16,7 @@ internal interface IDataTransferManagerInterop
 
 public sealed class NativeShare : IDisposable
 {
+    private static readonly TimeSpan HandoffTimeout = TimeSpan.FromSeconds(5);
     private static readonly Guid DataTransferManagerId = new(0xa5caee9b, 0x8708, 0x49d1, 0x8d, 0x36, 0x67, 0xd2, 0x5a, 0x8d, 0xa0, 0x0c);
     private readonly IntPtr windowHandle;
     private readonly IDataTransferManagerInterop interop;
@@ -23,6 +24,7 @@ public sealed class NativeShare : IDisposable
     private readonly ShareRequestGate requestGate = new();
     private readonly ShareStagingStore staging;
     private SharePayload? pending;
+    private bool disposed;
 
     public NativeShare(Microsoft.UI.Xaml.Window window)
     {
@@ -42,105 +44,84 @@ public sealed class NativeShare : IDisposable
         }
     }
 
-    public async Task ShowInvitationAsync(string ticket, string transferName)
+    public async Task ShowInvitationAsync(string ticket, string transferName, CancellationToken cancellationToken = default)
     {
-        var lease = requestGate.Enter();
+        using var request = requestGate.Enter();
         var path = "";
-        SharePayload? payload = null;
         try
         {
             path = staging.CreatePayloadPath(Core.InvitationDocument.FileName(transferName));
-            await File.WriteAllTextAsync(path, ticket);
+            await File.WriteAllTextAsync(path, ticket, cancellationToken);
             var file = await StorageFile.GetFileFromPathAsync(path);
             var descriptor = SharePayloadDescriptor.ForFile(transferName, Strings.Get("transfer_share_title"), path);
-            payload = new(Guid.NewGuid(), descriptor, file, lease, new(TaskCreationOptions.RunContinuationsAsynchronously));
-            pending = payload;
-            interop.ShowShareUIForWindow(windowHandle);
-            await payload.Completion.Task;
+            await ShowPayloadAsync(new(descriptor, file, request), cancellationToken);
         }
-        catch
+        finally
         {
-            if (payload is null)
-            {
-                staging.DeletePayload(path);
-                lease.Dispose();
-            }
-            else Abort(payload);
-            throw;
+            // A target can still be opening the attachment after Windows requests it.
+            if (!request.WasHandedOff) staging.DeletePayload(path);
         }
     }
 
-    public async Task ShowTextAsync(string title, string description, string text)
+    public async Task ShowTextAsync(string title, string description, string text, CancellationToken cancellationToken = default)
     {
-        var lease = requestGate.Enter();
-        SharePayload? payload = null;
+        using var request = requestGate.Enter();
+        await ShowPayloadAsync(new(SharePayloadDescriptor.ForText(title, description, text), null, request), cancellationToken);
+    }
+
+    private async Task ShowPayloadAsync(SharePayload payload, CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        cancellationToken.ThrowIfCancellationRequested();
+        pending = payload;
         try
         {
-            payload = new(
-                Guid.NewGuid(),
-                SharePayloadDescriptor.ForText(title, description, text),
-                null,
-                lease,
-                new(TaskCreationOptions.RunContinuationsAsynchronously));
-            pending = payload;
             interop.ShowShareUIForWindow(windowHandle);
-            await payload.Completion.Task;
+            // Some share targets never report a completion or cancellation event.
+            await payload.Request.WaitForHandoffAsync(HandoffTimeout, cancellationToken);
         }
-        catch
+        finally
         {
-            if (payload is null) lease.Dispose();
-            else Abort(payload);
-            throw;
+            pending = null;
         }
     }
 
     private void OnDataRequested(DataTransferManager sender, DataRequestedEventArgs args)
     {
-        if (pending is not { } payload) return;
-        var package = args.Request.Data;
-        package.Properties.Title = payload.Descriptor.Title;
-        package.Properties.Description = payload.Descriptor.Description;
-        switch (payload.Descriptor.Kind)
+        if (pending is not { } payload || payload.Request.WasHandedOff) return;
+        try
         {
-            case SharePayloadContentKind.Text:
-                package.SetText(payload.Descriptor.Text!);
-                break;
-            case SharePayloadContentKind.File:
-                package.SetStorageItems([payload.File!]);
-                break;
+            var package = args.Request.Data;
+            package.Properties.Title = payload.Descriptor.Title;
+            package.Properties.Description = payload.Descriptor.Description;
+            switch (payload.Descriptor.Kind)
+            {
+                case SharePayloadContentKind.Text:
+                    package.SetText(payload.Descriptor.Text!);
+                    break;
+                case SharePayloadContentKind.File:
+                    package.SetStorageItems([payload.File!]);
+                    break;
+            }
+            payload.Request.HandedOff();
         }
-        package.ShareCompleted += (_, _) => Complete(payload);
-        package.ShareCanceled += (_, _) => Abort(payload);
+        catch (Exception error)
+        {
+            payload.Request.Fail(error);
+        }
     }
 
     public void Dispose()
     {
+        if (disposed) return;
+        disposed = true;
         manager.DataRequested -= OnDataRequested;
-        if (pending is { } payload) Abort(payload);
+        pending?.Request.Cancel();
         staging.Dispose();
     }
 
-    private void Complete(SharePayload payload)
-    {
-        // Some targets finish the share contract before their attachment upload reads the file.
-        // Keep the staged invitation available through the store's bounded retention window.
-        if (pending?.Id == payload.Id) pending = null;
-        payload.Lease.Dispose();
-        payload.Completion.TrySetResult();
-    }
-
-    private void Abort(SharePayload payload)
-    {
-        if (payload.Descriptor.FilePath is { } path) staging.DeletePayload(path);
-        if (pending?.Id == payload.Id) pending = null;
-        payload.Lease.Dispose();
-        payload.Completion.TrySetResult();
-    }
-
     private sealed record SharePayload(
-        Guid Id,
         SharePayloadDescriptor Descriptor,
         StorageFile? File,
-        IDisposable Lease,
-        TaskCompletionSource Completion);
+        ShareRequestGate.Request Request);
 }

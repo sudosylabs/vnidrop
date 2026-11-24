@@ -41,4 +41,37 @@ public sealed class SharePayloadDescriptorTests
         using var next = gate.Enter();
         Assert.True(gate.IsActive);
     }
+
+    [Fact]
+    public async Task DataHandoffCompletesWithoutWaitingForTheShareTarget()
+    {
+        var gate = new ShareRequestGate();
+        using var request = gate.Enter();
+        Assert.False(request.WasHandedOff);
+
+        var waiting = request.WaitForHandoffAsync(TimeSpan.FromSeconds(2), CancellationToken.None);
+        request.HandedOff();
+        await waiting;
+
+        Assert.True(request.WasHandedOff);
+    }
+
+    [Fact]
+    public async Task MissingDataHandoffCanTimeOutOrBeCancelledAndTheSlotCanBeReused()
+    {
+        var gate = new ShareRequestGate();
+        using (var request = gate.Enter())
+        {
+            await Assert.ThrowsAsync<TimeoutException>(() =>
+                request.WaitForHandoffAsync(TimeSpan.Zero, CancellationToken.None));
+            using var cancelled = new CancellationTokenSource();
+            var waiting = request.WaitForHandoffAsync(TimeSpan.FromSeconds(2), cancelled.Token);
+            cancelled.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
+            Assert.False(request.WasHandedOff);
+        }
+
+        using var next = gate.Enter();
+        Assert.True(gate.IsActive);
+    }
 }

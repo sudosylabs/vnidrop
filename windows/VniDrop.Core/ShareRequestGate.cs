@@ -6,21 +6,37 @@ public sealed class ShareRequestGate
 
     public bool IsActive => Volatile.Read(ref active) != 0;
 
-    public IDisposable Enter()
+    public Request Enter()
     {
         if (Interlocked.CompareExchange(ref active, 1, 0) != 0)
             throw new InvalidOperationException("windows_share_busy");
-        return new Lease(this);
+        return new Request(this);
     }
 
-    private sealed class Lease(ShareRequestGate owner) : IDisposable
+    public sealed class Request : IDisposable
     {
-        private ShareRequestGate? current = owner;
+        private readonly TaskCompletionSource handoff = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private ShareRequestGate? current;
+
+        internal Request(ShareRequestGate owner) => current = owner;
+
+        public bool WasHandedOff => handoff.Task.IsCompletedSuccessfully;
+
+        public Task WaitForHandoffAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+            handoff.Task.WaitAsync(timeout, cancellationToken);
+
+        public void HandedOff() => handoff.TrySetResult();
+
+        public void Fail(Exception error) => handoff.TrySetException(error);
+
+        public void Cancel() => handoff.TrySetCanceled();
 
         public void Dispose()
         {
             var released = Interlocked.Exchange(ref current, null);
-            if (released is not null) Volatile.Write(ref released.active, 0);
+            if (released is null) return;
+            Cancel();
+            Volatile.Write(ref released.active, 0);
         }
     }
 }

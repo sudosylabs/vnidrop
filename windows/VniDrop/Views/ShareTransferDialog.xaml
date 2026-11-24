@@ -10,7 +10,7 @@
     PrimaryButtonClick="ShareInvitation"
     SecondaryButtonClick="SaveInvitation"
     Opened="LoadQr"
-    Closing="PreventCloseWhileBusy"
+    Closing="DialogClosing"
     Closed="DialogClosed"
     DefaultButton="Primary"
     HorizontalContentAlignment="Stretch"

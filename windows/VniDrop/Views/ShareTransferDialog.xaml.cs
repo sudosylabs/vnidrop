@@ -17,6 +17,7 @@ public sealed partial class ShareTransferDialog : ContentDialog, IAttentionYield
     private bool actionRunning;
     private bool closed;
     private bool yieldRequested;
+    private CancellationTokenSource? nativeShareCancellation;
 
     public ShareTransferDialog(string ticket, string transferName)
     {
@@ -66,34 +67,57 @@ public sealed partial class ShareTransferDialog : ContentDialog, IAttentionYield
         }
     }
 
-    private void PreventCloseWhileBusy(ContentDialog sender, ContentDialogClosingEventArgs args) =>
-        args.Cancel = actionRunning;
+    private void DialogClosing(ContentDialog sender, ContentDialogClosingEventArgs args)
+    {
+        args.Cancel = actionRunning && nativeShareCancellation is null;
+        nativeShareCancellation?.Cancel();
+    }
 
-    private void DialogClosed(ContentDialog sender, ContentDialogClosedEventArgs args) => closed = true;
+    private void DialogClosed(ContentDialog sender, ContentDialogClosedEventArgs args)
+    {
+        closed = true;
+        nativeShareCancellation?.Cancel();
+    }
 
     public void RequestYieldForAttention()
     {
         if (closed || yieldRequested) return;
         yieldRequested = true;
-        if (!actionRunning) Hide();
+        if (!actionRunning || nativeShareCancellation is not null) Hide();
     }
 
-    private async void ShareInvitation(ContentDialog sender, ContentDialogButtonClickEventArgs args) =>
-        await RunActionAsync(args, () => App.Window.NativeShare.ShowInvitationAsync(ticket, transferName));
-
-    private async void SaveInvitation(ContentDialog sender, ContentDialogButtonClickEventArgs args) =>
-        await RunActionAsync(args, () => WindowsFiles.SaveInvitationAsync(ticket, transferName));
-
-    private async Task RunActionAsync(ContentDialogButtonClickEventArgs args, Func<Task> action)
+    private async void ShareInvitation(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
         args.Cancel = true;
         if (actionRunning) return;
 
-        actionRunning = true;
+        using var cancellation = new CancellationTokenSource();
+        nativeShareCancellation = cancellation;
+        try
+        {
+            await RunActionAsync(() => App.Window.NativeShare.ShowInvitationAsync(ticket, transferName, cancellation.Token), cancellation.Token);
+        }
+        finally
+        {
+            nativeShareCancellation = null;
+        }
+    }
+
+    private async void SaveInvitation(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    {
+        args.Cancel = true;
+        if (actionRunning) return;
         var deferral = args.GetDeferral();
+        try { await RunActionAsync(() => WindowsFiles.SaveInvitationAsync(ticket, transferName)); }
+        finally { deferral.Complete(); }
+    }
+
+    private async Task RunActionAsync(Func<Task> action, CancellationToken cancellationToken = default)
+    {
+        actionRunning = true;
         IsPrimaryButtonEnabled = false;
         IsSecondaryButtonEnabled = false;
-        CloseButtonText = "";
+        if (nativeShareCancellation is null) CloseButtonText = "";
         ActionError.IsOpen = false;
         ActionStatus.Visibility = Visibility.Visible;
         Announce(ActionStatusText);
@@ -102,10 +126,16 @@ public sealed partial class ShareTransferDialog : ContentDialog, IAttentionYield
         {
             await action();
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            ActionError.Message = Strings.Error(ex);
-            ActionError.IsOpen = true;
+            if (!closed && !cancellationToken.IsCancellationRequested)
+            {
+                ActionError.Message = Strings.Error(ex);
+                ActionError.IsOpen = true;
+            }
         }
         finally
         {
@@ -117,7 +147,6 @@ public sealed partial class ShareTransferDialog : ContentDialog, IAttentionYield
                 CloseButtonText = Strings.Get("button_close");
             }
             actionRunning = false;
-            deferral.Complete();
             if (yieldRequested && !closed)
             {
                 DispatcherQueue.TryEnqueue(() =>

@@ -1,4 +1,31 @@
+using VniDrop.Native;
+
 namespace VniDrop.Core;
+
+public enum InvitationDirection
+{
+    Unknown,
+    Send,
+    Receive,
+}
+
+public sealed class InvitationTransfer(StoredTransfer value)
+{
+    public StoredTransfer Value { get; } = value;
+    public InvitationDirection Direction { get; } = value.direction switch
+    {
+        "send" => InvitationDirection.Send,
+        "receive" => InvitationDirection.Receive,
+        _ => InvitationDirection.Unknown,
+    };
+    public InvitationStatus Status { get; } = InvitationStatusCodec.Parse(value.status);
+}
+
+public sealed class InvitationReceiver(ReceiverRequest value)
+{
+    public ReceiverRequest Value { get; } = value;
+    public ReceiverStatus Status { get; } = InvitationStatusCodec.ParseReceiver(value.status);
+}
 
 public enum InvitationStatus
 {

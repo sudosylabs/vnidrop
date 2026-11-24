@@ -5,17 +5,20 @@ use std::{
 
 use async_channel::{Receiver, Sender};
 use vnidrop::{
-    CoreEvent, CoreEventSink, CoreNetworkConfig, ReceivedArtifact, ReceiverRequest,
-    RuntimeObligationFacts, StoredTransfer, VnidropCore, VnidropError,
+    CoreEvent, CoreEventSink, CoreNetworkConfig, ReceivedArtifact, RuntimeObligationFacts,
+    VnidropCore, VnidropError,
 };
 
 use crate::error::{message_key, Result};
 use crate::events::EventHistory;
+use crate::presentation::{
+    InvitationDirection, InvitationReceiver, InvitationStatus, InvitationTransfer,
+};
 
 #[derive(Clone)]
 pub struct Snapshot {
-    pub transfers: Vec<StoredTransfer>,
-    pub requests: Vec<ReceiverRequest>,
+    pub transfers: Vec<InvitationTransfer>,
+    pub requests: Vec<InvitationReceiver>,
     pub artifacts: Vec<ReceivedArtifact>,
     pub obligations: RuntimeObligationFacts,
     pub events: Vec<CoreEvent>,
@@ -63,7 +66,7 @@ struct EventRevisions {
 #[derive(Default)]
 struct PresentationCache {
     snapshot: Option<(u64, Snapshot)>,
-    receivers: BTreeMap<u64, (String, Vec<ReceiverRequest>)>,
+    receivers: BTreeMap<u64, (InvitationStatus, Vec<InvitationReceiver>)>,
 }
 
 struct EventSink(
@@ -192,12 +195,13 @@ impl Session {
         core: &VnidropCore,
         cache: Option<(&mut PresentationCache, &BTreeSet<u64>)>,
     ) -> std::result::Result<Snapshot, VnidropError> {
-        let mut transfers = core.list_transfers()?;
+        let mut transfers: Vec<InvitationTransfer> =
+            core.list_transfers()?.into_iter().map(Into::into).collect();
         transfers.sort_by_key(|transfer| std::cmp::Reverse(transfer.created_at));
         let mut requests = Vec::new();
         let sends = transfers
             .iter()
-            .filter(|transfer| transfer.direction == "send");
+            .filter(|transfer| transfer.role == InvitationDirection::Send);
         if let Some((cache, changed)) = cache {
             let ids: BTreeSet<_> = sends.clone().map(|transfer| transfer.transfer_id).collect();
             cache.receivers.retain(|id, _| ids.contains(id));
@@ -207,18 +211,28 @@ impl Session {
                     || cache
                         .receivers
                         .get(&id)
-                        .is_none_or(|(status, _)| *status != transfer.status)
+                        .is_none_or(|(status, _)| *status != transfer.lifecycle)
                 {
                     cache.receivers.insert(
                         id,
-                        (transfer.status.clone(), core.list_receiver_requests(id)?),
+                        (
+                            transfer.lifecycle,
+                            core.list_receiver_requests(id)?
+                                .into_iter()
+                                .map(Into::into)
+                                .collect(),
+                        ),
                     );
                 }
                 requests.extend(cache.receivers[&id].1.iter().cloned());
             }
         } else {
             for transfer in sends {
-                requests.extend(core.list_receiver_requests(transfer.transfer_id)?);
+                requests.extend(
+                    core.list_receiver_requests(transfer.transfer_id)?
+                        .into_iter()
+                        .map(InvitationReceiver::from),
+                );
             }
         }
         let artifacts = core.list_received_artifacts()?;

@@ -2,8 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use adw::prelude::*;
 use gtk::glib;
-use vnidrop::ReceiverRequest;
-use vnidrop_gnome::presentation::ReceiverStatus;
+use vnidrop_gnome::presentation::{InvitationReceiver, ReceiverStatus};
 
 use super::{dialogs::scrollable_content, i18n::text, App};
 
@@ -13,9 +12,9 @@ pub(super) struct ReceiverHistory {
     rendered: RefCell<String>,
 }
 
-pub(super) fn is_finished(status: &str) -> bool {
+pub(super) fn is_finished(status: ReceiverStatus) -> bool {
     matches!(
-        ReceiverStatus::from(status),
+        status,
         ReceiverStatus::Completed
             | ReceiverStatus::Refused
             | ReceiverStatus::Expired
@@ -24,8 +23,8 @@ pub(super) fn is_finished(status: &str) -> bool {
     )
 }
 
-pub(super) fn status_key(status: &str) -> &'static str {
-    match ReceiverStatus::from(status) {
+pub(super) fn status_key(status: ReceiverStatus) -> &'static str {
+    match status {
         ReceiverStatus::Requested => "transfer_receiver_requested",
         ReceiverStatus::Accepted => "transfer_receiver_accepted",
         ReceiverStatus::Completed => "transfer_receiver_completed",
@@ -68,11 +67,11 @@ impl App {
 }
 
 impl ReceiverHistory {
-    pub fn render(&self, requests: &[ReceiverRequest]) {
+    pub fn render(&self, requests: &[InvitationReceiver]) {
         let mut requests: Vec<_> = requests
             .iter()
             .filter(|request| {
-                request.transfer_id == self.transfer_id && is_finished(&request.status)
+                request.transfer_id == self.transfer_id && is_finished(request.delivery)
             })
             .collect();
         requests.sort_by(|a, b| {
@@ -82,7 +81,13 @@ impl ReceiverHistory {
                 .cmp(&a.completed_at.or(a.responded_at).unwrap_or(a.requested_at))
                 .then_with(|| a.id.cmp(&b.id))
         });
-        let fingerprint = serde_json::to_string(&requests).unwrap();
+        let fingerprint = serde_json::to_string(
+            &requests
+                .iter()
+                .map(|request| &***request)
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
         if *self.rendered.borrow() == fingerprint {
             return;
         }
@@ -99,14 +104,19 @@ impl ReceiverHistory {
                 .unwrap_or_else(|| text("approval_nearby_device"));
             let row = adw::ActionRow::builder()
                 .title(glib::markup_escape_text(&name))
-                .subtitle(text(status_key(&request.status)))
+                .subtitle(text(status_key(request.delivery)))
                 .title_lines(2)
                 .subtitle_lines(2)
                 .build();
-            row.add_prefix(&gtk::Image::from_icon_name(match request.status.as_str() {
-                "completed" => "emblem-ok-symbolic",
-                "failed" => "dialog-error-symbolic",
-                _ => "process-stop-symbolic",
+            row.add_prefix(&gtk::Image::from_icon_name(match request.delivery {
+                ReceiverStatus::Completed => "emblem-ok-symbolic",
+                ReceiverStatus::Failed => "dialog-error-symbolic",
+                ReceiverStatus::Requested
+                | ReceiverStatus::Accepted
+                | ReceiverStatus::Refused
+                | ReceiverStatus::Expired
+                | ReceiverStatus::Cancelled
+                | ReceiverStatus::Unknown => "process-stop-symbolic",
             }));
             self.rows.append(&row);
         }

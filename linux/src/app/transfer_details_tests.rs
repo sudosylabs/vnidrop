@@ -71,7 +71,7 @@ fn assert_scrollable(app: &Rc<App>, dialog: &adw::Dialog, expected_rows: usize) 
 
 pub(super) fn histories_remain_bounded(app: &Rc<App>) {
     let saved = app.snapshot.borrow().clone().unwrap();
-    let template = saved.requests[0].clone();
+    let template = (*saved.requests[0]).clone();
     let id = template.transfer_id;
     app.window.set_default_size(1080, 700);
     until("wide history dialogs", || app.window.width() > 900);
@@ -90,19 +90,19 @@ pub(super) fn histories_remain_bounded(app: &Rc<App>) {
                 "aborted",
             ][i % 6]
                 .into();
-            request
+            request.into()
         })
         .collect();
     for status in ["requested", "accepted", "future-status"] {
         let mut request = template.clone();
         request.id = status.into();
         request.status = status.into();
-        fixture.requests.push(request);
+        fixture.requests.push(request.into());
     }
     let mut unrelated = template.clone();
     unrelated.id = "other-transfer".into();
     unrelated.transfer_id += 1;
-    fixture.requests.push(unrelated);
+    fixture.requests.push(unrelated.into());
     app.snapshot.replace(Some(fixture));
     app.render();
     assert_eq!(
@@ -153,15 +153,18 @@ pub(super) fn histories_remain_bounded(app: &Rc<App>) {
     let history = app.window.visible_dialog().unwrap();
     assert_scrollable(app, &history, 40);
     let height = history.height();
-    app.snapshot
-        .borrow_mut()
+    let mut snapshot = app.snapshot.borrow_mut();
+    let request = snapshot
         .as_mut()
         .unwrap()
         .requests
         .iter_mut()
         .find(|request| request.id == "accepted")
-        .unwrap()
-        .status = "completed".into();
+        .unwrap();
+    let mut completed = (**request).clone();
+    completed.status = "completed".into();
+    *request = completed.into();
+    drop(snapshot);
     app.render();
     assert_scrollable(app, &history, 41);
     assert_eq!(

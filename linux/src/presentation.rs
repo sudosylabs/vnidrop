@@ -1,4 +1,5 @@
-use vnidrop::{CoreEvent, StoredTransfer};
+use std::ops::Deref;
+use vnidrop::{CoreEvent, ReceiverRequest, StoredTransfer};
 
 pub fn activity_key(event: &CoreEvent) -> Option<&'static str> {
     match (event.phase.as_str(), event.kind.as_str()) {
@@ -73,8 +74,78 @@ impl From<&str> for ReceiverStatus {
     }
 }
 
-pub fn status_key(status: &str) -> &'static str {
-    match InvitationStatus::from(status) {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InvitationDirection {
+    Send,
+    Receive,
+    Unknown,
+}
+
+impl From<&str> for InvitationDirection {
+    fn from(direction: &str) -> Self {
+        match direction {
+            "send" => Self::Send,
+            "receive" => Self::Receive,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+#[derive(Clone, serde::Serialize)]
+#[serde(transparent)]
+pub struct InvitationTransfer {
+    value: StoredTransfer,
+    #[serde(skip)]
+    pub role: InvitationDirection,
+    #[serde(skip)]
+    pub lifecycle: InvitationStatus,
+}
+
+impl From<StoredTransfer> for InvitationTransfer {
+    fn from(value: StoredTransfer) -> Self {
+        Self {
+            role: value.direction.as_str().into(),
+            lifecycle: value.status.as_str().into(),
+            value,
+        }
+    }
+}
+
+impl Deref for InvitationTransfer {
+    type Target = StoredTransfer;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+#[derive(Clone, serde::Serialize)]
+#[serde(transparent)]
+pub struct InvitationReceiver {
+    value: ReceiverRequest,
+    #[serde(skip)]
+    pub delivery: ReceiverStatus,
+}
+
+impl From<ReceiverRequest> for InvitationReceiver {
+    fn from(value: ReceiverRequest) -> Self {
+        Self {
+            delivery: value.status.as_str().into(),
+            value,
+        }
+    }
+}
+
+impl Deref for InvitationReceiver {
+    type Target = ReceiverRequest;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+pub fn status_key(status: InvitationStatus) -> &'static str {
+    match status {
         InvitationStatus::Importing => "status_preparing",
         InvitationStatus::Sharing => "status_available",
         InvitationStatus::Receiving => "status_receiving",
@@ -86,15 +157,15 @@ pub fn status_key(status: &str) -> &'static str {
     }
 }
 
-pub fn is_active(transfer: &StoredTransfer) -> bool {
+pub fn is_active(transfer: &InvitationTransfer) -> bool {
     matches!(
-        InvitationStatus::from(transfer.status.as_str()),
+        transfer.lifecycle,
         InvitationStatus::Importing | InvitationStatus::Sharing | InvitationStatus::Receiving
     )
 }
 
-pub fn invitation(transfer: &StoredTransfer) -> Option<&str> {
-    (transfer.direction == "send" && transfer.status == "sharing")
+pub fn invitation(transfer: &InvitationTransfer) -> Option<&str> {
+    (transfer.role == InvitationDirection::Send && transfer.lifecycle == InvitationStatus::Sharing)
         .then_some(transfer.ticket.as_deref())
         .flatten()
 }
@@ -105,8 +176,8 @@ mod status_tests {
 
     #[test]
     fn completed_invitations_and_legacy_receiver_cancellations_keep_distinct_states() {
-        assert_eq!(status_key("done"), "status_completed");
-        assert_eq!(status_key("completed"), "progress_working");
+        assert_eq!(status_key("done".into()), "status_completed");
+        assert_eq!(status_key("completed".into()), "progress_working");
         assert_eq!(ReceiverStatus::from("completed"), ReceiverStatus::Completed);
         assert_eq!(ReceiverStatus::from("aborted"), ReceiverStatus::Cancelled);
         assert_eq!(ReceiverStatus::from("new-status"), ReceiverStatus::Unknown);

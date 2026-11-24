@@ -98,8 +98,8 @@ public sealed class AppViewModel : ObservableModel
             try
             {
                 var snapshot = await session.SnapshotAsync(force);
-                var artifacts = !ReferenceEquals(snapshot, Snapshot) && snapshot.Transfers.Any(t => t.direction == "receive" && t.status == "done"
-                    && !Incoming.Any(item => item.Transfer.localId == t.localId && item.PreviewPath.Length > 0))
+                var artifacts = !ReferenceEquals(snapshot, Snapshot) && snapshot.Transfers.Any(t => t.Direction == InvitationDirection.Receive && t.Status == InvitationStatus.Done
+                    && !Incoming.Any(item => item.Transfer.localId == t.Value.localId && item.PreviewPath.Length > 0))
                     ? await session.RunAsync(c => c.ListReceivedArtifacts()) : null;
                 if (!Ready || !ReferenceEquals(session, Session)) return;
                 if (lastRevision < 0)
@@ -111,14 +111,14 @@ public sealed class AppViewModel : ObservableModel
                 transferEvents.AddRange(session.DrainEvents());
                 if (Snapshot is { } previous)
                 {
-                    var currentIds = snapshot.Transfers.Select(transfer => transfer.transferId).ToHashSet();
+                    var currentIds = snapshot.Transfers.Select(transfer => transfer.Value.transferId).ToHashSet();
                     foreach (var previousTransfer in previous.Transfers)
-                        if (!currentIds.Contains(previousTransfer.transferId))
-                            transferEvents.Remove(previousTransfer.transferId);
+                        if (!currentIds.Contains(previousTransfer.Value.transferId))
+                            transferEvents.Remove(previousTransfer.Value.transferId);
                 }
                 Snapshot = snapshot;
-                Sync(Outgoing, snapshot.Transfers.Where(t => t.direction == "send"));
-                Sync(Incoming, snapshot.Transfers.Where(t => t.direction == "receive"));
+                Sync(Outgoing, snapshot.Transfers.Where(t => t.Direction == InvitationDirection.Send));
+                Sync(Incoming, snapshot.Transfers.Where(t => t.Direction == InvitationDirection.Receive));
                 if (artifacts is not null)
                 {
                     foreach (var item in Incoming)
@@ -139,17 +139,17 @@ public sealed class AppViewModel : ObservableModel
         });
     }
 
-    private void Sync(ObservableCollection<TransferItem> destination, IEnumerable<StoredTransfer> transfers)
+    private void Sync(ObservableCollection<TransferItem> destination, IEnumerable<InvitationTransfer> transfers)
     {
-        var rows = transfers.OrderByDescending(t => t.createdAt).ToArray();
-        var ids = rows.Select(t => t.localId).ToHashSet();
+        var rows = transfers.OrderByDescending(t => t.Value.createdAt).ToArray();
+        var ids = rows.Select(t => t.Value.localId).ToHashSet();
         foreach (var obsolete in destination.Where(t => !ids.Contains(t.Transfer.localId)).ToArray()) destination.Remove(obsolete);
         for (var i = 0; i < rows.Length; i++)
         {
-            var row = destination.FirstOrDefault(t => t.Transfer.localId == rows[i].localId);
+            var row = destination.FirstOrDefault(t => t.Transfer.localId == rows[i].Value.localId);
             if (row is null) { row = new(rows[i]); destination.Insert(i, row); }
             else if (destination.IndexOf(row) != i) destination.Move(destination.IndexOf(row), i);
-            row.Update(rows[i], EventsForTransfer(rows[i].transferId, includeEndpointEvents: rows[i].direction == "send"), Snapshot?.Requests ?? []);
+            row.Update(rows[i], EventsForTransfer(rows[i].Value.transferId, includeEndpointEvents: rows[i].Direction == InvitationDirection.Send), Snapshot?.Requests ?? []);
         }
     }
 

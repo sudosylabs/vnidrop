@@ -877,9 +877,11 @@ fn native_draft_approval_receive_and_shutdown() {
         .iter_mut()
         .find(|request| request.transfer_id == transfer.transfer_id)
         .unwrap();
-    request.status = "accepted".into();
-    request.completed_at = None;
-    let request = request.clone();
+    let mut updated = (**request).clone();
+    updated.status = "accepted".into();
+    updated.completed_at = None;
+    *request = updated.clone().into();
+    let request = updated;
     let event = |revision, kind: &str, bytes| {
         vnidrop::CoreEvent {
         id: format!("ui-progress-{revision}"), revision,
@@ -944,16 +946,19 @@ fn native_draft_approval_receive_and_shutdown() {
             .as_ref()
             .is_some_and(|qr| qr.ready.get())
     });
-    preview
-        .snapshot
-        .borrow_mut()
-        .as_mut()
-        .unwrap()
-        .transfers
-        .iter_mut()
-        .find(|t| t.transfer_id == transfer.transfer_id)
-        .unwrap()
-        .status = "stopped".into();
+    {
+        let mut snapshot = preview.snapshot.borrow_mut();
+        let transfer = snapshot
+            .as_mut()
+            .unwrap()
+            .transfers
+            .iter_mut()
+            .find(|t| t.transfer_id == transfer.transfer_id)
+            .unwrap();
+        let mut stopped = (**transfer).clone();
+        stopped.status = "stopped".into();
+        *transfer = stopped.into();
+    }
     preview.render();
     until("stopped share dismisses QR", || {
         preview.qr.borrow().is_none()
@@ -969,8 +974,10 @@ fn native_draft_approval_receive_and_shutdown() {
             .iter_mut()
             .find(|t| t.transfer_id == transfer.transfer_id)
             .unwrap();
-        transfer.status = "sharing".into();
-        transfer.ticket = Some("a".repeat(2954));
+        let mut sharing = (**transfer).clone();
+        sharing.status = "sharing".into();
+        sharing.ticket = Some("a".repeat(2954));
+        *transfer = sharing.into();
     }
     preview.show_qr(transfer.transfer_id);
     until("oversized QR fallback", || {

@@ -1,7 +1,7 @@
 use crate::{
     devices::{Device, DeviceState},
     localization::{format, text},
-    presentation::{InvitationStatus, ReceiverStatus},
+    presentation::{InvitationDirection, InvitationStatus, ReceiverStatus},
     session::Snapshot,
     targeted,
 };
@@ -62,14 +62,13 @@ impl Tracker {
         for request in &snapshot.requests {
             let id = format!("receiver:{}", request.id);
             states.insert(id.clone(), request.status.clone());
-            let transfer = snapshot
-                .transfers
-                .iter()
-                .find(|t| t.transfer_id == request.transfer_id && t.direction == "send");
+            let transfer = snapshot.transfers.iter().find(|t| {
+                t.transfer_id == request.transfer_id && t.role == InvitationDirection::Send
+            });
             let name = transfer
                 .and_then(|t| t.transfer_name.clone())
                 .unwrap_or_default();
-            let title = match ReceiverStatus::from(request.status.as_str()) {
+            let title = match request.delivery {
                 ReceiverStatus::Requested => Some("approval_connection_request"),
                 ReceiverStatus::Completed => Some("notifications_receiver_completed_title"),
                 ReceiverStatus::Failed => Some("notifications_receiver_failed_title"),
@@ -89,21 +88,21 @@ impl Tracker {
                         "send".into(),
                         Some(request.id.clone()),
                     ),
-                    pending: request.status == "requested",
+                    pending: request.delivery == ReceiverStatus::Requested,
                 });
             }
         }
         for transfer in &snapshot.transfers {
             let id = format!("transfer:{}:{}", transfer.transfer_id, transfer.direction);
             states.insert(id.clone(), transfer.status.clone());
-            let title = match InvitationStatus::from(transfer.status.as_str()) {
-                InvitationStatus::Done if transfer.direction == "receive" => {
+            let title = match transfer.lifecycle {
+                InvitationStatus::Done if transfer.role == InvitationDirection::Receive => {
                     Some("notifications_receive_completed_title")
                 }
-                InvitationStatus::Failed => match transfer.direction.as_str() {
-                    "receive" => Some("notifications_receive_failed_title"),
-                    "send" => Some("notifications_send_failed_title"),
-                    _ => None,
+                InvitationStatus::Failed => match transfer.role {
+                    InvitationDirection::Receive => Some("notifications_receive_failed_title"),
+                    InvitationDirection::Send => Some("notifications_send_failed_title"),
+                    InvitationDirection::Unknown => None,
                 },
                 InvitationStatus::Done
                 | InvitationStatus::Importing
@@ -297,24 +296,29 @@ mod tests {
     #[test]
     fn invitation_receive_done_sends_one_completion_notice() {
         let mut snapshot = empty_snapshot();
-        snapshot.transfers.push(vnidrop::StoredTransfer {
-            local_id: "local-transfer".into(),
-            transfer_id: 7,
-            peer_id: None,
-            direction: "receive".into(),
-            status: "receiving".into(),
-            transfer_name: Some("Files".into()),
-            content_hash: None,
-            ticket: None,
-            file_count: 1,
-            total_size: 1,
-            access_mode: vnidrop::TransferAccessMode::ApprovalRequired,
-            created_at: 1,
-            updated_at: 1,
-        });
+        snapshot.transfers.push(
+            vnidrop::StoredTransfer {
+                local_id: "local-transfer".into(),
+                transfer_id: 7,
+                peer_id: None,
+                direction: "receive".into(),
+                status: "receiving".into(),
+                transfer_name: Some("Files".into()),
+                content_hash: None,
+                ticket: None,
+                file_count: 1,
+                total_size: 1,
+                access_mode: vnidrop::TransferAccessMode::ApprovalRequired,
+                created_at: 1,
+                updated_at: 1,
+            }
+            .into(),
+        );
         let mut tracker = Tracker::default();
         assert!(tracker.update(&snapshot, true, false, 0).0.is_empty());
-        snapshot.transfers[0].status = "done".into();
+        let mut completed = (*snapshot.transfers[0]).clone();
+        completed.status = "done".into();
+        snapshot.transfers[0] = completed.into();
         let (sent, _) = tracker.update(&snapshot, true, false, 0);
         assert_eq!(
             sent,

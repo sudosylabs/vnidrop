@@ -17,6 +17,17 @@ public class PresentationTests
     }
 
     [Fact]
+    public void TransferProjectionPreservesUnknownDirectionAndLifecycle()
+    {
+        var raw = Stored(42, "completed") with { direction = "unknown-direction" };
+        var transfer = new InvitationTransfer(raw);
+        Assert.Equal(InvitationDirection.Unknown, transfer.Direction);
+        Assert.Equal(InvitationStatus.Unknown, transfer.Status);
+        Assert.Equal(raw, transfer.Value);
+        Assert.Empty(TransferPresentation.DeletableHistoryIds([transfer]));
+    }
+
+    [Fact]
     public void ReceiverHistoryReadsOnlyAddedOrChangedTransfers()
     {
         var cache = new ReceiverRequestCache();
@@ -27,19 +38,19 @@ public class PresentationTests
             return [];
         }
 
-        var first = Stored(1, "sharing");
-        var second = Stored(2, "sharing");
+        var first = new InvitationTransfer(Stored(1, "sharing"));
+        var second = new InvitationTransfer(Stored(2, "sharing"));
         cache.Read([first], new HashSet<ulong>(), Read, force: false);
         cache.Read([first, second], new HashSet<ulong>(), Read, force: false);
         cache.Read([first, second], new HashSet<ulong> { 1 }, Read, force: false);
-        cache.Read([first, Stored(2, "stopped")], new HashSet<ulong>(), Read, force: false);
+        cache.Read([first, new InvitationTransfer(Stored(2, "stopped"))], new HashSet<ulong>(), Read, force: false);
         Assert.Equal(new ulong[] { 1, 2, 1, 2 }, queries);
     }
 
     [Theory]
-    [InlineData("send", "send_stop_sharing")]
-    [InlineData("receive", "button_cancel_receive")]
-    public void StopActionLabelMatchesTransferDirection(string direction, string expectedKey)
+    [InlineData(InvitationDirection.Send, "send_stop_sharing")]
+    [InlineData(InvitationDirection.Receive, "button_cancel_receive")]
+    public void StopActionLabelMatchesTransferDirection(InvitationDirection direction, string expectedKey)
     {
         Assert.Equal(expectedKey, TransferPresentation.StopActionKey(direction));
     }
@@ -221,7 +232,7 @@ public class PresentationTests
             Stored(1, "importing"), Stored(2, "sharing"), Stored(3, "receiving"),
             Stored(4, "done"), Stored(5, "cancelled"), Stored(6, "stopped"), Stored(7, "failed"),
         };
-        Assert.Equal([4UL, 5UL, 6UL, 7UL], TransferPresentation.DeletableHistoryIds(ordinary));
+        Assert.Equal([4UL, 5UL, 6UL, 7UL], TransferPresentation.DeletableHistoryIds(ordinary.Select(transfer => new InvitationTransfer(transfer))));
 
         var targeted = new[]
         {

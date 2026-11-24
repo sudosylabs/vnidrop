@@ -64,17 +64,18 @@ public sealed class TransferDetailsPageActions(TransferItem item)
 
     public async Task ReceiversAsync()
     {
-        var receivers = App.Window.Model.Snapshot?.Requests.Where(r => r.transferId == item.Transfer.transferId).OrderByDescending(r => r.requestedAt).ToArray() ?? [];
+        var receivers = App.Window.Model.Snapshot?.Requests.Where(r => r.Value.transferId == item.Transfer.transferId).OrderByDescending(r => r.Value.requestedAt).ToArray() ?? [];
         var events = App.Window.Model.EventsForTransfer(item.Transfer.transferId, includeEndpointEvents: true);
         var panel = Panel();
         if (receivers.Length == 0) panel.Children.Add(Text(Strings.Get("transfer_no_receivers"), true));
-        foreach (var receiver in receivers)
+        foreach (var entry in receivers)
         {
+            var receiver = entry.Value;
             var name = receiver.receiverName ?? receiver.receiverDeviceName ?? Strings.Get("transfer_nearby_device");
             var block = new StackPanel { Spacing = 5, Padding = new(0, 9, 0, 9) };
             block.Children.Add(new TextBlock { Text = name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
             if (receiver.receiverDeviceName is { } device && device != name) block.Children.Add(Text(device, true));
-            var status = InvitationStatusCodec.ParseReceiver(receiver.status);
+            var status = entry.Status;
             var progress = status is ReceiverStatus.Requested or ReceiverStatus.Accepted ? TransferPresentation.ReceiverProgress(events, item.Transfer.transferId, receiver.remoteEndpointId, item.Transfer.totalSize) : null;
             if (progress is not null)
             {
@@ -106,7 +107,7 @@ public sealed class TransferDetailsPageActions(TransferItem item)
     public async Task<bool> DeleteAsync()
     {
         if (!item.CanDelete) return false;
-        var body = item.Transfer.direction == "receive" ? Strings.Format("receive_delete_history_description", ("transferName", item.Name)) : Strings.Format("transfer_delete_description", ("transferName", item.Name));
+        var body = item.Direction == InvitationDirection.Receive ? Strings.Format("receive_delete_history_description", ("transferName", item.Name)) : Strings.Format("transfer_delete_description", ("transferName", item.Name));
         if (await App.Window.DialogAsync(Strings.Get("transfer_delete_title"), body, Strings.Get("button_delete_transfer"), intent: DialogIntent.Destructive) != ContentDialogResult.Primary) return false;
         return await App.Window.Model.PerformAsync(() => App.Window.Model.Session.RunAsync(c => c.DeleteTransfer(item.Transfer.transferId)));
     }

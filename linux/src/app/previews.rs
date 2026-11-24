@@ -1,3 +1,5 @@
+use vnidrop_gnome::presentation::InvitationDirection;
+
 use super::App;
 use gtk::{gdk_pixbuf::Pixbuf, gio, glib};
 use std::{
@@ -106,7 +108,7 @@ impl App {
             .map(|s| {
                 s.transfers
                     .iter()
-                    .filter(|t| t.direction == "send")
+                    .filter(|t| t.role == InvitationDirection::Send)
                     .map(|t| t.transfer_id)
                     .collect()
             })

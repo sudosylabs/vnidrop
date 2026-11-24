@@ -5,13 +5,13 @@ namespace VniDrop.Core;
 public sealed record CoreSnapshot(
     RuntimeStatus Status,
     RuntimeObligationFacts Obligations,
-    StoredTransfer[] Transfers,
+    InvitationTransfer[] Transfers,
     SavedDevice[] Devices,
     DeviceRelationship[] Relationships,
     PairingEligibilitySummary[] EligibleDevices,
     PendingTargetedOffer[] Offers,
     TargetedTransfer[] TargetedTransfers,
-    ReceiverRequest[] Requests,
+    InvitationReceiver[] Requests,
     string[] BlockedDevices);
 
 public sealed class CoreSession : IAsyncDisposable, CoreEventSink
@@ -88,7 +88,7 @@ public sealed class CoreSession : IAsyncDisposable, CoreEventSink
                 if (!force && lastSnapshot is { } cached && lastSnapshotRevision == version) return cached;
                 changed = [.. receiverChanges];
             }
-            var transfers = c.ListTransfers();
+            var transfers = c.ListTransfers().Select(transfer => new InvitationTransfer(transfer)).ToArray();
             var updated = new CoreSnapshot(c.Status(), c.RuntimeObligationFacts(), transfers,
                 c.ListSavedDevices(), c.ListDeviceRelationships(), c.ListPairingEligibilities(),
                 c.ListPendingTargetedOffers(), c.ListTargetedTransfers(),

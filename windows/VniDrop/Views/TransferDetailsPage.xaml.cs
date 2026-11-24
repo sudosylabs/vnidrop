@@ -10,7 +10,7 @@ namespace VniDrop.Views;
 public sealed partial class TransferDetailsPage : Page
 {
     public TransferItem Item { get; private set; } = null!;
-    private string? artifactStatus;
+    private InvitationStatus? artifactStatus;
     private TransferDetailsPageActions actions = null!;
     public TransferDetailsPage()
     {
@@ -28,8 +28,8 @@ public sealed partial class TransferDetailsPage : Page
     }
     private async void Update()
     {
-        var send = Item.Transfer.direction == "send";
-        ShareButton.Visibility = send && Item.Transfer.status is "sharing" or "importing" ? Visibility.Visible : Visibility.Collapsed;
+        var send = Item.Direction == InvitationDirection.Send;
+        ShareButton.Visibility = send && Item.LifecycleStatus is InvitationStatus.Sharing or InvitationStatus.Importing ? Visibility.Visible : Visibility.Collapsed;
         AccessRow.Visibility = send ? Visibility.Visible : Visibility.Collapsed;
         ReceiversButton.Visibility = send ? Visibility.Visible : Visibility.Collapsed;
         Destinations.Visibility = send ? Visibility.Visible : Visibility.Collapsed;
@@ -37,16 +37,16 @@ public sealed partial class TransferDetailsPage : Page
         DeleteButton.Visibility = Item.CanDelete ? Visibility.Visible : Visibility.Collapsed;
         ActionsDivider.Visibility = Item.CanStop && Item.CanDelete ? Visibility.Visible : Visibility.Collapsed;
         ActionsSection.Visibility = Item.CanStop || Item.CanDelete ? Visibility.Visible : Visibility.Collapsed;
-        StopButton.Title = Strings.Get(TransferPresentation.StopActionKey(Item.Transfer.direction));
+        StopButton.Title = Strings.Get(TransferPresentation.StopActionKey(Item.Direction));
         ActivityButton.Value = Item.ActivityCount > 0 ? Item.ActivityCount.ToString() : "";
         ReceiversButton.Value = Item.ReceiverCount > 0 ? Item.ReceiverCount.ToString() : "";
         ReceiversButton.Description = Item.ReceiverSummary;
-        if (artifactStatus != Item.Transfer.status) { artifactStatus = Item.Transfer.status; await LoadFilesAsync(); }
+        if (artifactStatus != Item.LifecycleStatus) { artifactStatus = Item.LifecycleStatus; await LoadFilesAsync(); }
     }
     private async Task LoadFilesAsync()
     {
-        FilesSection.Visibility = Item.Transfer.direction == "receive" ? Visibility.Visible : Visibility.Collapsed;
-        if (Item.Transfer.direction != "receive") return;
+        FilesSection.Visibility = Item.Direction == InvitationDirection.Receive ? Visibility.Visible : Visibility.Collapsed;
+        if (Item.Direction != InvitationDirection.Receive) return;
         await App.Window.Model.PerformAsync(async () =>
         {
             var artifacts = await App.Window.Model.Session.RunAsync(c => c.ListReceivedArtifacts());
@@ -60,7 +60,7 @@ public sealed partial class TransferDetailsPage : Page
     }
     private void Back(object sender, RoutedEventArgs e)
     {
-        if (!App.Window.GoBack()) App.Window.ShowTransfers(Item.Transfer.direction == "receive");
+        if (!App.Window.GoBack()) App.Window.ShowTransfers(Item.Direction == InvitationDirection.Receive);
     }
     private async void Share(object sender, RoutedEventArgs e) => await actions.ShareAsync();
     private async void Activity(object sender, RoutedEventArgs e) => await actions.ActivityAsync();

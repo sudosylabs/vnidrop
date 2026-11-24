@@ -88,7 +88,7 @@ fn metadata(id: u64) -> ShareMetadataInput {
     }
 }
 
-fn wait_request(sender: &Session, id: u64) -> ReceiverRequest {
+fn wait_request(sender: &Session, id: u64) -> InvitationReceiver {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         if let Some(request) = sender
@@ -140,7 +140,7 @@ fn approval_and_cancel_are_available_while_receive_blocks() {
     });
     let request = wait_request(&sender, 120);
     sender
-        .call(|core| core.respond_receiver_request(request.id, true, None))
+        .call(|core| core.respond_receiver_request(request.id.clone(), true, None))
         .unwrap();
     completion
         .recv_timeout(Duration::from_secs(10))
@@ -385,7 +385,7 @@ fn native_device_commands_require_mutual_consent_and_preserve_revocation() {
         });
         let request = wait_request(&sender, 220);
         sender
-            .call(|core| core.respond_receiver_request(request.id, true, None))
+            .call(|core| core.respond_receiver_request(request.id.clone(), true, None))
             .unwrap();
         worker.join().unwrap().unwrap();
         let eligible = wait_device(&sender, |d| matches!(d.state, DeviceState::Eligible { .. }));
@@ -549,7 +549,7 @@ fn native_pairing_decline_never_creates_saved_access() {
         });
         let request = wait_request(&sender, 320);
         sender
-            .call(|core| core.respond_receiver_request(request.id, true, None))
+            .call(|core| core.respond_receiver_request(request.id.clone(), true, None))
             .unwrap();
         worker.join().unwrap().unwrap();
         let eligible = wait_device(&sender, |d| matches!(d.state, DeviceState::Eligible { .. }));

@@ -1,3 +1,5 @@
+use vnidrop_gnome::presentation::ReceiverStatus;
+
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -20,7 +22,7 @@ impl App {
             snapshot
                 .requests
                 .iter()
-                .filter(|r| r.status == "requested")
+                .filter(|r| r.delivery == ReceiverStatus::Requested)
                 .min_by_key(|r| (r.requested_at, &r.id))
                 .map(|r| (r.transfer_id, r.id.clone()))
         });

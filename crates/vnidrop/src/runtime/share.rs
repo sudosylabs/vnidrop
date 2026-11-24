@@ -19,7 +19,7 @@ use crate::{
     api::{ShareMetadataInput, ShareResult, ShareSource},
     error::VnidropError,
     filesystem::{
-        collect_import_files_with_limits, default_collection_name,
+        collect_import_files_with_cancellation, default_collection_name,
         read_stream_from_blocking_reader, TransferImport,
     },
     invitation::TransferUpsert,
@@ -150,7 +150,9 @@ impl CoreInner {
             "started",
             json!({ "source_count": sources.len() }),
         );
-        let import = self.import_sources(metadata.transfer_id, sources).await?;
+        let import = self
+            .import_sources(metadata.transfer_id, sources, || Ok(()))
+            .await?;
         let blob_ticket =
             BlobTicket::new(self.endpoint.addr(), import.root_hash, BlobFormat::HashSeq);
         let transfer_name = metadata
@@ -262,14 +264,17 @@ impl CoreInner {
         self: &Arc<Self>,
         transfer_id: u64,
         sources: Vec<ShareSource>,
+        check_cancel: impl Fn() -> Result<()> + Send + Sync,
     ) -> Result<TransferImport> {
-        let files = collect_import_files_with_limits(sources, &self.limits)?;
+        let files = collect_import_files_with_cancellation(sources, &self.limits, &check_cancel)?;
         let default_name = default_collection_name(&files);
         let parallelism = num_cpus::get().min(8);
         let mut names_and_tags = n0_future::stream::iter(files)
             .map(|file| {
                 let core = self.clone();
+                let check_cancel = &check_cancel;
                 async move {
+                    check_cancel()?;
                     let reader = file.source.open()?;
                     let stream = read_stream_from_blocking_reader(reader);
                     let import = core.store.add_stream(stream).await;
@@ -289,6 +294,7 @@ impl CoreInner {
             .into_iter()
             .collect::<Result<Vec<_>>>()?;
 
+        check_cancel()?;
         names_and_tags.sort_by(|(a, _, _), (b, _, _)| a.cmp(b));
         let total_size = names_and_tags
             .iter()
@@ -339,6 +345,8 @@ impl CoreInner {
             let Some(item) = stream.next().await else {
                 anyhow::bail!("import stream ended without a tag");
             };
+            #[cfg(test)]
+            self.wait_for_targeted_preparation_import_gate().await;
             match item {
                 AddProgressItem::Size(item_size) => {
                     if item_size > self.limits.max_total_bytes {

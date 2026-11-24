@@ -161,12 +161,9 @@ pub(super) struct CoreInner {
     #[cfg(test)]
     targeted_authorization_delivery_attempts: std::sync::atomic::AtomicU64,
     #[cfg(test)]
-    targeted_preparation_registration_gate: std::sync::Mutex<
-        Option<(
-            std::sync::mpsc::SyncSender<()>,
-            tokio::sync::oneshot::Receiver<()>,
-        )>,
-    >,
+    targeted_preparation_registration_gate: test_faults::TargetedPreparationPauseChannels,
+    #[cfg(test)]
+    targeted_preparation_import_gate: test_faults::TargetedPreparationPauseChannels,
 }
 
 pub(super) struct ActiveTransfer {
@@ -608,6 +605,8 @@ impl CoreInner {
             targeted_authorization_delivery_attempts: std::sync::atomic::AtomicU64::new(0),
             #[cfg(test)]
             targeted_preparation_registration_gate: std::sync::Mutex::new(None),
+            #[cfg(test)]
+            targeted_preparation_import_gate: std::sync::Mutex::new(None),
         });
 
         // In-flight connecting/transferring transfers become Interrupted across restart.

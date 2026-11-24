@@ -1,6 +1,7 @@
 #[cfg(unix)]
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::{
+    collections::HashSet,
     fs::File,
     io::{self, Read, Write},
     path::{Component, Path, PathBuf},
@@ -12,6 +13,7 @@ use iroh_blobs::{api::TempTag, Hash};
 
 use crate::{
     api::{CoreLimits, ShareSource, SourceKind},
+    error::VnidropError,
     output_staging::OutputStaging,
     util::non_empty,
 };
@@ -373,6 +375,7 @@ pub(crate) fn collect_import_files_with_limits(
         );
     }
     let mut known_total = 0u64;
+    let mut collection_names = HashSet::with_capacity(files.len());
     for file in &files {
         if file.collection_name.len() as u64 > limits.max_path_bytes {
             anyhow::bail!(
@@ -380,6 +383,12 @@ pub(crate) fn collect_import_files_with_limits(
                 limits.max_path_bytes,
                 file.collection_name
             );
+        }
+        if !collection_names.insert(file.collection_name.as_str()) {
+            return Err(VnidropError::InvalidInput {
+                reason: "selected files share the same output path".to_string(),
+            }
+            .into());
         }
         #[cfg(not(unix))]
         let ImportSource::Path(path) = &file.source;

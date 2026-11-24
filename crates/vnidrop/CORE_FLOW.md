@@ -79,11 +79,12 @@ bytes through Kotlin memory.
 
 ## Core States And Events
 
-- Transfer statuses: `sharing`, `receiving`, `done`, `failed`, `cancelled`,
-  `stopped`.
-- Main event phases: `endpoint`, `import`, `ticket`, `handshake`, `approval`,
-  `access`, `transfer`, `download`, `export`, `delivery`, `lifecycle`, `error`,
-  `pairing`, and `targeted_transfer` (see catalog below).
+- Invitation transfer statuses include `importing`, `sharing`, `receiving`,
+  `done`, `failed`, `cancelled`, and `stopped`.
+- Event phases include `startup`, `recovery`, `shutdown`, `provider`, `error`,
+  `import`, `ticket`, `lifecycle`, `network`, `download`, `export`, `access`,
+  `handshake`, `approval`, `transfer`, `delivery`, `pairing`,
+  `targeted_transfer`, and `runtime_obligation`.
 - Events are sent to `CoreEventSink` immediately and persisted through the event
   hub. `list_events` flushes queued persistence before reading SQLite.
 - `shutdown()` is idempotent and flushes events before stopping the router.
@@ -157,9 +158,12 @@ transfer records invokes the same cleanup after live shares have been stopped.
 sizes, metadata, retained events, pending approvals, concurrent transfers, and
 the event persistence queue. `initialize` uses conservative defaults (including
 bounded ticket size, pending approvals, and total collection bytes);
-`initialize_with_limits` supports stricter deployments and tests. Cheap limits
-are checked before durable or network work, while remote collection limits are
-checked before downloading file content.
+`initialize_with_limits` supports stricter deployments and tests. Invitation
+sends check the selected source count and transfer name before inserting the
+`importing` record. Import then expands sources and enforces collection path,
+file count, and byte limits before publishing a share. Receives check ticket
+limits before connecting and bound remote collection metadata before downloading
+file content.
 
 Manual `approve_endpoint_for_transfer` only applies to active shares, requires a
 non-empty endpoint id, and creates a time-limited session (same TTL as handshake

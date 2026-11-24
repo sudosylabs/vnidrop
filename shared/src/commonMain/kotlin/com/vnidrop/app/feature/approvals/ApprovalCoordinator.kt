@@ -156,7 +156,9 @@ class ApprovalCoordinator internal constructor(
 
 	private suspend fun synchronizeNotifications(context: NotificationContext) {
 		if (context.foreground || !context.enabled || context.permission != NotificationPermission.Granted) {
-			publishedNotificationIds.forEach { notifications.cancel(notificationId(it)) }
+			val withdrawnIds = publishedNotificationIds.toList()
+			publishedNotificationIds.clear()
+			withdrawnIds.forEach { notifications.cancel(notificationId(it)) }
 			return
 		}
 		context.pending.filterNot { it.id in publishedNotificationIds }.forEach { request ->

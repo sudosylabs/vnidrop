@@ -26,7 +26,7 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class ApprovalCoordinatorTest {
 	@Test
-	fun ordersRequestsAndPublishesEachNotificationOnce() = runTest {
+	fun ordersRequestsAndRepostsPendingNotificationsAfterForegrounding() = runTest {
 		val core = FakeCoreGateway()
 		core.requests[1UL] = listOf(request("new", 20), request("old", 10))
 		core.mutableState.value = CoreState(isInitialized = true, transfers = listOf(activeTransfer()))
@@ -57,6 +57,13 @@ class ApprovalCoordinatorTest {
 		advanceUntilIdle()
 		assertEquals(setOf("approval-old", "approval-new"), notifications.cancelled.toSet())
 		assertEquals(0, notifications.cancelAllCount)
+
+		visibility.setForeground(false)
+		runCurrent()
+		assertEquals(
+			listOf("approval-old", "approval-new", "approval-old", "approval-new"),
+			notifications.published.map { it.id },
+		)
 
 		core.requests[1UL] = emptyList()
 		core.mutableSignals.emit(CoreSignal.ApprovalChanged(1UL))

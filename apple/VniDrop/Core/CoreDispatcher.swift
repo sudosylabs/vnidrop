@@ -8,12 +8,9 @@ enum QueueLabel {
 
 /// Two-lane dispatcher for blocking core calls.
 ///
-/// `run` serializes calls on one queue so the core is driven from a single lane.
-/// `runInterrupt` uses a *separate* concurrent lane, so an interrupt-style call
-/// (cancel) can reach the core while a blocking call (`receive`) still occupies
-/// the serial lane. The core is internally synchronized and explicitly supports
-/// cancel arriving from another thread mid-receive (see VnidropCore.block_on);
-/// a single shared queue would deadlock it.
+/// `run` serializes control and status calls. `runInterrupt` uses a separate
+/// concurrent queue so streaming receives, cancellation and status reads can
+/// reach the internally synchronized core at the same time.
 final class CoreDispatcher: Sendable {
 	private let serialQueue: DispatchQueue
 	private let interruptQueue: DispatchQueue
@@ -30,9 +27,7 @@ final class CoreDispatcher: Sendable {
 		}
 	}
 
-	/// Like `run`, but off the serial lane so it can interrupt a blocking call in
-	/// flight there (e.g. cancel a `receive`). Only use for core calls that are
-	/// safe to run concurrently with another core call.
+	/// Runs transfers and interrupts that the core can execute concurrently.
 	func runInterrupt<T: Sendable>(_ block: @escaping @Sendable () throws -> T) async -> Result<T, Error> {
 		await withCheckedContinuation { continuation in
 			interruptQueue.async { continuation.resume(returning: Result { try block() }) }

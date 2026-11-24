@@ -100,6 +100,7 @@ final class CoreRepository: ObservableObject, CoreGateway {
 	private let dispatcher = CoreDispatcher()
 	private let coreFactory: any CoreBindingFactory
 	private var isNetworkTransitionInProgress = false
+	private var activeReceiveCalls = 0
 	private lazy var sink = RepositoryEventSink { [weak self] event in
 		Task { @MainActor in self?.handle(event: event) }
 	}
@@ -118,6 +119,9 @@ final class CoreRepository: ObservableObject, CoreGateway {
 	) async -> Result<Void, Error> {
 		guard !isNetworkTransitionInProgress else {
 			return .failure(CoreNetworkLifecycleError.transitionInProgress)
+		}
+		guard activeReceiveCalls == 0 else {
+			return .failure(CoreNetworkLifecycleError.activeNetworkWork)
 		}
 		isNetworkTransitionInProgress = true
 		defer { isNetworkTransitionInProgress = false }
@@ -155,6 +159,9 @@ final class CoreRepository: ObservableObject, CoreGateway {
 	) async -> Result<Void, Error> {
 		guard !isNetworkTransitionInProgress else {
 			return .failure(CoreNetworkLifecycleError.transitionInProgress)
+		}
+		guard activeReceiveCalls == 0 else {
+			return .failure(CoreNetworkLifecycleError.activeNetworkWork)
 		}
 		isNetworkTransitionInProgress = true
 		defer { isNetworkTransitionInProgress = false }
@@ -228,11 +235,8 @@ final class CoreRepository: ObservableObject, CoreGateway {
 	}
 
 	func receive(ticket: String, outputDir: String, receiverName: String) async -> Result<Void, Error> {
-		guard !isNetworkTransitionInProgress else {
-			return .failure(CoreNetworkLifecycleError.transitionInProgress)
-		}
-		return await runCore {
-			try self.requireCore().receive(
+		await runReceive { core in
+			try core.receive(
 				ticket: ticket,
 				outputDir: outputDir,
 				receiverName: receiverName.isEmpty ? nil : receiverName
@@ -247,12 +251,9 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		outputDirectoryUrl: String,
 		receiverName: String
 	) async -> Result<Void, Error> {
-		guard !isNetworkTransitionInProgress else {
-			return .failure(CoreNetworkLifecycleError.transitionInProgress)
-		}
-		return await runCore {
+		await runReceive { core in
 			try withSecurityScopedAccess(pathOrUrl: outputDirectoryUrl) {
-				try self.requireCore().receive(
+				try core.receive(
 					ticket: ticket,
 					outputDir: outputDirectoryUrl,
 					receiverName: receiverName.isEmpty ? nil : receiverName
@@ -264,8 +265,6 @@ final class CoreRepository: ObservableObject, CoreGateway {
 	// MARK: - Lifecycle actions
 
 	func cancel(transferId: UInt64) async -> Result<Void, Error> {
-		// Off the serial `queue`: a receive in flight is blocking it, and the
-		// cancel signal must reach the core to unblock that receive.
 		await runInterrupt {
 			try self.requireCore().cancelTransfer(transferId: transferId)
 		}.map { self.refreshSnapshot() }
@@ -427,12 +426,9 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		transferId: String,
 		outputDirectoryUrl: String
 	) async -> Result<Void, Error> {
-		guard !isNetworkTransitionInProgress else {
-			return .failure(CoreNetworkLifecycleError.transitionInProgress)
-		}
-		return await runCore {
+		await runReceive { core in
 			try withSecurityScopedAccess(pathOrUrl: outputDirectoryUrl) {
-				try self.requireCore().receiveTargetedTransfer(
+				try core.receiveTargetedTransfer(
 					transferId: transferId,
 					outputDir: outputDirectoryUrl
 				)
@@ -444,19 +440,14 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		id: String,
 		outputDirectoryUrl: String
 	) async -> Result<Void, Error> {
-		guard !isNetworkTransitionInProgress else {
-			return .failure(CoreNetworkLifecycleError.transitionInProgress)
-		}
-		return await runCore {
+		await runReceive { core in
 			try withSecurityScopedAccess(pathOrUrl: outputDirectoryUrl) {
-				try self.requireCore().resumeTargetedTransfer(id: id, outputDir: outputDirectoryUrl)
+				try core.resumeTargetedTransfer(id: id, outputDir: outputDirectoryUrl)
 			}
 		}
 	}
 
 	func cancelTargetedTransfer(id: String) async -> Result<Void, Error> {
-		// Off the serial lane: an in-flight targeted receive is blocking it, and the
-		// cancel must reach the core to unblock that receive (see `cancel`).
 		await runInterrupt { try self.requireCore().cancelTargetedTransfer(id: id) }
 	}
 
@@ -553,11 +544,23 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		await dispatcher.run(block)
 	}
 
-	/// Like `runCore`, but off the serial lane so it can interrupt a blocking
-	/// call in flight there (e.g. cancel a `receive`). Only use for core calls
-	/// that are safe to run concurrently with another core call.
+	/// Runs a core call that can overlap reads, transfers, and cancellation.
 	private nonisolated func runInterrupt<T: Sendable>(_ block: @escaping @Sendable () throws -> T) async -> Result<T, Error> {
 		await dispatcher.runInterrupt(block)
+	}
+
+	private func runReceive(
+		_ block: @escaping @Sendable (VnidropCore) throws -> Void
+	) async -> Result<Void, Error> {
+		guard !isNetworkTransitionInProgress else {
+			return .failure(CoreNetworkLifecycleError.transitionInProgress)
+		}
+		let active: VnidropCore
+		do { active = try requireCore() } catch { return .failure(error) }
+		// A restart must see the receive even before its native call starts.
+		activeReceiveCalls += 1
+		defer { activeReceiveCalls -= 1 }
+		return await runInterrupt { try block(active) }
 	}
 
 	private nonisolated static func nextTransferId() -> UInt64 {

@@ -64,26 +64,40 @@ struct OutputSinkFileV2<'a> {
     sink: &'a dyn ReceiveOutputSinkV2,
     relative_path: String,
     terminal: bool,
+    writer: Option<std::fs::File>,
 }
 
 impl<'a> OutputSinkFileV2<'a> {
     fn start(sink: &'a dyn ReceiveOutputSinkV2, relative_path: String) -> Result<Self> {
         sink.start_file(relative_path.clone())
             .map_err(anyhow::Error::new)?;
-        Ok(Self {
+        let mut output = Self {
             sink,
             relative_path,
             terminal: false,
-        })
+            writer: None,
+        };
+        if let Some(fd) = sink.writable_file_descriptor(output.relative_path.clone())? {
+            output.writer =
+                Some(duplicate_output_descriptor(fd).map_err(VnidropError::filesystem)?);
+        }
+        Ok(output)
     }
 
-    fn write(&self, bytes: Vec<u8>) -> Result<()> {
-        self.sink
-            .write_chunk(self.relative_path.clone(), bytes)
-            .map_err(anyhow::Error::new)
+    fn write(&mut self, bytes: Vec<u8>) -> Result<()> {
+        use std::io::Write;
+        if let Some(writer) = &mut self.writer {
+            writer.write_all(&bytes).map_err(VnidropError::filesystem)?;
+            Ok(())
+        } else {
+            self.sink
+                .write_chunk(self.relative_path.clone(), bytes)
+                .map_err(anyhow::Error::new)
+        }
     }
 
     fn finish(mut self) -> Result<crate::api::PublishedOutput> {
+        drop(self.writer.take());
         self.terminal = true;
         self.sink
             .finish_file(self.relative_path.clone())
@@ -94,6 +108,7 @@ impl<'a> OutputSinkFileV2<'a> {
 impl Drop for OutputSinkFileV2<'_> {
     fn drop(&mut self) {
         if !self.terminal {
+            drop(self.writer.take());
             self.terminal = true;
             if let Err(error) = self.sink.abort_file(
                 self.relative_path.clone(),
@@ -103,6 +118,25 @@ impl Drop for OutputSinkFileV2<'_> {
             }
         }
     }
+}
+
+#[cfg(unix)]
+fn duplicate_output_descriptor(fd: i32) -> io::Result<std::fs::File> {
+    use std::os::fd::{FromRawFd, OwnedFd};
+
+    // The foreign sink retains this descriptor through the terminal callback.
+    let duplicated = unsafe { libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, 0) };
+    if duplicated < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(std::fs::File::from(unsafe {
+        OwnedFd::from_raw_fd(duplicated)
+    }))
+}
+
+#[cfg(not(unix))]
+fn duplicate_output_descriptor(_fd: i32) -> io::Result<std::fs::File> {
+    Err(io::ErrorKind::Unsupported.into())
 }
 
 impl CoreInner {
@@ -412,7 +446,7 @@ impl CoreInner {
             );
         }
         let relative_path = validated_relative_string(relative_path)?;
-        let output_file = OutputSinkFileV2::start(sink.0, relative_path.clone())?;
+        let mut output_file = OutputSinkFileV2::start(sink.0, relative_path.clone())?;
         let stream = self.store.export_ranges(hash, 0..u64::MAX).stream();
         let mut export = BufferedExport::new(stream, &relative_path);
         while let Some(chunk) = export.next_chunk().await? {
@@ -466,5 +500,82 @@ impl CoreInner {
                 .map_err(VnidropError::repository)?;
         }
         Ok(())
+    }
+}
+
+#[cfg(all(test, unix))]
+mod descriptor_tests {
+    use std::os::fd::AsRawFd;
+
+    use super::*;
+
+    struct DescriptorSink {
+        file: std::fs::File,
+        invalid_descriptor: bool,
+        callbacks: Mutex<Vec<&'static str>>,
+    }
+
+    impl ReceiveOutputSinkV2 for DescriptorSink {
+        fn start_file(&self, _: String) -> Result<(), VnidropError> {
+            self.callbacks.lock().unwrap().push("start");
+            Ok(())
+        }
+
+        fn writable_file_descriptor(&self, _: String) -> Result<Option<i32>, VnidropError> {
+            Ok(Some(if self.invalid_descriptor {
+                -1
+            } else {
+                self.file.as_raw_fd()
+            }))
+        }
+
+        fn write_chunk(&self, _: String, _: Vec<u8>) -> Result<(), VnidropError> {
+            panic!("descriptor writes must stay in Rust");
+        }
+
+        fn finish_file(&self, _: String) -> Result<crate::api::PublishedOutput, VnidropError> {
+            self.callbacks.lock().unwrap().push("finish");
+            Ok(crate::api::PublishedOutput {
+                locator_kind: ReceivedLocatorKind::AndroidDocument,
+                locator: "content://output".into(),
+            })
+        }
+
+        fn abort_file(&self, _: String, _: String) -> Result<(), VnidropError> {
+            self.callbacks.lock().unwrap().push("abort");
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn descriptor_sink_streams_in_rust_and_leaves_the_platform_descriptor_open() {
+        use std::io::{Read, Seek, SeekFrom};
+
+        let mut sink = DescriptorSink {
+            file: tempfile::tempfile().unwrap(),
+            invalid_descriptor: false,
+            callbacks: Mutex::default(),
+        };
+        let mut output = OutputSinkFileV2::start(&sink, "received".into()).unwrap();
+        output.write(vec![1; 512]).unwrap();
+        output.write(vec![2; 513]).unwrap();
+        output.finish().unwrap();
+
+        let mut bytes = Vec::new();
+        sink.file.seek(SeekFrom::Start(0)).unwrap();
+        sink.file.read_to_end(&mut bytes).unwrap();
+        assert_eq!(bytes, [vec![1; 512], vec![2; 513]].concat());
+        assert_eq!(*sink.callbacks.lock().unwrap(), ["start", "finish"]);
+    }
+
+    #[test]
+    fn an_unusable_descriptor_aborts_once_after_start() {
+        let sink = DescriptorSink {
+            file: tempfile::tempfile().unwrap(),
+            invalid_descriptor: true,
+            callbacks: Mutex::default(),
+        };
+        assert!(OutputSinkFileV2::start(&sink, "received".into()).is_err());
+        assert_eq!(*sink.callbacks.lock().unwrap(), ["start", "abort"]);
     }
 }

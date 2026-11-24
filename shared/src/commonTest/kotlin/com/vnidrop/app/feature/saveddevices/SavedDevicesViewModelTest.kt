@@ -474,6 +474,7 @@ class SavedDevicesViewModelTest {
 
 	private fun unusedSink() = object : ReceiveOutputSinkV2 {
 		override fun startFile(relativePath: String) = error("unused")
+		override fun writableFileDescriptor(relativePath: String): Int? = null
 		override fun writeChunk(relativePath: String, bytes: ByteArray) = error("unused")
 		override fun finishFile(relativePath: String) = error("unused")
 		override fun abortFile(relativePath: String, reason: String) = error("unused")

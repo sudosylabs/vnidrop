@@ -485,6 +485,14 @@ pub struct PublishedOutput {
 #[uniffi::export(with_foreign)]
 pub trait ReceiveOutputSinkV2: Send + Sync {
     fn start_file(&self, relative_path: String) -> Result<(), crate::error::VnidropError>;
+    /// A borrowed writable file descriptor, kept open through finish_file or abort_file.
+    /// The core duplicates it before streaming; sinks without descriptors use write_chunk.
+    fn writable_file_descriptor(
+        &self,
+        _relative_path: String,
+    ) -> Result<Option<i32>, crate::error::VnidropError> {
+        Ok(None)
+    }
     fn write_chunk(
         &self,
         relative_path: String,

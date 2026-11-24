@@ -49,6 +49,7 @@ class FakeCoreGateway : CoreGateway {
 	val mutableSignals = MutableSharedFlow<CoreSignal>(extraBufferCapacity = 16)
 	override val signals: SharedFlow<CoreSignal> = mutableSignals
 	val requests = mutableMapOf<ULong, List<ReceiverRequestModel>>()
+	var receiverRequestsHandler: (suspend (ULong) -> Result<List<ReceiverRequestModel>>)? = null
 	var responseResult: Result<Unit> = Result.success(Unit)
 	val responses = mutableListOf<Triple<String, Boolean, String?>>()
 	var shareResult: Result<Share> = Result.failure(UnsupportedOperationException())
@@ -200,7 +201,8 @@ class FakeCoreGateway : CoreGateway {
 		}
 		return clearReceiveHistoryResult
 	}
-	override suspend fun receiverRequests(transferId: ULong) = Result.success(requests[transferId].orEmpty())
+	override suspend fun receiverRequests(transferId: ULong) =
+		receiverRequestsHandler?.invoke(transferId) ?: Result.success(requests[transferId].orEmpty())
 	override suspend fun respondReceiverRequest(requestId: String, accepted: Boolean, reason: String?): Result<Unit> {
 		responses += Triple(requestId, accepted, reason)
 		return responseResult

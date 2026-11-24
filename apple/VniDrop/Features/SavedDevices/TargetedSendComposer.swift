@@ -188,6 +188,7 @@ private struct TargetedSourceCard: View {
 /// same constraint `SendPickers` documents.
 private struct SavedDeviceSendPickers: ViewModifier {
 	@ObservedObject var model: SavedDevicesModel
+	@State private var selectionTask: Task<Void, Never>?
 
 	func body(content: Content) -> some View {
 		// One .fileImporter switched between files and folders: stacking two on a
@@ -210,16 +211,24 @@ private struct SavedDeviceSendPickers: ViewModifier {
 			model.pendingFolderPick = false
 			switch result {
 			case .success(let urls):
-				let files = urls.compactMap { PickerSupport.pickedFile(from: $0, isDirectory: isDirectory) }
-				if files.isEmpty {
-					model.onSendFilePickFailed("")
-				} else {
-					model.onSendFilesPicked(files)
+				selectionTask?.cancel()
+				let peerId = model.state.sendTargetPeerId
+				selectionTask = PickerSupport.loadShareSelection(urls, isDirectory: isDirectory) { files in
+					guard let peerId, model.state.sendTargetPeerId == peerId, !model.state.isCreatingSend else {
+						return false
+					}
+					if files.isEmpty {
+						model.onSendFilePickFailed("")
+					} else {
+						model.onSendFilesPicked(files)
+					}
+					return true
 				}
 			case .failure(let error):
 				if !error.isUserCancellation { model.onSendFilePickFailed(error.technicalDetail) }
 			}
 		}
+		.onDisappear { selectionTask?.cancel() }
 	}
 }
 

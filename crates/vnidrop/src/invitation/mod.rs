@@ -672,13 +672,19 @@ impl Repository {
             INSERT INTO pending_delivery_receipts (
                 request_id, local_transfer_id, sender_blob_ticket,
                 sender_transfer_id, token, failure_reason, created_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            )
+            SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
+            WHERE NOT EXISTS (
+                SELECT 1 FROM transfers
+                WHERE transfer_id = ?2 AND direction = 'receive' AND status = 'done'
+            )
             ON CONFLICT(request_id) DO UPDATE SET
                 local_transfer_id = excluded.local_transfer_id,
                 sender_blob_ticket = excluded.sender_blob_ticket,
                 sender_transfer_id = excluded.sender_transfer_id,
                 token = excluded.token,
                 failure_reason = excluded.failure_reason
+            WHERE pending_delivery_receipts.failure_reason IS NOT NULL
             "#,
         )
         .bind(receipt.request_id)

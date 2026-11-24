@@ -289,10 +289,8 @@ impl CoreInner {
                 }
             })
             .buffered_unordered(parallelism)
-            .collect::<Vec<_>>()
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>>>()?;
+            .try_collect::<_, _, Vec<_>>()
+            .await?;
 
         check_cancel()?;
         names_and_tags.sort_by(|(a, _, _), (b, _, _)| a.cmp(b));

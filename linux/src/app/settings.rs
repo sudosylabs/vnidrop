@@ -219,6 +219,7 @@ impl App {
         ]);
         let theme = adw::ComboRow::builder()
             .title(text("appearance_title"))
+            .use_subtitle(true)
             .model(&themes)
             .selected(match preferences.theme.as_str() {
                 "Light" => 1,
@@ -305,6 +306,7 @@ impl App {
         ]);
         let mode = adw::ComboRow::builder()
             .title(text("linux_network_policy"))
+            .use_subtitle(true)
             .model(&modes)
             .selected(match preferences.network.mode {
                 Mode::Automatic => 0,
@@ -542,7 +544,6 @@ impl App {
 }
 
 fn wrap_choices(row: &adw::ComboRow) {
-    row.set_use_subtitle(true);
     row.set_subtitle_lines(0);
     let factory = gtk::SignalListItemFactory::new();
     factory.connect_setup(|_, object| {

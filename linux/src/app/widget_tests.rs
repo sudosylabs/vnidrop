@@ -103,7 +103,9 @@ pub(super) fn composer_controls(app: &Rc<App>) {
     let dialog = app.window.visible_dialog().unwrap();
     let policy =
         super::settings_ui_tests::combo(dialog.upcast_ref(), &text("send_access_title")).unwrap();
-    for selection in [0, 1, 0] {
+    assert_eq!(policy.selected(), 0);
+    assert_visible_choice(&policy);
+    for selection in [1, 0] {
         policy.set_selected(selection);
         render_window(&app.window);
         assert_visible_choice(&policy);

@@ -42,6 +42,13 @@ pub(super) fn settings_restart_and_preview_workflow(root: &std::path::Path) {
         .unwrap();
     app.show_preferences();
     let dialog = app.window.visible_dialog().unwrap();
+    render_window(&app.window);
+    super::widget_tests::assert_visible_choice(
+        &combo(dialog.upcast_ref(), &text("appearance_title")).unwrap(),
+    );
+    super::widget_tests::assert_visible_choice(
+        &combo(dialog.upcast_ref(), &text("linux_network_policy")).unwrap(),
+    );
     entry(&dialog, &text("field_username"))
         .unwrap()
         .set_text("Native preferences");

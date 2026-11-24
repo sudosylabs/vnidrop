@@ -12,11 +12,13 @@ case $format in
     [[ $(dpkg-deb -f "$package" Version) == "$version-1" ]]
     [[ $(dpkg-deb -f "$package" Architecture) == amd64 ]]
     dpkg-deb -f "$package" Depends | grep -q 'libadwaita-1-0 (>= 1.5)'
+    [[ $(dpkg-deb -f "$package" Recommends) == gnome-keyring ]]
     dpkg-deb -x "$package" "$stage"
     ;;
   rpm)
     [[ $(rpm -qp --queryformat '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}' "$package") == "vnidrop-$version-1.x86_64" ]]
     rpm -qpR "$package" | grep -q libadwaita
+    rpm -qp --recommends "$package" | grep -Fxq gnome-keyring
     rpm2cpio "$package" | (cd "$stage" && cpio -idm --quiet)
     ;;
   *) exit 2 ;;
@@ -29,6 +31,7 @@ case ${VNIDROP_DIAGNOSTICS_REQUIRED:-1} in
 esac
 desktop="$stage/usr/share/applications/com.vnidrop.VniDrop.desktop"
 desktop-file-validate "$desktop"
+appstreamcli validate --no-net "$stage/usr/share/metainfo/com.vnidrop.VniDrop.metainfo.xml"
 grep -Fxq 'Exec=vnidrop %F' "$desktop"
 grep -Fxq 'DBusActivatable=true' "$desktop"
 grep -Fxq 'StartupWMClass=com.vnidrop.VniDrop' "$desktop"
@@ -37,4 +40,4 @@ grep -Fxq 'Name=com.vnidrop.VniDrop' "$stage/usr/share/dbus-1/services/com.vnidr
 [[ -s $stage/usr/share/icons/hicolor/scalable/apps/com.vnidrop.VniDrop.svg ]]
 bash "$root/linux/packaging/verify-mime.sh" "$stage/usr/share"
 [[ ! -e $stage/home && ! -e $stage/root ]]
-echo 'Native package identity, binary, activation, icon, and MIME checks passed.'
+echo 'Native package identity, binary, activation, AppStream, icon, and MIME checks passed.'

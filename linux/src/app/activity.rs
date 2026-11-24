@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use adw::prelude::*;
 use gtk::glib;
 use vnidrop::CoreEvent;
-use vnidrop_gnome::presentation::activity_key;
+use vnidrop_gnome::{events::EventHistory, presentation::activity_key};
 
 use super::{dialogs::scrollable_content, i18n::text, App};
 
@@ -13,6 +13,7 @@ pub(super) struct Activity {
     empty: gtk::Label,
     transfer_id: u64,
     direction: String,
+    history: RefCell<EventHistory>,
     rendered: RefCell<Vec<String>>,
 }
 
@@ -38,6 +39,7 @@ impl App {
             empty,
             transfer_id,
             direction,
+            history: RefCell::new(EventHistory::default()),
             rendered: RefCell::new(Vec::new()),
         });
         if let Some(snapshot) = self.snapshot.borrow().as_ref() {
@@ -51,17 +53,35 @@ impl App {
         });
         self.activity.replace(Some(activity.clone()));
         activity.dialog.present(Some(&self.window));
+        let weak_activity = Rc::downgrade(&activity);
+        self.dispatch(
+            move |session| session.transfer_events(transfer_id),
+            move |_, result| {
+                if let (Some(activity), Ok(events)) = (weak_activity.upgrade(), result) {
+                    activity.render(&events);
+                }
+            },
+        );
     }
 }
 
 impl Activity {
     pub fn render(&self, events: &[CoreEvent]) {
+        let mut history = self.history.borrow_mut();
+        history.merge(
+            events
+                .iter()
+                .filter(|event| {
+                    event.transfer_id == Some(self.transfer_id)
+                        && event.direction.as_deref() == Some(self.direction.as_str())
+                })
+                .filter(|event| activity_key(event).is_some())
+                .cloned(),
+        );
+        let events = history.snapshot();
+        drop(history);
         let events: Vec<_> = events
             .iter()
-            .filter(|event| {
-                event.transfer_id == Some(self.transfer_id)
-                    && event.direction.as_deref() == Some(self.direction.as_str())
-            })
             .filter_map(|event| activity_key(event).map(|key| (event, key)))
             .collect();
         let ids: Vec<_> = events.iter().map(|(event, _)| event.id.clone()).collect();

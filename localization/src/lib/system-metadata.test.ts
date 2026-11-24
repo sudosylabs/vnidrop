@@ -7,6 +7,7 @@ import {
   syncApplePrivacyFallbacks,
   syncLinuxDesktopComments,
   syncLinuxMimeComments,
+  syncLinuxMetainfoCopy,
 } from "./system-metadata";
 
 const doc = (await Bun.file(STRINGS_JSON).json()) as StringsFile;
@@ -30,4 +31,9 @@ test("packaging comments are translated and regenerated without duplicates", asy
   expect(mime).toContain('<comment xml:lang="fr">Invitation de transfert VniDrop</comment>');
   expect(syncLinuxDesktopComments(doc, desktop)).toBe(desktop);
   expect(syncLinuxMimeComments(doc, mime)).toBe(mime);
+});
+
+test("checked-in AppStream copy matches the localization catalog", async () => {
+  const metainfo = await Bun.file(new URL("../../../linux/packaging/com.vnidrop.VniDrop.metainfo.xml", import.meta.url)).text();
+  expect(syncLinuxMetainfoCopy(doc, metainfo)).toBe(metainfo);
 });

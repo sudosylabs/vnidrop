@@ -57,7 +57,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes build-essential pkg-config cmake clang perl \
             libgtk-4-dev libadwaita-1-dev librsvg2-common libssl-dev \
-            desktop-file-utils shared-mime-info xdg-utils file
+            desktop-file-utils shared-mime-info appstream xdg-utils file
 
       - name: Set up Rust 1.94
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # v1
@@ -123,7 +123,7 @@ jobs:
         run: |
           dnf install --assumeyes git gcc gcc-c++ cmake curl pkgconf-pkg-config \
             gtk4-devel libadwaita-devel librsvg2 rpm-build desktop-file-utils \
-            shared-mime-info xdg-utils file cpio make clang perl openssl-devel \
+            shared-mime-info appstream xdg-utils file cpio make clang perl openssl-devel \
             tar gzip which
 
       - name: Checkout

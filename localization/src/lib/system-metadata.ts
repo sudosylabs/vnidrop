@@ -48,3 +48,17 @@ export function syncLinuxMimeComments(doc: StringsFile, mime: string): string {
   });
   return mime.replace(/^    <comment>.*<\/comment>$(?:\n    <comment xml:lang="[^"]+">.*<\/comment>$)*/m, () => comments.join("\n"));
 }
+
+export function syncLinuxMetainfoCopy(doc: StringsFile, metainfo: string): string {
+  const localized = (tag: string, key: string, indent: string) => doc.supportedLanguages
+    .map((language) => {
+      const locale = language === doc.sourceLanguage ? "" : ` xml:lang="${language}"`;
+      return `${indent}<${tag}${locale}>${xmlText(translation(doc, key, language))}</${tag}>`;
+    })
+    .join("\n");
+  return metainfo
+    .replace(/^  <summary>.*<\/summary>$(?:\n  <summary xml:lang="[^"]+">.*<\/summary>$)*/m,
+      () => localized("summary", "linux_desktop_description", "  "))
+    .replace(/^    <p>.*<\/p>$(?:\n    <p xml:lang="[^"]+">.*<\/p>$)*/m,
+      () => localized("p", "about_description", "    "));
+}

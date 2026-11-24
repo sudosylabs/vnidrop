@@ -159,6 +159,10 @@ impl Session {
         operation(&core).map_err(message_key)
     }
 
+    pub fn transfer_events(&self, transfer_id: u64) -> Result<Vec<CoreEvent>> {
+        self.call(|core| core.list_events(Some(transfer_id)))
+    }
+
     pub fn snapshot(&self) -> Result<Snapshot> {
         self.call(|core| self.read_snapshot(core, None))
     }

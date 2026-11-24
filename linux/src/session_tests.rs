@@ -79,6 +79,61 @@ fn presentation_progress_keeps_receiver_decisions_and_updates_live_events() {
     session.close();
 }
 
+#[test]
+fn transfer_activity_reads_durable_events_after_the_live_window_evicts_them() {
+    let root = tempfile::tempdir().unwrap();
+    let session = session(&root.path().join("profile"));
+    let file = root.path().join("document.txt");
+    std::fs::write(&file, b"document").unwrap();
+    session
+        .call(|core| {
+            core.share_files(
+                vec![ShareSource {
+                    kind: SourceKind::Path,
+                    value: file.to_str().unwrap().into(),
+                    display_name: None,
+                    is_directory: false,
+                }],
+                metadata(77),
+            )
+        })
+        .unwrap();
+    let ready = session
+        .transfer_events(77)
+        .unwrap()
+        .into_iter()
+        .find(|event| event.phase == "ticket" && event.kind == "created")
+        .expect("share creation persisted before the API returns");
+
+    session
+        .events
+        .lock()
+        .unwrap()
+        .merge((0..2048).map(|revision| CoreEvent {
+            id: format!("unrelated-{revision}"),
+            revision,
+            timestamp: i64::MAX,
+            scope: "transfer".into(),
+            transfer_id: Some(78),
+            direction: Some("send".into()),
+            phase: "lifecycle".into(),
+            kind: "done".into(),
+            data_json: "{}".into(),
+        }));
+    assert!(!session
+        .presentation_snapshot(false)
+        .unwrap()
+        .events
+        .iter()
+        .any(|event| event.id == ready.id));
+    assert!(session
+        .transfer_events(77)
+        .unwrap()
+        .iter()
+        .any(|event| event.id == ready.id));
+    session.close();
+}
+
 fn metadata(id: u64) -> ShareMetadataInput {
     ShareMetadataInput {
         transfer_id: id,

@@ -29,6 +29,7 @@ import {
   syncApplePrivacyFallbacks,
   syncLinuxDesktopComments,
   syncLinuxMimeComments,
+  syncLinuxMetainfoCopy,
 } from "../lib/system-metadata";
 
 function render(entry: StringEntry, text: string, flavor: Flavor): string {
@@ -128,8 +129,10 @@ export async function generate() {
   await Bun.write(join(linuxDirectory, "strings.json"), renderLinuxResources(doc));
   const desktop = join(REPO_ROOT, "linux/packaging/com.vnidrop.VniDrop.desktop");
   const mime = join(REPO_ROOT, "linux/packaging/com.vnidrop.VniDrop.xml");
+  const metainfo = join(REPO_ROOT, "linux/packaging/com.vnidrop.VniDrop.metainfo.xml");
   await Bun.write(desktop, syncLinuxDesktopComments(doc, await Bun.file(desktop).text()));
   await Bun.write(mime, syncLinuxMimeComments(doc, await Bun.file(mime).text()));
+  await Bun.write(metainfo, syncLinuxMetainfoCopy(doc, await Bun.file(metainfo).text()));
 
   await Bun.write(APPLE_XCSTRINGS, renderXcstrings(buildXcstrings(doc)));
   console.log(`Wrote ${APPLE_XCSTRINGS}`);

@@ -16,6 +16,26 @@ public class PresentationTests
         Assert.Equal(ReceiverStatus.Unknown, InvitationStatusCodec.ParseReceiver("done"));
     }
 
+    [Fact]
+    public void ReceiverHistoryReadsOnlyAddedOrChangedTransfers()
+    {
+        var cache = new ReceiverRequestCache();
+        var queries = new List<ulong>();
+        ReceiverRequest[] Read(ulong id)
+        {
+            queries.Add(id);
+            return [];
+        }
+
+        var first = Stored(1, "sharing");
+        var second = Stored(2, "sharing");
+        cache.Read([first], new HashSet<ulong>(), Read, force: false);
+        cache.Read([first, second], new HashSet<ulong>(), Read, force: false);
+        cache.Read([first, second], new HashSet<ulong> { 1 }, Read, force: false);
+        cache.Read([first, Stored(2, "stopped")], new HashSet<ulong>(), Read, force: false);
+        Assert.Equal(new ulong[] { 1, 2, 1, 2 }, queries);
+    }
+
     [Theory]
     [InlineData("send", "send_stop_sharing")]
     [InlineData("receive", "button_cancel_receive")]

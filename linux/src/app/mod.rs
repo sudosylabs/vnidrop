@@ -54,6 +54,7 @@ pub(super) struct App {
     selected: RefCell<Option<(u64, String)>>,
     refreshing: Cell<bool>,
     refresh_again: Cell<bool>,
+    force_refresh_again: Cell<bool>,
     busy: Cell<usize>,
     transfer_operations: Cell<usize>,
     closing: Cell<bool>,
@@ -206,6 +207,7 @@ impl App {
             selected: RefCell::new(None),
             refreshing: Cell::new(false),
             refresh_again: Cell::new(false),
+            force_refresh_again: Cell::new(false),
             busy: Cell::new(0),
             transfer_operations: Cell::new(0),
             closing: Cell::new(false),
@@ -542,15 +544,21 @@ impl App {
     }
 
     fn refresh(self: &Rc<Self>) {
+        self.refresh_snapshot(true);
+    }
+
+    fn refresh_snapshot(self: &Rc<Self>, force: bool) {
         if self.reconfiguring.get() || self.session.borrow().is_none() {
             return;
         }
         if self.refreshing.replace(true) {
             self.refresh_again.set(true);
+            self.force_refresh_again
+                .set(self.force_refresh_again.get() || force);
             return;
         }
         self.dispatch(
-            |session| session.snapshot(),
+            move |session| session.presentation_snapshot(force),
             |app, result| {
                 app.refreshing.set(false);
                 match result {
@@ -564,7 +572,7 @@ impl App {
                     Err(key) => app.error(key),
                 }
                 if app.refresh_again.replace(false) {
-                    app.refresh();
+                    app.refresh_snapshot(app.force_refresh_again.replace(false));
                 }
             },
         );

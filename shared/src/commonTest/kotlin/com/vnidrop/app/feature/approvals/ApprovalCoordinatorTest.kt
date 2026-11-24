@@ -26,6 +26,33 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class ApprovalCoordinatorTest {
 	@Test
+	fun queriesOnlyNewSharesAndExplicitApprovalUpdates() = runTest {
+		val core = FakeCoreGateway()
+		val queried = mutableListOf<ULong>()
+		core.receiverRequestsHandler = { id ->
+			queried.add(id)
+			Result.success(emptyList())
+		}
+		ApprovalCoordinator(
+			core, preferences(enabled = false), FakeNotificationService(), AppVisibility(),
+			UiMessageController(), backgroundScope, FakeNotificationTextFormatter,
+		)
+		val share = activeTransfer()
+		val baseline = CoreState(isInitialized = true, transfers = listOf(share))
+		core.mutableState.value = baseline
+		runCurrent()
+		core.mutableState.value = baseline.copy(transfers = listOf(share.copy(transferName = "Renamed")))
+		runCurrent()
+		assertEquals(listOf(1UL), queried)
+
+		core.mutableState.value = baseline.copy(transfers = listOf(share, share.copy(transferId = 2UL)))
+		runCurrent()
+		core.mutableSignals.emit(CoreSignal.ApprovalChanged(1UL))
+		runCurrent()
+		assertEquals(listOf(1UL, 2UL, 1UL), queried)
+	}
+
+	@Test
 	fun ordersRequestsAndRepostsPendingNotificationsAfterForegrounding() = runTest {
 		val core = FakeCoreGateway()
 		core.requests[1UL] = listOf(request("new", 20), request("old", 10))

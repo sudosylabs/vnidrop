@@ -1,4 +1,7 @@
-use std::sync::{Arc, Condvar, Mutex};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::{Arc, Condvar, Mutex},
+};
 
 use async_channel::{Receiver, Sender};
 use vnidrop::{
@@ -47,35 +50,74 @@ pub struct Session {
     drained: Condvar,
     changes: Receiver<()>,
     events: Arc<Mutex<EventHistory>>,
+    event_revisions: Arc<Mutex<EventRevisions>>,
+    presentation: Mutex<PresentationCache>,
 }
 
-struct EventSink(Sender<()>, Arc<Mutex<EventHistory>>);
+#[derive(Default)]
+struct EventRevisions {
+    snapshot: u64,
+    receivers: BTreeSet<u64>,
+}
+
+#[derive(Default)]
+struct PresentationCache {
+    snapshot: Option<(u64, Snapshot)>,
+    receivers: BTreeMap<u64, (String, Vec<ReceiverRequest>)>,
+}
+
+struct EventSink(
+    Sender<()>,
+    Arc<Mutex<EventHistory>>,
+    Arc<Mutex<EventRevisions>>,
+);
 
 impl CoreEventSink for EventSink {
     fn on_event(&self, event: CoreEvent) {
+        if !is_invitation_progress(&event) {
+            let mut revisions = self.2.lock().unwrap();
+            revisions.snapshot += 1;
+            if matches!(event.phase.as_str(), "approval" | "access" | "delivery") {
+                revisions.receivers.extend(event.transfer_id);
+            }
+        }
         self.1.lock().unwrap().merge([event]);
         // Wakeups coalesce, but event details survive the interval between GTK refreshes.
         let _ = self.0.try_send(());
     }
 }
 
+fn is_invitation_progress(event: &CoreEvent) -> bool {
+    event.transfer_id.is_some()
+        && matches!(
+            event.phase.as_str(),
+            "import" | "transfer" | "download" | "export"
+        )
+        && matches!(
+            event.kind.as_str(),
+            "copy-progress" | "outboard-progress" | "progress"
+        )
+}
+
 impl Session {
     pub fn open(profile: String, network: CoreNetworkConfig) -> Result<Arc<Self>> {
         let (sender, changes) = async_channel::bounded(1);
         let events = Arc::new(Mutex::new(EventHistory::default()));
+        let event_revisions = Arc::new(Mutex::new(EventRevisions::default()));
         let core = VnidropCore::initialize_with_network_config(
             profile,
-            Arc::new(EventSink(sender, events.clone())),
+            Arc::new(EventSink(sender, events.clone(), event_revisions.clone())),
             network,
         )
         .map_err(message_key)?;
-        Self::with_core(core, changes, events)
+        Self::with_core(core, changes, events, event_revisions)
     }
 
     fn with_core(
         core: Arc<VnidropCore>,
         changes: Receiver<()>,
         events: Arc<Mutex<EventHistory>>,
+        event_revisions: Arc<Mutex<EventRevisions>>,
     ) -> Result<Arc<Self>> {
         let history = core.list_events(None).map_err(message_key)?;
         events.lock().unwrap().merge(history);
@@ -88,6 +130,8 @@ impl Session {
             drained: Condvar::new(),
             changes,
             events,
+            event_revisions,
+            presentation: Mutex::new(PresentationCache::default()),
         }))
     }
 
@@ -113,37 +157,91 @@ impl Session {
     }
 
     pub fn snapshot(&self) -> Result<Snapshot> {
-        self.call(|core| {
-            let mut transfers = core.list_transfers()?;
-            transfers.sort_by_key(|transfer| std::cmp::Reverse(transfer.created_at));
-            let mut requests = Vec::new();
-            for transfer in &transfers {
-                if transfer.direction == "send" {
-                    requests.extend(core.list_receiver_requests(transfer.transfer_id)?);
+        self.call(|core| self.read_snapshot(core, None))
+    }
+
+    /// Progress events still reach the UI event history. They do not change the
+    /// durable invitation records, device list, or receiver decisions.
+    pub fn presentation_snapshot(&self, force: bool) -> Result<Snapshot> {
+        let mut cache = self.presentation.lock().unwrap();
+        if force {
+            cache.receivers.clear();
+        }
+        let (version, changed) = {
+            let revisions = self.event_revisions.lock().unwrap();
+            if let Some((version, snapshot)) = &cache.snapshot {
+                if !force && *version == revisions.snapshot {
+                    let mut current = snapshot.clone();
+                    current.events = self.events.lock().unwrap().snapshot();
+                    return Ok(current);
                 }
             }
-            let artifacts = core.list_received_artifacts()?;
-            let obligations = core.runtime_obligation_facts()?;
-            let targeted = core.list_targeted_transfers()?;
-            let offers = core.list_pending_targeted_offers();
-            let mut devices = crate::devices::Devices::read(core)?;
-            devices.history_peers = targeted
-                .iter()
-                .filter(|t| t.state != vnidrop::TargetedTransferState::Deleted)
-                .map(|t| crate::targeted::peer(t).to_owned())
-                .collect();
-            // Core reads can overlap synchronous event callbacks; never retain the event lock across them.
-            let events = self.events.lock().unwrap().snapshot();
-            Ok(Snapshot {
-                transfers,
-                requests,
-                artifacts,
-                obligations,
-                events,
-                devices,
-                targeted,
-                offers,
-            })
+            (revisions.snapshot, revisions.receivers.clone())
+        };
+        let updated = self.call(|core| self.read_snapshot(core, Some((&mut cache, &changed))))?;
+        let mut revisions = self.event_revisions.lock().unwrap();
+        if revisions.snapshot == version {
+            revisions.receivers.clear();
+        }
+        cache.snapshot = Some((version, updated.clone()));
+        Ok(updated)
+    }
+
+    fn read_snapshot(
+        &self,
+        core: &VnidropCore,
+        cache: Option<(&mut PresentationCache, &BTreeSet<u64>)>,
+    ) -> std::result::Result<Snapshot, VnidropError> {
+        let mut transfers = core.list_transfers()?;
+        transfers.sort_by_key(|transfer| std::cmp::Reverse(transfer.created_at));
+        let mut requests = Vec::new();
+        let sends = transfers
+            .iter()
+            .filter(|transfer| transfer.direction == "send");
+        if let Some((cache, changed)) = cache {
+            let ids: BTreeSet<_> = sends.clone().map(|transfer| transfer.transfer_id).collect();
+            cache.receivers.retain(|id, _| ids.contains(id));
+            for transfer in sends {
+                let id = transfer.transfer_id;
+                if changed.contains(&id)
+                    || cache
+                        .receivers
+                        .get(&id)
+                        .is_none_or(|(status, _)| *status != transfer.status)
+                {
+                    cache.receivers.insert(
+                        id,
+                        (transfer.status.clone(), core.list_receiver_requests(id)?),
+                    );
+                }
+                requests.extend(cache.receivers[&id].1.iter().cloned());
+            }
+        } else {
+            for transfer in sends {
+                requests.extend(core.list_receiver_requests(transfer.transfer_id)?);
+            }
+        }
+        let artifacts = core.list_received_artifacts()?;
+        let obligations = core.runtime_obligation_facts()?;
+        let targeted = core.list_targeted_transfers()?;
+        let offers = core.list_pending_targeted_offers();
+        let mut devices = crate::devices::Devices::read(core)?;
+        devices.history_peers = targeted
+            .iter()
+            .filter(|t| t.state != vnidrop::TargetedTransferState::Deleted)
+            .map(|t| crate::targeted::peer(t).to_owned())
+            .collect();
+        // Core reads can overlap synchronous event callbacks; never retain the event lock across them.
+        let events = self.events.lock().unwrap().snapshot();
+        Ok(Snapshot {
+            transfers,
+            requests,
+            artifacts,
+            obligations,
+            events,
+            devices,
+            targeted,
+            offers,
         })
     }
 

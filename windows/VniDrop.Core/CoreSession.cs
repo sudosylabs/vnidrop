@@ -18,11 +18,17 @@ public sealed class CoreSession : IAsyncDisposable, CoreEventSink
 {
     private readonly object gate = new();
     private readonly object eventGate = new();
+    private readonly object snapshotGate = new();
     private readonly TransferEventHistory events = new();
+    private readonly ReceiverRequestCache receiverRequests = new();
+    private readonly HashSet<ulong> receiverChanges = [];
     private VnidropCore? core;
     private bool stopping;
     private int activeCalls;
     private long revision;
+    private long snapshotRevision;
+    private long lastSnapshotRevision = -1;
+    private CoreSnapshot? lastSnapshot;
     private TaskCompletionSource drained = CompletedSource();
     private Task? closing;
 
@@ -70,19 +76,45 @@ public sealed class CoreSession : IAsyncDisposable, CoreEventSink
 
     public Task RunAsync(Action<VnidropCore> operation) => RunAsync(c => { operation(c); return true; });
 
-    public Task<CoreSnapshot> SnapshotAsync() => RunAsync(c =>
+    public Task<CoreSnapshot> SnapshotAsync(bool force = true) => RunAsync(c =>
     {
-        var transfers = c.ListTransfers();
-        return new CoreSnapshot(c.Status(), c.RuntimeObligationFacts(), transfers,
-            c.ListSavedDevices(), c.ListDeviceRelationships(), c.ListPairingEligibilities(),
-            c.ListPendingTargetedOffers(), c.ListTargetedTransfers(),
-            transfers.Where(t => t.direction == "send").SelectMany(t => c.ListReceiverRequests(t.transferId)).ToArray(),
-            c.ListBlockedDevices());
+        lock (snapshotGate)
+        {
+            long version;
+            HashSet<ulong> changed;
+            lock (eventGate)
+            {
+                version = snapshotRevision;
+                if (!force && lastSnapshot is { } cached && lastSnapshotRevision == version) return cached;
+                changed = [.. receiverChanges];
+            }
+            var transfers = c.ListTransfers();
+            var updated = new CoreSnapshot(c.Status(), c.RuntimeObligationFacts(), transfers,
+                c.ListSavedDevices(), c.ListDeviceRelationships(), c.ListPairingEligibilities(),
+                c.ListPendingTargetedOffers(), c.ListTargetedTransfers(),
+                receiverRequests.Read(transfers, changed, c.ListReceiverRequests, force),
+                c.ListBlockedDevices());
+            lock (eventGate)
+            {
+                if (snapshotRevision == version) receiverChanges.ExceptWith(changed);
+            }
+            lastSnapshotRevision = version;
+            return lastSnapshot = updated;
+        }
     });
 
     public void OnEvent(CoreEvent value)
     {
-        lock (eventGate) events.Add(value);
+        lock (eventGate)
+        {
+            events.Add(value);
+            if (!ReceiverRequestCache.IsInvitationProgress(value))
+            {
+                snapshotRevision++;
+                if (value.transferId is { } id && value.phase is "approval" or "access" or "delivery")
+                    receiverChanges.Add(id);
+            }
+        }
         Interlocked.Increment(ref revision);
     }
 

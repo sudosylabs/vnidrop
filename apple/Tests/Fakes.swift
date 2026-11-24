@@ -98,7 +98,11 @@ final class FakeCoreGateway: CoreGateway {
 		.success(CoreStorageUsageModel(blobStoreBytes: 0, appDataBytes: 0))
 	}
 	func receivedArtifacts() async -> Result<[ReceivedArtifactModel], Error> { .success([]) }
-	func receiverRequests(transferId: UInt64) async -> Result<[ReceiverRequestModel], Error> { .success(requests[transferId] ?? []) }
+	private(set) var receiverRequestQueries: [UInt64] = []
+	func receiverRequests(transferId: UInt64) async -> Result<[ReceiverRequestModel], Error> {
+		receiverRequestQueries.append(transferId)
+		return .success(requests[transferId] ?? [])
+	}
 	func respondReceiverRequest(requestId: String, accepted: Bool, reason: String?) async -> Result<Void, Error> {
 		responses.append((requestId, accepted, reason))
 		return responseResult

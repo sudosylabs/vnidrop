@@ -97,8 +97,8 @@ public sealed class AppViewModel : ObservableModel
             var revision = session.Revision;
             try
             {
-                var snapshot = await session.SnapshotAsync();
-                var artifacts = snapshot.Transfers.Any(t => t.direction == "receive" && t.status == "done"
+                var snapshot = await session.SnapshotAsync(force);
+                var artifacts = !ReferenceEquals(snapshot, Snapshot) && snapshot.Transfers.Any(t => t.direction == "receive" && t.status == "done"
                     && !Incoming.Any(item => item.Transfer.localId == t.localId && item.PreviewPath.Length > 0))
                     ? await session.RunAsync(c => c.ListReceivedArtifacts()) : null;
                 if (!Ready || !ReferenceEquals(session, Session)) return;

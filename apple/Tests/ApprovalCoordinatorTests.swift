@@ -17,6 +17,22 @@ final class ApprovalCoordinatorTests: XCTestCase {
 		)
 	}
 
+	func testQueriesNewSharesAndExplicitApprovalUpdates() async {
+		let core = FakeCoreGateway()
+		let coordinator = makeCoordinator(core)
+		let share = Fixtures.transfer(id: 1, direction: .send, status: .sharing)
+		let newShare = Fixtures.transfer(id: 2, direction: .send, status: .sharing)
+		core.setState(CoreState(isInitialized: true, transfers: [share]))
+		await waitUntil { core.receiverRequestQueries == [1] }
+
+		core.setState(CoreState(isInitialized: true, transfers: [share, newShare]))
+		await waitUntil { core.receiverRequestQueries.contains(2) }
+		core.emit(.approvalChanged(transferId: 1))
+		await waitUntil { core.receiverRequestQueries.count >= 3 }
+		XCTAssertEqual(core.receiverRequestQueries, [1, 2, 1])
+		XCTAssertTrue(coordinator.state.pending.isEmpty)
+	}
+
 	func testOrdersPendingRequestsByRequestedAt() async {
 		let core = FakeCoreGateway()
 		core.requests[1] = [Fixtures.request(id: "new", requestedAt: 20),

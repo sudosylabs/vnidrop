@@ -17,6 +17,7 @@ impl App {
         self.session.replace(Some(session.clone()));
         self.refreshing.set(false);
         self.refresh_again.set(false);
+        self.force_refresh_again.set(false);
         self.set_ready(true);
         self.refresh();
         let weak = Rc::downgrade(self);
@@ -35,7 +36,7 @@ impl App {
                 {
                     break;
                 }
-                app.refresh();
+                app.refresh_snapshot(false);
             }
         });
     }

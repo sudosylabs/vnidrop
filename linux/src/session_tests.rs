@@ -15,9 +15,10 @@ use crate::draft::Preparation;
 fn session(path: &Path) -> Arc<Session> {
     let (sender, changes) = async_channel::bounded(1);
     let events = Arc::new(Mutex::new(EventHistory::default()));
+    let event_revisions = Arc::new(Mutex::new(EventRevisions::default()));
     let core = VnidropCore::initialize_for_integration_test(
         path.to_str().unwrap().into(),
-        Arc::new(EventSink(sender, events.clone())),
+        Arc::new(EventSink(sender, events.clone(), event_revisions.clone())),
         CoreLimits::default(),
         CoreNetworkConfig {
             mode: CoreRelayMode::LocalOnly,
@@ -25,7 +26,57 @@ fn session(path: &Path) -> Arc<Session> {
         },
     )
     .unwrap();
-    Session::with_core(core, changes, events).unwrap()
+    Session::with_core(core, changes, events, event_revisions).unwrap()
+}
+
+#[test]
+fn presentation_progress_keeps_receiver_decisions_and_updates_live_events() {
+    let profile = tempfile::tempdir().unwrap();
+    let session = session(profile.path());
+    let first = session.presentation_snapshot(false).unwrap();
+    let (sender, _) = async_channel::bounded(1);
+    let sink = EventSink(
+        sender,
+        session.events.clone(),
+        session.event_revisions.clone(),
+    );
+    let progress = CoreEvent {
+        id: "live-progress".into(),
+        timestamp: i64::MAX,
+        revision: 1,
+        scope: "transfer".into(),
+        transfer_id: Some(7),
+        direction: Some("receive".into()),
+        phase: "download".into(),
+        kind: "progress".into(),
+        data_json: "{}".into(),
+    };
+    let cached_version = session.event_revisions.lock().unwrap().snapshot;
+    sink.on_event(progress.clone());
+    let second = session.presentation_snapshot(false).unwrap();
+    assert_eq!(
+        session.event_revisions.lock().unwrap().snapshot,
+        cached_version
+    );
+    assert_eq!(first.requests.len(), second.requests.len());
+    assert!(second
+        .events
+        .iter()
+        .any(|event| event.id == "live-progress"));
+
+    sink.on_event(CoreEvent {
+        id: "approval-update".into(),
+        phase: "approval".into(),
+        kind: "receiver-requested".into(),
+        ..progress
+    });
+    assert!(session
+        .event_revisions
+        .lock()
+        .unwrap()
+        .receivers
+        .contains(&7));
+    session.close();
 }
 
 fn metadata(id: u64) -> ShareMetadataInput {

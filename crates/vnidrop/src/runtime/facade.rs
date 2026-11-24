@@ -640,14 +640,10 @@ impl VnidropCore {
                     .block_on(self.inner.cancel_share_preparation(transfer_id))
                     .map_err(VnidropError::transfer);
             }
-            let expected = match direction {
-                TransferDirection::Send => TransferStatus::Importing,
-                TransferDirection::Receive => TransferStatus::Receiving,
-            };
             return self
                 .block_on(async {
                     let transition = || self.inner.repository.transition_transfer_status(
-                        transfer_id, expected, TransferStatus::Cancelled,
+                        transfer_id, TransferStatus::Receiving, TransferStatus::Cancelled,
                     );
                     if let Err(error) = transition().await {
                         tracing::warn!(transfer_id, %error, "retrying interrupted cancellation write");

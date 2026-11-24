@@ -12,7 +12,6 @@ use std::{
 
 use serde_json::json;
 use tokio::sync::{watch, Mutex};
-use uuid::Uuid;
 
 use crate::{api::PendingTargetedOffer, control_plane::IdentityCooldown, event_hub::EventHub};
 
@@ -438,9 +437,4 @@ pub(crate) enum RespondError {
     Unknown,
     SenderGone,
     AuthorizationTimeout,
-}
-
-#[allow(dead_code)]
-pub(crate) fn new_offer_id() -> String {
-    Uuid::new_v4().to_string()
 }

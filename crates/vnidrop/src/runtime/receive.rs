@@ -104,10 +104,6 @@ impl CoreInner {
         .await
     }
 
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "targeted receive binds immutable authorization fields plus its cancel token"
-    )]
     pub(super) async fn receive_to_target(
         self: &Arc<Self>,
         ticket: String,

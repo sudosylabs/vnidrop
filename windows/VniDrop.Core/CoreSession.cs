@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using VniDrop.Native;
 
 namespace VniDrop.Core;
@@ -18,7 +17,8 @@ public sealed record CoreSnapshot(
 public sealed class CoreSession : IAsyncDisposable, CoreEventSink
 {
     private readonly object gate = new();
-    private readonly ConcurrentQueue<CoreEvent> events = new();
+    private readonly object eventGate = new();
+    private readonly TransferEventHistory events = new();
     private VnidropCore? core;
     private bool stopping;
     private int activeCalls;
@@ -82,16 +82,13 @@ public sealed class CoreSession : IAsyncDisposable, CoreEventSink
 
     public void OnEvent(CoreEvent value)
     {
-        events.Enqueue(value);
-        while (events.Count > 512) events.TryDequeue(out _);
+        lock (eventGate) events.Add(value);
         Interlocked.Increment(ref revision);
     }
 
     public CoreEvent[] DrainEvents()
     {
-        var result = new List<CoreEvent>();
-        while (events.TryDequeue(out var item)) result.Add(item);
-        return result.ToArray();
+        lock (eventGate) return events.Drain();
     }
 
     private void EndCall()

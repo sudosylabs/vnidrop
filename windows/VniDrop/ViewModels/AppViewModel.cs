@@ -24,7 +24,7 @@ public sealed class AppViewModel : ObservableModel
     public CoreSnapshot? Snapshot { get; private set; }
     public ObservableCollection<TransferItem> Outgoing { get; } = [];
     public ObservableCollection<TransferItem> Incoming { get; } = [];
-    public List<CoreEvent> Events { get; } = [];
+    private readonly TransferEventHistory transferEvents = new();
     public event Action? Updated;
     public event Action? TargetedReceiveChanged;
     private bool ready;
@@ -102,11 +102,20 @@ public sealed class AppViewModel : ObservableModel
                     && !Incoming.Any(item => item.Transfer.localId == t.localId && item.PreviewPath.Length > 0))
                     ? await session.RunAsync(c => c.ListReceivedArtifacts()) : null;
                 if (!Ready || !ReferenceEquals(session, Session)) return;
-                if (lastRevision < 0) Events.AddRange(await session.RunAsync(c => c.ListEvents(null)));
-                Events.AddRange(session.DrainEvents());
-                var uniqueEvents = Events.DistinctBy(e => e.id).OrderBy(e => e.timestamp).ThenBy(e => e.revision).ToArray();
-                Events.Clear(); Events.AddRange(uniqueEvents);
-                if (Events.Count > 1024) Events.RemoveRange(0, Events.Count - 1024);
+                if (lastRevision < 0)
+                {
+                    var history = await session.RunAsync(c => c.ListEvents(null));
+                    if (!Ready || !ReferenceEquals(session, Session)) return;
+                    transferEvents.AddRange(history);
+                }
+                transferEvents.AddRange(session.DrainEvents());
+                if (Snapshot is { } previous)
+                {
+                    var currentIds = snapshot.Transfers.Select(transfer => transfer.transferId).ToHashSet();
+                    foreach (var previousTransfer in previous.Transfers)
+                        if (!currentIds.Contains(previousTransfer.transferId))
+                            transferEvents.Remove(previousTransfer.transferId);
+                }
                 Snapshot = snapshot;
                 Sync(Outgoing, snapshot.Transfers.Where(t => t.direction == "send"));
                 Sync(Incoming, snapshot.Transfers.Where(t => t.direction == "receive"));
@@ -140,7 +149,26 @@ public sealed class AppViewModel : ObservableModel
             var row = destination.FirstOrDefault(t => t.Transfer.localId == rows[i].localId);
             if (row is null) { row = new(rows[i]); destination.Insert(i, row); }
             else if (destination.IndexOf(row) != i) destination.Move(destination.IndexOf(row), i);
-            row.Update(rows[i], Events, Snapshot?.Requests ?? []);
+            row.Update(rows[i], EventsForTransfer(rows[i].transferId, includeEndpointEvents: rows[i].direction == "send"), Snapshot?.Requests ?? []);
+        }
+    }
+
+    public CoreEvent[] EventsForTransfer(ulong transferId, bool includeEndpointEvents = false) =>
+        transferEvents.ForTransfer(transferId, includeEndpointEvents);
+
+    public async Task<CoreEvent[]> ActivityEventsAsync(ulong transferId)
+    {
+        var session = Session;
+        try
+        {
+            var persisted = await session.RunAsync(core => core.ListEvents(transferId));
+            if (!ReferenceEquals(session, Session)) return [];
+            return TransferEventHistory.InOrder(persisted.Concat(EventsForTransfer(transferId)));
+        }
+        catch (Exception ex)
+        {
+            Report(ex);
+            return ReferenceEquals(session, Session) ? EventsForTransfer(transferId) : [];
         }
     }
 
@@ -312,7 +340,7 @@ public sealed class AppViewModel : ObservableModel
         finally
         {
             Ready = Session.IsAvailable; lastRevision = -1;
-            if (!ReferenceEquals(previous, Session)) Events.Clear();
+            if (!ReferenceEquals(previous, Session)) transferEvents.Clear();
             try { await RefreshAsync(true); }
             finally { Maintaining = false; }
         }

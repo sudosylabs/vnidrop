@@ -46,7 +46,8 @@ public sealed class TransferDetailsPageActions(TransferItem item)
 
     public async Task ActivityAsync()
     {
-        var events = App.Window.Model.Events.Where(e => e.transferId == item.Transfer.transferId)
+        var history = await App.Window.Model.ActivityEventsAsync(item.Transfer.transferId);
+        var events = history
             .Select(e => (Event: e, Key: TransferPresentation.ActivityKey(e))).Where(e => e.Key is not null).OrderByDescending(e => e.Event.timestamp).ToArray();
         var panel = Panel();
         if (events.Length == 0) panel.Children.Add(Text(Strings.Get("transfer_no_activity"), true));
@@ -64,6 +65,7 @@ public sealed class TransferDetailsPageActions(TransferItem item)
     public async Task ReceiversAsync()
     {
         var receivers = App.Window.Model.Snapshot?.Requests.Where(r => r.transferId == item.Transfer.transferId).OrderByDescending(r => r.requestedAt).ToArray() ?? [];
+        var events = App.Window.Model.EventsForTransfer(item.Transfer.transferId, includeEndpointEvents: true);
         var panel = Panel();
         if (receivers.Length == 0) panel.Children.Add(Text(Strings.Get("transfer_no_receivers"), true));
         foreach (var receiver in receivers)
@@ -72,7 +74,7 @@ public sealed class TransferDetailsPageActions(TransferItem item)
             var block = new StackPanel { Spacing = 5, Padding = new(0, 9, 0, 9) };
             block.Children.Add(new TextBlock { Text = name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
             if (receiver.receiverDeviceName is { } device && device != name) block.Children.Add(Text(device, true));
-            var progress = receiver.status is "requested" or "accepted" ? TransferPresentation.ReceiverProgress(App.Window.Model.Events, item.Transfer.transferId, receiver.remoteEndpointId, item.Transfer.totalSize) : null;
+            var progress = receiver.status is "requested" or "accepted" ? TransferPresentation.ReceiverProgress(events, item.Transfer.transferId, receiver.remoteEndpointId, item.Transfer.totalSize) : null;
             if (progress is not null)
             {
                 block.Children.Add(new ProgressBar { IsIndeterminate = progress.Fraction is null, Value = (progress.Fraction ?? 0) * 100 });

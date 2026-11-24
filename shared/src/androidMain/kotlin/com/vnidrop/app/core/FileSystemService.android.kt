@@ -84,6 +84,8 @@ private class AndroidFileSystemService(
 	private val context: Context,
 	private val requestLegacyDownloadsPermission: suspend () -> Boolean,
 ) : FileSystemService {
+	private val receiveFolderGrants = AndroidReceiveFolderGrants(context.contentResolver)
+
 	override fun defaultReceiveFolder(): ReceiveFolder {
 		// Match desktop: shared system Downloads. On Android 10+ this is MediaStore,
 		// not a raw filesystem path (scoped storage). Older APIs fall back to the
@@ -112,6 +114,23 @@ private class AndroidFileSystemService(
 
 	override suspend fun requestReceiveFolderPermission(folder: ReceiveFolder): Boolean =
 		!needsReceiveFolderPermission(folder) || requestLegacyDownloadsPermission()
+
+	override suspend fun reconcileReceiveFolderAccess(folder: ReceiveFolder) =
+		receiveFolderGrants.reconcile(folder.documentTree())
+
+	override suspend fun commitReceiveFolderAccess(folder: ReceiveFolder, save: suspend () -> Unit) =
+		receiveFolderGrants.update(folder.documentTree(), save)
+
+	override suspend fun <T> withReceiveOutputSink(
+		folder: ReceiveFolder,
+		receive: suspend (ReceiveOutputSinkV2?) -> T,
+	): T {
+		val tree = folder.documentTree() ?: return receive(createReceiveOutputSink(folder))
+		return receiveFolderGrants.withAccess(tree) { receive(createReceiveOutputSink(folder)) }
+	}
+
+	private fun ReceiveFolder.documentTree(): Uri? =
+		if (kind == ReceiveFolderKind.AndroidTreeUri) value.toUri() else null
 
 	override suspend fun validateReceiveFolder(folder: ReceiveFolder): FolderAccessStatus = withContext(Dispatchers.IO) {
 		if (needsReceiveFolderPermission(folder)) return@withContext FolderAccessStatus.PermissionRequired

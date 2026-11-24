@@ -134,13 +134,18 @@ fun App(
 		)
 	}
 	val receiveViewModel = viewModel {
-		ReceiveViewModel(graph.coreRepository, dependencies.fileSystemService, graph.preferencesRepository, graph.messages)
+		ReceiveViewModel(
+			graph.coreRepository,
+			graph.dependencies.fileSystemService,
+			graph.preferencesRepository,
+			graph.messages,
+		)
 	}
 	val settingsViewModel = viewModel {
 		SettingsViewModel(
 			dependencies.environment,
 			dependencies.deviceInfoProvider,
-			dependencies.fileSystemService,
+			graph.dependencies.fileSystemService,
 			graph.coreRepository,
 			graph.preferencesRepository,
 			dependencies.localNotificationService,
@@ -151,7 +156,7 @@ fun App(
 	val savedDevicesViewModel = viewModel {
 		SavedDevicesViewModel(
 			graph.coreRepository,
-			dependencies.fileSystemService,
+			graph.dependencies.fileSystemService,
 			graph.preferencesRepository,
 			graph.messages,
 		)

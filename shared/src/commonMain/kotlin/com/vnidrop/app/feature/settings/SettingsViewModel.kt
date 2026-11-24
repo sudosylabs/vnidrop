@@ -471,14 +471,23 @@ class SettingsViewModel(
 		viewModelScope.launch { effects.send(SettingsEffect.OpenReceiveFolderPicker) }
 	}
 
-	fun onReceiveFolderPicked(folder: ReceiveFolder) {
-		viewModelScope.launch { preferencesRepository.setReceiveFolder(folder) }
-	}
+	fun onReceiveFolderPicked(folder: ReceiveFolder) =
+		changeReceiveFolder { preferencesRepository.setReceiveFolder(folder) }
 
 	fun onReceiveFolderPickFailed(reason: String) = messages.error(IllegalStateException(reason))
 
-	fun resetReceiveFolder() {
-		viewModelScope.launch { preferencesRepository.resetReceiveFolder() }
+	fun resetReceiveFolder() = changeReceiveFolder { preferencesRepository.resetReceiveFolder() }
+
+	private fun changeReceiveFolder(save: suspend () -> Unit) {
+		viewModelScope.launch {
+			try {
+				save()
+			} catch (error: CancellationException) {
+				throw error
+			} catch (error: Exception) {
+				messages.error(error)
+			}
+		}
 	}
 
 	fun setNotificationsEnabled(enabled: Boolean) {

@@ -1,7 +1,6 @@
 package com.vnidrop.app.core
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Point
 import android.net.Uri
@@ -51,11 +50,7 @@ actual fun rememberShareFilePicker(
 			return@rememberLauncherForActivityResult
 		}
 		runCatching {
-			// Read permission only — we expand the tree into file FDs at share time.
-			context.contentResolver.takePersistableUriPermission(
-				uri,
-				Intent.FLAG_GRANT_READ_URI_PERMISSION,
-			)
+			// Share drafts use the temporary picker grant, like individual files.
 			val displayName = uri.lastPathSegment
 				?.substringAfterLast(':')
 				?.substringAfterLast('/')
@@ -95,15 +90,8 @@ actual fun rememberReceiveFolderPicker(
 	onFolderPicked: (ReceiveFolder) -> Unit,
 	onError: (String) -> Unit,
 ): ReceiveFolderPicker {
-	val context = LocalContext.current
 	val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
 		if (uri != null) {
-			runCatching {
-				context.contentResolver.takePersistableUriPermission(
-					uri,
-					Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-				)
-			}
 			onFolderPicked(
 				ReceiveFolder(
 					kind = ReceiveFolderKind.AndroidTreeUri,

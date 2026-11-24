@@ -41,11 +41,15 @@ interface FileSystemService {
 	suspend fun validateReceiveFolder(folder: ReceiveFolder): FolderAccessStatus
 	fun needsReceiveFolderPermission(folder: ReceiveFolder): Boolean = false
 	suspend fun requestReceiveFolderPermission(folder: ReceiveFolder): Boolean = true
+	suspend fun reconcileReceiveFolderAccess(folder: ReceiveFolder) = Unit
+	suspend fun commitReceiveFolderAccess(folder: ReceiveFolder, save: suspend () -> Unit) = save()
 	suspend fun inspectReceivedArtifacts(artifacts: List<ReceivedArtifactModel>): ReceivedStorageInspection
 	suspend fun temporaryUsage(appDataDir: String): ULong
 	/** Reclaims only app-owned temporary files and returns the number of bytes removed. */
 	suspend fun reclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong
 	fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2?
+	suspend fun <T> withReceiveOutputSink(folder: ReceiveFolder, receive: suspend (ReceiveOutputSinkV2?) -> T): T =
+		receive(createReceiveOutputSink(folder))
 	fun canRevealReceiveFolder(folder: ReceiveFolder): Boolean = false
 	suspend fun revealReceiveFolder(folder: ReceiveFolder): Result<Unit> =
 		Result.failure(UnsupportedOperationException("Revealing the receive folder is not supported"))

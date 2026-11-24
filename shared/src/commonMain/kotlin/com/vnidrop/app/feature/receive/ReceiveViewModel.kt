@@ -201,11 +201,12 @@ class ReceiveViewModel(
 			it.copy(isReceiving = true, lastReceiveError = null, activeReceiveTransferId = transferId)
 		}
 		viewModelScope.launch {
-			val outputSink = fileSystemService.createReceiveOutputSink(folder)
-			val result = if (outputSink != null) {
-				repository.receiveWithOutputSinkV2(current.ticket, outputSink, current.receiverName)
-			} else {
-				repository.receive(current.ticket, folder.value, current.receiverName)
+			val result = fileSystemService.withReceiveOutputSink(folder) { outputSink ->
+				if (outputSink != null) {
+					repository.receiveWithOutputSinkV2(current.ticket, outputSink, current.receiverName)
+				} else {
+					repository.receive(current.ticket, folder.value, current.receiverName)
+				}
 			}
 			result.fold(
 				onSuccess = {

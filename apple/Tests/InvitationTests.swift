@@ -1,5 +1,8 @@
 import XCTest
 @testable import VniDrop
+#if os(iOS)
+import UIKit
+#endif
 
 /// Ports `feature/receive/ExternalInvitationControllerTest.kt` + the `.vnd`
 /// decode/filename helpers.
@@ -70,4 +73,31 @@ final class InvitationTests: XCTestCase {
 		XCTAssertEqual(invitationFileName("  "), "invitation.vnd")
 		XCTAssertTrue(invitationFileName("a/b:c*d").hasSuffix(".vnd"))
 	}
+
+	#if os(iOS)
+	func testInvitationExportCompletesOnlyAfterDocumentPickerOutcome() throws {
+		var presented: UIViewController?
+		let actions = IosTransferShareActions(present: { presented = $0 })
+		var outcomes: [Result<Void, Error>] = []
+		actions.exportInvitation(ticket: "ticket-one", transferName: "Review Export") { outcomes.append($0) }
+		XCTAssertTrue(outcomes.isEmpty)
+		let confirmed = try XCTUnwrap(presented as? UIDocumentPickerViewController)
+		let destination = URL(fileURLWithPath: "/export/Review-Export.vnd")
+		confirmed.delegate?.documentPicker?(confirmed, didPickDocumentsAt: [destination])
+		confirmed.delegate?.documentPickerWasCancelled?(confirmed)
+		XCTAssertEqual(outcomes.count, 1)
+		XCTAssertNoThrow(try XCTUnwrap(outcomes.first).get())
+
+		outcomes.removeAll()
+		actions.exportInvitation(ticket: "ticket-two", transferName: "Review Export") { outcomes.append($0) }
+		XCTAssertTrue(outcomes.isEmpty)
+		let cancelled = try XCTUnwrap(presented as? UIDocumentPickerViewController)
+		cancelled.delegate?.documentPickerWasCancelled?(cancelled)
+		cancelled.delegate?.documentPicker?(cancelled, didPickDocumentsAt: [destination])
+		XCTAssertEqual(outcomes.count, 1)
+		XCTAssertThrowsError(try XCTUnwrap(outcomes.first).get()) { error in
+			XCTAssertTrue(error.isUserCancellation)
+		}
+	}
+	#endif
 }

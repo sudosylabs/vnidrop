@@ -12,8 +12,8 @@ func invitationFileName(_ transferName: String) -> String {
 }
 
 /// Writes a temporary `.vnd` file for sharing/exporting.
-func writeTemporaryInvitation(ticket: String, transferName: String) throws -> URL {
-	let dir = try AppTemporaryDirectory.prepare()
+func writeTemporaryInvitation(ticket: String, transferName: String, directory: URL? = nil) throws -> URL {
+	let dir = try directory ?? AppTemporaryDirectory.prepare()
 	let url = dir.appendingPathComponent(invitationFileName(transferName))
 	try ticket.write(to: url, atomically: true, encoding: .utf8)
 	return url

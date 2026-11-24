@@ -2,7 +2,11 @@
 //!
 //! Transport lives in [`super::protocol`]; durable rows in [`super::store`].
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Weak},
+    time::Duration,
+};
 
 use anyhow::Context;
 use data_encoding::HEXLOWER;
@@ -37,6 +41,10 @@ use super::{
     store::{state_as_str, DeviceRelationshipStore, RelationshipRow, RelationshipUpsert},
 };
 
+#[cfg(test)]
+#[path = "../tests/device_relationship_locks.rs"]
+mod lock_tests;
+
 const PENDING_TTL_MS: i64 = 30 * 60 * 1_000;
 
 #[derive(Clone)]
@@ -52,7 +60,7 @@ pub(crate) struct DeviceRelationshipService {
     custom_relay_urls: Vec<RelayUrl>,
     max_saved_devices: u64,
     pairing_timeout: Duration,
-    peer_locks: Arc<TokioMutex<HashMap<String, Arc<TokioMutex<()>>>>>,
+    peer_locks: Arc<TokioMutex<HashMap<String, Weak<TokioMutex<()>>>>>,
 }
 
 impl DeviceRelationshipService {
@@ -106,10 +114,15 @@ impl DeviceRelationshipService {
 
     pub(super) async fn lock_peer(&self, peer_endpoint_id: &str) -> Arc<TokioMutex<()>> {
         let mut locks = self.peer_locks.lock().await;
-        locks
-            .entry(peer_endpoint_id.to_string())
-            .or_insert_with(|| Arc::new(TokioMutex::new(())))
-            .clone()
+        if let Some(lock) = locks.get(peer_endpoint_id).and_then(Weak::upgrade) {
+            return lock;
+        }
+        if locks.len() == locks.capacity() {
+            locks.retain(|_, lock| lock.strong_count() > 0);
+        }
+        let lock = Arc::new(TokioMutex::new(()));
+        locks.insert(peer_endpoint_id.to_owned(), Arc::downgrade(&lock));
+        lock
     }
 
     pub(super) fn blocked_devices(&self) -> BlockStore {

@@ -13,7 +13,14 @@ async fn targeted_progress_waits_for_event_transaction_and_completes_durably() {
     let invitation = Repository::from_pool(pool.clone());
     invitation.ensure_schema().await.unwrap();
     targeted_transfer::ensure_schema(&pool).await.unwrap();
+    use futures::FutureExt as _;
     let targeted = TargetedTransferStore::new(pool.clone());
+    let reconciler = targeted.clone();
+    assert_eq!(
+        reconciler.next_reconciliation_attempt().await.unwrap(),
+        None
+    );
+    assert!(reconciler.reconciliation_changed().now_or_never().is_none());
     targeted
         .insert(&TargetedTransferRow {
             id: "receive".to_string(),
@@ -88,12 +95,40 @@ async fn targeted_progress_waits_for_event_transaction_and_completes_durably() {
         .complete_receiver_and_enqueue("receive", 8)
         .await
         .unwrap();
+    assert!(reconciler.reconciliation_changed().now_or_never().is_some());
+    let due = reconciler
+        .next_reconciliation_attempt()
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(due <= crate::util::now_ms());
     let completed = targeted.get_row("receive").await.unwrap().unwrap();
     assert_eq!(completed.state, TargetedTransferState::Completed);
     assert_eq!(completed.verified_bytes, completed.total_size);
     let pending = targeted.list_pending_completions().await.unwrap();
     assert_eq!(pending.len(), 1);
     assert_eq!(pending[0].id, completed.id);
+    targeted
+        .defer_pending_completion(&completed.id, i64::MAX)
+        .await
+        .unwrap();
+    assert_eq!(
+        reconciler.next_reconciliation_attempt().await.unwrap(),
+        Some(i64::MAX)
+    );
+    assert!(reconciler
+        .list_pending_completions()
+        .await
+        .unwrap()
+        .is_empty());
+    targeted
+        .clear_pending_completion(&completed.id)
+        .await
+        .unwrap();
+    assert_eq!(
+        reconciler.next_reconciliation_attempt().await.unwrap(),
+        None
+    );
     let events = invitation.list_events(None, 10).await.unwrap();
     assert_eq!(events.len(), 1);
     assert_eq!((&events[0].id, events[0].revision), (&event.id, 2));

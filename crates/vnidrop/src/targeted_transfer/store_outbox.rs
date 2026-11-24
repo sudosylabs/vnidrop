@@ -7,6 +7,36 @@ use super::TargetedTransferRow;
 use crate::{api::TargetedTransferState, error::VnidropError, util::now_ms};
 
 impl TargetedTransferStore {
+    pub(crate) fn reconciliation_changed(&self) -> impl std::future::Future<Output = ()> + '_ {
+        self.reconciliation_changed.notified()
+    }
+
+    pub(crate) async fn next_reconciliation_attempt(&self) -> Result<Option<i64>, VnidropError> {
+        sqlx::query_scalar(
+            r#"
+            SELECT MIN(next_attempt_at) FROM (
+                SELECT o.next_attempt_at
+                FROM targeted_authorization_delivery_outbox o
+                JOIN targeted_transfers t ON t.id = o.transfer_id
+                WHERE t.role = 'sender' AND t.state = 'approved'
+                UNION ALL
+                SELECT o.next_attempt_at
+                FROM targeted_completion_outbox o
+                JOIN targeted_transfers t ON t.id = o.transfer_id
+                WHERE t.role = 'receiver' AND t.state = 'completed'
+                UNION ALL
+                SELECT 0 AS next_attempt_at
+                FROM targeted_payload_release_outbox o
+                JOIN targeted_transfers t ON t.id = o.transfer_id
+                WHERE t.role = 'sender' AND t.state = 'completed'
+            )
+            "#,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(VnidropError::repository)
+    }
+
     pub(crate) async fn list_pending_authorization_deliveries(
         &self,
     ) -> Result<Vec<TargetedTransferRow>, VnidropError> {
@@ -93,6 +123,7 @@ impl TargetedTransferStore {
             .commit()
             .await
             .map_err(VnidropError::repository)?;
+        self.reconciliation_changed.notify_one();
         Ok(())
     }
 

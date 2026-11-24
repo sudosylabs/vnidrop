@@ -3,7 +3,10 @@
 //! This is the domain store adapter for targeted transfers. Callers use store
 //! methods — not a raw SQL pool.
 
+use std::sync::Arc;
+
 use sqlx::{Row, SqlitePool};
+use tokio::sync::Notify;
 
 mod settlement;
 
@@ -16,11 +19,15 @@ use crate::{
 #[derive(Clone)]
 pub(crate) struct TargetedTransferStore {
     pub(super) pool: SqlitePool,
+    pub(super) reconciliation_changed: Arc<Notify>,
 }
 
 impl TargetedTransferStore {
     pub(crate) fn new(pool: SqlitePool) -> Self {
-        Self { pool }
+        Self {
+            pool,
+            reconciliation_changed: Arc::new(Notify::new()),
+        }
     }
 
     pub(super) async fn receive_output_identity(

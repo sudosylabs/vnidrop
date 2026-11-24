@@ -601,6 +601,14 @@ impl TargetedTransferModule {
             .await
     }
 
+    pub(crate) fn reconciliation_changed(&self) -> impl std::future::Future<Output = ()> + '_ {
+        self.store.reconciliation_changed()
+    }
+
+    pub(crate) async fn next_reconciliation_attempt(&self) -> Result<Option<i64>, VnidropError> {
+        self.store.next_reconciliation_attempt().await
+    }
+
     pub(crate) async fn list_pending_completions(
         &self,
     ) -> Result<Vec<TargetedTransferRow>, VnidropError> {

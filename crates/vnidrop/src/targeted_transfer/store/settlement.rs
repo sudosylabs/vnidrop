@@ -64,6 +64,7 @@ impl TargetedTransferStore {
             .commit()
             .await
             .map_err(VnidropError::repository)?;
+        self.reconciliation_changed.notify_one();
         Ok(true)
     }
 
@@ -107,6 +108,7 @@ impl TargetedTransferStore {
             .commit()
             .await
             .map_err(VnidropError::repository)?;
+        self.reconciliation_changed.notify_one();
         Ok(())
     }
 

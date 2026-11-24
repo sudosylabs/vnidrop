@@ -11,8 +11,16 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 actual fun rememberShareFilePicker(
@@ -20,17 +28,22 @@ actual fun rememberShareFilePicker(
 	onError: (String) -> Unit,
 ): ShareFilePicker {
 	val context = LocalContext.current
+	val scope = rememberCoroutineScope()
+	var loadingFiles by remember { mutableStateOf<Job?>(null) }
 	val filesLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
 		if (uris.isEmpty()) {
 			onFilesPicked(emptyList())
 			return@rememberLauncherForActivityResult
 		}
-		runCatching {
-			uris.map { uri -> context.pickedShareFile(uri) }
-		}.fold(
-			onSuccess = onFilesPicked,
-			onFailure = { onError(it.message ?: "Could not open the selected files") },
-		)
+		loadingFiles = scope.launch {
+			val result = withContext(Dispatchers.IO) {
+				runCatching { uris.map { uri -> context.pickedShareFile(uri) } }
+			}
+			result.fold(
+				onSuccess = onFilesPicked,
+				onFailure = { onError(it.message ?: "Could not open the selected files") },
+			)
+		}
 	}
 	val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
 		if (uri == null) {
@@ -65,10 +78,12 @@ actual fun rememberShareFilePicker(
 	return remember(filesLauncher, folderLauncher) {
 		object : ShareFilePicker {
 			override fun pickFiles() {
+				loadingFiles?.cancel()
 				filesLauncher.launch(arrayOf("*/*"))
 			}
 
 			override fun pickFolder() {
+				loadingFiles?.cancel()
 				folderLauncher.launch(null)
 			}
 		}

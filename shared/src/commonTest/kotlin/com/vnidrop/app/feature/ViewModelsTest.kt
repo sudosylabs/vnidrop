@@ -758,6 +758,25 @@ class ViewModelsTest {
 	}
 
 	@Test
+	fun receiveViewModelOnlyProbesWhenTheEffectiveFolderChanges() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val preferences = preferences()
+		val fileSystem = FakeFileSystemService(folder)
+		val viewModel = ReceiveViewModel(FakeCoreGateway(), fileSystem, preferences, UiMessageController())
+		advanceUntilIdle()
+
+		preferences.mutablePreferences.value = preferences.mutablePreferences.value.copy(notificationsEnabled = true)
+		advanceUntilIdle()
+		assertEquals(listOf(folder), fileSystem.validatedFolders)
+
+		val newFolder = folder.copy(value = "/alternate/Downloads")
+		preferences.mutablePreferences.value = preferences.mutablePreferences.value.copy(receiveFolder = newFolder)
+		advanceUntilIdle()
+		assertEquals(listOf(folder, newFolder), fileSystem.validatedFolders)
+		assertEquals(newFolder, viewModel.state.value.receiveFolder)
+	}
+
+	@Test
 	fun receiveViewModelReportsWhenCompletedFolderCannotOpen() = runTest {
 		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 		val core = FakeCoreGateway().apply {

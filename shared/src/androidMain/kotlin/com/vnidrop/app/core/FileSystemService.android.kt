@@ -23,6 +23,8 @@ import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import uniffi.vnidrop.PublishedOutput
 import uniffi.vnidrop.ReceiveOutputSinkV2
 import uniffi.vnidrop.ReceivedLocatorKind
@@ -111,16 +113,16 @@ private class AndroidFileSystemService(
 	override suspend fun requestReceiveFolderPermission(folder: ReceiveFolder): Boolean =
 		!needsReceiveFolderPermission(folder) || requestLegacyDownloadsPermission()
 
-	override suspend fun validateReceiveFolder(folder: ReceiveFolder): FolderAccessStatus {
-		if (needsReceiveFolderPermission(folder)) return FolderAccessStatus.PermissionRequired
-		return when (folder.kind) {
+	override suspend fun validateReceiveFolder(folder: ReceiveFolder): FolderAccessStatus = withContext(Dispatchers.IO) {
+		if (needsReceiveFolderPermission(folder)) return@withContext FolderAccessStatus.PermissionRequired
+		when (folder.kind) {
 			ReceiveFolderKind.FileSystemPath -> context.validatePath(folder.value)
 			ReceiveFolderKind.AndroidPublicDownloads -> context.validatePublicDownloads()
 			ReceiveFolderKind.AndroidTreeUri -> context.validateTreeUri(folder.value)
 		}
 	}
 
-	override suspend fun inspectReceivedArtifacts(artifacts: List<ReceivedArtifactModel>): ReceivedStorageInspection {
+	override suspend fun inspectReceivedArtifacts(artifacts: List<ReceivedArtifactModel>): ReceivedStorageInspection = withContext(Dispatchers.IO) {
 		var bytes = 0UL
 		var existing = 0
 		var missing = 0
@@ -160,12 +162,14 @@ private class AndroidFileSystemService(
 				}
 			}
 		}
-		return ReceivedStorageInspection(bytes, existing, missing, inaccessible)
+		ReceivedStorageInspection(bytes, existing, missing, inaccessible)
 	}
 
-	override suspend fun temporaryUsage(appDataDir: String): ULong = directorySize(context.cacheDir)
+	override suspend fun temporaryUsage(appDataDir: String): ULong = withContext(Dispatchers.IO) {
+		directorySize(context.cacheDir)
+	}
 
-	override suspend fun reclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong {
+	override suspend fun reclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong = withContext(Dispatchers.IO) {
 		var reclaimed = 0UL
 		context.cacheDir.listFiles().orEmpty().forEach { entry ->
 			val size = if (entry.isDirectory) directorySize(entry) else entry.length().coerceAtLeast(0L).toULong()
@@ -186,7 +190,7 @@ private class AndroidFileSystemService(
 					if (trash.deleteRecursively()) reclaimed += size
 				}
 		}
-		return reclaimed
+		reclaimed
 	}
 
 	override fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2? =

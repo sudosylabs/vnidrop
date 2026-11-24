@@ -22,6 +22,9 @@ import com.vnidrop.app.ui.feedback.toUiText
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import vnidrop.shared.generated.resources.Res
@@ -79,18 +82,24 @@ class ReceiveViewModel(
 	init {
 		viewModelScope.launch {
 			preferencesRepository.preferences.collect { preferences ->
-				val receiveFolder = fileSystemService.effectiveReceiveFolder(preferences.receiveFolder)
-				val status = fileSystemService.validateReceiveFolder(receiveFolder)
-				_state.update { current ->
-					current.copy(
-						receiverName = current.receiverName.ifBlank { preferences.username },
-						receiveFolder = receiveFolder,
-						folderAccessStatus = status,
-						needsFolderPermission = status == FolderAccessStatus.PermissionRequired &&
-							fileSystemService.needsReceiveFolderPermission(receiveFolder),
-					)
-				}
+				_state.update { current -> current.copy(receiverName = current.receiverName.ifBlank { preferences.username }) }
 			}
+		}
+		viewModelScope.launch {
+			preferencesRepository.preferences
+				.map { fileSystemService.effectiveReceiveFolder(it.receiveFolder) }
+				.distinctUntilChanged()
+				.collectLatest { receiveFolder ->
+					val status = fileSystemService.validateReceiveFolder(receiveFolder)
+					_state.update { current ->
+						current.copy(
+							receiveFolder = receiveFolder,
+							folderAccessStatus = status,
+							needsFolderPermission = status == FolderAccessStatus.PermissionRequired &&
+								fileSystemService.needsReceiveFolderPermission(receiveFolder),
+						)
+					}
+				}
 		}
 		viewModelScope.launch {
 			coreState.collect { snapshot ->

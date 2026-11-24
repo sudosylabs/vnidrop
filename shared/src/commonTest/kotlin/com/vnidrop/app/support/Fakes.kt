@@ -457,12 +457,15 @@ class FakeFileSystemService(
 	var reclaimTemporaryStorageCount = 0
 	var revealFolderResult: Result<Unit> = Result.success(Unit)
 	val revealedFolders = mutableListOf<ReceiveFolder>()
+	val validatedFolders = mutableListOf<ReceiveFolder>()
 	override val supportsCustomReceiveFolders: Boolean get() = supportsCustomFolders
 	override fun defaultReceiveFolder() = folder
 	override fun effectiveReceiveFolder(configuredFolder: ReceiveFolder) =
 		effectiveFolder ?: super.effectiveReceiveFolder(configuredFolder)
-	override suspend fun validateReceiveFolder(folder: ReceiveFolder) =
-		if (storagePermissionNeeded) FolderAccessStatus.PermissionRequired else FolderAccessStatus.Writable
+	override suspend fun validateReceiveFolder(folder: ReceiveFolder): FolderAccessStatus {
+		validatedFolders += folder
+		return if (storagePermissionNeeded) FolderAccessStatus.PermissionRequired else FolderAccessStatus.Writable
+	}
 	override fun needsReceiveFolderPermission(folder: ReceiveFolder) = storagePermissionNeeded
 	override suspend fun requestReceiveFolderPermission(folder: ReceiveFolder): Boolean {
 		if (!storagePermissionNeeded) return true

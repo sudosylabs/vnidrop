@@ -227,8 +227,12 @@ fn collapse_long_hex(input: &str) -> String {
                 out.push_str(&input[start..i]);
             }
         } else {
-            out.push(bytes[i] as char);
-            i += 1;
+            let start = i;
+            while i < bytes.len() && !bytes[i].is_ascii_hexdigit() {
+                i += 1;
+            }
+            // ASCII hex boundaries cannot split a UTF-8 character.
+            out.push_str(&input[start..i]);
         }
     }
     out
@@ -322,6 +326,15 @@ mod tests {
         assert!(!scrubbed.contains("vnd1:"));
         assert!(!scrubbed.contains("0123456789abcdef"));
         assert!(scrubbed.contains(REDACTED));
+    }
+
+    #[test]
+    fn redact_text_preserves_unicode_around_sensitive_values() {
+        let text = "Impossible d’ouvrir José/写真 😀: é0123456789abcdef0123456789abcdef漢";
+        assert_eq!(
+            redact_text(text),
+            "Impossible d’ouvrir José/写真 😀: é[redacted]漢"
+        );
     }
 
     #[test]

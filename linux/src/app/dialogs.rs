@@ -306,7 +306,8 @@ impl App {
                 );
                 app.selected
                     .replace(Some((metadata.transfer_id, "receive".into())));
-                app.dispatch(
+                app.dispatch_background(
+                    true,
                     move |session| session.call(|core| core.receive(ticket, path, Some(receiver))),
                     |app, result| {
                         if let Err(key) = result {

@@ -482,7 +482,8 @@ impl Composer {
         self.sync(false);
         let composer = self.clone();
         let completion = preparation.clone();
-        app.dispatch(
+        app.dispatch_background(
+            true,
             move |session| preparation.run(&session, submission.sources, metadata),
             move |app, result| {
                 let result = if completion.is_cancelled() {
@@ -531,7 +532,8 @@ impl Composer {
         self.sync(false);
         let composer = self.clone();
         let completion = preparation.clone();
-        app.dispatch(
+        app.dispatch_background(
+            true,
             move |session| preparation.run(&session, &target, submission),
             move |app, result| {
                 let result = if completion.is_cancelled() {

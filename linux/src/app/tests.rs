@@ -253,6 +253,108 @@ fn blocked_relay_apply_keeps_the_preferences_draft_open() {
 }
 
 #[gtk::test]
+fn quit_does_not_confirm_for_unrelated_background_work() {
+    adw::init().unwrap();
+    let application = adw::Application::builder()
+        .application_id("com.vnidrop.VniDrop.QuitInBackgroundTest")
+        .flags(gio::ApplicationFlags::NON_UNIQUE)
+        .build();
+    application.register(None::<&gio::Cancellable>).unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let profile = root.path().join("profile");
+    let session = Session::open(
+        profile.to_str().unwrap().to_owned(),
+        vnidrop::CoreNetworkConfig {
+            mode: vnidrop::CoreRelayMode::LocalOnly,
+            relay_urls: vec![],
+        },
+    )
+    .unwrap();
+    let app = App::new(&application, profile);
+    app.session.replace(Some(session.clone()));
+    app.window.present();
+    app.busy.set(1);
+    app.request_close();
+    until("quit decision", || {
+        app.closing.get() || app.window.visible_dialog().is_some()
+    });
+    let prompted = app.window.visible_dialog().is_some();
+    if let Some(dialog) = app.window.visible_dialog() {
+        dialog.force_close();
+        until("dismissed quit confirmation", || {
+            !app.confirming_close.get()
+        });
+        session.close();
+        app.window.destroy();
+    } else {
+        until("window closed", || !app.window.is_visible());
+    }
+    assert!(
+        !prompted,
+        "unrelated background work triggered a transfer warning"
+    );
+}
+
+#[gtk::test]
+fn quit_confirms_when_the_latest_core_facts_show_a_live_share() {
+    adw::init().unwrap();
+    let application = adw::Application::builder()
+        .application_id("com.vnidrop.VniDrop.QuitSharingTest")
+        .flags(gio::ApplicationFlags::NON_UNIQUE)
+        .build();
+    application.register(None::<&gio::Cancellable>).unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let profile = root.path().join("profile");
+    let session = Session::open(
+        profile.to_str().unwrap().to_owned(),
+        vnidrop::CoreNetworkConfig {
+            mode: vnidrop::CoreRelayMode::LocalOnly,
+            relay_urls: vec![],
+        },
+    )
+    .unwrap();
+    let app = App::new(&application, profile);
+    app.session.replace(Some(session.clone()));
+    let idle = session.snapshot().unwrap();
+    assert!(!idle.has_obligations());
+    app.snapshot.replace(Some(idle));
+    app.window.present();
+
+    let source = root.path().join("stay-available.txt");
+    std::fs::write(&source, b"keep the share available").unwrap();
+    session
+        .call(|core| {
+            core.share_files(
+                vnidrop_gnome::draft::sources(vec![source]).unwrap(),
+                vnidrop::ShareMetadataInput {
+                    transfer_id: 42,
+                    transfer_name: Some("Available files".into()),
+                    sender_name: None,
+                    access_mode: vnidrop::TransferAccessMode::ApprovalRequired,
+                },
+            )
+        })
+        .unwrap();
+    app.request_close();
+    until("live share quit decision", || {
+        app.closing.get() || app.window.visible_dialog().is_some()
+    });
+    let prompted = app.window.visible_dialog().is_some();
+    if let Some(dialog) = app.window.visible_dialog() {
+        dialog.force_close();
+        until("dismissed quit confirmation", || {
+            !app.confirming_close.get()
+        });
+        assert!(session.snapshot().unwrap().has_obligations());
+        session.close();
+        app.window.destroy();
+    } else {
+        until("window closed", || !app.window.is_visible());
+    }
+    assert!(prompted, "the live share needs a quit confirmation");
+}
+
+#[gtk::test]
 fn native_draft_approval_receive_and_shutdown() {
     adw::init().expect("GTK display (use xvfb-run for headless testing)");
     widget_tests::readiness_and_clipboard();

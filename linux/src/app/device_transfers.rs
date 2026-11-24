@@ -74,7 +74,11 @@ impl App {
             }
             app.clear_review_highlight();
             app.render();
-            app.dispatch(
+            app.dispatch_background(
+                matches!(
+                    command,
+                    Command::Accept | Command::Transfer(Action::Receive | Action::Resume)
+                ),
                 move |session| match command {
                     Command::Accept => {
                         let directory = vnidrop_gnome::settings::receive_destination(&directory)?;

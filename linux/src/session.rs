@@ -23,13 +23,16 @@ pub struct Snapshot {
 
 impl Snapshot {
     pub fn has_obligations(&self) -> bool {
-        let facts = &self.obligations;
-        facts.active_invitation_transfers != 0
-            || facts.invitation_provider_availability != 0
-            || facts.targeted_preparations != 0
-            || facts.active_targeted_transfers != 0
-            || facts.targeted_provider_availability != 0
+        requires_runtime(&self.obligations)
     }
+}
+
+fn requires_runtime(facts: &RuntimeObligationFacts) -> bool {
+    facts.active_invitation_transfers != 0
+        || facts.invitation_provider_availability != 0
+        || facts.targeted_preparations != 0
+        || facts.active_targeted_transfers != 0
+        || facts.targeted_provider_availability != 0
 }
 
 struct State {
@@ -142,6 +145,11 @@ impl Session {
                 offers,
             })
         })
+    }
+
+    pub fn has_obligations(&self) -> Result<bool> {
+        self.call(VnidropCore::runtime_obligation_facts)
+            .map(|facts| requires_runtime(&facts))
     }
 
     pub fn close(&self) {

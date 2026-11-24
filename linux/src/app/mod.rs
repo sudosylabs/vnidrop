@@ -495,12 +495,18 @@ impl App {
         operation: impl FnOnce(Arc<Session>) -> Result<T> + Send + 'static,
         complete: impl FnOnce(Rc<Self>, Result<T>) + 'static,
     ) {
-        let Some(session) = self.session.borrow().clone() else {
-            return;
-        };
-        if self.closing.get() || self.reconfiguring.get() {
+        if self.closing.get() {
             return;
         }
+        let session = if self.reconfiguring.get() {
+            None
+        } else {
+            self.session.borrow().clone()
+        };
+        let Some(session) = session else {
+            complete(self.clone(), Err("error_starting_up"));
+            return;
+        };
         self.busy.set(self.busy.get() + 1);
         let app = self.clone();
         let hold = self.application.hold();

@@ -131,6 +131,7 @@ impl App {
 
     pub(super) fn pump_invitations(self: &Rc<Self>) {
         if self.reviewing.get()
+            || self.reconfiguring.get()
             || self.session.borrow().is_none()
             || self.closing.get()
             || self.composer.borrow().is_some()

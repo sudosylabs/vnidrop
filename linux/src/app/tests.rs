@@ -157,7 +157,45 @@ fn assert_scannable(window: &adw::ApplicationWindow, ticket: &str) {
     );
 }
 
-#[test]
+#[gtk::test]
+fn dispatch_rejection_completes_and_keeps_invitations_pending() {
+    adw::init().unwrap();
+    let application = adw::Application::builder()
+        .application_id("com.vnidrop.VniDrop.DispatchTest")
+        .flags(gio::ApplicationFlags::NON_UNIQUE)
+        .build();
+    application.register(None::<&gio::Cancellable>).unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let profile = root.path().join("profile");
+    let session = Session::open(
+        profile.to_str().unwrap().to_owned(),
+        vnidrop::CoreNetworkConfig {
+            mode: vnidrop::CoreRelayMode::LocalOnly,
+            relay_urls: vec![],
+        },
+    )
+    .unwrap();
+    let app = App::new(&application, profile);
+    app.session.replace(Some(session.clone()));
+    app.reconfiguring.set(true);
+
+    let result = Rc::new(Cell::new(None));
+    let completed = result.clone();
+    app.dispatch(
+        |_| panic!("reconfiguration must reject new work"),
+        move |_, outcome: Result<()>| completed.set(Some(outcome)),
+    );
+    app.enqueue_invitation(gio::File::for_path(root.path().join("queued.vnd")));
+    let pending = app.pending.borrow().len();
+    let reviewing = app.reviewing.get();
+    session.close();
+
+    assert_eq!(result.get(), Some(Err("error_starting_up")));
+    assert_eq!(pending, 1);
+    assert!(!reviewing);
+}
+
+#[gtk::test]
 fn native_draft_approval_receive_and_shutdown() {
     adw::init().expect("GTK display (use xvfb-run for headless testing)");
     widget_tests::readiness_and_clipboard();

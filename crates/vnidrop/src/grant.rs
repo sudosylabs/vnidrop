@@ -9,6 +9,8 @@ use std::fmt;
 use anyhow::{Context, Result};
 use data_encoding::HEXLOWER;
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq;
+use zeroize::{ZeroizeOnDrop, Zeroizing};
 
 const GRANT_ID_LEN: usize = 16;
 const GRANT_SECRET_LEN: usize = 32;
@@ -47,7 +49,7 @@ impl fmt::Debug for GrantId {
 
 /// Key material. Never logged, never emitted in an event, never returned across
 /// the UniFFI boundary.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, ZeroizeOnDrop)]
 pub(crate) struct GrantSecret([u8; GRANT_SECRET_LEN]);
 
 impl GrantSecret {
@@ -68,15 +70,26 @@ impl GrantSecret {
     }
 
     pub(crate) fn decode(value: &str) -> Result<Self> {
-        let bytes = HEXLOWER
-            .decode(value.as_bytes())
-            .context("invalid grant secret encoding")?;
-        let bytes: [u8; GRANT_SECRET_LEN] = bytes
+        let bytes = Zeroizing::new(
+            HEXLOWER
+                .decode(value.as_bytes())
+                .context("invalid grant secret encoding")?,
+        );
+        let bytes: &[u8; GRANT_SECRET_LEN] = bytes
+            .as_slice()
             .try_into()
             .map_err(|_| anyhow::anyhow!("invalid grant secret length"))?;
-        Ok(Self(bytes))
+        Ok(Self(*bytes))
     }
 }
+
+impl PartialEq for GrantSecret {
+    fn eq(&self, other: &Self) -> bool {
+        bool::from(self.0.ct_eq(&other.0))
+    }
+}
+
+impl Eq for GrantSecret {}
 
 // Redacted on purpose: a secret must not reach a log line through a derived
 // Debug on some enclosing struct.

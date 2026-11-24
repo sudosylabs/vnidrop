@@ -105,6 +105,17 @@ impl SecretMetadataStore {
         self.set_state(handle, SecretMetadataState::Disabled).await
     }
 
+    pub(super) async fn purge_disabled(&self, handle: &SecretHandle) -> Result<(), VnidropError> {
+        sqlx::query(
+            "DELETE FROM protected_secret_refs WHERE handle = ?1 AND state = 'disabled' AND kind != 'endpoint-identity'",
+        )
+        .bind(handle.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(())
+    }
+
     async fn set_state(
         &self,
         handle: &SecretHandle,

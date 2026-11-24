@@ -213,7 +213,7 @@ async fn reconciliation_repairs_staged_metadata_and_disables_unusable_secrets() 
     assert_eq!(summary.disabled, 1);
     assert!(matches!(
         custody.load(&staged_handle).await,
-        Err(VnidropError::SecureStorageUnavailable { .. })
+        Err(VnidropError::SecureStorageMissing { .. })
     ));
 
     let corrupted = custody
@@ -233,7 +233,49 @@ async fn reconciliation_repairs_staged_metadata_and_disables_unusable_secrets() 
     assert_eq!(summary.disabled, 1);
     assert!(matches!(
         custody.load(&corrupted).await,
+        Err(VnidropError::SecureStorageMissing { .. })
+    ));
+}
+
+#[test]
+fn custody_and_grant_material_zeroize_on_drop() {
+    fn assert_zeroizes_on_drop<T: zeroize::ZeroizeOnDrop>() {}
+    assert_zeroizes_on_drop::<SecretMaterial>();
+    assert_zeroizes_on_drop::<crate::grant::GrantSecret>();
+}
+
+#[tokio::test]
+async fn reconciliation_removes_disabled_metadata_only_after_store_deletion() {
+    let temp = tempfile::tempdir().unwrap();
+    let stores = persistence::open_all(temp.path()).await.unwrap();
+    let store = Arc::new(FaultInjectingSecretStore::default());
+    let custody = SecretCustody::new(stores.secrets.clone(), store.clone());
+    let handle = custody
+        .protect(
+            SecretKind::RelationshipGrant,
+            SecretMaterial::new(vec![0x47; 32]).unwrap(),
+            None,
+        )
+        .await
+        .unwrap();
+
+    store.fail_with(Some(ReferenceStoreFailure::Locked));
+    assert!(matches!(
+        custody.remove(&handle).await,
+        Err(VnidropError::SecureStorageLocked { .. })
+    ));
+    assert!(matches!(
+        custody.load(&handle).await,
         Err(VnidropError::SecureStorageUnavailable { .. })
+    ));
+    assert_eq!(store.stored_value_count_for_test(), 1);
+
+    store.fail_with(None);
+    custody.reconcile().await.unwrap();
+    assert_eq!(store.stored_value_count_for_test(), 0);
+    assert!(matches!(
+        custody.load(&handle).await,
+        Err(VnidropError::SecureStorageMissing { .. })
     ));
 }
 

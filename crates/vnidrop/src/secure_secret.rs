@@ -5,7 +5,9 @@ use std::{collections::HashMap, sync::Mutex};
 
 use iroh::SecretKey;
 use sqlx::{Row, SqlitePool};
+use subtle::ConstantTimeEq;
 use uuid::Uuid;
+use zeroize::ZeroizeOnDrop;
 
 use crate::{error::VnidropError, util::now_ms};
 
@@ -37,27 +39,27 @@ const SECRET_BYTES: usize = 32;
 const HANDLE_NAMESPACE: &str = "vnidrop";
 const HANDLE_VERSION: &str = "v1";
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, ZeroizeOnDrop)]
 pub(crate) struct SecretMaterial(Vec<u8>);
 
 impl SecretMaterial {
     pub(crate) fn new(bytes: Vec<u8>) -> Result<Self, VnidropError> {
-        if bytes.len() != SECRET_BYTES || bytes.iter().all(|byte| *byte == 0) {
+        let material = Self(bytes);
+        if material.0.len() != SECRET_BYTES || material.0.iter().all(|byte| *byte == 0) {
             return Err(VnidropError::SecureStorageCorrupted {
                 reason: "protected secret has invalid key material".to_string(),
             });
         }
-        Ok(Self(bytes))
+        Ok(material)
     }
 
     fn endpoint_id(&self) -> String {
-        let bytes: [u8; SECRET_BYTES] = self.0.as_slice().try_into().expect("validated length");
-        SecretKey::from_bytes(&bytes).public().to_string()
+        self.secret_key().public().to_string()
     }
 
-    fn into_secret_key(self) -> SecretKey {
-        let bytes: [u8; SECRET_BYTES] = self.0.try_into().expect("validated length");
-        SecretKey::from_bytes(&bytes)
+    fn secret_key(&self) -> SecretKey {
+        let bytes: &[u8; SECRET_BYTES] = self.as_bytes().try_into().expect("validated length");
+        SecretKey::from_bytes(bytes)
     }
 
     pub(crate) fn as_bytes(&self) -> &[u8] {
@@ -68,6 +70,14 @@ impl SecretMaterial {
         self.0.clone()
     }
 }
+
+impl PartialEq for SecretMaterial {
+    fn eq(&self, other: &Self) -> bool {
+        bool::from(self.as_bytes().ct_eq(other.as_bytes()))
+    }
+}
+
+impl Eq for SecretMaterial {}
 
 impl fmt::Debug for SecretMaterial {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -184,7 +194,7 @@ pub(crate) async fn start_endpoint_identity(
     let secret_key = custody
         .initialize_endpoint_identity(legacy_path)
         .await?
-        .into_secret_key();
+        .secret_key();
     Ok((secret_key, custody))
 }
 
@@ -333,12 +343,11 @@ impl SecretCustody {
         Ok(material)
     }
 
-    /// Removes protected material and disables its metadata. Idempotent.
+    /// Disables access before deleting the protected material. Idempotent.
     pub(crate) async fn remove(&self, handle: &SecretHandle) -> Result<(), VnidropError> {
-        if self.metadata.find(handle).await?.is_some() {
-            self.metadata.disable(handle).await?;
-        }
-        self.delete_if_present(handle).await
+        self.metadata.disable(handle).await?;
+        self.delete_if_present(handle).await?;
+        self.metadata.purge_disabled(handle).await
     }
 
     pub(crate) async fn list_active_handles(
@@ -479,7 +488,13 @@ impl SecretCustody {
 
         for entry in metadata {
             if entry.state == SecretMetadataState::Disabled {
-                self.delete_if_present(&entry.handle).await?;
+                // The identity marker prevents an implicit rekey on startup.
+                if entry.kind != SecretKind::EndpointIdentity
+                    || stored_handles.contains(&entry.handle)
+                {
+                    self.delete_if_present(&entry.handle).await?;
+                }
+                self.metadata.purge_disabled(&entry.handle).await?;
                 continue;
             }
             match self.store_get_raw(entry.handle.clone()).await? {
@@ -492,8 +507,7 @@ impl SecretCustody {
                                 reason: "protected endpoint identity is corrupted".to_string(),
                             });
                         }
-                        self.metadata.disable(&entry.handle).await?;
-                        self.delete_if_present(&entry.handle).await?;
+                        self.remove(&entry.handle).await?;
                         summary.disabled += 1;
                     } else if entry.state == SecretMetadataState::Staged {
                         self.metadata.activate(&entry.handle).await?;
@@ -506,8 +520,7 @@ impl SecretCustody {
                     if entry.kind == SecretKind::EndpointIdentity {
                         return Err(map_store_error(error));
                     }
-                    self.metadata.disable(&entry.handle).await?;
-                    self.delete_if_present(&entry.handle).await?;
+                    self.remove(&entry.handle).await?;
                     summary.disabled += 1;
                 }
                 Err(error) => return Err(map_store_error(error)),

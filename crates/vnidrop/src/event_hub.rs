@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
 use tokio::{
-    sync::{mpsc, oneshot, Mutex as TokioMutex},
+    sync::{mpsc, oneshot, Mutex as TokioMutex, OwnedSemaphorePermit, Semaphore},
     task::JoinHandle,
 };
 
@@ -13,6 +13,10 @@ use crate::{
     transfer_state::TransferDirection,
     util::now_ms,
 };
+
+#[cfg(test)]
+#[path = "tests/event_hub.rs"]
+mod tests;
 
 #[derive(Debug, Clone, Copy)]
 enum EventScope {
@@ -121,14 +125,15 @@ impl EventKind {
 }
 
 enum EventCommand {
-    Persist(CoreEvent),
+    Persist(CoreEvent, Option<OwnedSemaphorePermit>),
     Flush(oneshot::Sender<()>),
     Shutdown(oneshot::Sender<()>),
 }
 
 pub(crate) struct EventHub {
     sink: Arc<dyn CoreEventSink>,
-    tx: mpsc::Sender<EventCommand>,
+    tx: mpsc::UnboundedSender<EventCommand>,
+    routine_capacity: Arc<Semaphore>,
     join: TokioMutex<Option<JoinHandle<()>>>,
     sequence: Mutex<u64>,
 }
@@ -140,11 +145,11 @@ impl EventHub {
         queue_capacity: usize,
         max_history: u64,
     ) -> Self {
-        let (tx, mut rx) = mpsc::channel(queue_capacity);
+        let (tx, mut rx) = mpsc::unbounded_channel();
         let join = tokio::spawn(async move {
             while let Some(command) = rx.recv().await {
                 match command {
-                    EventCommand::Persist(event) => {
+                    EventCommand::Persist(event, _permit) => {
                         if let Err(error) = repository.insert_event(&event, max_history).await {
                             tracing::warn!(%error, event_id = %event.id, "failed to persist core event");
                         }
@@ -163,6 +168,7 @@ impl EventHub {
         Self {
             sink,
             tx,
+            routine_capacity: Arc::new(Semaphore::new(queue_capacity)),
             join: TokioMutex::new(Some(join)),
             sequence: Mutex::new(1),
         }
@@ -212,14 +218,14 @@ impl EventHub {
 
     pub(crate) async fn flush(&self) {
         let (tx, rx) = oneshot::channel();
-        if self.tx.send(EventCommand::Flush(tx)).await.is_ok() {
+        if self.tx.send(EventCommand::Flush(tx)).is_ok() {
             let _ = rx.await;
         }
     }
 
     pub(crate) async fn shutdown(&self) {
         let (tx, rx) = oneshot::channel();
-        if self.tx.send(EventCommand::Shutdown(tx)).await.is_ok() {
+        if self.tx.send(EventCommand::Shutdown(tx)).is_ok() {
             let _ = rx.await;
         }
         if let Some(join) = self.join.lock().await.take() {
@@ -264,8 +270,32 @@ impl EventHub {
             kind: kind.0,
             data_json: redact_json(data).to_string(),
         };
-        if let Err(error) = self.tx.try_send(EventCommand::Persist(event.clone())) {
-            tracing::warn!(event_id = %event.id, %error, "event persistence queue dropped event");
+        // Terminal events and flush barriers share the same FIFO as routine
+        // events, but only routine events consume queue capacity.
+        let essential = matches!(phase, EventPhase::Lifecycle | EventPhase::Error)
+            || (matches!(phase, EventPhase::TargetedTransfer)
+                && matches!(
+                    event.kind.as_str(),
+                    "completed" | "failed" | "cancelled" | "interrupted" | "abandoned"
+                ));
+        let permit = if essential {
+            Ok(None)
+        } else {
+            self.routine_capacity.clone().try_acquire_owned().map(Some)
+        };
+        match permit {
+            Ok(permit) => {
+                if self
+                    .tx
+                    .send(EventCommand::Persist(event.clone(), permit))
+                    .is_err()
+                {
+                    tracing::warn!(event_id = %event.id, "event persistence queue closed");
+                }
+            }
+            Err(_) => {
+                tracing::debug!(event_id = %event.id, "event persistence queue dropped routine event");
+            }
         }
         self.sink.on_event(event);
     }

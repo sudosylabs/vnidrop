@@ -1,6 +1,7 @@
 package com.vnidrop.app
 
 import android.annotation.SuppressLint
+import android.app.ForegroundServiceStartNotAllowedException
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -13,6 +14,7 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.util.Log
 import androidx.core.content.ContextCompat
 
 internal class AndroidBackgroundRuntimeKeeper(
@@ -26,7 +28,15 @@ internal class AndroidBackgroundRuntimeKeeper(
 		if (closed || this.required == required) return@synchronized
 		val serviceIntent = Intent(context, VniDropBackgroundRuntimeService::class.java)
 		if (required) {
-			ContextCompat.startForegroundService(context, serviceIntent)
+			try {
+				ContextCompat.startForegroundService(context, serviceIntent)
+			} catch (error: IllegalStateException) {
+				if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || error !is ForegroundServiceStartNotAllowedException) {
+					throw error
+				}
+				Log.w("VniDropRuntime", "Android deferred the foreground service start")
+				return@synchronized
+			}
 		} else {
 			context.stopService(serviceIntent)
 		}
@@ -90,6 +100,10 @@ class VniDropBackgroundRuntimeService : Service() {
 			return START_NOT_STICKY
 		}
 		return START_NOT_STICKY
+	}
+
+	override fun onTimeout(startId: Int, fgsType: Int) {
+		stopSelf()
 	}
 
 	override fun onDestroy() {

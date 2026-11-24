@@ -84,16 +84,29 @@ enum PickerSupport {
 		#endif
 	}
 
-	static func pickedFile(from url: URL, isDirectory: Bool) -> PickedShareFile? {
-		let started = url.startAccessingSecurityScopedResource()
-		defer { if started { url.stopAccessingSecurityScopedResource() } }
+	static func pickedFile(
+		from url: URL,
+		isDirectory: Bool,
+		acquireAccess: (URL) -> (@Sendable () -> Void)? = { url in
+			guard url.startAccessingSecurityScopedResource() else { return nil }
+			return { url.stopAccessingSecurityScopedResource() }
+		}
+	) -> PickedShareFile? {
+		let releaseAccess = acquireAccess(url)
+		#if os(iOS)
+		if isDirectory || (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
+			return PickedShareFile(
+				value: url.path,
+				displayName: url.lastPathComponent,
+				isDirectory: true,
+				folderAccess: releaseAccess.map { SecurityScopedFolderAccess(release: $0) }
+			)
+		}
+		#endif
+		defer { releaseAccess?() }
 
 		#if os(iOS)
-		// Copy into a temporary sandbox location so the core can read the file
-		// after the picker/security scope ends. Folders are passed by path.
-		if isDirectory {
-			return PickedShareFile(value: url.path, displayName: url.lastPathComponent, isDirectory: true)
-		}
+		// A staged file remains available after the picker scope closes.
 		guard let appTemp = try? AppTemporaryDirectory.prepare() else { return nil }
 		let tempDir = appTemp
 			.appendingPathComponent("share-\(UUID().uuidString)", isDirectory: true)

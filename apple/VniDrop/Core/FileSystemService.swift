@@ -1,6 +1,24 @@
 import Foundation
 import VnidropCore
 
+#if os(iOS)
+final class SecurityScopedFolderAccess: Sendable, Equatable {
+	private let release: @Sendable () -> Void
+
+	init(release: @escaping @Sendable () -> Void) {
+		self.release = release
+	}
+
+	static func == (lhs: SecurityScopedFolderAccess, rhs: SecurityScopedFolderAccess) -> Bool {
+		lhs === rhs
+	}
+
+	deinit {
+		release()
+	}
+}
+#endif
+
 /// A file/folder selected for sharing, ported from `PickedShareFile` in
 /// `core/FilePicker.kt`.
 struct PickedShareFile: Equatable, Identifiable, Sendable {
@@ -14,8 +32,11 @@ struct PickedShareFile: Equatable, Identifiable, Sendable {
 	var isDirectory: Bool = false
 	/// macOS sandbox: a security-scoped bookmark captured at pick time so access to
 	/// `value` can be re-acquired when the core imports the file (the picker's own
-	/// scope ends immediately). Nil on iOS (which copies into the container instead).
+	/// scope ends immediately).
 	var securityScopeBookmark: Data? = nil
+	#if os(iOS)
+	var folderAccess: SecurityScopedFolderAccess? = nil
+	#endif
 
 	var id: String { value }
 }

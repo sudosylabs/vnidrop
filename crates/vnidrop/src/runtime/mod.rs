@@ -324,7 +324,7 @@ impl CoreInner {
                 json!({ "count": expired_requests }),
             );
         }
-        let access_policy = AccessPolicy::new();
+        let access_policy = AccessPolicy::new(blocked_devices.list_blocked().await?);
         // Restore share ownership and access mode before the router can serve
         // any request. Unknown persisted modes fail closed in mode_from_storage.
         // Register root + every collection member so child gets stay under ACL.

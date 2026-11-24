@@ -382,13 +382,19 @@ impl ApprovalService {
             Ok(Ok(decision)) if decision.accepted => {
                 let token = Uuid::new_v4().to_string();
                 let expires_at = now_ms() + APPROVAL_TTL_MS;
-                self.access_policy
+                if !self
+                    .access_policy
                     .approve_endpoint_until(
                         request.transfer_id,
                         remote_endpoint_id.clone(),
                         Some(expires_at),
                     )
-                    .await;
+                    .await
+                {
+                    return self
+                        .deny(request.transfer_id, remote_endpoint_id, "not-accepted")
+                        .await;
+                }
                 self.event_hub.emit_transfer(
                     request.transfer_id,
                     "send",

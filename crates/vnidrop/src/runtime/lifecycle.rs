@@ -218,9 +218,13 @@ impl CoreInner {
         if !self.active_shares.lock().await.contains_key(&transfer_id) {
             anyhow::bail!("transfer is not an active share");
         }
-        self.access_policy
+        if !self
+            .access_policy
             .approve_endpoint(transfer_id, endpoint_id.clone())
-            .await;
+            .await
+        {
+            anyhow::bail!("endpoint is blocked");
+        }
         self.emit_transfer(
             transfer_id,
             "send",

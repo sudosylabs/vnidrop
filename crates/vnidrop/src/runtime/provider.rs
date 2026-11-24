@@ -298,10 +298,11 @@ impl CoreInner {
             .lock()
             .await
             .get(&connection_id)
-            .cloned();
+            .cloned()
+            .ok_or("missing-endpoint-id")?;
         let mut last_reason = "approval-required";
         for id in transfer_ids {
-            match self.access_policy.authorize(id, endpoint.as_deref()).await {
+            match self.access_policy.authorize(id, Some(&endpoint)).await {
                 Ok(lease) => return Ok((id, lease)),
                 Err(reason) => last_reason = reason,
             }

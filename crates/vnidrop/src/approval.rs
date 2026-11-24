@@ -386,6 +386,16 @@ impl ApprovalService {
             Ok(Ok(decision)) if decision.accepted => {
                 let token = Uuid::new_v4().to_string();
                 let expires_at = now_ms() + APPROVAL_TTL_MS;
+                if let Err(error) = self
+                    .repository
+                    .set_receiver_receipt_token(&decision.request_id, &receipt_token_hash(&token))
+                    .await
+                {
+                    tracing::error!(%error, "failed to attach delivery receipt token");
+                    return HandshakeResponse::Denied {
+                        reason: "repository-error".to_string(),
+                    };
+                }
                 if !self
                     .access_policy
                     .approve_endpoint_until(
@@ -410,16 +420,6 @@ impl ApprovalService {
                         "expires_at": expires_at,
                     }),
                 );
-                if let Err(error) = self
-                    .repository
-                    .set_receiver_receipt_token(&decision.request_id, &receipt_token_hash(&token))
-                    .await
-                {
-                    tracing::error!(%error, "failed to attach delivery receipt token");
-                    return HandshakeResponse::Denied {
-                        reason: "repository-error".to_string(),
-                    };
-                }
                 HandshakeResponse::Approved {
                     request_id: decision.request_id,
                     token,

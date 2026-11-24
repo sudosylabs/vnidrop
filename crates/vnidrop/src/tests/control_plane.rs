@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    access_policy::AccessPolicy,
+    access_policy::{AccessDecision, AccessPolicy},
     api::{CoreEvent, CoreEventSink, CoreLimits, PendingTargetedOffer},
     approval::ApprovalService,
     control_plane::IdentityCooldown,
@@ -14,12 +14,12 @@ use crate::{
     handshake::{
         DeliveryFailureReceipt, DeliveryReceiptResponse, HandshakeResponse, RequestTransfer,
     },
-    invitation::{ReceiverRequestInsert, Repository},
+    invitation::{ReceiverRequestInsert, Repository, TransferUpsert},
     persistence::{self, AppDataStores},
     secure_secret::FaultInjectingSecretStore,
     targeted_transfer::inbox::{TargetedOfferDecision, TargetedOfferInbox},
     targeted_transfer::{TargetedAuthorization, TargetedAuthorizationDraft},
-    transfer_state::ReceiverRequestStatus,
+    transfer_state::{ReceiverRequestStatus, TransferDirection, TransferStatus},
     CoreNetworkConfig, DeviceRelationshipState, ShareMetadataInput, ShareSource, SourceKind,
     TransferAccessMode, VnidropCore, VnidropError,
 };
@@ -107,6 +107,7 @@ impl RecordingSink {
 
 async fn approval_service_for_test(
     path: &Path,
+    policy: Arc<AccessPolicy>,
 ) -> (
     ApprovalService,
     AppDataStores,
@@ -127,7 +128,7 @@ async fn approval_service_for_test(
         stores.invitation.clone(),
         stores.blocked.clone(),
         hub.clone(),
-        AccessPolicy::new([]),
+        policy,
         5,
         7,
         None,
@@ -138,7 +139,8 @@ async fn approval_service_for_test(
 #[tokio::test]
 async fn approval_events_ignore_unverified_transfer_requests() {
     let temp = tempfile::tempdir().unwrap();
-    let (approval, stores, hub, sink) = approval_service_for_test(temp.path()).await;
+    let (approval, stores, hub, sink) =
+        approval_service_for_test(temp.path(), AccessPolicy::new([])).await;
     stores.blocked.block_endpoint("blocked", 1).await.unwrap();
     let request = RequestTransfer {
         transfer_id: 42,
@@ -193,7 +195,8 @@ async fn approval_events_ignore_unverified_transfer_requests() {
 #[tokio::test]
 async fn approval_events_bound_delivery_failure_reasons_and_ignore_retries() {
     let temp = tempfile::tempdir().unwrap();
-    let (approval, stores, hub, sink) = approval_service_for_test(temp.path()).await;
+    let (approval, stores, hub, sink) =
+        approval_service_for_test(temp.path(), AccessPolicy::new([])).await;
     stores
         .invitation
         .insert_receiver_request(ReceiverRequestInsert {
@@ -236,6 +239,96 @@ async fn approval_events_bound_delivery_failure_reasons_and_ignore_retries() {
     assert_eq!(requests[0].status, "failed");
     assert_eq!(requests[0].reason.as_deref(), Some("éabcd"));
     assert_eq!(sink.kinds(), ["receiver-failed"]);
+    hub.shutdown().await;
+}
+
+#[tokio::test]
+async fn approval_does_not_grant_access_when_receipt_token_cannot_be_saved() {
+    let temp = tempfile::tempdir().unwrap();
+    let policy = AccessPolicy::new([]);
+    policy
+        .set_mode(42, TransferAccessMode::ApprovalRequired)
+        .await;
+    let (approval, stores, hub, sink) =
+        approval_service_for_test(temp.path(), policy.clone()).await;
+    stores
+        .invitation
+        .insert_transfer(TransferUpsert {
+            transfer_id: 42,
+            peer_id: None,
+            direction: TransferDirection::Send,
+            status: TransferStatus::Sharing,
+            transfer_name: Some("demo"),
+            sender_name: None,
+            content_hash: Some("hash"),
+            ticket: None,
+            file_count: 1,
+            total_size: 12,
+            access_mode: "approval_required",
+        })
+        .await
+        .unwrap();
+    let sql = sqlx::SqlitePool::connect_with(
+        sqlx::sqlite::SqliteConnectOptions::new().filename(temp.path().join("vnidrop.sqlite3")),
+    )
+    .await
+    .unwrap();
+    sqlx::query("CREATE TRIGGER test_fail_receipt_token BEFORE UPDATE OF receipt_token_hash ON receiver_requests
+                 BEGIN SELECT RAISE(ABORT, 'injected receipt token write failure'); END")
+        .execute(&sql).await.unwrap();
+
+    let handshake = {
+        let approval = approval.clone();
+        tokio::spawn(async move {
+            approval
+                .request_transfer(
+                    "receiver".into(),
+                    RequestTransfer {
+                        transfer_id: 42,
+                        transfer_hash: "hash".to_owned(),
+                        transfer_name: "demo".to_owned(),
+                        receiver_name: None,
+                        receiver_device_name: None,
+                        app_version: "0.1.0".to_owned(),
+                    },
+                )
+                .await
+        })
+    };
+    let request = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            if let Some(request) = stores
+                .invitation
+                .list_receiver_requests(42)
+                .await
+                .unwrap()
+                .pop()
+            {
+                break request;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("approval request should be persisted");
+    approval.respond(request.id, true, None).await.unwrap();
+    let response = tokio::time::timeout(std::time::Duration::from_secs(2), handshake)
+        .await
+        .expect("handshake should finish")
+        .unwrap();
+    assert_eq!(
+        response,
+        HandshakeResponse::Denied {
+            reason: "repository-error".into()
+        }
+    );
+    assert_eq!(
+        policy.decide(42, Some("receiver")).await,
+        AccessDecision::Deny {
+            reason: "approval-required"
+        }
+    );
+    assert!(!sink.kinds().iter().any(|kind| kind == "receiver-accepted"));
     hub.shutdown().await;
 }
 

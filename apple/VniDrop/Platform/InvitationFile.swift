@@ -13,7 +13,7 @@ func invitationFileName(_ transferName: String) -> String {
 
 /// Writes a temporary `.vnd` file for sharing/exporting.
 func writeTemporaryInvitation(ticket: String, transferName: String) throws -> URL {
-	let dir = FileManager.default.temporaryDirectory
+	let dir = try AppTemporaryDirectory.prepare()
 	let url = dir.appendingPathComponent(invitationFileName(transferName))
 	try ticket.write(to: url, atomically: true, encoding: .utf8)
 	return url

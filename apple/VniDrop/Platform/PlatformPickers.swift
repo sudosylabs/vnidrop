@@ -94,7 +94,8 @@ enum PickerSupport {
 		if isDirectory {
 			return PickedShareFile(value: url.path, displayName: url.lastPathComponent, isDirectory: true)
 		}
-		let tempDir = FileManager.default.temporaryDirectory
+		guard let appTemp = try? AppTemporaryDirectory.prepare() else { return nil }
+		let tempDir = appTemp
 			.appendingPathComponent("share-\(UUID().uuidString)", isDirectory: true)
 		try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
 		let dest = tempDir.appendingPathComponent(url.lastPathComponent)

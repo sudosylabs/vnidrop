@@ -1,6 +1,7 @@
 use crate::{
     devices::{Device, DeviceState},
     localization::{format, text},
+    presentation::{InvitationStatus, ReceiverStatus},
     session::Snapshot,
     targeted,
 };
@@ -68,11 +69,15 @@ impl Tracker {
             let name = transfer
                 .and_then(|t| t.transfer_name.clone())
                 .unwrap_or_default();
-            let title = match request.status.as_str() {
-                "requested" => Some("approval_connection_request"),
-                "completed" => Some("notifications_receiver_completed_title"),
-                "failed" => Some("notifications_receiver_failed_title"),
-                _ => None,
+            let title = match ReceiverStatus::from(request.status.as_str()) {
+                ReceiverStatus::Requested => Some("approval_connection_request"),
+                ReceiverStatus::Completed => Some("notifications_receiver_completed_title"),
+                ReceiverStatus::Failed => Some("notifications_receiver_failed_title"),
+                ReceiverStatus::Accepted
+                | ReceiverStatus::Cancelled
+                | ReceiverStatus::Expired
+                | ReceiverStatus::Refused
+                | ReceiverStatus::Unknown => None,
             };
             if let Some(title) = title {
                 candidates.push(Notice {
@@ -91,11 +96,22 @@ impl Tracker {
         for transfer in &snapshot.transfers {
             let id = format!("transfer:{}:{}", transfer.transfer_id, transfer.direction);
             states.insert(id.clone(), transfer.status.clone());
-            let title = match (transfer.direction.as_str(), transfer.status.as_str()) {
-                ("receive", "done") => Some("notifications_receive_completed_title"),
-                ("receive", "failed") => Some("notifications_receive_failed_title"),
-                ("send", "failed") => Some("notifications_send_failed_title"),
-                _ => None,
+            let title = match InvitationStatus::from(transfer.status.as_str()) {
+                InvitationStatus::Done if transfer.direction == "receive" => {
+                    Some("notifications_receive_completed_title")
+                }
+                InvitationStatus::Failed => match transfer.direction.as_str() {
+                    "receive" => Some("notifications_receive_failed_title"),
+                    "send" => Some("notifications_send_failed_title"),
+                    _ => None,
+                },
+                InvitationStatus::Done
+                | InvitationStatus::Importing
+                | InvitationStatus::Sharing
+                | InvitationStatus::Receiving
+                | InvitationStatus::Cancelled
+                | InvitationStatus::Stopped
+                | InvitationStatus::Unknown => None,
             };
             if let Some(title) = title {
                 candidates.push(Notice {

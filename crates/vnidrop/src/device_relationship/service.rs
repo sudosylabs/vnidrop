@@ -466,7 +466,7 @@ impl DeviceRelationshipService {
                         Ok(true)
                     }
                     // Ack lost/failed: grants are stored; pending remains recoverable.
-                    _ => Ok(true),
+                    Ok(Ok(PairingAckResponse::Rejected)) | Ok(Err(_)) | Err(_) => Ok(true),
                 }
             }
             PairingConsentResponse::AlreadySaved => {

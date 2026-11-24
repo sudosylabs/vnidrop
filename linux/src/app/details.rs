@@ -193,11 +193,14 @@ impl App {
             row.bar.set_fraction(fraction.unwrap_or(0.0));
             row.bar
                 .update_property(&[gtk::accessible::Property::Label(&row.row.title())]);
+            use vnidrop_gnome::presentation::InvitationStatus;
             let busy = fraction.is_none()
-                && (matches!(transfer.status.as_str(), "importing" | "receiving")
-                    || live
-                        .as_ref()
-                        .is_some_and(|progress| progress.label != "progress_interrupted"));
+                && (matches!(
+                    InvitationStatus::from(transfer.status.as_str()),
+                    InvitationStatus::Importing | InvitationStatus::Receiving
+                ) || live
+                    .as_ref()
+                    .is_some_and(|progress| progress.label != "progress_interrupted"));
             row.spinner.set_visible(busy);
             row.spinner.set_spinning(busy);
             if self.selected.borrow().as_ref() == Some(&row.key) {

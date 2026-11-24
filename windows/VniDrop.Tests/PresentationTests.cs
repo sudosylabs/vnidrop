@@ -7,6 +7,15 @@ namespace VniDrop.Tests;
 
 public class PresentationTests
 {
+    [Fact]
+    public void InvitationAndReceiverCompletionDecodeTheirOwnWireValues()
+    {
+        Assert.Equal(InvitationStatus.Done, InvitationStatusCodec.Parse("done"));
+        Assert.Equal(InvitationStatus.Unknown, InvitationStatusCodec.Parse("completed"));
+        Assert.Equal(ReceiverStatus.Completed, InvitationStatusCodec.ParseReceiver("completed"));
+        Assert.Equal(ReceiverStatus.Unknown, InvitationStatusCodec.ParseReceiver("done"));
+    }
+
     [Theory]
     [InlineData("send", "send_stop_sharing")]
     [InlineData("receive", "button_cancel_receive")]

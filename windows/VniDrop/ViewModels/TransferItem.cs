@@ -18,19 +18,35 @@ public sealed class TransferItem : ObservableModel
     public string TransferSize => Strings.Size(Transfer.totalSize);
     public string Access => Strings.Get(Transfer.accessMode == TransferAccessMode.ApprovalRequired ? "send_access_approval" : "send_access_anyone");
     public string CatalogDetail => Transfer.direction == "send" ? Summary + " · " + Access : Summary;
-    public string Status => Strings.Get(Transfer.status switch
+    public InvitationStatus LifecycleStatus { get; private set; }
+    public string Status => Strings.Get(LifecycleStatus switch
     {
-        "importing" => "status_preparing", "sharing" => "status_available", "receiving" => "status_receiving",
-        "done" => "status_completed", "cancelled" => "status_cancelled", "stopped" => "status_stopped", "failed" => "status_failed", _ => "progress_working"
+        InvitationStatus.Importing => "status_preparing",
+        InvitationStatus.Sharing => "status_available",
+        InvitationStatus.Receiving => "status_receiving",
+        InvitationStatus.Done => "status_completed",
+        InvitationStatus.Cancelled => "status_cancelled",
+        InvitationStatus.Stopped => "status_stopped",
+        InvitationStatus.Failed => "status_failed",
+        InvitationStatus.Unknown => "progress_working",
+        _ => throw new ArgumentOutOfRangeException(nameof(LifecycleStatus)),
     });
-    public string StatusGlyph => Transfer.status switch { "sharing" or "done" => "\uE73E", "failed" => "\uEA39", "cancelled" or "stopped" => "\uE711", _ => "\uE895" };
-    public StatusTone StatusTone => Transfer.status switch
+    public string StatusGlyph => LifecycleStatus switch
     {
-        "sharing" => StatusTone.Accent,
-        "done" => StatusTone.Success,
-        "failed" => StatusTone.Critical,
-        "cancelled" or "stopped" => StatusTone.Neutral,
-        _ => StatusTone.Warning,
+        InvitationStatus.Sharing or InvitationStatus.Done => "\uE73E",
+        InvitationStatus.Failed => "\uEA39",
+        InvitationStatus.Cancelled or InvitationStatus.Stopped => "\uE711",
+        InvitationStatus.Importing or InvitationStatus.Receiving or InvitationStatus.Unknown => "\uE895",
+        _ => throw new ArgumentOutOfRangeException(nameof(LifecycleStatus)),
+    };
+    public StatusTone StatusTone => LifecycleStatus switch
+    {
+        InvitationStatus.Sharing => StatusTone.Accent,
+        InvitationStatus.Done => StatusTone.Success,
+        InvitationStatus.Failed => StatusTone.Critical,
+        InvitationStatus.Cancelled or InvitationStatus.Stopped => StatusTone.Neutral,
+        InvitationStatus.Importing or InvitationStatus.Receiving or InvitationStatus.Unknown => StatusTone.Warning,
+        _ => throw new ArgumentOutOfRangeException(nameof(LifecycleStatus)),
     };
     public string Date => DateTimeOffset.FromUnixTimeMilliseconds(Transfer.createdAt).ToLocalTime().ToString("g");
     public string AutomationName => Name + ", " + Summary + ", " + Status;
@@ -49,10 +65,15 @@ public sealed class TransferItem : ObservableModel
     public int ReceiverCount { get; private set; }
     public Visibility ActivityCountVisibility => ActivityCount > 0 ? Visibility.Visible : Visibility.Collapsed;
     public Visibility ReceiverCountVisibility => ReceiverCount > 0 ? Visibility.Visible : Visibility.Collapsed;
-    public TransferItem(StoredTransfer transfer) => Transfer = transfer;
+    public TransferItem(StoredTransfer transfer)
+    {
+        Transfer = transfer;
+        LifecycleStatus = InvitationStatusCodec.Parse(transfer.status);
+    }
     public void Update(StoredTransfer transfer, IReadOnlyList<CoreEvent> events, IReadOnlyList<ReceiverRequest> requests)
     {
         Transfer = transfer;
+        LifecycleStatus = InvitationStatusCodec.Parse(transfer.status);
         var receivers = requests.Where(r => r.transferId == transfer.transferId).ToArray();
         var pending = receivers.Count(r => r.status is "requested" or "accepted");
         var completed = receivers.Count(r => r.status == "completed");

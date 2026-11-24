@@ -74,13 +74,24 @@ public sealed class TransferDetailsPageActions(TransferItem item)
             var block = new StackPanel { Spacing = 5, Padding = new(0, 9, 0, 9) };
             block.Children.Add(new TextBlock { Text = name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
             if (receiver.receiverDeviceName is { } device && device != name) block.Children.Add(Text(device, true));
-            var progress = receiver.status is "requested" or "accepted" ? TransferPresentation.ReceiverProgress(events, item.Transfer.transferId, receiver.remoteEndpointId, item.Transfer.totalSize) : null;
+            var status = InvitationStatusCodec.ParseReceiver(receiver.status);
+            var progress = status is ReceiverStatus.Requested or ReceiverStatus.Accepted ? TransferPresentation.ReceiverProgress(events, item.Transfer.transferId, receiver.remoteEndpointId, item.Transfer.totalSize) : null;
             if (progress is not null)
             {
                 block.Children.Add(new ProgressBar { IsIndeterminate = progress.Fraction is null, Value = (progress.Fraction ?? 0) * 100 });
                 block.Children.Add(Text(Strings.Get(progress.LabelKey) + (progress.Fraction is { } p ? " · " + p.ToString("P0") : ""), true));
             }
-            else block.Children.Add(Text(Strings.Get(receiver.status switch { "requested" => "transfer_receiver_requested", "accepted" => "transfer_receiver_accepted", "completed" => "transfer_receiver_completed", "refused" => "transfer_receiver_refused", "expired" => "transfer_receiver_expired", "failed" => "transfer_receiver_failed", _ => "transfer_receiver_unknown" }), true));
+            else block.Children.Add(Text(Strings.Get(status switch
+            {
+                ReceiverStatus.Requested => "transfer_receiver_requested",
+                ReceiverStatus.Accepted => "transfer_receiver_accepted",
+                ReceiverStatus.Completed => "transfer_receiver_completed",
+                ReceiverStatus.Refused => "transfer_receiver_refused",
+                ReceiverStatus.Expired => "transfer_receiver_expired",
+                ReceiverStatus.Failed => "transfer_receiver_failed",
+                ReceiverStatus.Unknown => "transfer_receiver_unknown",
+                _ => throw new ArgumentOutOfRangeException(nameof(status)),
+            }), true));
             if (!string.IsNullOrWhiteSpace(receiver.reason)) block.Children.Add(Text(receiver.reason!, true));
             panel.Children.Add(block);
         }

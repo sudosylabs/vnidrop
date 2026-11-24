@@ -237,11 +237,22 @@ impl CoreInner {
                 };
                 let _ = message.tx.send(decision).await;
             }
-            other => {
-                self.emit_endpoint(
-                    "provider",
-                    "provider-message",
-                    json!({ "debug": format!("{other:?}") }),
+            ProviderMessage::PushRequestReceived(message) => {
+                let _ = message
+                    .tx
+                    .send(Err(iroh_blobs::provider::events::AbortReason::Permission))
+                    .await;
+                self.emit_denied_request(
+                    message.inner.connection_id,
+                    message.inner.request_id,
+                    "push-not-supported",
+                );
+            }
+            ProviderMessage::PushRequestReceivedNotify(message) => {
+                self.emit_denied_request(
+                    message.inner.connection_id,
+                    message.inner.request_id,
+                    "push-not-supported",
                 );
             }
         }

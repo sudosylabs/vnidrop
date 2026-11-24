@@ -3,6 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use adw::prelude::*;
 use gtk::glib;
 use vnidrop::ReceiverRequest;
+use vnidrop_gnome::presentation::ReceiverStatus;
 
 use super::{dialogs::scrollable_content, i18n::text, App};
 
@@ -14,21 +15,25 @@ pub(super) struct ReceiverHistory {
 
 pub(super) fn is_finished(status: &str) -> bool {
     matches!(
-        status,
-        "completed" | "refused" | "expired" | "failed" | "cancelled" | "aborted"
+        ReceiverStatus::from(status),
+        ReceiverStatus::Completed
+            | ReceiverStatus::Refused
+            | ReceiverStatus::Expired
+            | ReceiverStatus::Failed
+            | ReceiverStatus::Cancelled
     )
 }
 
 pub(super) fn status_key(status: &str) -> &'static str {
-    match status {
-        "requested" => "transfer_receiver_requested",
-        "accepted" => "transfer_receiver_accepted",
-        "completed" => "transfer_receiver_completed",
-        "refused" => "transfer_receiver_refused",
-        "expired" => "transfer_receiver_expired",
-        "failed" => "transfer_receiver_failed",
-        "cancelled" | "aborted" => "status_cancelled",
-        _ => "transfer_receiver_unknown",
+    match ReceiverStatus::from(status) {
+        ReceiverStatus::Requested => "transfer_receiver_requested",
+        ReceiverStatus::Accepted => "transfer_receiver_accepted",
+        ReceiverStatus::Completed => "transfer_receiver_completed",
+        ReceiverStatus::Refused => "transfer_receiver_refused",
+        ReceiverStatus::Expired => "transfer_receiver_expired",
+        ReceiverStatus::Failed => "transfer_receiver_failed",
+        ReceiverStatus::Cancelled => "status_cancelled",
+        ReceiverStatus::Unknown => "transfer_receiver_unknown",
     }
 }
 

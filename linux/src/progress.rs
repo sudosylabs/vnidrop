@@ -18,7 +18,11 @@ impl Progress {
 }
 
 pub fn for_transfer(events: &[CoreEvent], transfer: &StoredTransfer) -> Option<Progress> {
-    if !matches!(transfer.status.as_str(), "importing" | "receiving") {
+    use crate::presentation::InvitationStatus;
+    if !matches!(
+        InvitationStatus::from(transfer.status.as_str()),
+        InvitationStatus::Importing | InvitationStatus::Receiving
+    ) {
         return None;
     }
     let latest = events.iter().find(|event| {

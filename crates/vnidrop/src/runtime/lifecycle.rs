@@ -36,6 +36,7 @@ impl CoreInner {
             targeted_preparations: self.active_targeted_preparations.load(Ordering::SeqCst),
             active_targeted_transfers,
             targeted_provider_availability,
+            active_outgoing_requests: self.provider_requests.lock().await.len() as u64,
         })
     }
 

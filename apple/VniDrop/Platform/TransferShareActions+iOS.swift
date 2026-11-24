@@ -17,18 +17,13 @@ final class IosTransferShareActions: NSObject, TransferShareActions {
 
 	func exportInvitation(ticket: String, transferName: String, onResult: @escaping (Result<Void, Error>) -> Void) {
 		do {
-			let directory = try AppTemporaryDirectory.prepare()
-				.appendingPathComponent("export-\(UUID().uuidString)", isDirectory: true)
-			try FileManager.default.createDirectory(
-				at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700]
-			)
+			let file = try TemporaryInvitation(ticket: ticket, transferName: transferName)
+			let picker = InvitationExportPicker(file: file, onResult: onResult)
 			do {
-				let url = try writeTemporaryInvitation(ticket: ticket, transferName: transferName, directory: directory)
-				let picker = InvitationExportPicker(file: url, onResult: onResult)
 				try present(picker)
 				picker.presentationController?.delegate = picker
 			} catch {
-				try? FileManager.default.removeItem(at: directory)
+				file.remove()
 				throw error
 			}
 		} catch {
@@ -37,12 +32,25 @@ final class IosTransferShareActions: NSObject, TransferShareActions {
 	}
 
 	func shareInvitation(ticket: String, transferName: String, onResult: @escaping (Result<Void, Error>) -> Void) {
-		onResult(Result {
-			let url = try writeTemporaryInvitation(ticket: ticket, transferName: transferName)
-			let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+		do {
+			let file = try TemporaryInvitation(ticket: ticket, transferName: transferName)
+			let controller = UIActivityViewController(activityItems: [file.url], applicationActivities: nil)
 			controller.modalPresentationStyle = .formSheet
-			try present(controller)
-		})
+			controller.completionWithItemsHandler = { _, completed, _, error in
+				file.remove()
+				if let error { onResult(.failure(error)) }
+				else if completed { onResult(.success(())) }
+				else { onResult(.failure(InvitationError.cancelled)) }
+			}
+			do {
+				try present(controller)
+			} catch {
+				file.remove()
+				throw error
+			}
+		} catch {
+			onResult(.failure(error))
+		}
 	}
 
 	@MainActor
@@ -57,13 +65,13 @@ final class IosTransferShareActions: NSObject, TransferShareActions {
 // UIKit retains the presented controller while its delegates are weak.
 private final class InvitationExportPicker: UIDocumentPickerViewController,
 	UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate {
-	private let file: URL
+	private let file: TemporaryInvitation
 	private var onResult: ((Result<Void, Error>) -> Void)?
 
-	init(file: URL, onResult: @escaping (Result<Void, Error>) -> Void) {
+	init(file: TemporaryInvitation, onResult: @escaping (Result<Void, Error>) -> Void) {
 		self.file = file
 		self.onResult = onResult
-		super.init(forExporting: [file], asCopy: true)
+		super.init(forExporting: [file.url], asCopy: true)
 		modalPresentationStyle = .formSheet
 		delegate = self
 	}
@@ -85,7 +93,7 @@ private final class InvitationExportPicker: UIDocumentPickerViewController,
 	private func finish(_ result: Result<Void, Error>) {
 		guard let onResult else { return }
 		self.onResult = nil
-		try? FileManager.default.removeItem(at: file.deletingLastPathComponent())
+		file.remove()
 		onResult(result)
 	}
 }

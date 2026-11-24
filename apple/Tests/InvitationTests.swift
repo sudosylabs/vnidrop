@@ -109,7 +109,65 @@ final class InvitationTests: XCTestCase {
 		XCTAssertTrue(invitationFileName("a/b:c*d").hasSuffix(".vnd"))
 	}
 
+	func testTemporaryInvitationsWithTheSameNameKeepIndependentLifetimes() throws {
+		let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+		defer { try? FileManager.default.removeItem(at: root) }
+
+		let first = try TemporaryInvitation(ticket: "first", transferName: "Backup", under: root)
+		let second = try TemporaryInvitation(ticket: "second", transferName: "Backup", under: root)
+		XCTAssertNotEqual(first.url, second.url)
+		XCTAssertEqual(first.url.lastPathComponent, second.url.lastPathComponent)
+		XCTAssertEqual(try String(contentsOf: first.url, encoding: .utf8), "first")
+		XCTAssertEqual(try String(contentsOf: second.url, encoding: .utf8), "second")
+		first.remove()
+		first.remove()
+		XCTAssertFalse(FileManager.default.fileExists(atPath: first.url.path))
+		XCTAssertTrue(FileManager.default.fileExists(atPath: second.url.path))
+	}
+
+	func testInvitationSweepRemovesOnlyOldManagedFiles() throws {
+		let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+		defer { try? FileManager.default.removeItem(at: root) }
+
+		let stale = try TemporaryInvitation(ticket: "stale", transferName: "Backup", under: root)
+		let current = try TemporaryInvitation(ticket: "current", transferName: "Backup", under: root)
+		let unrelated = root.appendingPathComponent("export-unrelated", isDirectory: true)
+		let cutoff = Date.now.addingTimeInterval(-60)
+		try FileManager.default.createDirectory(at: unrelated, withIntermediateDirectories: false)
+		for directory in [stale.url.deletingLastPathComponent(), unrelated] {
+			try FileManager.default.setAttributes([.modificationDate: cutoff.addingTimeInterval(-60)], ofItemAtPath: directory.path)
+		}
+
+		TemporaryInvitation.pruneStaleFiles(under: root, before: cutoff)
+		XCTAssertFalse(FileManager.default.fileExists(atPath: stale.url.path))
+		XCTAssertTrue(FileManager.default.fileExists(atPath: current.url.path))
+		XCTAssertTrue(FileManager.default.fileExists(atPath: unrelated.path))
+	}
+
 	#if os(iOS)
+	func testNativeShareRemovesItsStagedTicketWhenDismissed() throws {
+		let directory = try AppTemporaryDirectory.prepare()
+		func stagedNames() throws -> Set<String> {
+			Set(try FileManager.default.contentsOfDirectory(atPath: directory.path))
+		}
+		let initial = try stagedNames()
+		var presented: UIViewController?
+		var outcome: Result<Void, Error>?
+		let actions = IosTransferShareActions(present: { presented = $0 })
+		actions.shareInvitation(ticket: "staged-ticket", transferName: "Share Test") { outcome = $0 }
+
+		let controller = try XCTUnwrap(presented as? UIActivityViewController)
+		XCTAssertNil(outcome)
+		XCTAssertEqual(try stagedNames().subtracting(initial).count, 1)
+		controller.completionWithItemsHandler?(nil, false, nil, nil)
+		XCTAssertEqual(try stagedNames(), initial)
+		XCTAssertThrowsError(try XCTUnwrap(outcome).get()) { error in
+			XCTAssertTrue(error.isUserCancellation)
+		}
+	}
+
 	func testInvitationExportCompletesOnlyAfterDocumentPickerOutcome() throws {
 		var presented: UIViewController?
 		let actions = IosTransferShareActions(present: { presented = $0 })

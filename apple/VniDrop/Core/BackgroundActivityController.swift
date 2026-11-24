@@ -8,6 +8,11 @@ enum BackgroundActivityPolicy {
 	static func requiresAssertion(_ facts: RuntimeObligationFactsModel) -> Bool {
 		facts.requiresRuntime
 	}
+
+	static func requiresForegroundIdleHold(_ facts: RuntimeObligationFactsModel) -> Bool {
+		facts.activeInvitationTransfers > 0 || facts.targetedPreparations > 0
+			|| facts.activeTargetedTransfers > 0 || facts.activeOutgoingRequests > 0
+	}
 }
 
 /// Maps neutral core runtime obligations to Apple's finite background grace window.
@@ -25,6 +30,40 @@ final class BackgroundActivityController {
 	private var signalCancellable: AnyCancellable?
 	private var factsTask: Task<Void, Never>?
 	private var isBackgrounded = false
+	private var foregroundSignals: AnyCancellable?
+	private var foregroundRefresh: Task<Void, Never>?
+	private var holdsIdleTimer = false
+
+	func updateForegroundIdleTimer(active: Bool) {
+		if active {
+			foregroundSignals = repository.signals.sink { [weak self] signal in
+				guard Self.affectsRuntimeObligations(signal) else { return }
+				self?.refreshIdleTimer()
+			}
+			refreshIdleTimer()
+		} else {
+			foregroundSignals = nil
+			foregroundRefresh?.cancel()
+			foregroundRefresh = nil
+			setIdleHold(false)
+		}
+	}
+
+	private func refreshIdleTimer() {
+		foregroundRefresh?.cancel()
+		foregroundRefresh = Task { [weak self] in
+			guard let self else { return }
+			let result = await repository.runtimeObligationFacts()
+			guard !Task.isCancelled, foregroundSignals != nil else { return }
+			setIdleHold((try? result.map(BackgroundActivityPolicy.requiresForegroundIdleHold).get()) ?? false)
+		}
+	}
+
+	private func setIdleHold(_ hold: Bool) {
+		guard holdsIdleTimer != hold else { return }
+		holdsIdleTimer = hold
+		UIApplication.shared.isIdleTimerDisabled = hold
+	}
 
 	func didEnterBackground() {
 		guard !isBackgrounded else { return }

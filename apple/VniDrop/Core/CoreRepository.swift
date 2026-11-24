@@ -855,7 +855,8 @@ private extension RuntimeObligationFacts {
 			invitationProviderAvailability: invitationProviderAvailability,
 			targetedPreparations: targetedPreparations,
 			activeTargetedTransfers: activeTargetedTransfers,
-			targetedProviderAvailability: targetedProviderAvailability
+			targetedProviderAvailability: targetedProviderAvailability,
+			activeOutgoingRequests: activeOutgoingRequests
 		)
 	}
 }

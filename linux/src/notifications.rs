@@ -232,6 +232,7 @@ mod tests {
                 targeted_preparations: 0,
                 active_targeted_transfers: 0,
                 targeted_provider_availability: 0,
+                active_outgoing_requests: 0,
             },
         }
     }

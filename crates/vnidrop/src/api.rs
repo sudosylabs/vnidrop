@@ -546,6 +546,8 @@ pub struct RuntimeObligationFacts {
     pub targeted_preparations: u64,
     pub active_targeted_transfers: u64,
     pub targeted_provider_availability: u64,
+    #[serde(default)]
+    pub active_outgoing_requests: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]

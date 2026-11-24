@@ -89,7 +89,8 @@ private final class BlockingReceiveCore: VnidropCore, @unchecked Sendable {
 	override func runtimeObligationFacts() throws -> RuntimeObligationFacts {
 		RuntimeObligationFacts(
 			activeInvitationTransfers: 1, invitationProviderAvailability: 0,
-			targetedPreparations: 0, activeTargetedTransfers: 0, targetedProviderAvailability: 0
+			targetedPreparations: 0, activeTargetedTransfers: 0, targetedProviderAvailability: 0,
+			activeOutgoingRequests: 0
 		)
 	}
 

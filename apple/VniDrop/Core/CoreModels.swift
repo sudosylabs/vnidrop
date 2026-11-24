@@ -16,6 +16,7 @@ struct RuntimeObligationFactsModel: Equatable, Sendable {
 	let targetedPreparations: UInt64
 	let activeTargetedTransfers: UInt64
 	let targetedProviderAvailability: UInt64
+	var activeOutgoingRequests: UInt64 = 0
 
 	var requiresRuntime: Bool {
 		activeInvitationTransfers > 0

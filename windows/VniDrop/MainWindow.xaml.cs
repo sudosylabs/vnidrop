@@ -267,6 +267,7 @@ public sealed partial class MainWindow : Window
                             ("transferName", request.transferName)),
                         Strings.Get("button_approve"),
                         Strings.Get("button_refuse"),
+                        intent: DialogIntent.Consent,
                         priority: DialogPriority.Attention,
                         canShow: () => Model.Snapshot?.Requests.Any(candidate =>
                             candidate.id == request.id && candidate.status == "requested") == true);
@@ -299,6 +300,7 @@ public sealed partial class MainWindow : Window
                             Strings.Format("saved_devices_transfer_files", ("count", offer.fileCount), ("size", Strings.Size(offer.totalSize)))),
                         Strings.Get("button_receive"),
                         Strings.Get("button_refuse"),
+                        intent: DialogIntent.Consent,
                         priority: DialogPriority.Attention,
                         canShow: () => Model.Snapshot?.Offers.Any(candidate =>
                             candidate.transferId == offer.transferId) == true);
@@ -337,6 +339,7 @@ public sealed partial class MainWindow : Window
                         Strings.Format("pairing_request_body", ("device", deviceName)),
                         Strings.Get("pairing_accept"),
                         Strings.Get("pairing_decline"),
+                        intent: DialogIntent.Consent,
                         priority: DialogPriority.Attention,
                         canShow: () => PairingStillPending(Model.Snapshot, pairing))
                     : await DialogAsync(
@@ -344,6 +347,7 @@ public sealed partial class MainWindow : Window
                         PromptContent(deviceName, Strings.Get("pairing_allow_body"), emphasizePrimary: true),
                         Strings.Get("pairing_allow_confirm"),
                         Strings.Get("pairing_decline"),
+                        intent: DialogIntent.Consent,
                         priority: DialogPriority.Attention,
                         canShow: () => PairingStillPending(Model.Snapshot, pairing));
                 if (!Model.Ready || closing || pairingResult == ContentDialogResult.None)

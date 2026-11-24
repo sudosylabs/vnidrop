@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using VniDrop.Core;
 using VniDrop.Native;
 using VniDrop.Platform;
 using VniDrop.Services;

@@ -7,13 +7,6 @@ using VniDrop.Platform;
 
 namespace VniDrop.Services;
 
-public enum DialogIntent
-{
-    Standard,
-    Destructive,
-    Information,
-}
-
 public interface IAttentionYieldingDialog
 {
     void RequestYieldForAttention();
@@ -53,6 +46,7 @@ public sealed class DialogService(FrameworkElement owner)
         DialogPriority priority = DialogPriority.Standard,
         Func<bool>? canShow = null)
     {
+        var requiresExplicitPrimaryAction = DialogIntentPolicy.RequiresExplicitPrimaryAction(intent);
         var dialog = new ContentDialog
         {
             Title = title,
@@ -68,7 +62,7 @@ public sealed class DialogService(FrameworkElement owner)
             SecondaryButtonText = secondary ?? "",
             CloseButtonText = Strings.Get("button_cancel"),
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            DefaultButton = intent == DialogIntent.Destructive
+            DefaultButton = requiresExplicitPrimaryAction
                 ? ContentDialogButton.None
                 : ContentDialogButton.Primary,
             PrimaryButtonStyle = Style(intent == DialogIntent.Destructive
@@ -78,7 +72,7 @@ public sealed class DialogService(FrameworkElement owner)
             CloseButtonStyle = Style("VniDropDialogButtonStyle"),
         };
 
-        if (intent == DialogIntent.Destructive)
+        if (requiresExplicitPrimaryAction)
             dialog.Opened += (_, _) => FocusButton(dialog, dialog.CloseButtonText);
 
         return ShowAsync(dialog, priority, canShow);

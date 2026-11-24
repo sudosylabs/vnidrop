@@ -40,12 +40,24 @@ impl App {
         });
     }
 
-    fn reconfigure(self: &Rc<Self>, next: Preferences, maintenance: Maintenance) {
+    fn reconfigure(
+        self: &Rc<Self>,
+        next: Preferences,
+        maintenance: Maintenance,
+        relay_dialog: Option<adw::PreferencesDialog>,
+    ) {
+        let notify_failure = |key| {
+            if let Some(dialog) = &relay_dialog {
+                dialog.add_toast(adw::Toast::new(&text(key)));
+            } else {
+                self.error(key);
+            }
+        };
         if self.reconfiguring.get()
             || self.saving_preferences.get()
             || self.busy.get() > usize::from(self.refreshing.get()) + self.settings_reads.get()
         {
-            self.error("relay_apply_active_transfers");
+            notify_failure("relay_apply_active_transfers");
             return;
         }
         if self
@@ -54,8 +66,16 @@ impl App {
             .as_ref()
             .is_some_and(|s| s.has_obligations())
         {
-            self.error("relay_apply_active_transfers");
+            notify_failure("relay_apply_active_transfers");
             return;
+        }
+        if self.session.borrow().is_none() {
+            notify_failure("error_starting_up");
+            return;
+        }
+        if let Some(dialog) = &relay_dialog {
+            dialog.set_can_close(false);
+            dialog.set_sensitive(false);
         }
         self.reconfiguring.set(true);
         self.set_ready(false);
@@ -80,6 +100,7 @@ impl App {
                 glib::timeout_future(Duration::from_millis(20)).await;
             }
             let session = app.session.borrow_mut().take();
+            let mut failure = Some("error_starting_up");
             if let Some(session) = session {
                 let (profile, previous) = (app.profile.clone(), app.preferences.borrow().clone());
                 let result = gio::spawn_blocking(move || {
@@ -95,6 +116,7 @@ impl App {
                 app.reconfiguring.set(false);
                 match result {
                     Ok(result) => {
+                        failure = result.error;
                         app.preferences.replace(result.preferences);
                         if let Some(session) = result.session {
                             app.attach_session(session);
@@ -102,23 +124,31 @@ impl App {
                             app.snapshot.borrow_mut().take();
                             app.startup_error("relay_restore_failed");
                         }
-                        app.error(
-                            result
-                                .error
-                                .unwrap_or(if maintenance == Maintenance::Cache {
-                                    "storage_transfer_cache_cleared"
-                                } else if maintenance == Maintenance::Temporary {
-                                    "linux_storage_cleaned"
-                                } else {
-                                    "relay_settings_applied"
-                                }),
-                        );
                     }
-                    Err(_) => app.startup_error("relay_restore_failed"),
+                    Err(_) => {
+                        failure = Some("relay_restore_failed");
+                        app.startup_error("relay_restore_failed");
+                    }
                 }
             }
             app.reconfiguring.set(false);
             app.window.set_sensitive(true);
+            if let Some(dialog) = &relay_dialog {
+                dialog.set_sensitive(true);
+                dialog.set_can_close(true);
+                if let Some(key) = failure {
+                    dialog.add_toast(adw::Toast::new(&text(key)));
+                } else {
+                    dialog.close();
+                }
+            }
+            if failure.is_none() || relay_dialog.is_none() {
+                app.error(failure.unwrap_or(match maintenance {
+                    Maintenance::Cache => "storage_transfer_cache_cleared",
+                    Maintenance::Temporary => "linux_storage_cleaned",
+                    Maintenance::None => "relay_settings_applied",
+                }));
+            }
             app.pump_invitations();
             drop(hold);
         });
@@ -364,10 +394,9 @@ impl App {
             ) {
                 Ok(config) => {
                     next.network = config;
-                    close.close();
-                    app.reconfigure(next, Maintenance::None);
+                    app.reconfigure(next, Maintenance::None, Some(close.clone()));
                 }
-                Err(key) => app.error(key),
+                Err(key) => close.add_toast(adw::Toast::new(&text(key))),
             }
         });
         page.add(&network);
@@ -406,7 +435,7 @@ impl App {
                 .await
                 {
                     let next = app.preferences.borrow().clone();
-                    app.reconfigure(next, Maintenance::Cache);
+                    app.reconfigure(next, Maintenance::Cache, None);
                 }
             });
         });
@@ -429,7 +458,7 @@ impl App {
                 .await
                 {
                     let next = app.preferences.borrow().clone();
-                    app.reconfigure(next, Maintenance::Temporary);
+                    app.reconfigure(next, Maintenance::Temporary, None);
                 }
             });
         });

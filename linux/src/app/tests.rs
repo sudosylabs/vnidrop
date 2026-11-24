@@ -220,6 +220,39 @@ fn queued_preference_changes_preserve_each_others_fields() {
 }
 
 #[gtk::test]
+fn blocked_relay_apply_keeps_the_preferences_draft_open() {
+    adw::init().unwrap();
+    gtk::Settings::default()
+        .unwrap()
+        .set_gtk_enable_animations(false);
+    let application = adw::Application::builder()
+        .application_id("com.vnidrop.VniDrop.RelayApplyTest")
+        .flags(gio::ApplicationFlags::NON_UNIQUE)
+        .build();
+    application.register(None::<&gio::Cancellable>).unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let app = App::new(&application, root.path().join("profile"));
+    app.window.present();
+    app.busy.set(1);
+    app.show_preferences();
+    let dialog = app.window.visible_dialog().unwrap();
+    let mode =
+        settings_ui_tests::combo(dialog.upcast_ref(), &text("linux_network_policy")).unwrap();
+    mode.set_selected(1);
+
+    activate_button(&dialog, "relay_apply");
+    assert_eq!(app.window.visible_dialog(), Some(dialog.clone()));
+    assert_eq!(mode.selected(), 1);
+    assert!(!app.reconfiguring.get());
+    assert_eq!(
+        app.preferences.borrow().network.mode,
+        vnidrop::CoreRelayMode::Automatic
+    );
+    dialog.force_close();
+    app.window.destroy();
+}
+
+#[gtk::test]
 fn native_draft_approval_receive_and_shutdown() {
     adw::init().expect("GTK display (use xvfb-run for headless testing)");
     widget_tests::readiness_and_clipboard();

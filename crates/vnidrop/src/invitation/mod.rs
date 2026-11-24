@@ -1005,7 +1005,7 @@ impl Repository {
         remote_endpoint_id: &str,
         token_hash: &str,
         reason: &str,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let result = sqlx::query(
             r#"
             UPDATE receiver_requests
@@ -1022,7 +1022,7 @@ impl Repository {
         .execute(&self.pool)
         .await?;
         if result.rows_affected() == 1 {
-            return Ok(());
+            return Ok(true);
         }
         let already_recorded = sqlx::query(
             r#"
@@ -1042,7 +1042,7 @@ impl Repository {
         .get::<i64, _>(0)
             != 0;
         if already_recorded {
-            Ok(())
+            Ok(false)
         } else {
             anyhow::bail!("delivery failure did not match an accepted receiver request")
         }

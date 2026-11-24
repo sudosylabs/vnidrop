@@ -1,15 +1,25 @@
 //! Control-plane hardening: offer bounds, cooldowns, saved-device cap, redaction.
 
-use std::sync::{Arc, Mutex};
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use crate::{
+    access_policy::AccessPolicy,
     api::{CoreEvent, CoreEventSink, CoreLimits, PendingTargetedOffer},
+    approval::ApprovalService,
     control_plane::IdentityCooldown,
     event_hub::EventHub,
-    invitation::Repository,
+    handshake::{
+        DeliveryFailureReceipt, DeliveryReceiptResponse, HandshakeResponse, RequestTransfer,
+    },
+    invitation::{ReceiverRequestInsert, Repository},
+    persistence::{self, AppDataStores},
     secure_secret::FaultInjectingSecretStore,
     targeted_transfer::inbox::{TargetedOfferDecision, TargetedOfferInbox},
     targeted_transfer::{TargetedAuthorization, TargetedAuthorizationDraft},
+    transfer_state::ReceiverRequestStatus,
     CoreNetworkConfig, DeviceRelationshipState, ShareMetadataInput, ShareSource, SourceKind,
     TransferAccessMode, VnidropCore, VnidropError,
 };
@@ -93,6 +103,140 @@ impl RecordingSink {
     fn kinds(&self) -> Vec<String> {
         self.events().into_iter().map(|event| event.kind).collect()
     }
+}
+
+async fn approval_service_for_test(
+    path: &Path,
+) -> (
+    ApprovalService,
+    AppDataStores,
+    Arc<EventHub>,
+    Arc<RecordingSink>,
+) {
+    let stores = persistence::open_all(path).await.unwrap();
+    let sink = Arc::new(RecordingSink {
+        events: Mutex::new(Vec::new()),
+    });
+    let hub = Arc::new(EventHub::start(
+        stores.invitation.clone(),
+        sink.clone(),
+        64,
+        100,
+    ));
+    let approval = ApprovalService::new(
+        stores.invitation.clone(),
+        stores.blocked.clone(),
+        hub.clone(),
+        AccessPolicy::new([]),
+        5,
+        7,
+        None,
+    );
+    (approval, stores, hub, sink)
+}
+
+#[tokio::test]
+async fn approval_events_ignore_unverified_transfer_requests() {
+    let temp = tempfile::tempdir().unwrap();
+    let (approval, stores, hub, sink) = approval_service_for_test(temp.path()).await;
+    stores.blocked.block_endpoint("blocked", 1).await.unwrap();
+    let request = RequestTransfer {
+        transfer_id: 42,
+        transfer_hash: "missing".to_owned(),
+        transfer_name: "demo".to_owned(),
+        receiver_name: None,
+        receiver_device_name: None,
+        app_version: "0.1.0".to_owned(),
+    };
+
+    assert_eq!(
+        approval
+            .request_transfer("unrecognized".into(), request.clone())
+            .await,
+        HandshakeResponse::Denied {
+            reason: "unknown-transfer".into()
+        }
+    );
+    assert_eq!(
+        approval
+            .request_transfer("blocked".into(), request.clone())
+            .await,
+        HandshakeResponse::Denied {
+            reason: "not-accepted".into()
+        }
+    );
+    assert_eq!(
+        approval
+            .request_transfer(
+                "unrecognized".into(),
+                RequestTransfer {
+                    transfer_name: "oversized".to_owned(),
+                    ..request
+                }
+            )
+            .await,
+        HandshakeResponse::Denied {
+            reason: "metadata-too-large".into()
+        }
+    );
+    hub.flush().await;
+    assert!(sink.events().is_empty());
+    assert!(stores
+        .invitation
+        .list_events(None, 100)
+        .await
+        .unwrap()
+        .is_empty());
+    hub.shutdown().await;
+}
+
+#[tokio::test]
+async fn approval_events_bound_delivery_failure_reasons_and_ignore_retries() {
+    let temp = tempfile::tempdir().unwrap();
+    let (approval, stores, hub, sink) = approval_service_for_test(temp.path()).await;
+    stores
+        .invitation
+        .insert_receiver_request(ReceiverRequestInsert {
+            id: "request",
+            transfer_id: 42,
+            remote_endpoint_id: "receiver",
+            transfer_name: "demo",
+            receiver_name: None,
+            receiver_device_name: None,
+            app_version: "0.1.0",
+        })
+        .await
+        .unwrap();
+    stores
+        .invitation
+        .update_receiver_request_status("request", ReceiverRequestStatus::Accepted, None)
+        .await
+        .unwrap();
+    stores
+        .invitation
+        .set_receiver_receipt_token("request", &blake3::hash(b"test-token").to_hex())
+        .await
+        .unwrap();
+    let receipt = DeliveryFailureReceipt {
+        request_id: "request".to_owned(),
+        transfer_id: 42,
+        token: "test-token".to_owned(),
+        reason: "éabcdé-over-budget".to_owned(),
+    };
+
+    for _ in 0..2 {
+        assert_eq!(
+            approval
+                .fail_delivery("receiver".to_owned(), receipt.clone())
+                .await,
+            DeliveryReceiptResponse::Recorded
+        );
+    }
+    let requests = stores.invitation.list_receiver_requests(42).await.unwrap();
+    assert_eq!(requests[0].status, "failed");
+    assert_eq!(requests[0].reason.as_deref(), Some("éabcd"));
+    assert_eq!(sink.kinds(), ["receiver-failed"]);
+    hub.shutdown().await;
 }
 
 fn sample_offer(transfer_id: &str, sender: &str) -> PendingTargetedOffer {

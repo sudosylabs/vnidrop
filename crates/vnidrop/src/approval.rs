@@ -102,6 +102,8 @@ impl ApprovalService {
         receipt: DeliveryFailureReceipt,
     ) -> DeliveryReceiptResponse {
         let token_hash = receipt_token_hash(&receipt.token);
+        let max_reason_bytes = usize::try_from(self.max_metadata_bytes).unwrap_or(usize::MAX);
+        let reason = &receipt.reason[..receipt.reason.floor_char_boundary(max_reason_bytes)];
         match self
             .repository
             .fail_receiver_delivery(
@@ -109,11 +111,12 @@ impl ApprovalService {
                 receipt.transfer_id,
                 &remote_endpoint_id,
                 &token_hash,
-                &receipt.reason,
+                reason,
             )
             .await
         {
-            Ok(()) => {
+            Ok(false) => DeliveryReceiptResponse::Recorded,
+            Ok(true) => {
                 self.event_hub.emit_transfer(
                     receipt.transfer_id,
                     "send",
@@ -122,7 +125,7 @@ impl ApprovalService {
                     json!({
                         "request_id": receipt.request_id,
                         "remote_endpoint_id": remote_endpoint_id,
-                        "reason": receipt.reason,
+                        "reason": reason,
                     }),
                 );
                 DeliveryReceiptResponse::Recorded
@@ -196,9 +199,9 @@ impl ApprovalService {
             .unwrap_or(true)
         {
             // Indistinguishable from other refusals so probing cannot detect blocks.
-            return self
-                .deny(request.transfer_id, remote_endpoint_id, "not-accepted")
-                .await;
+            return HandshakeResponse::Denied {
+                reason: "not-accepted".to_owned(),
+            };
         }
         let metadata_values = [
             request.transfer_hash.as_str(),
@@ -211,14 +214,29 @@ impl ApprovalService {
             .iter()
             .any(|value| value.len() as u64 > self.max_metadata_bytes)
         {
-            return self
-                .deny(
-                    request.transfer_id,
-                    remote_endpoint_id,
-                    "metadata-too-large",
-                )
-                .await;
+            return HandshakeResponse::Denied {
+                reason: "metadata-too-large".to_owned(),
+            };
         }
+        match self
+            .repository
+            .send_exists(request.transfer_id, &request.transfer_hash)
+            .await
+        {
+            Ok(true) => {}
+            Ok(false) => {
+                return HandshakeResponse::Denied {
+                    reason: "unknown-transfer".to_owned(),
+                };
+            }
+            Err(error) => {
+                tracing::error!(%error, "failed to validate handshake transfer request");
+                return HandshakeResponse::Denied {
+                    reason: "repository-error".to_owned(),
+                };
+            }
+        }
+
         self.event_hub.emit_transfer(
             request.transfer_id,
             "send",
@@ -230,38 +248,18 @@ impl ApprovalService {
             }),
         );
 
-        match self
-            .repository
-            .send_exists(request.transfer_id, &request.transfer_hash)
+        // Public and already-approved shares can skip a second sender decision.
+        if self
+            .access_policy
+            .decide(request.transfer_id, Some(&remote_endpoint_id))
             .await
+            == AccessDecision::Allow
         {
-            Ok(true) => {
-                // An existing access session means this endpoint was already
-                // authorised: either the share is public, or the sender pushed
-                // this transfer to them. Prompting again would ask the sender
-                // to approve a transfer they themselves initiated.
-                if self
-                    .access_policy
-                    .decide(request.transfer_id, Some(&remote_endpoint_id))
-                    .await
-                    == AccessDecision::Allow
-                {
-                    self.allow_without_sender_decision(remote_endpoint_id, request)
-                        .await
-                } else {
-                    self.wait_for_sender_decision(remote_endpoint_id, request)
-                        .await
-                }
-            }
-            Ok(false) => {
-                self.deny(request.transfer_id, remote_endpoint_id, "unknown-transfer")
-                    .await
-            }
-            Err(error) => {
-                tracing::error!(%error, "failed to validate handshake transfer request");
-                self.deny(request.transfer_id, remote_endpoint_id, "repository-error")
-                    .await
-            }
+            self.allow_without_sender_decision(remote_endpoint_id, request)
+                .await
+        } else {
+            self.wait_for_sender_decision(remote_endpoint_id, request)
+                .await
         }
     }
 

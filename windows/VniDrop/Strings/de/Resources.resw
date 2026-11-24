@@ -418,5 +418,10 @@
   <data name="windows_send_empty" xml:space="preserve"><value>Wählen Sie Dateien oder einen Ordner und teilen Sie eine Einladung mit dem empfangenden Gerät. Sie können Dateien auch hierher ziehen.</value></data>
   <data name="windows_share_busy" xml:space="preserve"><value>Schließen Sie die aktuelle Windows-Freigabe ab oder schließen Sie sie, bevor Sie erneut teilen.</value></data>
   <data name="windows_share_description" xml:space="preserve"><value>Teilen Sie über Windows, scannen Sie den QR-Code oder speichern Sie eine Einladungsdatei.</value></data>
+  <data name="windows_size_unit_byte" xml:space="preserve"><value>B</value></data>
+  <data name="windows_size_unit_gigabyte" xml:space="preserve"><value>GB</value></data>
+  <data name="windows_size_unit_kilobyte" xml:space="preserve"><value>KB</value></data>
+  <data name="windows_size_unit_megabyte" xml:space="preserve"><value>MB</value></data>
+  <data name="windows_size_unit_terabyte" xml:space="preserve"><value>TB</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Entsperren</value></data>
 </root>

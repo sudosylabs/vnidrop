@@ -25,6 +25,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.stringResource
+import vnidrop.shared.generated.resources.Res
+import vnidrop.shared.generated.resources.storage_downloads_name
 import uniffi.vnidrop.PublishedOutput
 import uniffi.vnidrop.ReceiveOutputSinkV2
 import uniffi.vnidrop.ReceivedLocatorKind
@@ -39,18 +42,22 @@ import java.util.UUID
 @Composable
 actual fun rememberFileSystemService(): FileSystemService {
 	val context = LocalContext.current.applicationContext
-	val permission = viewModel { LegacyDownloadsPermissionRequest() }
+	val downloadsName = stringResource(Res.string.storage_downloads_name)
+	val permission = viewModel { LegacyDownloadsPermissionRequest(downloadsName) }
 	val launcher = rememberLauncherForActivityResult(
 		ActivityResultContracts.RequestPermission(),
 		permission::complete,
 	)
 	SideEffect {
 		permission.launch = { launcher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) }
+		permission.downloadsName = downloadsName
 	}
-	return remember(context, permission) { AndroidFileSystemService(context, permission::request) }
+	return remember(context, permission) {
+		AndroidFileSystemService(context, permission::request, { permission.downloadsName })
+	}
 }
 
-private class LegacyDownloadsPermissionRequest : ViewModel() {
+private class LegacyDownloadsPermissionRequest(var downloadsName: String) : ViewModel() {
 	var launch: (() -> Unit)? = null
 	private var pending: CompletableDeferred<Boolean>? = null
 
@@ -83,6 +90,7 @@ private class LegacyDownloadsPermissionRequest : ViewModel() {
 private class AndroidFileSystemService(
 	private val context: Context,
 	private val requestLegacyDownloadsPermission: suspend () -> Boolean,
+	private val downloadsName: () -> String,
 ) : FileSystemService {
 	private val receiveFolderGrants = AndroidReceiveFolderGrants(context.contentResolver)
 
@@ -94,14 +102,14 @@ private class AndroidFileSystemService(
 			ReceiveFolder(
 				kind = ReceiveFolderKind.AndroidPublicDownloads,
 				value = AndroidPublicDownloadsToken,
-				displayName = "Downloads",
+				displayName = downloadsName(),
 			)
 		} else {
 			val publicDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
 			ReceiveFolder(
 				kind = ReceiveFolderKind.FileSystemPath,
 				value = publicDownloads.absolutePath,
-				displayName = "Downloads",
+				displayName = downloadsName(),
 			)
 		}
 	}

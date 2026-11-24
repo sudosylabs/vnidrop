@@ -24,6 +24,12 @@ import { renderXcstrings, type XcCatalog, type XcEntry } from "../lib/xcstrings"
 import { targetsOf, type StringEntry, type StringsFile } from "../types";
 import { renderWindowsResources } from "../lib/windows-resources";
 import { renderLinuxResources } from "../lib/linux-resources";
+import {
+  appleInfoPlistStrings,
+  syncApplePrivacyFallbacks,
+  syncLinuxDesktopComments,
+  syncLinuxMimeComments,
+} from "../lib/system-metadata";
 
 function render(entry: StringEntry, text: string, flavor: Flavor): string {
   return fromCanonical(text, entry.args ?? [], flavor);
@@ -95,15 +101,16 @@ function buildAndroid(doc: StringsFile, lang: string): ParsedAndroid {
  * advertises the languages (and shows the per-app language picker in Settings).
  * Replaces an existing array or inserts one right after the root <dict>.
  */
-async function syncInfoPlistLocalizations(langs: string[]) {
+async function syncInfoPlistLocalizations(doc: StringsFile) {
   const plist = await Bun.file(APPLE_INFO_PLIST).text();
-  const items = langs.map((l) => `\t\t<string>${l}</string>`).join("\n");
+  const items = doc.supportedLanguages.map((l) => `\t\t<string>${l}</string>`).join("\n");
   const block = `\t<key>CFBundleLocalizations</key>\n\t<array>\n${items}\n\t</array>\n`;
 
   const existing = /\t*<key>CFBundleLocalizations<\/key>\s*<array>[\s\S]*?<\/array>\n/;
-  const next = existing.test(plist)
+  const localized = existing.test(plist)
     ? plist.replace(existing, block)
     : plist.replace(/(<dict>\n)/, `$1${block}`);
+  const next = syncApplePrivacyFallbacks(doc, localized);
 
   if (next !== plist) {
     await Bun.write(APPLE_INFO_PLIST, next);
@@ -119,6 +126,10 @@ export async function generate() {
   const linuxDirectory = join(REPO_ROOT, "linux/data");
   await mkdir(linuxDirectory, { recursive: true });
   await Bun.write(join(linuxDirectory, "strings.json"), renderLinuxResources(doc));
+  const desktop = join(REPO_ROOT, "linux/packaging/com.vnidrop.VniDrop.desktop");
+  const mime = join(REPO_ROOT, "linux/packaging/com.vnidrop.VniDrop.xml");
+  await Bun.write(desktop, syncLinuxDesktopComments(doc, await Bun.file(desktop).text()));
+  await Bun.write(mime, syncLinuxMimeComments(doc, await Bun.file(mime).text()));
 
   await Bun.write(APPLE_XCSTRINGS, renderXcstrings(buildXcstrings(doc)));
   console.log(`Wrote ${APPLE_XCSTRINGS}`);
@@ -127,9 +138,12 @@ export async function generate() {
   await Bun.write(APPLE_L10N_SWIFT, renderSwiftAccessors(doc));
   console.log(`Wrote ${APPLE_L10N_SWIFT}`);
 
-  await syncInfoPlistLocalizations(doc.supportedLanguages);
+  await syncInfoPlistLocalizations(doc);
 
   for (const lang of doc.supportedLanguages) {
+    const infoPlistStrings = join(dirname(APPLE_INFO_PLIST), `${lang}.lproj`, "InfoPlist.strings");
+    await mkdir(dirname(infoPlistStrings), { recursive: true });
+    await Bun.write(infoPlistStrings, appleInfoPlistStrings(doc, lang));
     const dir = join(KMP_RESOURCES, kmpValuesDir(lang, doc.sourceLanguage));
     mkdirSync(dir, { recursive: true });
     const file = join(dir, "strings.xml");

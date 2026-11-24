@@ -109,7 +109,7 @@ final class QrScannerViewController: UIViewController, AVCaptureMetadataOutputOb
 		view.backgroundColor = .black
 
 		let hint = UILabel(frame: view.bounds)
-		hint.text = "Point the camera at a VniDrop QR code"
+		hint.text = String(localized: L10n.Receive.methodScanDescription)
 		hint.textColor = .white
 		hint.textAlignment = .center
 		hint.numberOfLines = 0
@@ -117,7 +117,7 @@ final class QrScannerViewController: UIViewController, AVCaptureMetadataOutputOb
 		view.addSubview(hint)
 
 		let close = UIButton(type: .system)
-		close.setTitle("Cancel", for: .normal)
+		close.setTitle(String(localized: L10n.Button.cancel), for: .normal)
 		close.setTitleColor(.white, for: .normal)
 		close.frame = CGRect(x: 16, y: 52, width: 88, height: 36)
 		close.addAction(UIAction { [weak self] _ in self?.cancelScan() }, for: .touchUpInside)

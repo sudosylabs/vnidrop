@@ -7897,6 +7897,281 @@
         "nl": "Kan geen verbinding maken met de meldingsdienst. Controleer je verbinding en probeer het opnieuw. Je concept blijft bewaard.",
         "ru": "Не удалось подключиться к сервису отчётов. Проверьте соединение и повторите попытку. Черновик сохранён."
       }
+    },
+    "app_brand_name": {
+      "context": "VniDrop product name in desktop navigation.",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "VniDrop",
+        "fr": "VniDrop",
+        "es": "VniDrop",
+        "it": "VniDrop",
+        "de": "VniDrop",
+        "pt": "VniDrop",
+        "pl": "VniDrop",
+        "nl": "VniDrop",
+        "ru": "VniDrop"
+      }
+    },
+    "android_notification_channel_transfers": {
+      "context": "Name of the Android transfer-request notification channel.",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Transfer requests",
+        "fr": "Demandes de transfert",
+        "es": "Solicitudes de transferencia",
+        "it": "Richieste di trasferimento",
+        "de": "Übertragungsanfragen",
+        "pt": "Pedidos de transferência",
+        "pl": "Prośby o transfer",
+        "nl": "Overdrachtsverzoeken",
+        "ru": "Запросы на передачу"
+      }
+    },
+    "storage_downloads_name": {
+      "context": "Display name of the system Downloads folder.",
+      "targets": [
+        "kmp"
+      ],
+      "translations": {
+        "en": "Downloads",
+        "fr": "Téléchargements",
+        "es": "Descargas",
+        "it": "Download",
+        "de": "Downloads",
+        "pt": "Transferências",
+        "pl": "Pobrane",
+        "nl": "Downloads",
+        "ru": "Загрузки"
+      }
+    },
+    "storage_documents_name": {
+      "context": "Display name of the app Documents folder on iOS.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "Documents",
+        "fr": "Documents",
+        "es": "Documentos",
+        "it": "Documenti",
+        "de": "Dokumente",
+        "pt": "Documentos",
+        "pl": "Dokumenty",
+        "nl": "Documenten",
+        "ru": "Документы"
+      }
+    },
+    "send_default_folder_count": {
+      "context": "Default transfer name when sharing multiple folders.",
+      "targets": [
+        "apple"
+      ],
+      "args": [
+        {
+          "name": "count",
+          "type": "int"
+        }
+      ],
+      "plural": {
+        "en": {
+          "one": "{count} folder",
+          "other": "{count} folders"
+        },
+        "fr": {
+          "one": "{count} dossier",
+          "other": "{count} dossiers"
+        },
+        "es": {
+          "one": "{count} carpeta",
+          "other": "{count} carpetas"
+        },
+        "it": {
+          "one": "{count} cartella",
+          "other": "{count} cartelle"
+        },
+        "de": {
+          "one": "{count} Ordner",
+          "other": "{count} Ordner"
+        },
+        "pt": {
+          "one": "{count} pasta",
+          "other": "{count} pastas"
+        },
+        "pl": {
+          "one": "{count} folder",
+          "few": "{count} foldery",
+          "many": "{count} folderów",
+          "other": "{count} folderu"
+        },
+        "nl": {
+          "one": "{count} map",
+          "other": "{count} mappen"
+        },
+        "ru": {
+          "one": "{count} папка",
+          "few": "{count} папки",
+          "many": "{count} папок",
+          "other": "{count} папки"
+        }
+      }
+    },
+    "windows_size_unit_byte": {
+      "context": "Abbreviation for the corresponding unit in Windows file sizes.",
+      "targets": [
+        "windows"
+      ],
+      "translations": {
+        "en": "B",
+        "fr": "o",
+        "es": "B",
+        "it": "B",
+        "de": "B",
+        "pt": "B",
+        "pl": "B",
+        "nl": "B",
+        "ru": "Б"
+      }
+    },
+    "windows_size_unit_kilobyte": {
+      "context": "Abbreviation for the corresponding unit in Windows file sizes.",
+      "targets": [
+        "windows"
+      ],
+      "translations": {
+        "en": "KB",
+        "fr": "Ko",
+        "es": "KB",
+        "it": "KB",
+        "de": "KB",
+        "pt": "KB",
+        "pl": "KB",
+        "nl": "KB",
+        "ru": "КБ"
+      }
+    },
+    "windows_size_unit_megabyte": {
+      "context": "Abbreviation for the corresponding unit in Windows file sizes.",
+      "targets": [
+        "windows"
+      ],
+      "translations": {
+        "en": "MB",
+        "fr": "Mo",
+        "es": "MB",
+        "it": "MB",
+        "de": "MB",
+        "pt": "MB",
+        "pl": "MB",
+        "nl": "MB",
+        "ru": "МБ"
+      }
+    },
+    "windows_size_unit_gigabyte": {
+      "context": "Abbreviation for the corresponding unit in Windows file sizes.",
+      "targets": [
+        "windows"
+      ],
+      "translations": {
+        "en": "GB",
+        "fr": "Go",
+        "es": "GB",
+        "it": "GB",
+        "de": "GB",
+        "pt": "GB",
+        "pl": "GB",
+        "nl": "GB",
+        "ru": "ГБ"
+      }
+    },
+    "windows_size_unit_terabyte": {
+      "context": "Abbreviation for the corresponding unit in Windows file sizes.",
+      "targets": [
+        "windows"
+      ],
+      "translations": {
+        "en": "TB",
+        "fr": "To",
+        "es": "TB",
+        "it": "TB",
+        "de": "TB",
+        "pt": "TB",
+        "pl": "TB",
+        "nl": "TB",
+        "ru": "ТБ"
+      }
+    },
+    "apple_camera_usage_description": {
+      "context": "System camera permission prompt for scanning transfer codes.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "VniDrop uses the camera to scan transfer QR codes.",
+        "fr": "VniDrop utilise la caméra pour scanner les codes QR de transfert.",
+        "es": "VniDrop usa la cámara para escanear los códigos QR de las transferencias.",
+        "it": "VniDrop usa la fotocamera per scansionare i codici QR dei trasferimenti.",
+        "de": "VniDrop verwendet die Kamera, um QR-Codes für Übertragungen zu scannen.",
+        "pt": "O VniDrop usa a câmara para ler códigos QR de transferências.",
+        "pl": "VniDrop używa aparatu do skanowania kodów QR transferów.",
+        "nl": "VniDrop gebruikt de camera om QR-codes voor overdrachten te scannen.",
+        "ru": "VniDrop использует камеру для сканирования QR-кодов передач."
+      }
+    },
+    "apple_local_network_usage_description": {
+      "context": "System local network permission prompt for nearby transfers.",
+      "targets": [
+        "apple"
+      ],
+      "translations": {
+        "en": "VniDrop needs local network access to send to other local devices if needed.",
+        "fr": "VniDrop a besoin d’accéder au réseau local pour effectuer des envois vers d’autres appareils à proximité, si nécessaire.",
+        "es": "VniDrop necesita acceso a la red local para enviar archivos a otros dispositivos cercanos cuando sea necesario.",
+        "it": "VniDrop richiede l’accesso alla rete locale per inviare file ad altri dispositivi vicini quando necessario.",
+        "de": "VniDrop benötigt Zugriff auf das lokale Netzwerk, um bei Bedarf Dateien an andere Geräte in der Nähe zu senden.",
+        "pt": "O VniDrop precisa de aceder à rede local para enviar ficheiros a outros dispositivos próximos quando necessário.",
+        "pl": "VniDrop potrzebuje dostępu do sieci lokalnej, aby w razie potrzeby wysyłać pliki do innych urządzeń w pobliżu.",
+        "nl": "VniDrop heeft toegang tot het lokale netwerk nodig om zo nodig bestanden naar andere apparaten in de buurt te sturen.",
+        "ru": "VniDrop нужен доступ к локальной сети, чтобы при необходимости отправлять файлы на другие устройства поблизости."
+      }
+    },
+    "linux_desktop_description": {
+      "context": "Comment in the Linux application launcher.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "Send files directly between devices",
+        "fr": "Envoyez des fichiers directement entre appareils",
+        "es": "Envía archivos directamente entre dispositivos",
+        "it": "Invia file direttamente tra dispositivi",
+        "de": "Dateien direkt zwischen Geräten senden",
+        "pt": "Envie ficheiros diretamente entre dispositivos",
+        "pl": "Wysyłaj pliki bezpośrednio między urządzeniami",
+        "nl": "Verstuur bestanden rechtstreeks tussen apparaten",
+        "ru": "Отправляйте файлы напрямую между устройствами"
+      }
+    },
+    "linux_mime_invitation_description": {
+      "context": "Description of the .vnd invitation document MIME type.",
+      "targets": [
+        "linux"
+      ],
+      "translations": {
+        "en": "VniDrop transfer invitation",
+        "fr": "Invitation de transfert VniDrop",
+        "es": "Invitación de transferencia de VniDrop",
+        "it": "Invito al trasferimento VniDrop",
+        "de": "VniDrop-Übertragungseinladung",
+        "pt": "Convite de transferência VniDrop",
+        "pl": "Zaproszenie do transferu VniDrop",
+        "nl": "VniDrop-overdrachtsuitnodiging",
+        "ru": "Приглашение к передаче VniDrop"
+      }
     }
   }
 }

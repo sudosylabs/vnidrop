@@ -387,8 +387,8 @@ final class SendModel: ObservableObject {
 	private func defaultTransferName(_ files: [PickedShareFile]) -> String {
 		if files.isEmpty { return "" }
 		if files.count == 1 { return files[0].displayName }
-		if files.allSatisfy(\.isDirectory) { return "\(files.count) folders" }
-		return "\(files.count) files"
+		if files.allSatisfy(\.isDirectory) { return L10n.Send.defaultFolderCount(count: files.count) }
+		return L10n.Transfer.fileCount(count: files.count)
 	}
 
 	private func discardPickedFiles(_ files: [PickedShareFile]) {

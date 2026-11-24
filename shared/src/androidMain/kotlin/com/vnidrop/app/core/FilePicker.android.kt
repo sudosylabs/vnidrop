@@ -20,6 +20,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.stringResource
+import vnidrop.shared.generated.resources.Res
+import vnidrop.shared.generated.resources.error_selection_failed
+import vnidrop.shared.generated.resources.receive_unknown_transfer
+import vnidrop.shared.generated.resources.send_folder_label
+import vnidrop.shared.generated.resources.storage_downloads_name
 
 @Composable
 actual fun rememberShareFilePicker(
@@ -28,6 +34,9 @@ actual fun rememberShareFilePicker(
 ): ShareFilePicker {
 	val context = LocalContext.current
 	val scope = rememberCoroutineScope()
+	val selectionFailed = stringResource(Res.string.error_selection_failed)
+	val fallbackFolder = stringResource(Res.string.send_folder_label)
+	val fallbackFile = stringResource(Res.string.receive_unknown_transfer)
 	var loadingFiles by remember { mutableStateOf<Job?>(null) }
 	val filesLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
 		if (uris.isEmpty()) {
@@ -36,11 +45,11 @@ actual fun rememberShareFilePicker(
 		}
 		loadingFiles = scope.launch {
 			val result = withContext(Dispatchers.IO) {
-				runCatching { uris.map { uri -> context.pickedShareFile(uri) } }
+				runCatching { uris.map { uri -> context.pickedShareFile(uri, fallbackFile) } }
 			}
 			result.fold(
 				onSuccess = onFilesPicked,
-				onFailure = { onError(it.message ?: "Could not open the selected files") },
+				onFailure = { onError(it.message ?: selectionFailed) },
 			)
 		}
 	}
@@ -55,7 +64,7 @@ actual fun rememberShareFilePicker(
 				?.substringAfterLast(':')
 				?.substringAfterLast('/')
 				?.ifBlank { null }
-				?: "Folder"
+				?: fallbackFolder
 			listOf(
 				PickedShareFile(
 					value = uri.toString(),
@@ -67,7 +76,7 @@ actual fun rememberShareFilePicker(
 			)
 		}.fold(
 			onSuccess = onFilesPicked,
-			onFailure = { onError(it.message ?: "Could not open the selected folder") },
+			onFailure = { onError(it.message ?: selectionFailed) },
 		)
 	}
 	return remember(filesLauncher, folderLauncher) {
@@ -90,13 +99,14 @@ actual fun rememberReceiveFolderPicker(
 	onFolderPicked: (ReceiveFolder) -> Unit,
 	onError: (String) -> Unit,
 ): ReceiveFolderPicker {
+	val downloadsName = stringResource(Res.string.storage_downloads_name)
 	val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
 		if (uri != null) {
 			onFolderPicked(
 				ReceiveFolder(
 					kind = ReceiveFolderKind.AndroidTreeUri,
 					value = uri.toString(),
-					displayName = uri.lastPathSegment ?: "Downloads",
+					displayName = uri.lastPathSegment ?: downloadsName,
 				),
 			)
 		}
@@ -110,7 +120,7 @@ actual fun rememberReceiveFolderPicker(
 	}
 }
 
-private fun Context.pickedShareFile(uri: Uri): PickedShareFile {
+private fun Context.pickedShareFile(uri: Uri, fallbackName: String): PickedShareFile {
 	var displayName: String? = null
 	var sizeBytes: ULong? = null
 	contentResolver.query(uri, null, null, null, null)?.use { cursor ->
@@ -125,7 +135,7 @@ private fun Context.pickedShareFile(uri: Uri): PickedShareFile {
 	}
 	return PickedShareFile(
 		value = uri.toString(),
-		displayName = displayName ?: uri.lastPathSegment ?: "transfer",
+		displayName = displayName ?: uri.lastPathSegment ?: fallbackName,
 		sizeBytes = sizeBytes,
 		thumbnailBytes = runCatching {
 			val bitmap = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

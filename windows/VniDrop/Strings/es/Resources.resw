@@ -418,5 +418,10 @@
   <data name="windows_send_empty" xml:space="preserve"><value>Elija archivos o una carpeta y comparta una invitación con el dispositivo receptor. También puede arrastrar archivos aquí.</value></data>
   <data name="windows_share_busy" xml:space="preserve"><value>Finalice o cierre el uso compartido de Windows actual antes de volver a compartir.</value></data>
   <data name="windows_share_description" xml:space="preserve"><value>Comparta con Windows, escanee el código QR o guarde un archivo de invitación.</value></data>
+  <data name="windows_size_unit_byte" xml:space="preserve"><value>B</value></data>
+  <data name="windows_size_unit_gigabyte" xml:space="preserve"><value>GB</value></data>
+  <data name="windows_size_unit_kilobyte" xml:space="preserve"><value>KB</value></data>
+  <data name="windows_size_unit_megabyte" xml:space="preserve"><value>MB</value></data>
+  <data name="windows_size_unit_terabyte" xml:space="preserve"><value>TB</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Desbloquear</value></data>
 </root>

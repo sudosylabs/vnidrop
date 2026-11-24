@@ -14,7 +14,7 @@ struct IosFileSystemService: FileSystemService {
 		let path = FileManager.default
 			.urls(for: .documentDirectory, in: .userDomainMask)
 			.first?.path ?? ""
-		return ReceiveFolder(kind: .fileSystemPath, value: path, displayName: "Documents")
+		return ReceiveFolder(kind: .fileSystemPath, value: path, displayName: String(localized: L10n.Storage.documentsName))
 	}
 
 	func validateReceiveFolder(_ folder: ReceiveFolder) async -> FolderAccessStatus {

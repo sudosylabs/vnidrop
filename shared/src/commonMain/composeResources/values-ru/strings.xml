@@ -374,6 +374,9 @@
     <string name="saved_devices_forgotten">Сохранённое устройство забыто</string>
     <string name="saved_devices_blocked">Устройство заблокировано</string>
     <string name="saved_devices_labeled">Метка обновлена</string>
+    <string name="app_brand_name">VniDrop</string>
+    <string name="android_notification_channel_transfers">Запросы на передачу</string>
+    <string name="storage_downloads_name">Загрузки</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d файл</item>
         <item quantity="few">%1$d файла</item>

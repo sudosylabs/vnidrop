@@ -7,6 +7,8 @@ namespace VniDrop.Core;
 
 public sealed record AppPreferences
 {
+    private const long MaxFileBytes = 1024 * 1024;
+
     public string Username { get; init; } = Environment.MachineName;
     public string ReceiveDirectory { get; init; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
     public string Theme { get; init; } = "System";
@@ -23,14 +25,42 @@ public sealed record AppPreferences
         var native = Path.Combine(directory, "windows-preferences.json");
         if (File.Exists(native))
         {
-            if (new FileInfo(native).Length > 1024 * 1024) throw new InvalidDataException("windows_preferences_invalid");
-            try { return (JsonSerializer.Deserialize<AppPreferences>(File.ReadAllText(native)) ?? throw new InvalidDataException("windows_preferences_invalid")).Validated(); }
-            catch (JsonException ex) { throw new InvalidDataException("windows_preferences_invalid", ex); }
+            try
+            {
+                CheckFileLength(native);
+                var preferences = JsonSerializer.Deserialize<AppPreferences>(File.ReadAllText(native));
+                return (preferences ?? throw new InvalidDataException("windows_preferences_invalid")).Validated();
+            }
+            catch (Exception ex) when (ex is JsonException or InvalidDataException)
+            {
+                File.Copy(native, native + "." + Guid.NewGuid().ToString("N") + ".invalid");
+                return Recover(directory);
+            }
         }
         var legacy = Path.Combine(directory, "app_preferences.preferences_pb");
         if (!File.Exists(legacy)) return new();
-        if (new FileInfo(legacy).Length > 1024 * 1024) throw new InvalidDataException("windows_preferences_invalid");
-        return ImportLegacy(File.ReadAllBytes(legacy));
+        try
+        {
+            CheckFileLength(legacy);
+            return ImportLegacy(File.ReadAllBytes(legacy));
+        }
+        catch (Exception ex) when (ex is InvalidDataException or DecoderFallbackException or OverflowException)
+        {
+            return Recover(directory);
+        }
+    }
+
+    private static void CheckFileLength(string path)
+    {
+        if (new FileInfo(path).Length > MaxFileBytes) throw new InvalidDataException("windows_preferences_invalid");
+    }
+
+    private static AppPreferences Recover(string directory)
+    {
+        // A damaged policy may have restricted relay use before recovery.
+        var defaults = new AppPreferences { RelayMode = CoreRelayMode.LocalOnly };
+        defaults.Save(directory);
+        return defaults;
     }
 
     public void Save(string directory)
@@ -41,7 +71,11 @@ public sealed record AppPreferences
         var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
-            File.WriteAllText(temporary, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                JsonSerializer.Serialize(stream, this, new JsonSerializerOptions { WriteIndented = true });
+                stream.Flush(flushToDisk: true);
+            }
             File.Move(temporary, path, true);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
@@ -82,12 +116,14 @@ public sealed record AppPreferences
             if (values.TryGetValue(policy, out var value) && value is not string) throw new InvalidDataException("windows_preferences_invalid");
         string Text(string key, string fallback = "") => values.GetValueOrDefault(key) as string ?? fallback;
         var defaults = new AppPreferences();
+        var username = Text("username");
         var mode = Text("relay_mode", "Automatic");
         if (!Enum.TryParse<CoreRelayMode>(mode, out var relayMode) || !Enum.IsDefined(relayMode))
             throw new InvalidDataException("windows_preferences_invalid");
         return (defaults with
         {
-            Username = Text("username", defaults.Username), ReceiveDirectory = Text("receive_folder_value", defaults.ReceiveDirectory),
+            Username = string.IsNullOrWhiteSpace(username) ? defaults.Username : username,
+            ReceiveDirectory = Text("receive_folder_value", defaults.ReceiveDirectory),
             Theme = Text("theme_mode", "System"), Notifications = values.GetValueOrDefault("notifications_enabled") is true,
             RelayMode = relayMode, RelayUrls = Text("relay_urls").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
             DiagnosticsInstallId = Text("diagnostics_install_id"),

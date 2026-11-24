@@ -118,12 +118,13 @@ public class PresentationTests
     [Fact]
     public void ImportsKotlinPreferencesIncludingStrictRelayPolicy()
     {
-        var bytes = Preference("username", "Élodie").Concat(Preference("receive_folder_value", "D:\\Reçus"))
+        var receiveDirectory = Path.Combine(Path.GetTempPath(), "Reçus");
+        var bytes = Preference("username", "Élodie").Concat(Preference("receive_folder_value", receiveDirectory))
             .Concat(Preference("relay_mode", "StrictCustom")).Concat(Preference("relay_urls", "https://relay.example.com"))
             .Concat(Preference("theme_mode", "Dark")).ToArray();
         var result = AppPreferences.ImportLegacy(bytes);
         Assert.Equal("Élodie", result.Username);
-        Assert.Equal("D:\\Reçus", result.ReceiveDirectory);
+        Assert.Equal(receiveDirectory, result.ReceiveDirectory);
         Assert.Equal("Dark", result.Theme);
         Assert.Equal(CoreRelayMode.StrictCustom, result.NetworkConfiguration.mode);
         Assert.Equal(["https://relay.example.com"], result.NetworkConfiguration.relayUrls);
@@ -138,6 +139,17 @@ public class PresentationTests
         var name = Encoding.UTF8.GetBytes("relay_mode");
         byte[] wrongType = [10, (byte)(name.Length + 6), 10, (byte)name.Length, .. name, 18, 2, 8, 1];
         Assert.Throws<InvalidDataException>(() => AppPreferences.ImportLegacy(wrongType));
+    }
+
+    [Fact]
+    public void BlankLegacyUsernameUsesDefaultAndPreservesOtherPreferences()
+    {
+        var bytes = Preference("username", "  ").Concat(Preference("theme_mode", "Dark")).ToArray();
+
+        var result = AppPreferences.ImportLegacy(bytes);
+
+        Assert.Equal(new AppPreferences().Username, result.Username);
+        Assert.Equal("Dark", result.Theme);
     }
 
     [Fact]
@@ -389,20 +401,41 @@ public class PresentationTests
         Assert.Equal(expected, WindowInteractionPolicy.AllowsNavigation(ready, maintaining, closing));
     }
 
-    [Fact]
-    public void InvalidNativePreferencesRemainUntouched()
+    [Theory]
+    [InlineData("")]
+    [InlineData("{\"RelayMode\":1,\"RelayUrls\":null}")]
+    public void InvalidNativePreferencesArePreservedAndStartupRecovers(string contents)
     {
         var directory = Path.Combine(Path.GetTempPath(), "vnidrop-preferences-test", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, "windows-preferences.json");
         try
         {
-            const string contents = "{\"RelayMode\":1,\"RelayUrls\":null}";
             File.WriteAllText(path, contents);
-            Assert.Throws<InvalidDataException>(() => AppPreferences.Load(directory));
-            Assert.Equal(contents, File.ReadAllText(path));
+            var recovered = AppPreferences.Load(directory);
+            Assert.Equal(CoreRelayMode.LocalOnly, recovered.NetworkConfiguration.mode);
+            Assert.Equal(contents, File.ReadAllText(Assert.Single(Directory.GetFiles(directory, "*.invalid"))));
+            Assert.Equal(CoreRelayMode.LocalOnly, AppPreferences.Load(directory).NetworkConfiguration.mode);
+            Assert.Empty(Directory.GetFiles(directory, "*.tmp"));
         }
-        finally { File.Delete(path); Directory.Delete(directory); }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
+    public void InvalidLegacyPreferencesArePreservedAndStartupRecovers()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "vnidrop-preferences-test", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "app_preferences.preferences_pb");
+        try
+        {
+            byte[] contents = [10, 127, 8];
+            File.WriteAllBytes(path, contents);
+            Assert.Equal(CoreRelayMode.LocalOnly, AppPreferences.Load(directory).NetworkConfiguration.mode);
+            Assert.Equal(contents, File.ReadAllBytes(path));
+            Assert.Equal(CoreRelayMode.LocalOnly, AppPreferences.Load(directory).NetworkConfiguration.mode);
+        }
+        finally { Directory.Delete(directory, recursive: true); }
     }
 
     [Fact]

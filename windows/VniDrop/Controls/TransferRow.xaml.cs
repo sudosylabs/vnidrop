@@ -69,6 +69,7 @@ public sealed partial class TransferRow : UserControl
         Progress.Value = item.Progress;
         ProgressText.Text = item.ProgressText;
         ShareMenuItem.Visibility = item.CanShare ? Visibility.Visible : Visibility.Collapsed;
+        StopMenuItem.Text = Strings.Get(TransferPresentation.StopActionKey(item.Transfer.direction));
         StopMenuItem.Visibility = item.CanStop ? Visibility.Visible : Visibility.Collapsed;
         DeleteMenuItem.Visibility = item.CanDelete ? Visibility.Visible : Visibility.Collapsed;
         DestructiveSeparator.Visibility = item.CanShare && (item.CanStop || item.CanDelete)

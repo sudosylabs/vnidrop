@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using VniDrop.Core;
 using VniDrop.Platform;
 using VniDrop.ViewModels;
 
@@ -36,7 +37,7 @@ public sealed partial class TransferDetailsPage : Page
         DeleteButton.Visibility = Item.CanDelete ? Visibility.Visible : Visibility.Collapsed;
         ActionsDivider.Visibility = Item.CanStop && Item.CanDelete ? Visibility.Visible : Visibility.Collapsed;
         ActionsSection.Visibility = Item.CanStop || Item.CanDelete ? Visibility.Visible : Visibility.Collapsed;
-        StopButton.Title = Strings.Get(send ? "send_stop_sharing" : "button_cancel_receive");
+        StopButton.Title = Strings.Get(TransferPresentation.StopActionKey(Item.Transfer.direction));
         ActivityButton.Value = Item.ActivityCount > 0 ? Item.ActivityCount.ToString() : "";
         ReceiversButton.Value = Item.ReceiverCount > 0 ? Item.ReceiverCount.ToString() : "";
         ReceiversButton.Description = Item.ReceiverSummary;

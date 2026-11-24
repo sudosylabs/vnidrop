@@ -7,6 +7,14 @@ namespace VniDrop.Tests;
 
 public class PresentationTests
 {
+    [Theory]
+    [InlineData("send", "send_stop_sharing")]
+    [InlineData("receive", "button_cancel_receive")]
+    public void StopActionLabelMatchesTransferDirection(string direction, string expectedKey)
+    {
+        Assert.Equal(expectedKey, TransferPresentation.StopActionKey(direction));
+    }
+
     [Fact]
     public void TargetedProgressOnlyAppearsDuringByteWorkOrInterruption()
     {

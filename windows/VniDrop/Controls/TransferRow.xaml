@@ -14,7 +14,6 @@
       <MenuFlyoutSeparator x:Name="DestructiveSeparator" />
       <MenuFlyoutItem
           x:Name="StopMenuItem"
-          Text="{x:Bind p:Strings.Get('send_stop_sharing')}"
           Icon="Stop"
           Click="StopClicked">
         <MenuFlyoutItem.Resources>

@@ -7,6 +7,9 @@ public sealed record TransferProgress(double? Fraction, string LabelKey, string?
 
 public static class TransferPresentation
 {
+    public static string StopActionKey(string direction) =>
+        direction == "send" ? "send_stop_sharing" : "button_cancel_receive";
+
     public static bool ShowsTargetedProgress(TargetedTransferState state, ulong totalSize) =>
         totalSize > 0 && state is TargetedTransferState.Connecting
             or TargetedTransferState.Transferring or TargetedTransferState.Interrupted;

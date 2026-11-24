@@ -13,7 +13,7 @@ use crate::{
         DeliveryFailureReceipt, DeliveryReceipt, DeliveryReceiptResponse, HandshakeResponse,
         RequestTransfer,
     },
-    invitation::{ReceiverRequestInsert, Repository},
+    invitation::{DeliveryCompletion, ReceiverRequestInsert, Repository},
     pairing_eligibility::PairingEligibilityService,
     transfer_state::ReceiverRequestStatus,
     util::now_ms,
@@ -58,8 +58,14 @@ impl ApprovalService {
             )
             .await
         {
-            Ok(remote_display_name) => {
-                if let Some(eligibility) = &self.pairing_eligibility {
+            Ok(DeliveryCompletion::AlreadyRecorded) => DeliveryReceiptResponse::Recorded,
+            Ok(DeliveryCompletion::Recorded {
+                remote_display_name,
+            }) => {
+                if let (Some(eligibility), Ok(false)) = (
+                    &self.pairing_eligibility,
+                    self.blocked.is_blocked(&remote_endpoint_id).await,
+                ) {
                     if let Err(error) = eligibility
                         .activate_after_completed_transfer(
                             &remote_endpoint_id,

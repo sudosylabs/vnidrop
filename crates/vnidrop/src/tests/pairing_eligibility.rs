@@ -470,6 +470,127 @@ fn decline_forget_block_and_replay_remove_eligibility_idempotently() {
         .all(|entry| entry.peer_endpoint_id != sender3.core.status().endpoint_id));
 }
 
+#[tokio::test]
+async fn delivery_receipts_only_create_eligibility_on_first_unblocked_completion() {
+    use crate::{
+        access_policy::AccessPolicy,
+        approval::ApprovalService,
+        event_hub::EventHub,
+        handshake::{DeliveryReceipt, DeliveryReceiptResponse},
+        invitation::ReceiverRequestInsert,
+        pairing_eligibility::PairingEligibilityService,
+        persistence,
+        secure_secret::SecretCustody,
+        transfer_state::ReceiverRequestStatus,
+    };
+
+    let data_dir = tempfile::tempdir().unwrap();
+    let stores = persistence::open_all(data_dir.path()).await.unwrap();
+    let sink = Arc::new(RecordingSink {
+        events: Mutex::new(Vec::new()),
+    });
+    let hub = Arc::new(EventHub::start(
+        stores.invitation.clone(),
+        sink.clone(),
+        64,
+        100,
+    ));
+    let custody = Arc::new(SecretCustody::new(
+        stores.secrets,
+        Arc::new(FaultInjectingSecretStore::default()),
+    ));
+    let eligibility = PairingEligibilityService::new(
+        stores.eligibility,
+        stores.relationships,
+        Some(custody),
+        hub.clone(),
+        "sender".to_string(),
+    );
+    let approval = ApprovalService::new(
+        stores.invitation.clone(),
+        stores.blocked.clone(),
+        hub.clone(),
+        AccessPolicy::new([]),
+        5,
+        1024,
+        Some(eligibility.clone()),
+    );
+
+    for (request_id, peer) in [("approved", "receiver"), ("blocked", "blocked-receiver")] {
+        stores
+            .invitation
+            .insert_receiver_request(ReceiverRequestInsert {
+                id: request_id,
+                transfer_id: 1,
+                remote_endpoint_id: peer,
+                transfer_name: "demo",
+                receiver_name: Some(peer),
+                receiver_device_name: None,
+                app_version: "0.1.0",
+            })
+            .await
+            .unwrap();
+        stores
+            .invitation
+            .update_receiver_request_status(request_id, ReceiverRequestStatus::Accepted, None)
+            .await
+            .unwrap();
+        stores
+            .invitation
+            .set_receiver_receipt_token(request_id, &blake3::hash(b"test-token").to_hex())
+            .await
+            .unwrap();
+    }
+
+    let receipt = DeliveryReceipt {
+        request_id: "approved".into(),
+        transfer_id: 1,
+        token: "test-token".into(),
+    };
+    assert_eq!(
+        approval
+            .complete_delivery("receiver".into(), receipt.clone())
+            .await,
+        DeliveryReceiptResponse::Recorded
+    );
+    assert_eq!(eligibility.list().await.unwrap().len(), 1);
+    eligibility.decline("receiver").await.unwrap();
+    assert_eq!(
+        approval
+            .complete_delivery("receiver".into(), receipt.clone())
+            .await,
+        DeliveryReceiptResponse::Recorded
+    );
+    assert!(eligibility.list().await.unwrap().is_empty());
+
+    stores
+        .blocked
+        .block_endpoint("blocked-receiver", 1)
+        .await
+        .unwrap();
+    assert_eq!(
+        approval
+            .complete_delivery(
+                "blocked-receiver".into(),
+                DeliveryReceipt {
+                    request_id: "blocked".into(),
+                    ..receipt
+                }
+            )
+            .await,
+        DeliveryReceiptResponse::Recorded
+    );
+    assert!(eligibility.list().await.unwrap().is_empty());
+    assert_eq!(
+        sink.events()
+            .iter()
+            .filter(|event| event.kind == "receiver-completed")
+            .count(),
+        2
+    );
+    hub.shutdown().await;
+}
+
 #[test]
 fn missing_expired_replayed_and_fabricated_eligibility_are_silently_rejected() {
     let source_dir = tempfile::tempdir().unwrap();

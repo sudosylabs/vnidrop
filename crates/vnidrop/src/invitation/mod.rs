@@ -87,6 +87,11 @@ pub(crate) struct ReceiverRequestInsert<'a> {
     pub(crate) app_version: &'a str,
 }
 
+pub(crate) enum DeliveryCompletion {
+    Recorded { remote_display_name: Option<String> },
+    AlreadyRecorded,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PendingDeliveryReceipt {
     pub(crate) local_transfer_id: u64,
@@ -949,61 +954,48 @@ impl Repository {
         transfer_id: u64,
         remote_endpoint_id: &str,
         token_hash: &str,
-    ) -> Result<Option<String>> {
-        let result = sqlx::query(
+    ) -> Result<DeliveryCompletion> {
+        let transfer_id = to_db_id(transfer_id)?;
+        let completed = sqlx::query(
             r#"
             UPDATE receiver_requests
             SET status = 'completed', completed_at = ?1
             WHERE id = ?2 AND transfer_id = ?3 AND remote_endpoint_id = ?4 AND receipt_token_hash = ?5
               AND status = 'accepted'
+            RETURNING COALESCE(receiver_device_name, receiver_name) AS remote_display_name
             "#,
         )
         .bind(now_ms())
         .bind(id)
-        .bind(to_db_id(transfer_id)?)
+        .bind(transfer_id)
         .bind(remote_endpoint_id)
         .bind(token_hash)
-        .execute(&self.pool)
+        .fetch_optional(&self.pool)
         .await?;
-        if result.rows_affected() != 1 {
-            let already_recorded = sqlx::query(
-                r#"
+        if let Some(row) = completed {
+            return Ok(DeliveryCompletion::Recorded {
+                remote_display_name: row.get("remote_display_name"),
+            });
+        }
+        let already_recorded = sqlx::query_scalar::<_, bool>(
+            r#"
             SELECT EXISTS(
                 SELECT 1 FROM receiver_requests
                 WHERE id = ?1 AND transfer_id = ?2 AND remote_endpoint_id = ?3
                   AND receipt_token_hash = ?4 AND status = 'completed'
             )
             "#,
-            )
-            .bind(id)
-            .bind(to_db_id(transfer_id)?)
-            .bind(remote_endpoint_id)
-            .bind(token_hash)
-            .fetch_one(&self.pool)
-            .await?
-            .get::<i64, _>(0)
-                != 0;
-            if !already_recorded {
-                anyhow::bail!("delivery receipt did not match an accepted receiver request");
-            }
-        }
-        let row = sqlx::query(
-            r#"
-            SELECT receiver_name, receiver_device_name
-            FROM receiver_requests
-            WHERE id = ?1 AND transfer_id = ?2 AND remote_endpoint_id = ?3
-              AND receipt_token_hash = ?4 AND status = 'completed'
-            "#,
         )
         .bind(id)
-        .bind(to_db_id(transfer_id)?)
+        .bind(transfer_id)
         .bind(remote_endpoint_id)
         .bind(token_hash)
         .fetch_one(&self.pool)
         .await?;
-        Ok(row
-            .get::<Option<String>, _>("receiver_device_name")
-            .or_else(|| row.get("receiver_name")))
+        if !already_recorded {
+            anyhow::bail!("delivery receipt did not match an accepted receiver request");
+        }
+        Ok(DeliveryCompletion::AlreadyRecorded)
     }
 
     pub(crate) async fn fail_receiver_delivery(

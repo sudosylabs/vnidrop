@@ -129,7 +129,7 @@ impl PairingEligibilityService {
             .await?;
         let created_at = authenticated_at;
         let expires_at = created_at + ELIGIBILITY_TTL_MS;
-        if let Err(error) = self
+        match self
             .store
             .insert(PairingEligibilityInsert {
                 peer_endpoint_id,
@@ -142,8 +142,11 @@ impl PairingEligibilityService {
             })
             .await
         {
-            let _ = custody.remove(&handle).await;
-            return Err(error);
+            Ok(true) => {}
+            result => {
+                let _ = custody.remove(&handle).await;
+                return result.map(|_| ());
+            }
         }
 
         self.event_hub.emit_endpoint(

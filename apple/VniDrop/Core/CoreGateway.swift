@@ -43,7 +43,7 @@ protocol CoreGateway: AnyObject {
 
 	func initialize(appDataDir: String, networkConfiguration: RelayConfiguration) async -> Result<Void, Error>
 	func resetUnrecoverableIdentity(appDataDir: String, networkConfiguration: RelayConfiguration) async -> Result<Void, Error>
-	func shutdown()
+	func shutdown() async
 	func shareSources(
 		_ sources: [ShareSource],
 		transferName: String,

@@ -43,7 +43,7 @@ final class AppGraph: ObservableObject {
 		AppLogger.info("lifecycle", "graph created", ["platform": dependencies.environment.name])
 	}
 
-	func close() {
-		coreRepository.shutdown()
+	func close() async {
+		await coreRepository.shutdown()
 	}
 }

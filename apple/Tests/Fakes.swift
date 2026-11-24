@@ -72,7 +72,7 @@ final class FakeCoreGateway: CoreGateway {
 		stateSubject.send(s)
 		return .success(())
 	}
-	func shutdown() {}
+	func shutdown() async {}
 	func shareSources(_ sources: [ShareSource], transferName: String, senderName: String, accessPolicy: ShareAccessPolicy) async -> Result<Share, Error> {
 		lastShareAccessPolicy = accessPolicy
 		return shareResult

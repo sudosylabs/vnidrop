@@ -133,8 +133,51 @@ private struct FixedCoreBindingFactory: CoreBindingFactory {
 	}
 }
 
+private final class ThreadCheckedCore: VnidropCore, @unchecked Sendable {
+	init() {
+		super.init(noPointer: .init())
+	}
+
+	required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+		super.init(unsafeFromRawPointer: pointer)
+	}
+
+	override func status() -> RuntimeStatus {
+		XCTAssertFalse(Thread.isMainThread, "Reading native status blocked the main thread")
+		return RuntimeStatus(endpointId: "test", addr: "", activeTransfers: 0, activeShares: 0)
+	}
+
+	override func listTransfers() throws -> [StoredTransfer] {
+		XCTAssertFalse(Thread.isMainThread, "Reading native transfers blocked the main thread")
+		return []
+	}
+
+	override func listEvents(transferId: UInt64?) throws -> [CoreEvent] {
+		XCTAssertFalse(Thread.isMainThread, "Reading native events blocked the main thread")
+		return []
+	}
+
+	override func shutdown() {
+		XCTAssertFalse(Thread.isMainThread, "Stopping the native core blocked the main thread")
+	}
+}
+
 @MainActor
 final class CoreRepositoryLifecycleTests: XCTestCase {
+	func testInitializationAndShutdownKeepNativeCallsOffTheMainThread() async throws {
+		let core = ThreadCheckedCore()
+		let repository = CoreRepository(coreFactory: FixedCoreBindingFactory(core: core))
+
+		let initialized = await repository.initialize(appDataDir: "/tmp/test", networkConfiguration: .automatic)
+		try initialized.get()
+		XCTAssertTrue(repository.state.isInitialized)
+		XCTAssertEqual(repository.state.status?.endpointId, "test")
+
+		await repository.shutdown()
+		XCTAssertFalse(repository.state.isInitialized)
+		XCTAssertNil(repository.state.status)
+	}
+
 	func testIdleRequirementRejectsInvitationAndTargetedObligations() {
 		let idle = RuntimeObligationFactsModel(
 			activeInvitationTransfers: 0, invitationProviderAvailability: 0,
@@ -198,7 +241,6 @@ final class CoreRepositoryLifecycleTests: XCTestCase {
 		let repository = CoreRepository(coreFactory: FixedCoreBindingFactory(core: core))
 		let initialized = await repository.initialize(appDataDir: "/tmp/test", networkConfiguration: .automatic)
 		try initialized.get()
-		defer { repository.shutdown() }
 
 		let receives: [(String, @MainActor () async -> Result<Void, Error>)] = [
 			("invitation", { await repository.receive(ticket: "ticket", outputDir: "/tmp", receiverName: "Tester") }),
@@ -230,6 +272,7 @@ final class CoreRepositoryLifecycleTests: XCTestCase {
 			try received.get()
 			XCTAssertTrue(try facts.get().requiresRuntime)
 		}
+		await repository.shutdown()
 	}
 
 	private nonisolated static func didSignal(_ semaphore: DispatchSemaphore) -> Bool {

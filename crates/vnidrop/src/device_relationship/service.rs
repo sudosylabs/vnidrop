@@ -42,8 +42,8 @@ use super::{
 };
 
 #[cfg(test)]
-#[path = "../tests/device_relationship_locks.rs"]
-mod lock_tests;
+#[path = "../tests/device_relationship_service.rs"]
+mod tests;
 
 const PENDING_TTL_MS: i64 = 30 * 60 * 1_000;
 
@@ -492,10 +492,10 @@ impl DeviceRelationshipService {
             return PairingRequestResponse::Rejected;
         }
 
-        if let Ok(Some(existing)) = self.find_row(&remote_endpoint_id).await {
-            if existing.state == DeviceRelationshipState::Saved {
-                return PairingRequestResponse::AlreadySaved;
-            }
+        let Ok(existing) = self.find_row(&remote_endpoint_id).await else {
+            return PairingRequestResponse::Rejected;
+        };
+        if let Some(existing) = &existing {
             if existing.state == DeviceRelationshipState::PendingIncoming
                 && existing.session_id.as_deref() == Some(request.session_id.as_str())
             {
@@ -562,6 +562,14 @@ impl DeviceRelationshipService {
         let Some(remote_display_name) = local_observation else {
             return PairingRequestResponse::Rejected;
         };
+        if let Some(existing) = existing.filter(|row| row.state == DeviceRelationshipState::Saved) {
+            if existing.session_id.as_deref() == Some(request.session_id.as_str())
+                && existing.generation == request.generation
+            {
+                return PairingRequestResponse::AlreadySaved;
+            }
+            return PairingRequestResponse::Rejected;
+        }
 
         match self.can_create_new_relationship(&remote_endpoint_id).await {
             Ok(true) => {}
@@ -661,15 +669,15 @@ impl DeviceRelationshipService {
         let Ok(Some(row)) = self.find_row(&remote_endpoint_id).await else {
             return PairingConsentResponse::Rejected;
         };
+        if consent.protocol_version < row.minimum_protocol_version
+            || consent.generation != row.generation
+        {
+            return PairingConsentResponse::Rejected;
+        }
         if row.state == DeviceRelationshipState::Saved {
             return PairingConsentResponse::AlreadySaved;
         }
         if row.state != DeviceRelationshipState::PendingOutgoing {
-            return PairingConsentResponse::Rejected;
-        }
-        if consent.protocol_version < row.minimum_protocol_version
-            || consent.generation != row.generation
-        {
             return PairingConsentResponse::Rejected;
         }
         if !consent.accepted {
@@ -1141,9 +1149,11 @@ impl DeviceRelationshipService {
     }
 
     async fn activate_saved(&self, peer_endpoint_id: &str) -> Result<(), VnidropError> {
-        self.store
-            .set_state(peer_endpoint_id, DeviceRelationshipState::Saved)
-            .await?;
+        if !self.store.activate_saved(peer_endpoint_id).await? {
+            return Err(VnidropError::permission(anyhow::anyhow!(
+                "both pairing grants are required before saving a device"
+            )));
+        }
         self.emit_changed(peer_endpoint_id, DeviceRelationshipState::Saved);
         Ok(())
     }

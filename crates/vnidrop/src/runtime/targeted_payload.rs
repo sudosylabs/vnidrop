@@ -11,7 +11,10 @@ use iroh_blobs::{
 use serde_json::json;
 use tokio::sync::oneshot;
 
-use super::{receive::ReceiveTarget, CoreInner};
+use super::{
+    receive::{check_collection_metadata_size, ReceiveTarget},
+    CoreInner,
+};
 use crate::{error::VnidropError, ticket::filter_peer_addr_for_relay_mode};
 
 impl CoreInner {
@@ -93,7 +96,8 @@ impl CoreInner {
             );
         }
         let hash_sequence_bytes = hash_seq.len() as u64 * 32;
-        let collection_metadata_bytes = sizes.first().copied().unwrap_or(0);
+        let collection_metadata_bytes =
+            check_collection_metadata_size(&sizes, self.limits.max_path_bytes)?;
         let payload_size = sizes
             .iter()
             .skip(1)

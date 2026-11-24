@@ -30,6 +30,8 @@ mod test_faults;
 pub use facade::VnidropCore;
 #[cfg(test)]
 pub(crate) use provider::{consume_request_updates, RequestStreamOutcome};
+#[cfg(test)]
+pub(crate) use receive::check_collection_metadata_size;
 pub use targeted_preparation::TargetedTransferPreparation;
 #[cfg(test)]
 pub(crate) use test_faults::TargetedFaultAdapters;

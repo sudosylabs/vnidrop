@@ -1,9 +1,12 @@
 mod support;
 
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
-use support::{receive_with_response, share_path, TestNode};
-use vnidrop::{CoreEvent, VnidropError};
+use support::{receive_with_response, share_path, CoreGuard, RecordingSink, TestNode};
+use vnidrop::{CoreEvent, CoreLimits, VnidropError};
 
 fn wait_for_sender_transfer_event(sender: &TestNode, transfer_id: u64, kind: &str) -> CoreEvent {
     let started = Instant::now();
@@ -106,6 +109,53 @@ fn transfers_file_between_two_cores() {
 
     receiver.core.delete_receive_history().unwrap();
     assert_eq!(receiver.core.list_received_artifacts().unwrap(), artifacts);
+}
+
+#[test]
+fn receive_rejects_oversized_collection_metadata_before_download() {
+    let source = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(source.path(), b"small payload").unwrap();
+    let sender = TestNode::new();
+    let receiver_dir = tempfile::tempdir().unwrap();
+    let receiver_sink = Arc::new(RecordingSink::default());
+    let receiver = CoreGuard::start_with_limits(
+        receiver_dir.path(),
+        receiver_sink.clone(),
+        CoreLimits {
+            max_path_bytes: 16,
+            ..CoreLimits::default()
+        },
+    );
+    let output_dir = tempfile::tempdir().unwrap();
+    let share = share_path(
+        &sender.core,
+        source.path(),
+        17,
+        "a-long-file-name-that-exceeds-the-receivers-path-limit-by-a-wide-margin.txt",
+        false,
+    );
+
+    let error = receive_with_response(
+        &sender.core,
+        share.transfer_id,
+        receiver.arc(),
+        share.ticket,
+        output_dir.path(),
+        true,
+    )
+    .unwrap_err();
+    assert!(
+        error.to_string().contains("remote collection metadata"),
+        "{error}"
+    );
+    let transfers = receiver.list_transfers().unwrap();
+    assert_eq!(transfers.len(), 1);
+    assert_eq!(transfers[0].status, "failed");
+    assert!(!receiver_sink
+        .events()
+        .iter()
+        .any(|event| { event.phase == "download" && event.kind == "found-collection" }));
+    assert_eq!(std::fs::read_dir(output_dir.path()).unwrap().count(), 0);
 }
 
 #[test]

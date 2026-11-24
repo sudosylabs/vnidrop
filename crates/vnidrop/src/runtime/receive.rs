@@ -43,6 +43,23 @@ pub(super) enum ReceiveTarget {
     ),
 }
 
+pub(crate) fn check_collection_metadata_size(sizes: &[u64], max_path_bytes: u64) -> Result<u64> {
+    let (&metadata_bytes, files) = sizes
+        .split_first()
+        .context("remote collection is missing metadata")?;
+    // CollectionV0 stores a header and a postcard list of paths, with a
+    // length prefix for the list and each path.
+    const MAX_LENGTH_PREFIX_BYTES: u64 = 10;
+    let limit = (Collection::HEADER.len() as u64 + MAX_LENGTH_PREFIX_BYTES).saturating_add(
+        (files.len() as u64).saturating_mul(max_path_bytes.saturating_add(MAX_LENGTH_PREFIX_BYTES)),
+    );
+    anyhow::ensure!(
+        metadata_bytes <= limit,
+        "remote collection metadata size {metadata_bytes} exceeds limit {limit}"
+    );
+    Ok(metadata_bytes)
+}
+
 #[derive(Clone, Copy)]
 struct ReceivedTransfer<'a> {
     protocol_id: u64,
@@ -422,6 +439,7 @@ impl CoreInner {
                 self.limits.max_total_bytes
             );
         }
+        check_collection_metadata_size(&sizes, self.limits.max_path_bytes)?;
         self.emit_transfer(
             transfer_id,
             "receive",

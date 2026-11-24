@@ -1,7 +1,9 @@
 package com.vnidrop.app.core
 
+import android.Manifest
 import android.content.ContentValues
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -10,10 +12,17 @@ import android.provider.MediaStore
 import android.system.ErrnoException
 import android.system.OsConstants
 import android.webkit.MimeTypeMap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.CompletableDeferred
 import uniffi.vnidrop.PublishedOutput
 import uniffi.vnidrop.ReceiveOutputSinkV2
 import uniffi.vnidrop.ReceivedLocatorKind
@@ -28,11 +37,50 @@ import java.util.UUID
 @Composable
 actual fun rememberFileSystemService(): FileSystemService {
 	val context = LocalContext.current.applicationContext
-	return remember(context) { AndroidFileSystemService(context) }
+	val permission = viewModel { LegacyDownloadsPermissionRequest() }
+	val launcher = rememberLauncherForActivityResult(
+		ActivityResultContracts.RequestPermission(),
+		permission::complete,
+	)
+	SideEffect {
+		permission.launch = { launcher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) }
+	}
+	return remember(context, permission) { AndroidFileSystemService(context, permission::request) }
+}
+
+private class LegacyDownloadsPermissionRequest : ViewModel() {
+	var launch: (() -> Unit)? = null
+	private var pending: CompletableDeferred<Boolean>? = null
+
+	suspend fun request(): Boolean {
+		pending?.let { return it.await() }
+		val launchPermission = launch ?: return false
+		val result = CompletableDeferred<Boolean>()
+		pending = result
+		try {
+			launchPermission()
+		} catch (_: IllegalStateException) {
+			complete(false)
+		}
+		return result.await()
+	}
+
+	fun complete(granted: Boolean) {
+		val result = pending
+		pending = null
+		result?.complete(granted)
+	}
+
+	override fun onCleared() {
+		pending?.cancel()
+		pending = null
+		launch = null
+	}
 }
 
 private class AndroidFileSystemService(
 	private val context: Context,
+	private val requestLegacyDownloadsPermission: suspend () -> Boolean,
 ) : FileSystemService {
 	override fun defaultReceiveFolder(): ReceiveFolder {
 		// Match desktop: shared system Downloads. On Android 10+ this is MediaStore,
@@ -54,12 +102,23 @@ private class AndroidFileSystemService(
 		}
 	}
 
-	override suspend fun validateReceiveFolder(folder: ReceiveFolder): FolderAccessStatus =
-		when (folder.kind) {
+	override fun needsReceiveFolderPermission(folder: ReceiveFolder): Boolean =
+		Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+			folder.kind == ReceiveFolderKind.FileSystemPath &&
+			folder.value == defaultReceiveFolder().value &&
+			ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+
+	override suspend fun requestReceiveFolderPermission(folder: ReceiveFolder): Boolean =
+		!needsReceiveFolderPermission(folder) || requestLegacyDownloadsPermission()
+
+	override suspend fun validateReceiveFolder(folder: ReceiveFolder): FolderAccessStatus {
+		if (needsReceiveFolderPermission(folder)) return FolderAccessStatus.PermissionRequired
+		return when (folder.kind) {
 			ReceiveFolderKind.FileSystemPath -> context.validatePath(folder.value)
 			ReceiveFolderKind.AndroidPublicDownloads -> context.validatePublicDownloads()
 			ReceiveFolderKind.AndroidTreeUri -> context.validateTreeUri(folder.value)
 		}
+	}
 
 	override suspend fun inspectReceivedArtifacts(artifacts: List<ReceivedArtifactModel>): ReceivedStorageInspection {
 		var bytes = 0UL

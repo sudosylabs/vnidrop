@@ -448,6 +448,9 @@ class FakeFileSystemService(
 	private val receiveOutputSink: ReceiveOutputSinkV2? = null,
 ) : FileSystemService {
 	var supportsCustomFolders = true
+	var storagePermissionNeeded = false
+	var storagePermissionGrantedOnRequest = false
+	var storagePermissionRequests = 0
 	var effectiveFolder: ReceiveFolder? = null
 	var canRevealFolder = false
 	var reclaimedTemporaryBytes = 0UL
@@ -458,7 +461,15 @@ class FakeFileSystemService(
 	override fun defaultReceiveFolder() = folder
 	override fun effectiveReceiveFolder(configuredFolder: ReceiveFolder) =
 		effectiveFolder ?: super.effectiveReceiveFolder(configuredFolder)
-	override suspend fun validateReceiveFolder(folder: ReceiveFolder) = FolderAccessStatus.Writable
+	override suspend fun validateReceiveFolder(folder: ReceiveFolder) =
+		if (storagePermissionNeeded) FolderAccessStatus.PermissionRequired else FolderAccessStatus.Writable
+	override fun needsReceiveFolderPermission(folder: ReceiveFolder) = storagePermissionNeeded
+	override suspend fun requestReceiveFolderPermission(folder: ReceiveFolder): Boolean {
+		if (!storagePermissionNeeded) return true
+		storagePermissionRequests += 1
+		if (storagePermissionGrantedOnRequest) storagePermissionNeeded = false
+		return storagePermissionGrantedOnRequest
+	}
 	override suspend fun inspectReceivedArtifacts(artifacts: List<ReceivedArtifactModel>) =
 		ReceivedStorageInspection(artifacts.fold(0UL) { total, item -> total + item.logicalSize }, artifacts.size, 0, 0)
 	override suspend fun temporaryUsage(appDataDir: String): ULong = 0UL

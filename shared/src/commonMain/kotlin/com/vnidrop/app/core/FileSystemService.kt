@@ -39,6 +39,8 @@ interface FileSystemService {
 	fun effectiveReceiveFolder(configuredFolder: ReceiveFolder): ReceiveFolder =
 		if (supportsCustomReceiveFolders) configuredFolder else defaultReceiveFolder()
 	suspend fun validateReceiveFolder(folder: ReceiveFolder): FolderAccessStatus
+	fun needsReceiveFolderPermission(folder: ReceiveFolder): Boolean = false
+	suspend fun requestReceiveFolderPermission(folder: ReceiveFolder): Boolean = true
 	suspend fun inspectReceivedArtifacts(artifacts: List<ReceivedArtifactModel>): ReceivedStorageInspection
 	suspend fun temporaryUsage(appDataDir: String): ULong
 	/** Reclaims only app-owned temporary files and returns the number of bytes removed. */

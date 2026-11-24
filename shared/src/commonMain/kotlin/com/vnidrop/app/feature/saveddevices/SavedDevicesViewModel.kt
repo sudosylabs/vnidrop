@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import uniffi.vnidrop.VnidropException
 import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.receive_completed
 import vnidrop.shared.generated.resources.saved_devices_blocked
@@ -253,6 +254,9 @@ class SavedDevicesViewModel(
 
 	private suspend fun pullTargetedTransfer(transferId: String, resume: Boolean): Result<Unit> {
 		val folder = receiveFolder ?: return Result.failure(IllegalStateException())
+		if (!fileSystemService.requestReceiveFolderPermission(folder)) {
+			return Result.failure(VnidropException.FilesystemPermission("receive folder permission required"))
+		}
 		val sink = fileSystemService.createReceiveOutputSink(folder)
 		val result = when {
 			resume && sink != null -> repository.resumeTargetedTransferWithOutputSinkV2(transferId, sink)

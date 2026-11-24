@@ -692,6 +692,36 @@ class ViewModelsTest {
 	}
 
 	@Test
+	fun receiveViewModelRequestsLegacyDownloadsAccessBeforeStarting() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val core = FakeCoreGateway().apply {
+			mutableState.value = mutableState.value.copy(isInitialized = true)
+			inspectionResult = Result.success(sampleTicketInspection())
+		}
+		val fileSystem = FakeFileSystemService(folder).apply { storagePermissionNeeded = true }
+		val viewModel = ReceiveViewModel(core, fileSystem, preferences(), UiMessageController())
+		viewModel.onInvitationResult(com.vnidrop.app.feature.receive.ReceiveMethod.InvitationFile, Result.success("ticket"))
+		advanceUntilIdle()
+
+		assertTrue(viewModel.state.value.canReceive(coreInitialized = true))
+		viewModel.receive()
+		advanceUntilIdle()
+
+		assertEquals(1, fileSystem.storagePermissionRequests)
+		assertEquals(0, core.receiveCount)
+		assertEquals("ticket", viewModel.state.value.ticket)
+		assertTrue(viewModel.state.value.canReceive(coreInitialized = true))
+
+		fileSystem.storagePermissionGrantedOnRequest = true
+		viewModel.receive()
+		advanceUntilIdle()
+
+		assertEquals(2, fileSystem.storagePermissionRequests)
+		assertEquals(1, core.receiveCount)
+		assertEquals("ticket", core.lastReceiveTicket)
+	}
+
+	@Test
 	fun receiveViewModelOffersCompletedFolderInFilesWhenPlatformSupportsIt() = runTest {
 		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 		val core = FakeCoreGateway().apply {

@@ -69,7 +69,7 @@ pub(super) struct App {
     receive_drafts: RefCell<HashMap<u64, dialogs::ReceiveDraft>>,
     rows: RefCell<Vec<details::TransferRow>>,
     detail_fingerprint: RefCell<String>,
-    preference_queue: RefCell<VecDeque<Preferences>>,
+    preference_queue: RefCell<VecDeque<dialogs::PreferenceWrite>>,
     saving_preferences: Cell<bool>,
     composer: RefCell<Option<Rc<composer::Composer>>>,
     activity: RefCell<Option<Rc<activity::Activity>>>,

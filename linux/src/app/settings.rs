@@ -201,13 +201,7 @@ impl App {
             let Some(app) = weak.upgrade() else {
                 return;
             };
-            let mut next = app
-                .preference_queue
-                .borrow()
-                .back()
-                .cloned()
-                .unwrap_or_else(|| app.preferences.borrow().clone());
-            next.theme = ["System", "Light", "Dark"][row.selected() as usize].into();
+            let theme = ["System", "Light", "Dark"][row.selected() as usize];
             app.application
                 .style_manager()
                 .set_color_scheme(match row.selected() {
@@ -215,7 +209,7 @@ impl App {
                     2 => adw::ColorScheme::ForceDark,
                     _ => adw::ColorScheme::Default,
                 });
-            app.save_preferences(next);
+            app.save_preferences(move |prefs| prefs.theme = theme.into());
         });
         group.add(&theme);
         let notifications = adw::SwitchRow::builder()
@@ -233,31 +227,33 @@ impl App {
             let Some(app) = weak.upgrade() else {
                 return;
             };
-            let mut next = app.preferences.borrow().clone();
-            next.username = username.text().trim().into();
-            next.receive_directory = folder_path.borrow().clone();
-            next.theme = ["System", "Light", "Dark"][theme.selected() as usize].into();
-            next.notifications = notifications.is_active();
-            if next.username.is_empty() {
+            let username = username.text().trim().to_owned();
+            let receive_directory = folder_path.borrow().clone();
+            let notifications = notifications.is_active();
+            if username.is_empty() {
                 app.error("error_invalid_input");
                 return;
             }
             let (app, close, button) = (app.clone(), close.clone(), button.clone());
             button.set_sensitive(false);
             glib::spawn_future_local(async move {
-                if next.notifications && !super::notifications::available().await {
+                if notifications && !super::notifications::available().await {
                     app.error("notifications_unsupported");
                     button.set_sensitive(true);
                     return;
                 }
-                let path = next.receive_directory.clone();
+                let path = receive_directory.clone();
                 let result =
                     gio::spawn_blocking(move || vnidrop_gnome::settings::validate_folder(&path))
                         .await
                         .unwrap_or(Err("error_filesystem"));
                 match result {
                     Ok(()) => {
-                        app.save_preferences(next);
+                        app.save_preferences(move |prefs| {
+                            prefs.username = username;
+                            prefs.receive_directory = receive_directory;
+                            prefs.notifications = notifications;
+                        });
                         close.close();
                     }
                     Err(key) => app.error(key),

@@ -196,6 +196,30 @@ fn dispatch_rejection_completes_and_keeps_invitations_pending() {
 }
 
 #[gtk::test]
+fn queued_preference_changes_preserve_each_others_fields() {
+    adw::init().unwrap();
+    let application = adw::Application::builder()
+        .application_id("com.vnidrop.VniDrop.PreferenceQueueTest")
+        .flags(gio::ApplicationFlags::NON_UNIQUE)
+        .build();
+    application.register(None::<&gio::Cancellable>).unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let app = App::new(&application, root.path().join("profile"));
+    let initial = app.preferences.borrow().clone();
+
+    app.save_preferences(|prefs| prefs.theme = "Dark".into());
+    app.save_preferences(|prefs| prefs.diagnostics_install_id = "existing-test-id".into());
+    until("preference writes persisted", || {
+        !app.saving_preferences.get()
+    });
+
+    let persisted = Preferences::load(&app.profile, initial).unwrap();
+    assert_eq!(persisted.theme, "Dark");
+    assert_eq!(persisted.diagnostics_install_id, "existing-test-id");
+    app.window.destroy();
+}
+
+#[gtk::test]
 fn native_draft_approval_receive_and_shutdown() {
     adw::init().expect("GTK display (use xvfb-run for headless testing)");
     widget_tests::readiness_and_clipboard();

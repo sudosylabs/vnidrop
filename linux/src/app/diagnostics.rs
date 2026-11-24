@@ -189,26 +189,33 @@ impl App {
             close.set_can_close(false);
             error.set_visible(false);
             let (button, close, error) = (button.clone(), close.clone(), error.clone());
-            let profile = app.profile.clone();
+            let install_id = prefs.diagnostics_install_id;
+            let preference_write = app.save_preferences(move |prefs| {
+                if prefs.diagnostics_install_id.is_empty() {
+                    prefs.diagnostics_install_id = install_id;
+                }
+            });
             let content = content.clone();
-            app.busy.set(app.busy.get() + 1);
             let hold = app.application.hold();
             let configuration = configuration.clone();
             glib::spawn_future_local(async move {
-                let saved = prefs.clone();
-                let (persisted, result) = gio::spawn_blocking(move || match prefs.save(&profile) {
-                    Ok(()) => (
-                        true,
-                        configuration.and_then(|configuration| configuration.send(&report)),
-                    ),
-                    Err(key) => (false, Err(key)),
-                })
-                .await
-                .unwrap_or((false, Err("bug_report_submit_failed")));
-                app.busy.set(app.busy.get() - 1);
-                if persisted {
-                    app.preferences.replace(saved);
-                }
+                let result = match preference_write
+                    .recv()
+                    .await
+                    .unwrap_or(Err("bug_report_submit_failed"))
+                {
+                    Ok(()) if !app.closing.get() => {
+                        app.busy.set(app.busy.get() + 1);
+                        let result = gio::spawn_blocking(move || {
+                            configuration.and_then(|configuration| configuration.send(&report))
+                        })
+                        .await
+                        .unwrap_or(Err("bug_report_submit_failed"));
+                        app.busy.set(app.busy.get() - 1);
+                        result
+                    }
+                    saved => saved.and(Err("bug_report_submit_failed")),
+                };
                 if app.closing.get() {
                     drop(hold);
                     return;

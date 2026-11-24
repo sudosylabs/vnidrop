@@ -288,11 +288,12 @@ final class SavedDevicesModel: ObservableObject {
 			// nowhere to land. Surfaces as the generic filesystem error.
 			return .failure(InvitationError.filesystemUnavailable)
 		}
-		let result = resume
-			? await repository.resumeTargetedTransfer(id: transferId, outputDirectoryUrl: folder.value)
-			: await repository.receiveTargetedTransfer(
-				transferId: transferId, outputDirectoryUrl: folder.value
-			)
+		let result = await fileSystemService.withReceiveFolderAccess(folder) { destination in
+			if resume {
+				return await repository.resumeTargetedTransfer(id: transferId, outputDirectoryUrl: destination.value)
+			}
+			return await repository.receiveTargetedTransfer(transferId: transferId, outputDirectoryUrl: destination.value)
+		}
 		if case .success = result {
 			messages.tryShow(UiMessage(text: .resource(L10n.Receive.completed), tone: .success))
 		}

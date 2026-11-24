@@ -55,6 +55,10 @@ protocol FileSystemService {
 	func defaultReceiveFolder() -> ReceiveFolder
 	func effectiveReceiveFolder(_ configured: ReceiveFolder) -> ReceiveFolder
 	func validateReceiveFolder(_ folder: ReceiveFolder) async -> FolderAccessStatus
+	func withReceiveFolderAccess<Output>(
+		_ folder: ReceiveFolder,
+		operation: (ReceiveFolder) async -> Result<Output, Error>
+	) async -> Result<Output, Error>
 	func canRevealReceiveFolder(_ folder: ReceiveFolder) -> Bool
 	func revealReceiveFolder(_ folder: ReceiveFolder) async -> Result<Void, Error>
 	/// Releases only app-owned picker copies; never deletes original user sources.
@@ -85,6 +89,13 @@ extension FileSystemService {
 
 	func effectiveReceiveFolder(_ configured: ReceiveFolder) -> ReceiveFolder {
 		supportsCustomReceiveFolders ? configured : defaultReceiveFolder()
+	}
+
+	func withReceiveFolderAccess<Output>(
+		_ folder: ReceiveFolder,
+		operation: (ReceiveFolder) async -> Result<Output, Error>
+	) async -> Result<Output, Error> {
+		await operation(folder)
 	}
 
 	func canRevealReceiveFolder(_ folder: ReceiveFolder) -> Bool { false }

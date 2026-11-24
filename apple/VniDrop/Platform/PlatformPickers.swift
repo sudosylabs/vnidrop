@@ -17,7 +17,11 @@ struct PlatformPickers: ViewModifier {
 				switch result {
 				case .success(let urls):
 					guard let url = urls.first else { return }
-					settingsModel.onReceiveFolderPicked(PickerSupport.receiveFolder(from: url))
+					do {
+						settingsModel.onReceiveFolderPicked(try PickerSupport.receiveFolder(from: url))
+					} catch {
+						settingsModel.onReceiveFolderPickFailed(error.technicalDetail)
+					}
 				case .failure(let error):
 					if !error.isUserCancellation { settingsModel.onReceiveFolderPickFailed(error.technicalDetail) }
 				}
@@ -74,13 +78,21 @@ struct SendPickers: ViewModifier {
 /// handling so security-scoped bookmarks are captured the same way.
 
 enum PickerSupport {
-	static func receiveFolder(from url: URL) -> ReceiveFolder {
+	static func receiveFolder(from url: URL) throws -> ReceiveFolder {
 		#if os(iOS)
 		// External receive folders on iOS use security-scoped URLs; the core holds
 		// access while streaming. Store the URL string.
 		return ReceiveFolder(kind: .iosSecurityScopedUrl, value: url.absoluteString, displayName: url.lastPathComponent)
-		#else
+		#elseif DIRECT_DISTRIBUTION
 		return ReceiveFolder(kind: .fileSystemPath, value: url.path, displayName: url.lastPathComponent)
+		#else
+		let accessing = url.startAccessingSecurityScopedResource()
+		defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+		let bookmark = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+		return ReceiveFolder(
+			kind: .fileSystemPath, value: url.path, displayName: url.lastPathComponent,
+			securityScopeBookmark: bookmark
+		)
 		#endif
 	}
 

@@ -11,6 +11,7 @@ struct ReceiveFolder: Equatable, Codable, Sendable {
 	let kind: ReceiveFolderKind
 	let value: String
 	let displayName: String
+	var securityScopeBookmark: Data? = nil
 }
 
 enum FolderAccessStatus {
@@ -139,6 +140,7 @@ final class AppPreferencesRepository: ObservableObject {
 
 	private enum Key {
 		static let username = "username"
+		static let receiveFolder = "receive_folder"
 		static let receiveFolderKind = "receive_folder_kind"
 		static let receiveFolderValue = "receive_folder_value"
 		static let receiveFolderDisplayName = "receive_folder_display_name"
@@ -181,6 +183,11 @@ final class AppPreferencesRepository: ObservableObject {
 	}
 
 	private static func resolveReceiveFolder(_ defaults: UserDefaults, fallback: ReceiveFolder) -> ReceiveFolder {
+		if let stored = defaults.data(forKey: Key.receiveFolder),
+		   let folder = try? JSONDecoder().decode(ReceiveFolder.self, from: stored),
+		   !folder.value.isEmpty {
+			return folder
+		}
 		let kind = defaults.string(forKey: Key.receiveFolderKind)
 			.flatMap(ReceiveFolderKind.init(rawValue:)) ?? fallback.kind
 		let value = defaults.string(forKey: Key.receiveFolderValue).flatMap { $0.isEmpty ? nil : $0 } ?? fallback.value
@@ -199,9 +206,8 @@ final class AppPreferencesRepository: ObservableObject {
 	}
 
 	func setReceiveFolder(_ folder: ReceiveFolder) {
-		defaults.set(folder.kind.rawValue, forKey: Key.receiveFolderKind)
-		defaults.set(folder.value, forKey: Key.receiveFolderValue)
-		defaults.set(folder.displayName, forKey: Key.receiveFolderDisplayName)
+		guard let encoded = try? JSONEncoder().encode(folder) else { return }
+		defaults.set(encoded, forKey: Key.receiveFolder)
 		reload()
 	}
 

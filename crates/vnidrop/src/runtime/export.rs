@@ -16,16 +16,18 @@ const PROGRESS_INTERVAL: Duration = Duration::from_millis(250);
 pub(super) struct BufferedExport<'a, S> {
     stream: Pin<Box<S>>,
     path: &'a str,
+    expected_size: u64,
     file_size: Option<u64>,
     exported: u64,
     last_progress: Option<Instant>,
 }
 
 impl<'a, S: Stream<Item = ExportRangesItem>> BufferedExport<'a, S> {
-    pub(super) fn new(stream: S, path: &'a str) -> Self {
+    pub(super) fn new(stream: S, path: &'a str, expected_size: u64) -> Self {
         Self {
             stream: Box::pin(stream),
             path,
+            expected_size,
             file_size: None,
             exported: 0,
             last_progress: None,
@@ -38,6 +40,10 @@ impl<'a, S: Stream<Item = ExportRangesItem>> BufferedExport<'a, S> {
             Some(size) => size,
             None => match self.stream.as_mut().next().await {
                 Some(ExportRangesItem::Size(size)) => {
+                    anyhow::ensure!(
+                        size == self.expected_size,
+                        "export size for {path} differs from its collection size"
+                    );
                     self.file_size = Some(size);
                     size
                 }
@@ -72,8 +78,15 @@ impl<'a, S: Stream<Item = ExportRangesItem>> BufferedExport<'a, S> {
         Ok(Some(chunk))
     }
 
-    pub(super) fn exported_bytes(&self) -> u64 {
-        self.exported
+    pub(super) fn finish(self) -> Result<u64> {
+        anyhow::ensure!(
+            self.file_size == Some(self.expected_size) && self.exported == self.expected_size,
+            "export for {} wrote {} bytes, expected {}",
+            self.path,
+            self.exported,
+            self.expected_size
+        );
+        Ok(self.exported)
     }
 
     pub(super) fn report_progress(
@@ -104,5 +117,23 @@ impl<'a, S: Stream<Item = ExportRangesItem>> BufferedExport<'a, S> {
                 "exported": self.exported,
             }),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn export_uses_the_downloaded_collection_size_before_it_can_finish() {
+        let stream = futures_lite::stream::iter([ExportRangesItem::Size(0)]);
+        let mut mismatched = BufferedExport::new(stream, "file", 1);
+        assert!(mismatched.next_chunk().await.is_err());
+        assert!(mismatched.finish().is_err());
+
+        let stream = futures_lite::stream::iter([ExportRangesItem::Size(0)]);
+        let mut empty = BufferedExport::new(stream, "empty", 0);
+        assert!(empty.next_chunk().await.unwrap().is_none());
+        assert_eq!(empty.finish().unwrap(), 0);
     }
 }

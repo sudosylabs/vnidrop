@@ -8,6 +8,13 @@ struct ReceivedTransfer<'a> {
     sink_destination: Option<&'a str>,
 }
 
+#[derive(Clone, Copy)]
+struct ExportFile<'a> {
+    relative_path: &'a str,
+    hash: Hash,
+    expected_size: u64,
+}
+
 struct OutputSinkFile<'a> {
     sink: &'a dyn ReceiveOutputSink,
     relative_path: String,
@@ -143,7 +150,7 @@ impl CoreInner {
     pub(in crate::runtime) async fn export_collection(
         &self,
         transfer_id: u64,
-        total_files: u64,
+        file_sizes: &[u64],
         target: ReceiveTarget,
         collection: Collection,
     ) -> Result<()> {
@@ -158,7 +165,7 @@ impl CoreInner {
             targeted_id: None,
             sink_destination: None,
         };
-        self.export_received_collection(received_transfer, total_files, target, collection)
+        self.export_received_collection(received_transfer, file_sizes, target, collection)
             .await
     }
 
@@ -166,7 +173,7 @@ impl CoreInner {
         &self,
         targeted_id: &str,
         transfer_id: u64,
-        total_files: u64,
+        file_sizes: &[u64],
         target: ReceiveTarget,
         collection: Collection,
     ) -> Result<()> {
@@ -189,18 +196,28 @@ impl CoreInner {
             targeted_id: Some(targeted_id),
             sink_destination: destination.as_deref(),
         };
-        self.export_received_collection(transfer, total_files, target, collection)
+        self.export_received_collection(transfer, file_sizes, target, collection)
             .await
     }
 
     async fn export_received_collection(
         &self,
         received_transfer: ReceivedTransfer<'_>,
-        total_files: u64,
+        file_sizes: &[u64],
         target: ReceiveTarget,
         collection: Collection,
     ) -> Result<()> {
-        for (i, (name, hash)) in collection.iter().enumerate() {
+        anyhow::ensure!(
+            collection.len() == file_sizes.len(),
+            "collection file count differs from its size list"
+        );
+        let total_files = file_sizes.len() as u64;
+        for (i, ((name, hash), &expected_size)) in collection.iter().zip(file_sizes).enumerate() {
+            let file = ExportFile {
+                relative_path: name.as_ref(),
+                hash: *hash,
+                expected_size,
+            };
             match &target {
                 ReceiveTarget::Directory(output_dir) => {
                     self.export_blob_to_directory(
@@ -208,8 +225,7 @@ impl CoreInner {
                         total_files,
                         i as u64,
                         output_dir,
-                        name.as_ref(),
-                        *hash,
+                        file,
                     )
                     .await?;
                 }
@@ -219,8 +235,7 @@ impl CoreInner {
                         total_files,
                         i as u64,
                         output_sink.as_ref(),
-                        name.as_ref(),
-                        *hash,
+                        file,
                     )
                     .await?;
                 }
@@ -231,13 +246,7 @@ impl CoreInner {
                         verifier,
                     ) {
                         if self
-                            .verify_targeted_sink_output(
-                                id,
-                                destination,
-                                name,
-                                *hash,
-                                verifier.clone(),
-                            )
+                            .verify_targeted_sink_output(id, destination, file, verifier.clone())
                             .await?
                         {
                             continue;
@@ -248,8 +257,7 @@ impl CoreInner {
                         total_files,
                         i as u64,
                         (output_sink.as_ref(), verifier.as_deref()),
-                        name,
-                        *hash,
+                        file,
                     )
                     .await?;
                 }
@@ -262,11 +270,10 @@ impl CoreInner {
         &self,
         id: &str,
         destination: &str,
-        relative_path: &str,
-        hash: Hash,
+        file: ExportFile<'_>,
         verifier: Arc<dyn TargetedOutputVerifier>,
     ) -> Result<bool> {
-        let relative_path = validated_relative_string(relative_path)?;
+        let relative_path = validated_relative_string(file.relative_path)?;
         let Some((locator, published)) = self
             .targeted_transfers
             .sink_output_checkpoint(id, &relative_path, destination)
@@ -274,12 +281,12 @@ impl CoreInner {
         else {
             return Ok(false);
         };
-        let iroh_blobs::api::proto::BlobStatus::Complete { size } =
-            self.store.blobs().status(hash).await?
-        else {
-            anyhow::bail!("verified blob is unavailable for receive resumption");
-        };
         let timeout = self.connection_timeout();
+        let ExportFile {
+            hash,
+            expected_size,
+            ..
+        } = file;
         tokio::task::spawn_blocking(move || {
             let Some(descriptor) =
                 verifier.open_published_output(relative_path, locator, published)?
@@ -287,7 +294,10 @@ impl CoreInner {
                 return Ok(false);
             };
             Ok(crate::filesystem::verify_owned_descriptor(
-                descriptor, hash, size, timeout,
+                descriptor,
+                hash,
+                expected_size,
+                timeout,
             )?)
         })
         .await?
@@ -299,9 +309,13 @@ impl CoreInner {
         total_files: u64,
         current_file_index: u64,
         output_dir: &Path,
-        relative_path: &str,
-        hash: Hash,
+        file: ExportFile<'_>,
     ) -> Result<()> {
+        let ExportFile {
+            relative_path,
+            hash,
+            expected_size,
+        } = file;
         if relative_path.len() as u64 > self.limits.max_path_bytes {
             anyhow::bail!(
                 "output path exceeds {} bytes: {relative_path}",
@@ -337,7 +351,7 @@ impl CoreInner {
         let (tx, rx) = async_channel::bounded::<io::Result<Option<Bytes>>>(2);
         let writer_task = std::thread::spawn(move || write_stream_to_blocking_writer(writer, rx));
         let stream = self.store.export_ranges(hash, 0..u64::MAX).stream();
-        let mut export = BufferedExport::new(stream, relative_path);
+        let mut export = BufferedExport::new(stream, relative_path, expected_size);
         while let Some(chunk) = export.next_chunk().await? {
             tx.send(Ok(Some(Bytes::from(chunk))))
                 .await
@@ -345,6 +359,7 @@ impl CoreInner {
             export.report_progress(self, transfer.protocol_id, total_files, current_file_index);
         }
 
+        let exported_size = export.finish()?;
         tx.send(Ok(None))
             .await
             .map_err(|_| anyhow::anyhow!("export writer closed for {relative_path}"))?;
@@ -388,7 +403,7 @@ impl CoreInner {
                     relative_path,
                     locator_kind: ReceivedLocatorKind::FilesystemPath,
                     locator: &locator,
-                    logical_size: export.exported_bytes(),
+                    logical_size: exported_size,
                 })
                 .await
                 .map_err(VnidropError::repository)?;
@@ -396,15 +411,19 @@ impl CoreInner {
         Ok(())
     }
 
-    pub(in crate::runtime) async fn export_blob_to_sink(
+    async fn export_blob_to_sink(
         &self,
         transfer_id: u64,
         total_files: u64,
         current_file_index: u64,
         output_sink: &dyn ReceiveOutputSink,
-        relative_path: &str,
-        hash: Hash,
+        file: ExportFile<'_>,
     ) -> Result<()> {
+        let ExportFile {
+            relative_path,
+            hash,
+            expected_size,
+        } = file;
         if relative_path.len() as u64 > self.limits.max_path_bytes {
             anyhow::bail!(
                 "output path exceeds {} bytes: {relative_path}",
@@ -414,7 +433,7 @@ impl CoreInner {
         let relative_path = validated_relative_string(relative_path)?;
         let output_file = OutputSinkFile::start(output_sink, relative_path.clone())?;
         let stream = self.store.export_ranges(hash, 0..u64::MAX).stream();
-        let mut export = BufferedExport::new(stream, &relative_path);
+        let mut export = BufferedExport::new(stream, &relative_path, expected_size);
         while let Some(chunk) = export.next_chunk().await? {
             output_file.write(chunk)?;
             export.report_progress(self, transfer_id, total_files, current_file_index);
@@ -423,6 +442,7 @@ impl CoreInner {
             tokio::task::yield_now().await;
         }
 
+        export.finish()?;
         output_file.finish()?;
         Ok(())
     }
@@ -436,9 +456,13 @@ impl CoreInner {
             &dyn ReceiveOutputSinkV2,
             Option<&dyn TargetedOutputVerifier>,
         ),
-        relative_path: &str,
-        hash: Hash,
+        file: ExportFile<'_>,
     ) -> Result<()> {
+        let ExportFile {
+            relative_path,
+            hash,
+            expected_size,
+        } = file;
         if relative_path.len() as u64 > self.limits.max_path_bytes {
             anyhow::bail!(
                 "output path exceeds {} bytes: {relative_path}",
@@ -448,13 +472,14 @@ impl CoreInner {
         let relative_path = validated_relative_string(relative_path)?;
         let mut output_file = OutputSinkFileV2::start(sink.0, relative_path.clone())?;
         let stream = self.store.export_ranges(hash, 0..u64::MAX).stream();
-        let mut export = BufferedExport::new(stream, &relative_path);
+        let mut export = BufferedExport::new(stream, &relative_path, expected_size);
         while let Some(chunk) = export.next_chunk().await? {
             output_file.write(chunk)?;
             export.report_progress(self, transfer.protocol_id, total_files, current_file_index);
             tokio::task::yield_now().await;
         }
 
+        let exported_size = export.finish()?;
         let checkpoint = transfer
             .targeted_id
             .zip(transfer.sink_destination)
@@ -494,7 +519,7 @@ impl CoreInner {
                     relative_path: &relative_path,
                     locator_kind: published.locator_kind,
                     locator: &published.locator,
-                    logical_size: export.exported_bytes(),
+                    logical_size: exported_size,
                 })
                 .await
                 .map_err(VnidropError::repository)?;

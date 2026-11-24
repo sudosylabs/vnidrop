@@ -196,7 +196,7 @@ impl CoreInner {
         self.export_targeted_collection(
             targeted_transfer_id,
             transfer_id,
-            total_files,
+            &sizes[1..],
             target,
             collection,
         )

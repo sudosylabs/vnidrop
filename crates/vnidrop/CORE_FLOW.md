@@ -30,7 +30,8 @@ bytes through Kotlin memory.
 2. VniDrop tickets first connect to the handshake ALPN
    `/vnidrop/handshake/2` and send `RequestTransfer` metadata to the sender.
 3. If approved, the receiver connects to the blobs ALPN, downloads the
-   collection, and streams files to `output_dir`.
+   collection, and streams files to `output_dir`. Each export must match the
+   downloaded collection's file size before publication.
 4. If refused, expired, unknown, or cancelled, the receive transfer is marked
    `failed` or `cancelled` and emits an error/lifecycle event.
 5. Only `vnd1:` VniDrop tickets are accepted. Raw iroh `BlobTicket` strings are
@@ -131,9 +132,10 @@ Domain contract v2 does not transport transfer identity in these event payloads.
 - Android defaults to the shared system Downloads collection via MediaStore
   (`ReceiveFolderKind.AndroidPublicDownloads` on API 29+). Files show up in the
   user's Downloads UI like a browser download. Custom folders still use a SAF
-  tree URI from the folder picker. Both Android sinks stream through
-  `ReceiveOutputSink` instead of raw filesystem paths. Pre-Android 10 falls
-  back to the public Downloads path with legacy storage permission.
+  tree URI from the folder picker. Both Android sinks open a writable file
+  descriptor for each staged file and lend it to Rust through
+  `ReceiveOutputSinkV2`. Pre-Android 10 falls back to the public Downloads
+  path with legacy storage permission.
 - Foreign output sinks receive exactly one terminal callback after a successful
   `start_file`: `finish_file` or `abort_file`.
 

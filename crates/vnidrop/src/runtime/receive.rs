@@ -373,7 +373,7 @@ impl CoreInner {
         }
 
         let collection = Collection::load(hash_and_format.hash, self.store.as_ref()).await?;
-        self.export_collection(transfer_id, total_files, target, collection)
+        self.export_collection(transfer_id, &sizes[1..], target, collection)
             .await?;
         self.repository
             .complete_receive_with_pending_receipt(PendingDeliveryReceiptInsert {

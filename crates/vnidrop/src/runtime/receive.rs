@@ -8,13 +8,16 @@ use anyhow::{Context, Result};
 use bytes::Bytes;
 use futures_lite::StreamExt as _;
 use iroh_blobs::{
-    api::proto::ExportRangesItem, api::remote::GetProgressItem, format::collection::Collection,
+    api::remote::GetProgressItem, format::collection::Collection,
     get::request::get_hash_seq_and_sizes, ticket::BlobTicket, Hash,
 };
 use serde_json::json;
 use tokio::sync::oneshot;
 
-use super::{filter_peer_addr_for_relay_mode, ActiveTransfer, CoreInner, ReceiveAttempt};
+use super::{
+    export::BufferedExport, filter_peer_addr_for_relay_mode, ActiveTransfer, CoreInner,
+    ReceiveAttempt,
+};
 use crate::{
     access_policy::mode_to_storage,
     api::{
@@ -791,41 +794,13 @@ impl CoreInner {
                 .map_err(VnidropError::filesystem)?;
         let (tx, rx) = async_channel::bounded::<io::Result<Option<Bytes>>>(2);
         let writer_task = std::thread::spawn(move || write_stream_to_blocking_writer(writer, rx));
-        let mut stream = self.store.export_ranges(hash, 0..u64::MAX).stream();
-        let mut file_size = 0;
-        let mut exported = 0;
-
-        while let Some(item) = stream.next().await {
-            match item {
-                ExportRangesItem::Size(size) => file_size = size,
-                ExportRangesItem::Data(leaf) => {
-                    if leaf.offset != exported {
-                        anyhow::bail!(
-                            "export stream for {relative_path} yielded out-of-order data"
-                        );
-                    }
-                    exported += leaf.data.len() as u64;
-                    tx.send(Ok(Some(leaf.data)))
-                        .await
-                        .map_err(|_| anyhow::anyhow!("export writer closed for {relative_path}"))?;
-                    self.emit_transfer(
-                        transfer.protocol_id,
-                        "receive",
-                        "export",
-                        "progress",
-                        json!({
-                            "total_files": total_files,
-                            "current_file_index": current_file_index,
-                            "file_name": relative_path,
-                            "file_size": file_size,
-                            "exported": exported,
-                        }),
-                    );
-                }
-                ExportRangesItem::Error(error) => {
-                    anyhow::bail!("export failed for {relative_path}: {error}");
-                }
-            }
+        let stream = self.store.export_ranges(hash, 0..u64::MAX).stream();
+        let mut export = BufferedExport::new(stream, relative_path);
+        while let Some(chunk) = export.next_chunk().await? {
+            tx.send(Ok(Some(Bytes::from(chunk))))
+                .await
+                .map_err(|_| anyhow::anyhow!("export writer closed for {relative_path}"))?;
+            export.report_progress(self, transfer.protocol_id, total_files, current_file_index);
         }
 
         tx.send(Ok(None))
@@ -871,7 +846,7 @@ impl CoreInner {
                     relative_path,
                     locator_kind: ReceivedLocatorKind::FilesystemPath,
                     locator: &locator,
-                    logical_size: exported,
+                    logical_size: export.exported_bytes(),
                 })
                 .await
                 .map_err(VnidropError::repository)?;
@@ -896,43 +871,14 @@ impl CoreInner {
         }
         let relative_path = validated_relative_string(relative_path)?;
         let output_file = OutputSinkFile::start(output_sink, relative_path.clone())?;
-        let mut stream = self.store.export_ranges(hash, 0..u64::MAX).stream();
-        let mut file_size = 0;
-        let mut exported = 0;
-
-        while let Some(item) = stream.next().await {
-            match item {
-                ExportRangesItem::Size(size) => file_size = size,
-                ExportRangesItem::Data(leaf) => {
-                    if leaf.offset != exported {
-                        anyhow::bail!(
-                            "export stream for {relative_path} yielded out-of-order data"
-                        );
-                    }
-                    exported += leaf.data.len() as u64;
-                    output_file.write(leaf.data.to_vec())?;
-                    self.emit_transfer(
-                        transfer_id,
-                        "receive",
-                        "export",
-                        "progress",
-                        json!({
-                            "total_files": total_files,
-                            "current_file_index": current_file_index,
-                            "file_name": relative_path,
-                            "file_size": file_size,
-                            "exported": exported,
-                        }),
-                    );
-                    // Yield so outer `select!` cancel can land between chunks.
-                    // Sink writes are synchronous (foreign FFI); without this,
-                    // a single poll can drain the stream and miss cancellation.
-                    tokio::task::yield_now().await;
-                }
-                ExportRangesItem::Error(error) => {
-                    anyhow::bail!("export failed for {relative_path}: {error}");
-                }
-            }
+        let stream = self.store.export_ranges(hash, 0..u64::MAX).stream();
+        let mut export = BufferedExport::new(stream, &relative_path);
+        while let Some(chunk) = export.next_chunk().await? {
+            output_file.write(chunk)?;
+            export.report_progress(self, transfer_id, total_files, current_file_index);
+            // The synchronous foreign write may have been the only blocking
+            // call in this poll, so yield before publishing or writing again.
+            tokio::task::yield_now().await;
         }
 
         output_file.finish()?;
@@ -959,40 +905,12 @@ impl CoreInner {
         }
         let relative_path = validated_relative_string(relative_path)?;
         let output_file = OutputSinkFileV2::start(sink.0, relative_path.clone())?;
-        let mut stream = self.store.export_ranges(hash, 0..u64::MAX).stream();
-        let mut file_size = 0;
-        let mut exported = 0;
-
-        while let Some(item) = stream.next().await {
-            match item {
-                ExportRangesItem::Size(size) => file_size = size,
-                ExportRangesItem::Data(leaf) => {
-                    if leaf.offset != exported {
-                        anyhow::bail!(
-                            "export stream for {relative_path} yielded out-of-order data"
-                        );
-                    }
-                    exported += leaf.data.len() as u64;
-                    output_file.write(leaf.data.to_vec())?;
-                    self.emit_transfer(
-                        transfer.protocol_id,
-                        "receive",
-                        "export",
-                        "progress",
-                        json!({
-                            "total_files": total_files,
-                            "current_file_index": current_file_index,
-                            "file_name": relative_path,
-                            "file_size": file_size,
-                            "exported": exported,
-                        }),
-                    );
-                    tokio::task::yield_now().await;
-                }
-                ExportRangesItem::Error(error) => {
-                    anyhow::bail!("export failed for {relative_path}: {error}");
-                }
-            }
+        let stream = self.store.export_ranges(hash, 0..u64::MAX).stream();
+        let mut export = BufferedExport::new(stream, &relative_path);
+        while let Some(chunk) = export.next_chunk().await? {
+            output_file.write(chunk)?;
+            export.report_progress(self, transfer.protocol_id, total_files, current_file_index);
+            tokio::task::yield_now().await;
         }
 
         let checkpoint = transfer
@@ -1034,7 +952,7 @@ impl CoreInner {
                     relative_path: &relative_path,
                     locator_kind: published.locator_kind,
                     locator: &published.locator,
-                    logical_size: exported,
+                    logical_size: export.exported_bytes(),
                 })
                 .await
                 .map_err(VnidropError::repository)?;

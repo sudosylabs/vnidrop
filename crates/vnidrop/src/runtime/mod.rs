@@ -10,6 +10,7 @@
 //! - [`targeted`] — saved-device targeted transfers
 
 mod delivery;
+mod export;
 mod facade;
 mod identity_recovery;
 mod lifecycle;

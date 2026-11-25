@@ -37,3 +37,17 @@ test("checked-in AppStream copy matches the localization catalog", async () => {
   const metainfo = await Bun.file(new URL("../../../linux/packaging/com.vnidrop.VniDrop.metainfo.xml", import.meta.url)).text();
   expect(syncLinuxMetainfoCopy(doc, metainfo)).toBe(metainfo);
 });
+test("Linux packaging generation preserves CRLF and replaces each translation once", async () => {
+  const packaging = join(REPO_ROOT, "linux/packaging");
+  const templates = [
+    ["com.vnidrop.VniDrop.desktop", syncLinuxDesktopComments],
+    ["com.vnidrop.VniDrop.xml", syncLinuxMimeComments],
+    ["com.vnidrop.VniDrop.metainfo.xml", syncLinuxMetainfoCopy],
+  ] as const;
+
+  for (const [name, sync] of templates) {
+    const content = await Bun.file(join(packaging, name)).text();
+    const crlf = content.replace(/\r?\n/g, "\r\n");
+    expect(sync(doc, crlf)).toBe(crlf);
+  }
+});

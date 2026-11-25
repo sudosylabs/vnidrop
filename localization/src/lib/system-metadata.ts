@@ -31,13 +31,17 @@ export function syncApplePrivacyFallbacks(doc: StringsFile, plist: string): stri
   return plist;
 }
 
+function lineEnding(content: string): string {
+  return content.includes("\r\n") ? "\r\n" : "\n";
+}
+
 export function syncLinuxDesktopComments(doc: StringsFile, desktop: string): string {
   const comments = doc.supportedLanguages.map((language) => {
     const locale = language === doc.sourceLanguage ? "" : `[${language}]`;
     const value = translation(doc, "linux_desktop_description", language).replaceAll("\\", "\\\\").replaceAll("\n", "\\n");
     return `Comment${locale}=${value}`;
   });
-  return desktop.replace(/^Comment=.*$(?:\nComment\[[^\]]+\]=.*$)*/m, () => comments.join("\n"));
+  return desktop.replace(/^Comment=.*$(?:\r?\nComment\[[^\]]+\]=.*$)*/m, () => comments.join(lineEnding(desktop)));
 }
 
 export function syncLinuxMimeComments(doc: StringsFile, mime: string): string {
@@ -46,7 +50,7 @@ export function syncLinuxMimeComments(doc: StringsFile, mime: string): string {
     const value = xmlText(translation(doc, "linux_mime_invitation_description", language));
     return `    <comment${locale}>${value}</comment>`;
   });
-  return mime.replace(/^    <comment>.*<\/comment>$(?:\n    <comment xml:lang="[^"]+">.*<\/comment>$)*/m, () => comments.join("\n"));
+  return mime.replace(/^    <comment>.*<\/comment>$(?:\r?\n    <comment xml:lang="[^"]+">.*<\/comment>$)*/m, () => comments.join(lineEnding(mime)));
 }
 
 export function syncLinuxMetainfoCopy(doc: StringsFile, metainfo: string): string {
@@ -55,10 +59,10 @@ export function syncLinuxMetainfoCopy(doc: StringsFile, metainfo: string): strin
       const locale = language === doc.sourceLanguage ? "" : ` xml:lang="${language}"`;
       return `${indent}<${tag}${locale}>${xmlText(translation(doc, key, language))}</${tag}>`;
     })
-    .join("\n");
+    .join(lineEnding(metainfo));
   return metainfo
-    .replace(/^  <summary>.*<\/summary>$(?:\n  <summary xml:lang="[^"]+">.*<\/summary>$)*/m,
+    .replace(/^  <summary>.*<\/summary>$(?:\r?\n  <summary xml:lang="[^"]+">.*<\/summary>$)*/m,
       () => localized("summary", "linux_desktop_description", "  "))
-    .replace(/^    <p>.*<\/p>$(?:\n    <p xml:lang="[^"]+">.*<\/p>$)*/m,
+    .replace(/^    <p>.*<\/p>$(?:\r?\n    <p xml:lang="[^"]+">.*<\/p>$)*/m,
       () => localized("p", "about_description", "    "));
 }

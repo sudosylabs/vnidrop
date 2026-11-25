@@ -58,13 +58,14 @@ impl PairingEligibilityStore {
     pub(crate) async fn insert(
         &self,
         entry: PairingEligibilityInsert<'_>,
-    ) -> Result<(), VnidropError> {
-        sqlx::query(
+    ) -> Result<bool, VnidropError> {
+        let result = sqlx::query(
             r#"
             INSERT INTO pairing_eligibilities (
                 session_id, peer_endpoint_id, remote_display_name, protocol_version,
                 secret_handle, created_at, expires_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            ) SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
+              WHERE NOT EXISTS(SELECT 1 FROM blocked_endpoints WHERE endpoint_id = ?2)
             "#,
         )
         .bind(entry.session_id)
@@ -77,7 +78,7 @@ impl PairingEligibilityStore {
         .execute(&self.pool)
         .await
         .map_err(VnidropError::repository)?;
-        Ok(())
+        Ok(result.rows_affected() == 1)
     }
 
     pub(crate) async fn list_summaries(

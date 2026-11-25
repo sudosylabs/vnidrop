@@ -374,6 +374,9 @@
     <string name="saved_devices_forgotten">Dispositivo guardado esquecido</string>
     <string name="saved_devices_blocked">Dispositivo bloqueado</string>
     <string name="saved_devices_labeled">Etiqueta atualizada</string>
+    <string name="app_brand_name">VniDrop</string>
+    <string name="android_notification_channel_transfers">Pedidos de transferência</string>
+    <string name="storage_downloads_name">Transferências</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d ficheiro</item>
         <item quantity="other">%1$d ficheiros</item>

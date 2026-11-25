@@ -120,7 +120,10 @@ struct RootView: View {
 		.platformPickers(settingsModel: settingsModel)
 		.task { await consumeExternalInvitations() }
 		// Launch pass; `.onChange(of: scenePhase)` doesn't fire for the initial value.
-		.task { settingsModel.purgeUnreachableTrash() }
+		.task {
+			settingsModel.purgeUnreachableTrash()
+			TemporaryInvitation.pruneStaleFiles()
+		}
 		.onChange(of: scenePhase) { _, phase in
 			switch phase {
 			case .active:
@@ -145,7 +148,11 @@ struct RootView: View {
 				break
 			}
 		}
-		#if os(macOS)
+		#if os(iOS)
+		.onChange(of: scenePhase, initial: true) { _, phase in
+			graph.backgroundActivity.updateForegroundIdleTimer(active: phase == .active)
+		}
+		#elseif os(macOS)
 		// macOS keeps `scenePhase == .active` even when the app loses focus, so
 		// drive foreground/background off NSApplication's active state instead —
 		// otherwise notifications (only posted when unfocused) never fire.

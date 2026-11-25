@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using VniDrop.Core;
 using VniDrop.Platform;
 using VniDrop.ViewModels;
 
@@ -22,17 +23,25 @@ public sealed partial class TransferRow : UserControl
     public event EventHandler<TransferItem>? StopRequested;
     public event EventHandler<TransferItem>? DeleteRequested;
 
+    private readonly PropertyChangeSubscription itemChanges;
+
     public TransferRow()
     {
+        itemChanges = new(ItemPropertyChanged);
         InitializeComponent();
+        Loaded += (_, _) =>
+        {
+            itemChanges.Observe(Item);
+            Render();
+        };
+        Unloaded += (_, _) => itemChanges.Observe(null);
         Render();
     }
 
     private static void ItemChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
     {
         if (sender is not TransferRow row) return;
-        if (args.OldValue is TransferItem oldItem) oldItem.PropertyChanged -= row.ItemPropertyChanged;
-        if (args.NewValue is TransferItem newItem) newItem.PropertyChanged += row.ItemPropertyChanged;
+        row.itemChanges.Observe(row.IsLoaded ? args.NewValue as TransferItem : null);
         row.Render();
     }
 
@@ -60,6 +69,7 @@ public sealed partial class TransferRow : UserControl
         Progress.Value = item.Progress;
         ProgressText.Text = item.ProgressText;
         ShareMenuItem.Visibility = item.CanShare ? Visibility.Visible : Visibility.Collapsed;
+        StopMenuItem.Text = Strings.Get(TransferPresentation.StopActionKey(item.Direction));
         StopMenuItem.Visibility = item.CanStop ? Visibility.Visible : Visibility.Collapsed;
         DeleteMenuItem.Visibility = item.CanDelete ? Visibility.Visible : Visibility.Collapsed;
         DestructiveSeparator.Visibility = item.CanShare && (item.CanStop || item.CanDelete)

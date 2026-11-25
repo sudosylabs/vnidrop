@@ -59,13 +59,25 @@ public sealed class NativeNotifications
                 current[id] = state;
             }
         }
-        foreach (var transfer in snapshot.Transfers.Where(t => t.direction == "receive"))
-            Notice("receive:" + transfer.localId, transfer.status, transfer.status switch
-            { "done" => Strings.Get("notifications_receive_completed_title"), "failed" => Strings.Get("notifications_receive_failed_title"), _ => null },
-                transfer.transferName ?? Strings.Get("receive_unknown_transfer"));
+        foreach (var transfer in snapshot.Transfers.Where(t => t.Direction == InvitationDirection.Receive))
+            Notice("receive:" + transfer.Value.localId, transfer.Value.status, transfer.Status switch
+            {
+                InvitationStatus.Done => Strings.Get("notifications_receive_completed_title"),
+                InvitationStatus.Failed => Strings.Get("notifications_receive_failed_title"),
+                InvitationStatus.Importing or InvitationStatus.Sharing or InvitationStatus.Receiving
+                    or InvitationStatus.Cancelled or InvitationStatus.Stopped or InvitationStatus.Unknown => null,
+                _ => throw new ArgumentOutOfRangeException(nameof(transfer.Value.status)),
+            },
+                transfer.Value.transferName ?? Strings.Get("receive_unknown_transfer"));
         foreach (var request in snapshot.Requests)
-            Notice("request:" + request.id, request.status, request.status switch
-            { "requested" => Strings.Get("approval_connection_request"), "completed" => Strings.Get("notifications_receiver_completed_title"), "failed" => Strings.Get("notifications_receiver_failed_title"), _ => null }, request.transferName);
+            Notice("request:" + request.Value.id, request.Value.status, request.Status switch
+            {
+                ReceiverStatus.Requested => Strings.Get("approval_connection_request"),
+                ReceiverStatus.Completed => Strings.Get("notifications_receiver_completed_title"),
+                ReceiverStatus.Failed => Strings.Get("notifications_receiver_failed_title"),
+                ReceiverStatus.Accepted or ReceiverStatus.Refused or ReceiverStatus.Expired or ReceiverStatus.Unknown => null,
+                _ => throw new ArgumentOutOfRangeException(nameof(request.Value.status)),
+            }, request.Value.transferName);
         foreach (var notice in SavedDevicesReadModel.Derive(SavedDevicesReadInputs.FromSnapshot(snapshot)).Notifications)
             Notice(
                 notice.Id,

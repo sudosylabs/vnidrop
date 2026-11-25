@@ -129,7 +129,7 @@ impl PairingEligibilityService {
             .await?;
         let created_at = authenticated_at;
         let expires_at = created_at + ELIGIBILITY_TTL_MS;
-        if let Err(error) = self
+        match self
             .store
             .insert(PairingEligibilityInsert {
                 peer_endpoint_id,
@@ -142,8 +142,11 @@ impl PairingEligibilityService {
             })
             .await
         {
-            let _ = custody.remove(&handle).await;
-            return Err(error);
+            Ok(true) => {}
+            result => {
+                let _ = custody.remove(&handle).await;
+                return result.map(|_| ());
+            }
         }
 
         self.event_hub.emit_endpoint(
@@ -157,21 +160,6 @@ impl PairingEligibilityService {
             }),
         );
         Ok(())
-    }
-
-    /// Starts a local pairing attempt when eligibility exists.
-    ///
-    /// Returns `false` when eligibility is missing/expired (silent reject). A
-    /// successful start consumes the single-use eligibility for that session.
-    #[allow(
-        dead_code,
-        reason = "retained for eligibility-only callers; mutual consent uses take_eligibility"
-    )]
-    pub(crate) async fn request_pairing(
-        &self,
-        peer_endpoint_id: &str,
-    ) -> Result<bool, VnidropError> {
-        Ok(self.take_eligibility(peer_endpoint_id).await?.is_some())
     }
 
     /// Takes and consumes eligibility for a peer, returning the capability material.
@@ -213,10 +201,7 @@ impl PairingEligibilityService {
     }
 
     /// Validates an inbound eligibility presentation without prompts or events on failure.
-    #[allow(
-        dead_code,
-        reason = "inbound pairing wire acceptance lands with mutual-consent ticket 08"
-    )]
+    #[cfg(test)]
     pub(crate) async fn accept_presented_eligibility(
         &self,
         peer_endpoint_id: &str,

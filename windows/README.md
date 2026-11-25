@@ -193,7 +193,9 @@ When `windows-preferences.json` does not exist, the app reads the existing Kotli
 DataStore preferences. It preserves the display name, receive folder, theme,
 notification preference, relay policy, and diagnostics installation identifier.
 Saving writes a separate JSON preferences file atomically. The Kotlin preferences
-file is left intact. Invalid saved policies fail closed.
+file stays intact. When saved preferences are damaged, the app preserves the
+original data and recovers with Local only networking. A damaged native JSON file
+is saved alongside the new preferences with an `.invalid` extension.
 
 File selection uses Windows thumbnails and associated file icons. Invitation
 shares keep a bounded preview under `ui/previews`, compatible with the KMP cache,

@@ -27,7 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -41,6 +40,7 @@ import com.vnidrop.app.ui.icons.PlatformIcon
 import com.vnidrop.app.ui.navigation.LocalRootScaffold
 import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.theme.LocalVniDropColors
+import com.vnidrop.app.ui.theme.VniDropThemeTokens
 import org.jetbrains.compose.resources.stringResource
 import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.button_back
@@ -216,7 +216,7 @@ internal fun SettingsToggleRow(
 			onCheckedChange = null,
 			enabled = enabled,
 			colors = if (!LocalUiPlatform.current.isDesktop) SwitchDefaults.colors() else SwitchDefaults.colors(
-				checkedThumbColor = Color.White,
+				checkedThumbColor = VniDropThemeTokens.checkedSwitchThumb,
 				checkedTrackColor = colors.brandButton,
 			),
 		)

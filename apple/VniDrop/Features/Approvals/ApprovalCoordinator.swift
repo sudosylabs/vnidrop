@@ -32,6 +32,7 @@ final class ApprovalCoordinator: ObservableObject {
 	private let messages: UiMessageController
 
 	private var publishedNotificationIds = Set<String>()
+	private var sharingIds = Set<UInt64>()
 	private var cancellables = Set<AnyCancellable>()
 
 	init(
@@ -55,11 +56,25 @@ final class ApprovalCoordinator: ObservableObject {
 			.store(in: &cancellables)
 
 		repository.statePublisher
-			.sink { [weak self] core in
-				guard let self, core.isInitialized else { return }
-				let sharing = core.transfers.filter { $0.direction == .send && $0.status == .sharing }
-				for transfer in sharing {
-					Task { await self.refresh(transferId: transfer.transferId) }
+			.map { core in
+				guard core.isInitialized else { return Set<UInt64>() }
+				return Set(core.transfers.lazy.filter { $0.direction == .send && $0.status == .sharing }.map(\.transferId))
+			}
+			.removeDuplicates()
+			.sink { [weak self] sharing in
+				guard let self else { return }
+				let added = sharing.subtracting(self.sharingIds)
+				let removed = self.sharingIds.subtracting(sharing)
+				self.sharingIds = sharing
+				if !removed.isEmpty {
+					for request in self.state.pending where removed.contains(request.transferId) {
+						self.notifications.cancel(id: Self.notificationId(request.id))
+						self.publishedNotificationIds.remove(request.id)
+					}
+					self.state.pending.removeAll { removed.contains($0.transferId) }
+				}
+				for id in added {
+					Task { await self.refresh(transferId: id, requiresActiveShare: true) }
 				}
 			}
 			.store(in: &cancellables)
@@ -106,8 +121,9 @@ final class ApprovalCoordinator: ObservableObject {
 		}
 	}
 
-	private func refresh(transferId: UInt64) async {
+	private func refresh(transferId: UInt64, requiresActiveShare: Bool = false) async {
 		let result = await repository.receiverRequests(transferId: transferId)
+		guard !requiresActiveShare || sharingIds.contains(transferId) else { return }
 		switch result {
 		case .success(let requests):
 			let refreshed = requests

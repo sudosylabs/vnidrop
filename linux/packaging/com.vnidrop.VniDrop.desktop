@@ -2,6 +2,14 @@
 Type=Application
 Name=VniDrop
 Comment=Send files directly between devices
+Comment[fr]=Envoyez des fichiers directement entre appareils
+Comment[es]=Envía archivos directamente entre dispositivos
+Comment[it]=Invia file direttamente tra dispositivi
+Comment[de]=Dateien direkt zwischen Geräten senden
+Comment[pt]=Envie ficheiros diretamente entre dispositivos
+Comment[pl]=Wysyłaj pliki bezpośrednio między urządzeniami
+Comment[nl]=Verstuur bestanden rechtstreeks tussen apparaten
+Comment[ru]=Отправляйте файлы напрямую между устройствами
 Exec=vnidrop %F
 Icon=com.vnidrop.VniDrop
 Terminal=false

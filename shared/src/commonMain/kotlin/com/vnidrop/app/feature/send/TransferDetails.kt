@@ -31,7 +31,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +58,7 @@ import com.vnidrop.app.ui.state.displayNameForStatus
 import com.vnidrop.app.ui.state.formatBytes
 import com.vnidrop.app.ui.state.progressForReceiver
 import com.vnidrop.app.ui.theme.LocalVniDropColors
+import com.vnidrop.app.ui.theme.VniDropThemeTokens
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -313,7 +313,7 @@ internal fun TransferSharePanel(
 			is TransferQrRenderState.Ready -> Surface(
 				modifier = Modifier.align(Alignment.CenterHorizontally).size(268.dp),
 				shape = RoundedCornerShape(18.dp),
-				color = Color.White,
+				color = VniDropThemeTokens.qrBacking,
 			) {
 				Image(
 					bitmap = qrState.bitmap,
@@ -325,7 +325,7 @@ internal fun TransferSharePanel(
 			TransferQrRenderState.Loading -> Surface(
 				modifier = Modifier.align(Alignment.CenterHorizontally).size(268.dp),
 				shape = RoundedCornerShape(18.dp),
-				color = Color.White,
+				color = VniDropThemeTokens.qrBacking,
 			) {
 				Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
 			}

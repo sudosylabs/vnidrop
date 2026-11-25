@@ -13,7 +13,7 @@ use crate::{
         DeliveryFailureReceipt, DeliveryReceipt, DeliveryReceiptResponse, HandshakeResponse,
         RequestTransfer,
     },
-    invitation::{ReceiverRequestInsert, Repository},
+    invitation::{DeliveryCompletion, ReceiverRequestInsert, Repository},
     pairing_eligibility::PairingEligibilityService,
     transfer_state::ReceiverRequestStatus,
     util::now_ms,
@@ -58,8 +58,14 @@ impl ApprovalService {
             )
             .await
         {
-            Ok(remote_display_name) => {
-                if let Some(eligibility) = &self.pairing_eligibility {
+            Ok(DeliveryCompletion::AlreadyRecorded) => DeliveryReceiptResponse::Recorded,
+            Ok(DeliveryCompletion::Recorded {
+                remote_display_name,
+            }) => {
+                if let (Some(eligibility), Ok(false)) = (
+                    &self.pairing_eligibility,
+                    self.blocked.is_blocked(&remote_endpoint_id).await,
+                ) {
                     if let Err(error) = eligibility
                         .activate_after_completed_transfer(
                             &remote_endpoint_id,
@@ -96,6 +102,8 @@ impl ApprovalService {
         receipt: DeliveryFailureReceipt,
     ) -> DeliveryReceiptResponse {
         let token_hash = receipt_token_hash(&receipt.token);
+        let max_reason_bytes = usize::try_from(self.max_metadata_bytes).unwrap_or(usize::MAX);
+        let reason = &receipt.reason[..receipt.reason.floor_char_boundary(max_reason_bytes)];
         match self
             .repository
             .fail_receiver_delivery(
@@ -103,11 +111,12 @@ impl ApprovalService {
                 receipt.transfer_id,
                 &remote_endpoint_id,
                 &token_hash,
-                &receipt.reason,
+                reason,
             )
             .await
         {
-            Ok(()) => {
+            Ok(false) => DeliveryReceiptResponse::Recorded,
+            Ok(true) => {
                 self.event_hub.emit_transfer(
                     receipt.transfer_id,
                     "send",
@@ -116,7 +125,7 @@ impl ApprovalService {
                     json!({
                         "request_id": receipt.request_id,
                         "remote_endpoint_id": remote_endpoint_id,
-                        "reason": receipt.reason,
+                        "reason": reason,
                     }),
                 );
                 DeliveryReceiptResponse::Recorded
@@ -190,9 +199,9 @@ impl ApprovalService {
             .unwrap_or(true)
         {
             // Indistinguishable from other refusals so probing cannot detect blocks.
-            return self
-                .deny(request.transfer_id, remote_endpoint_id, "not-accepted")
-                .await;
+            return HandshakeResponse::Denied {
+                reason: "not-accepted".to_owned(),
+            };
         }
         let metadata_values = [
             request.transfer_hash.as_str(),
@@ -205,14 +214,29 @@ impl ApprovalService {
             .iter()
             .any(|value| value.len() as u64 > self.max_metadata_bytes)
         {
-            return self
-                .deny(
-                    request.transfer_id,
-                    remote_endpoint_id,
-                    "metadata-too-large",
-                )
-                .await;
+            return HandshakeResponse::Denied {
+                reason: "metadata-too-large".to_owned(),
+            };
         }
+        match self
+            .repository
+            .send_exists(request.transfer_id, &request.transfer_hash)
+            .await
+        {
+            Ok(true) => {}
+            Ok(false) => {
+                return HandshakeResponse::Denied {
+                    reason: "unknown-transfer".to_owned(),
+                };
+            }
+            Err(error) => {
+                tracing::error!(%error, "failed to validate handshake transfer request");
+                return HandshakeResponse::Denied {
+                    reason: "repository-error".to_owned(),
+                };
+            }
+        }
+
         self.event_hub.emit_transfer(
             request.transfer_id,
             "send",
@@ -224,38 +248,18 @@ impl ApprovalService {
             }),
         );
 
-        match self
-            .repository
-            .send_exists(request.transfer_id, &request.transfer_hash)
+        // Public and already-approved shares can skip a second sender decision.
+        if self
+            .access_policy
+            .decide(request.transfer_id, Some(&remote_endpoint_id))
             .await
+            == AccessDecision::Allow
         {
-            Ok(true) => {
-                // An existing access session means this endpoint was already
-                // authorised: either the share is public, or the sender pushed
-                // this transfer to them. Prompting again would ask the sender
-                // to approve a transfer they themselves initiated.
-                if self
-                    .access_policy
-                    .decide(request.transfer_id, Some(&remote_endpoint_id))
-                    .await
-                    == AccessDecision::Allow
-                {
-                    self.allow_without_sender_decision(remote_endpoint_id, request)
-                        .await
-                } else {
-                    self.wait_for_sender_decision(remote_endpoint_id, request)
-                        .await
-                }
-            }
-            Ok(false) => {
-                self.deny(request.transfer_id, remote_endpoint_id, "unknown-transfer")
-                    .await
-            }
-            Err(error) => {
-                tracing::error!(%error, "failed to validate handshake transfer request");
-                self.deny(request.transfer_id, remote_endpoint_id, "repository-error")
-                    .await
-            }
+            self.allow_without_sender_decision(remote_endpoint_id, request)
+                .await
+        } else {
+            self.wait_for_sender_decision(remote_endpoint_id, request)
+                .await
         }
     }
 
@@ -382,13 +386,29 @@ impl ApprovalService {
             Ok(Ok(decision)) if decision.accepted => {
                 let token = Uuid::new_v4().to_string();
                 let expires_at = now_ms() + APPROVAL_TTL_MS;
-                self.access_policy
+                if let Err(error) = self
+                    .repository
+                    .set_receiver_receipt_token(&decision.request_id, &receipt_token_hash(&token))
+                    .await
+                {
+                    tracing::error!(%error, "failed to attach delivery receipt token");
+                    return HandshakeResponse::Denied {
+                        reason: "repository-error".to_string(),
+                    };
+                }
+                if !self
+                    .access_policy
                     .approve_endpoint_until(
                         request.transfer_id,
                         remote_endpoint_id.clone(),
                         Some(expires_at),
                     )
-                    .await;
+                    .await
+                {
+                    return self
+                        .deny(request.transfer_id, remote_endpoint_id, "not-accepted")
+                        .await;
+                }
                 self.event_hub.emit_transfer(
                     request.transfer_id,
                     "send",
@@ -400,16 +420,6 @@ impl ApprovalService {
                         "expires_at": expires_at,
                     }),
                 );
-                if let Err(error) = self
-                    .repository
-                    .set_receiver_receipt_token(&decision.request_id, &receipt_token_hash(&token))
-                    .await
-                {
-                    tracing::error!(%error, "failed to attach delivery receipt token");
-                    return HandshakeResponse::Denied {
-                        reason: "repository-error".to_string(),
-                    };
-                }
                 HandshakeResponse::Approved {
                     request_id: decision.request_id,
                     token,

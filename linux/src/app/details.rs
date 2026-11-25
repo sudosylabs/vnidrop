@@ -1,3 +1,5 @@
+use vnidrop_gnome::presentation::{InvitationDirection, InvitationStatus, ReceiverStatus};
+
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -32,7 +34,7 @@ impl App {
             !snapshot
                 .requests
                 .iter()
-                .any(|request| &request.id == id && request.status == "requested")
+                .any(|request| &request.id == id && request.delivery == ReceiverStatus::Requested)
         }) {
             self.clear_review_highlight();
         }
@@ -77,7 +79,7 @@ impl App {
         let pending = snapshot
             .requests
             .iter()
-            .filter(|request| request.status == "requested")
+            .filter(|request| request.delivery == ReceiverStatus::Requested)
             .count();
         self.object::<gtk::Label>("requests_title")
             .set_label(&format(
@@ -158,7 +160,8 @@ impl App {
                     .unwrap_or(&text("receive_unknown_transfer")),
             ));
             let live = progress::for_transfer(&snapshot.events, transfer).or_else(|| {
-                (transfer.direction == "send" && transfer.status == "sharing")
+                (transfer.role == InvitationDirection::Send
+                    && transfer.lifecycle == InvitationStatus::Sharing)
                     .then(|| {
                         snapshot
                             .requests
@@ -180,7 +183,7 @@ impl App {
                     text(
                         live.as_ref()
                             .map(|progress| progress.label)
-                            .unwrap_or_else(|| presentation::status_key(&transfer.status))
+                            .unwrap_or_else(|| presentation::status_key(transfer.lifecycle))
                     ),
                     format(
                         "transfer_file_count",
@@ -194,10 +197,12 @@ impl App {
             row.bar
                 .update_property(&[gtk::accessible::Property::Label(&row.row.title())]);
             let busy = fraction.is_none()
-                && (matches!(transfer.status.as_str(), "importing" | "receiving")
-                    || live
-                        .as_ref()
-                        .is_some_and(|progress| progress.label != "progress_interrupted"));
+                && (matches!(
+                    transfer.lifecycle,
+                    InvitationStatus::Importing | InvitationStatus::Receiving
+                ) || live
+                    .as_ref()
+                    .is_some_and(|progress| progress.label != "progress_interrupted"));
             row.spinner.set_visible(busy);
             row.spinner.set_spinning(busy);
             if self.selected.borrow().as_ref() == Some(&row.key) {
@@ -237,8 +242,8 @@ impl App {
                         .iter()
                         .find(|transfer| {
                             transfer.transfer_id == request.transfer_id
-                                && transfer.direction == "send"
-                                && transfer.status == "sharing"
+                                && transfer.role == InvitationDirection::Send
+                                && transfer.lifecycle == InvitationStatus::Sharing
                         })
                         .and_then(|transfer| {
                             progress::for_receiver(&snapshot.events, request, transfer.total_size)
@@ -311,8 +316,11 @@ impl App {
             return;
         };
         let id = transfer.transfer_id;
-        if transfer.direction == "receive"
-            && matches!(transfer.status.as_str(), "failed" | "cancelled")
+        if transfer.role == InvitationDirection::Receive
+            && matches!(
+                transfer.lifecycle,
+                InvitationStatus::Failed | InvitationStatus::Cancelled
+            )
         {
             if let Some(ticket) = transfer.ticket.clone().or_else(|| {
                 self.receive_drafts
@@ -330,7 +338,7 @@ impl App {
                 self.details.append(&retry);
             }
         }
-        if transfer.direction == "send" {
+        if transfer.role == InvitationDirection::Send {
             if let Some(texture) = self.previews.borrow().get(&id) {
                 let picture = gtk::Picture::for_paintable(texture);
                 picture.set_size_request(128, 128);
@@ -354,7 +362,7 @@ impl App {
         title.add_css_class("title-1");
         self.details.append(&title);
         let state = gtk::Label::builder()
-            .label(text(presentation::status_key(&transfer.status)))
+            .label(text(presentation::status_key(transfer.lifecycle)))
             .xalign(0.0)
             .build();
         state.add_css_class("dim-label");
@@ -366,7 +374,7 @@ impl App {
         let summary = adw::PreferencesGroup::new();
         summary.add(&fact(
             "linux_direction",
-            &text(if transfer.direction == "send" {
+            &text(if transfer.role == InvitationDirection::Send {
                 "linux_outgoing"
             } else {
                 "linux_incoming"
@@ -455,7 +463,7 @@ impl App {
             invitation_group.add(&save);
             self.details.append(&invitation_group);
         }
-        if transfer.direction == "send" {
+        if transfer.role == InvitationDirection::Send {
             let receivers = adw::PreferencesGroup::builder()
                 .title(text("transfer_receivers_title"))
                 .build();
@@ -475,7 +483,7 @@ impl App {
             }
             let finished = requests
                 .iter()
-                .filter(|request| super::receivers::is_finished(&request.status))
+                .filter(|request| super::receivers::is_finished(request.delivery))
                 .count();
             if finished > 0 {
                 let history = adw::ActionRow::builder()
@@ -503,7 +511,7 @@ impl App {
             receivers.add(&receiver_list);
             for request in requests
                 .into_iter()
-                .filter(|request| !super::receivers::is_finished(&request.status))
+                .filter(|request| !super::receivers::is_finished(request.delivery))
             {
                 let receiver = request
                     .receiver_name
@@ -511,14 +519,14 @@ impl App {
                     .or(request.receiver_device_name.as_deref())
                     .unwrap_or(&text("approval_nearby_device"))
                     .to_owned();
-                let status = super::receivers::status_key(&request.status);
+                let status = super::receivers::status_key(request.delivery);
                 let row = adw::ActionRow::builder()
                     .title(glib::markup_escape_text(&receiver))
                     .subtitle(text(status))
                     .title_lines(2)
                     .subtitle_lines(2)
                     .build();
-                if request.status == "requested" {
+                if request.delivery == ReceiverStatus::Requested {
                     row.set_tooltip_text(Some(&format(
                         "approval_request_body",
                         &[
@@ -584,7 +592,7 @@ impl App {
                 let receiver = gtk::Box::new(gtk::Orientation::Vertical, 0);
                 receiver.add_css_class("card");
                 receiver.add_css_class("review-target");
-                if request.status == "requested"
+                if request.delivery == ReceiverStatus::Requested
                     && self.reviewed_request.borrow().as_ref() == Some(&request.id)
                 {
                     receiver.add_css_class("review-highlight");
@@ -667,7 +675,7 @@ impl App {
         }
         let active = presentation::is_active(transfer);
         let action = gtk::Button::with_label(&text(if active {
-            if transfer.direction == "send" {
+            if transfer.role == InvitationDirection::Send {
                 "send_stop_sharing"
             } else {
                 "linux_stop_transfer"

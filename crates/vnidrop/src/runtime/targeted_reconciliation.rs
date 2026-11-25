@@ -1,6 +1,6 @@
 //! Durable targeted-transfer background reconciliation.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
 
@@ -14,17 +14,40 @@ use crate::{
     util::now_ms,
 };
 
+const RECONCILIATION_RETRY_DELAY: Duration = Duration::from_secs(2);
+
 impl CoreInner {
     pub(super) async fn spawn_targeted_reconciliation_task(self: &Arc<Self>) {
         let core = self.clone();
         let task = tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            let store = &core.targeted_transfers;
             loop {
-                interval.tick().await;
-                core.release_completed_targeted_payloads().await;
-                core.retry_targeted_authorization_deliveries().await;
-                core.retry_targeted_completions().await;
+                let delay = match store.next_reconciliation_attempt().await {
+                    Ok(None) => {
+                        store.reconciliation_changed().await;
+                        continue;
+                    }
+                    Ok(Some(at)) => {
+                        let remaining = at.saturating_sub(now_ms());
+                        if remaining <= 0 {
+                            core.release_completed_targeted_payloads().await;
+                            core.retry_targeted_authorization_deliveries().await;
+                            core.retry_targeted_completions().await;
+                            // Bound retries if a durable row could not be updated.
+                            RECONCILIATION_RETRY_DELAY
+                        } else {
+                            Duration::from_millis(remaining as u64)
+                        }
+                    }
+                    Err(error) => {
+                        tracing::warn!(%error, "failed to read targeted reconciliation schedule");
+                        RECONCILIATION_RETRY_DELAY
+                    }
+                };
+                tokio::select! {
+                    () = store.reconciliation_changed() => {},
+                    () = tokio::time::sleep(delay) => {},
+                }
             }
         });
         *self.targeted_reconciliation_task.lock().await = Some(task);

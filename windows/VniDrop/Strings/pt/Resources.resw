@@ -418,5 +418,10 @@
   <data name="windows_send_empty" xml:space="preserve"><value>Escolha ficheiros ou uma pasta e partilhe um convite com o dispositivo destinatário. Também pode arrastar ficheiros para aqui.</value></data>
   <data name="windows_share_busy" xml:space="preserve"><value>Conclua ou feche a partilha atual do Windows antes de partilhar novamente.</value></data>
   <data name="windows_share_description" xml:space="preserve"><value>Partilhe com o Windows, leia o código QR ou guarde um ficheiro de convite.</value></data>
+  <data name="windows_size_unit_byte" xml:space="preserve"><value>B</value></data>
+  <data name="windows_size_unit_gigabyte" xml:space="preserve"><value>GB</value></data>
+  <data name="windows_size_unit_kilobyte" xml:space="preserve"><value>KB</value></data>
+  <data name="windows_size_unit_megabyte" xml:space="preserve"><value>MB</value></data>
+  <data name="windows_size_unit_terabyte" xml:space="preserve"><value>TB</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Desbloquear</value></data>
 </root>

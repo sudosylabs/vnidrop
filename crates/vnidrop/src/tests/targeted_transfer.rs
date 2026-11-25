@@ -312,6 +312,50 @@ fn targeted_preparation_stop_before_registration_leaves_no_history() {
 }
 
 #[test]
+fn stopping_a_targeted_preparation_cancels_an_in_flight_import() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 10_009);
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("cancel-import.txt");
+    std::fs::write(&source_path, b"stop an import in progress").unwrap();
+    let preparation = alice
+        .core()
+        .new_targeted_transfer_preparation(bob.core().status().endpoint_id)
+        .unwrap();
+    let paused_import = alice
+        .core()
+        .targeted_faults_for_test()
+        .timing
+        .hold_preparation_during_import();
+    let send_preparation = preparation.clone();
+    let send = std::thread::spawn(move || {
+        send_preparation.send(vec![targeted_source(&source_path)], None)
+    });
+    paused_import.wait_until_held();
+
+    let (finished, outcome) = std::sync::mpsc::channel();
+    let stop = std::thread::spawn(move || {
+        let _ = finished.send(preparation.stop());
+    });
+    let stopped = outcome.recv_timeout(std::time::Duration::from_secs(2));
+    paused_import.release();
+    stop.join().unwrap();
+    let imported = send.join().unwrap();
+    assert_eq!(
+        stopped
+            .expect("stop waited for the rest of the import")
+            .unwrap(),
+        TargetedPreparationStopOutcome::PreparationStopped
+    );
+    assert!(matches!(imported, Err(VnidropError::Cancelled { .. })));
+    assert!(alice.core().list_targeted_transfers().unwrap().is_empty());
+    let obligations = alice.core().runtime_obligation_facts().unwrap();
+    assert_eq!(obligations.targeted_preparations, 0);
+    assert_eq!(obligations.targeted_provider_availability, 0);
+}
+
+#[test]
 fn runtime_facts_cover_targeted_preparation_before_durable_registration() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();
@@ -1857,6 +1901,55 @@ fn completion_retries_after_receiver_restart_without_failing_published_receive()
             .state,
         TargetedTransferState::Completed
     );
+}
+
+#[test]
+fn targeted_completion_waits_for_the_senders_protected_authorization() {
+    let alice = ProtectedNode::new();
+    let bob = ProtectedNode::new();
+    establish_saved(&alice, &bob, 11_060);
+    let transfer = approve_one(&alice, &bob, b"protected completion", "payload.txt");
+    alice
+        .secret_store
+        .fail_with(Some(ReferenceStoreFailure::Locked));
+
+    let output = tempfile::tempdir().unwrap();
+    bob.core()
+        .receive_targeted_transfer(
+            transfer.id.clone(),
+            output.path().to_string_lossy().into_owned(),
+        )
+        .unwrap();
+    assert_eq!(
+        std::fs::read(output.path().join("payload.txt")).unwrap(),
+        b"protected completion"
+    );
+    assert_eq!(
+        alice
+            .core()
+            .get_targeted_transfer(transfer.id.clone())
+            .unwrap()
+            .unwrap()
+            .state,
+        TargetedTransferState::Approved
+    );
+
+    alice.secret_store.fail_with(None);
+    let started = Instant::now();
+    while alice
+        .core()
+        .get_targeted_transfer(transfer.id.clone())
+        .unwrap()
+        .unwrap()
+        .state
+        != TargetedTransferState::Completed
+    {
+        assert!(
+            started.elapsed() < Duration::from_secs(15),
+            "completion was not recorded after custody unlocked"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
 }
 
 #[test]

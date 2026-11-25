@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using VniDrop.Core;
 using VniDrop.Platform;
 using VniDrop.Services;
 using VniDrop.ViewModels;

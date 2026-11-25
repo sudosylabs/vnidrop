@@ -33,7 +33,7 @@ public sealed class CoreIntegrationTests : IAsyncLifetime
         var artifacts = await receiver.RunAsync(c => c.ListReceivedArtifacts());
         var file = Assert.Single(artifacts, a => a.relativePath.EndsWith("photo-é.bin"));
         Assert.Equal(contents, await File.ReadAllBytesAsync(file.locator));
-        Assert.Equal("done", Assert.Single((await receiver.SnapshotAsync()).Transfers).status);
+        Assert.Equal("done", Assert.Single((await receiver.SnapshotAsync()).Transfers).Value.status);
         Assert.Contains(receiver.DrainEvents(), e => e.transferId == 41);
         await using var another = new CoreSession(Path.Combine(directory, "another"));
         await another.InitializeAsync(new(CoreRelayMode.LocalOnly, []));
@@ -73,7 +73,7 @@ public sealed class CoreIntegrationTests : IAsyncLifetime
         await UntilAsync(async () => (await sender.RunAsync(c => c.ListReceiverRequests(42))).Any(r => r.status == "requested"), "Receiver never requested approval");
         await receiver.RunAsync(c => c.CancelTransfer(42)).WaitAsync(TimeSpan.FromSeconds(10));
         await Assert.ThrowsAnyAsync<Exception>(() => receiving.WaitAsync(TimeSpan.FromSeconds(10)));
-        Assert.Equal("cancelled", Assert.Single((await receiver.SnapshotAsync()).Transfers).status);
+        Assert.Equal("cancelled", Assert.Single((await receiver.SnapshotAsync()).Transfers).Value.status);
         Assert.Empty(await receiver.RunAsync(c => c.ListReceivedArtifacts()));
     }
 
@@ -186,7 +186,7 @@ public sealed class CoreIntegrationTests : IAsyncLifetime
         await profile.Session.RunAsync(c => c.ShareFiles([new(SourceKind.Path, source, null, false)], new(44, "Keep sharing", null, TransferAccessMode.Public)));
         await Assert.ThrowsAsync<InvalidOperationException>(profile.ClearCacheAsync);
         await Assert.ThrowsAsync<InvalidOperationException>(() => profile.SavePreferencesAsync(preferences with { RelayMode = CoreRelayMode.Automatic }));
-        Assert.Equal("sharing", Assert.Single((await profile.Session.SnapshotAsync()).Transfers).status);
+        Assert.Equal("sharing", Assert.Single((await profile.Session.SnapshotAsync()).Transfers).Value.status);
         Assert.Equal(preferences, profile.Preferences);
     }
 
@@ -205,7 +205,7 @@ public sealed class CoreIntegrationTests : IAsyncLifetime
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => submitting.WaitAsync(TimeSpan.FromSeconds(15)));
         Assert.False(draft.IsSubmitting);
         var snapshot = await sender.SnapshotAsync();
-        Assert.All(snapshot.Transfers, transfer => Assert.Contains(transfer.status, new[] { "cancelled", "stopped" }));
+        Assert.All(snapshot.Transfers, transfer => Assert.Contains(transfer.Value.status, new[] { "cancelled", "stopped" }));
         Assert.Equal(0ul, snapshot.Obligations.activeInvitationTransfers);
         Assert.Equal(0ul, snapshot.Obligations.invitationProviderAvailability);
         var retried = Assert.IsType<ShareResult>(await draft.SubmitAsync(sender, "Sender", approval));

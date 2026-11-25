@@ -10,6 +10,7 @@
 //! - [`targeted`] — saved-device targeted transfers
 
 mod delivery;
+mod export;
 mod facade;
 mod identity_recovery;
 mod lifecycle;
@@ -30,6 +31,8 @@ mod test_faults;
 pub use facade::VnidropCore;
 #[cfg(test)]
 pub(crate) use provider::{consume_request_updates, RequestStreamOutcome};
+#[cfg(test)]
+pub(crate) use receive::check_collection_metadata_size;
 pub use targeted_preparation::TargetedTransferPreparation;
 #[cfg(test)]
 pub(crate) use test_faults::TargetedFaultAdapters;
@@ -158,12 +161,9 @@ pub(super) struct CoreInner {
     #[cfg(test)]
     targeted_authorization_delivery_attempts: std::sync::atomic::AtomicU64,
     #[cfg(test)]
-    targeted_preparation_registration_gate: std::sync::Mutex<
-        Option<(
-            std::sync::mpsc::SyncSender<()>,
-            tokio::sync::oneshot::Receiver<()>,
-        )>,
-    >,
+    targeted_preparation_registration_gate: test_faults::TargetedPreparationPauseChannels,
+    #[cfg(test)]
+    targeted_preparation_import_gate: test_faults::TargetedPreparationPauseChannels,
 }
 
 pub(super) struct ActiveTransfer {
@@ -324,7 +324,7 @@ impl CoreInner {
                 json!({ "count": expired_requests }),
             );
         }
-        let access_policy = AccessPolicy::new();
+        let access_policy = AccessPolicy::new(blocked_devices.list_blocked().await?);
         // Restore share ownership and access mode before the router can serve
         // any request. Unknown persisted modes fail closed in mode_from_storage.
         // Register root + every collection member so child gets stay under ACL.
@@ -605,6 +605,8 @@ impl CoreInner {
             targeted_authorization_delivery_attempts: std::sync::atomic::AtomicU64::new(0),
             #[cfg(test)]
             targeted_preparation_registration_gate: std::sync::Mutex::new(None),
+            #[cfg(test)]
+            targeted_preparation_import_gate: std::sync::Mutex::new(None),
         });
 
         // In-flight connecting/transferring transfers become Interrupted across restart.

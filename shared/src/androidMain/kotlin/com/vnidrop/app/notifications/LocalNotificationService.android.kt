@@ -16,6 +16,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -25,10 +26,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import org.jetbrains.compose.resources.stringResource
+import vnidrop.shared.generated.resources.Res
+import vnidrop.shared.generated.resources.android_notification_channel_transfers
 
 @Composable
 fun rememberAndroidLocalNotificationService(activity: ComponentActivity): LocalNotificationService {
-	val holder = viewModel { AndroidNotificationServiceHolder(activity.applicationContext) }
+	val channelName = stringResource(Res.string.android_notification_channel_transfers)
+	val holder = viewModel { AndroidNotificationServiceHolder(activity.applicationContext, channelName) }
+	LaunchedEffect(holder, channelName) { holder.service.updateChannelName(channelName) }
 	val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
 		holder.service.completePermissionRequest(granted)
 	}
@@ -40,8 +46,8 @@ fun rememberAndroidLocalNotificationService(activity: ComponentActivity): LocalN
 	return holder.service
 }
 
-private class AndroidNotificationServiceHolder(context: Context) : ViewModel() {
-	val service = AndroidLocalNotificationService(context)
+private class AndroidNotificationServiceHolder(context: Context, channelName: String) : ViewModel() {
+	val service = AndroidLocalNotificationService(context).also { it.updateChannelName(channelName) }
 }
 
 private class AndroidLocalNotificationService(
@@ -52,12 +58,12 @@ private class AndroidLocalNotificationService(
 	private var permissionContinuation: CancellableContinuation<NotificationPermission>? = null
 	private var launchPermissionRequest: (() -> Unit)? = null
 
-	init {
+	fun updateChannelName(name: String) {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 			val manager = context.getSystemService(NotificationManager::class.java)
 			// Shown under system notification settings for this app.
 			manager.createNotificationChannel(
-				NotificationChannel(ChannelId, "Transfer requests", NotificationManager.IMPORTANCE_HIGH),
+				NotificationChannel(ChannelId, name, NotificationManager.IMPORTANCE_HIGH),
 			)
 		}
 	}

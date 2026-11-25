@@ -148,8 +148,9 @@ impl Composer {
             gtk::StringList::new(&[&text("send_access_approval"), &text("send_access_anyone")]);
         let policy = adw::ComboRow::builder()
             .title(text("send_access_title"))
-            .model(&choices)
+            // libadwaita 1.7 sets the subtitle when the model first selects an item.
             .use_subtitle(true)
+            .model(&choices)
             .build();
         let access = adw::PreferencesGroup::new();
         access.add(&policy);
@@ -482,7 +483,8 @@ impl Composer {
         self.sync(false);
         let composer = self.clone();
         let completion = preparation.clone();
-        app.dispatch(
+        app.dispatch_background(
+            true,
             move |session| preparation.run(&session, submission.sources, metadata),
             move |app, result| {
                 let result = if completion.is_cancelled() {
@@ -531,7 +533,8 @@ impl Composer {
         self.sync(false);
         let composer = self.clone();
         let completion = preparation.clone();
-        app.dispatch(
+        app.dispatch_background(
+            true,
             move |session| preparation.run(&session, &target, submission),
             move |app, result| {
                 let result = if completion.is_cancelled() {

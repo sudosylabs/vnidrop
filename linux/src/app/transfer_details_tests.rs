@@ -71,7 +71,7 @@ fn assert_scrollable(app: &Rc<App>, dialog: &adw::Dialog, expected_rows: usize) 
 
 pub(super) fn histories_remain_bounded(app: &Rc<App>) {
     let saved = app.snapshot.borrow().clone().unwrap();
-    let template = saved.requests[0].clone();
+    let template = (*saved.requests[0]).clone();
     let id = template.transfer_id;
     app.window.set_default_size(1080, 700);
     until("wide history dialogs", || app.window.width() > 900);
@@ -90,19 +90,19 @@ pub(super) fn histories_remain_bounded(app: &Rc<App>) {
                 "aborted",
             ][i % 6]
                 .into();
-            request
+            request.into()
         })
         .collect();
     for status in ["requested", "accepted", "future-status"] {
         let mut request = template.clone();
         request.id = status.into();
         request.status = status.into();
-        fixture.requests.push(request);
+        fixture.requests.push(request.into());
     }
     let mut unrelated = template.clone();
     unrelated.id = "other-transfer".into();
     unrelated.transfer_id += 1;
-    fixture.requests.push(unrelated);
+    fixture.requests.push(unrelated.into());
     app.snapshot.replace(Some(fixture));
     app.render();
     assert_eq!(
@@ -153,15 +153,18 @@ pub(super) fn histories_remain_bounded(app: &Rc<App>) {
     let history = app.window.visible_dialog().unwrap();
     assert_scrollable(app, &history, 40);
     let height = history.height();
-    app.snapshot
-        .borrow_mut()
+    let mut snapshot = app.snapshot.borrow_mut();
+    let request = snapshot
         .as_mut()
         .unwrap()
         .requests
         .iter_mut()
         .find(|request| request.id == "accepted")
-        .unwrap()
-        .status = "completed".into();
+        .unwrap();
+    let mut completed = (**request).clone();
+    completed.status = "completed".into();
+    *request = completed.into();
+    drop(snapshot);
     app.render();
     assert_scrollable(app, &history, 41);
     assert_eq!(
@@ -183,8 +186,10 @@ pub(super) fn histories_remain_bounded(app: &Rc<App>) {
     app.window.set_default_size(1080, 700);
     until("wide activity history", || app.window.width() > 900);
     app.show_activity(id, "send".into());
+    until("persisted activity loaded", || app.busy.get() == 0);
     render_window(&app.window);
     let activity = app.window.visible_dialog().unwrap();
+    let existing_rows = row_count(&descendant::<gtk::ListBox>(&activity).unwrap());
     let height = activity.height();
     let mut event = saved.events[0].clone();
     event.transfer_id = Some(id);
@@ -198,7 +203,7 @@ pub(super) fn histories_remain_bounded(app: &Rc<App>) {
         })
         .collect();
     app.render();
-    assert_scrollable(app, &activity, 80);
+    assert_scrollable(app, &activity, existing_rows + 80);
     assert_eq!(
         activity.height(),
         height,
@@ -207,7 +212,7 @@ pub(super) fn histories_remain_bounded(app: &Rc<App>) {
     capture(&app.window, "activity-long-wide");
     app.window.set_default_size(390, 700);
     until("narrow activity history", || app.window.width() < 500);
-    assert_scrollable(app, &activity, 80);
+    assert_scrollable(app, &activity, existing_rows + 80);
     capture(&app.window, "activity-long-narrow");
     activity.close();
     until("long activity closed", || app.activity.borrow().is_none());

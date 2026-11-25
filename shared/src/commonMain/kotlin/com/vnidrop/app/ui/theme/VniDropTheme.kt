@@ -83,6 +83,9 @@ val LocalVniDropColors = staticCompositionLocalOf { VniDropThemeTokens.light }
 
 object VniDropThemeTokens {
 	val cameraOverlay = Color.White
+	val filledButtonContent = Color.White
+	val checkedSwitchThumb = Color.White
+	val qrBacking = Color.White
 
 	// These values are a direct Compose port of the legacy Tauri theme tokens.
 	// The app uses these semantic tokens directly because Material3's ColorScheme

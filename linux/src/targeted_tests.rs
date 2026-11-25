@@ -43,7 +43,7 @@ fn pair(sender: &Arc<Session>, receiver: &Arc<Session>, root: &Path) -> Device {
     });
     let request = wait_request(sender, 940);
     sender
-        .call(|core| core.respond_receiver_request(request.id, true, None))
+        .call(|core| core.respond_receiver_request(request.id.clone(), true, None))
         .unwrap();
     worker.join().unwrap().unwrap();
     let eligible = wait_device(sender, |d| matches!(d.state, DeviceState::Eligible { .. }));

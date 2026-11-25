@@ -260,6 +260,30 @@ class SavedDevicesViewModelTest {
 	}
 
 	@Test
+	fun interruptedTransferRequestsLegacyDownloadsAccessBeforeResuming() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val core = initializedCore().apply {
+			targetedTransfers = listOf(
+				transfer("resume", TargetedTransferRoleModel.Receiver, "peer", "local", TargetedTransferStateModel.Interrupted),
+			)
+		}
+		val fileSystem = FakeFileSystemService(receiveFolder()).apply { storagePermissionNeeded = true }
+		val viewModel = createViewModel(core, fileSystem)
+		advanceUntilIdle()
+
+		viewModel.resumeTargetedTransfer("resume")
+		advanceUntilIdle()
+		assertTrue(core.resumedTargetedTransferIds.isEmpty())
+		assertEquals(1, fileSystem.storagePermissionRequests)
+
+		fileSystem.storagePermissionGrantedOnRequest = true
+		viewModel.resumeTargetedTransfer("resume")
+		advanceUntilIdle()
+		assertEquals(listOf("resume" to "/tmp"), core.resumedTargetedPathDirs)
+		assertEquals(2, fileSystem.storagePermissionRequests)
+	}
+
+	@Test
 	fun transferHistoryResumeCancelAndDeleteStayTransferIdScoped() = runTest {
 		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 		val core = initializedCore().apply {
@@ -450,6 +474,7 @@ class SavedDevicesViewModelTest {
 
 	private fun unusedSink() = object : ReceiveOutputSinkV2 {
 		override fun startFile(relativePath: String) = error("unused")
+		override fun writableFileDescriptor(relativePath: String): Int? = null
 		override fun writeChunk(relativePath: String, bytes: ByteArray) = error("unused")
 		override fun finishFile(relativePath: String) = error("unused")
 		override fun abortFile(relativePath: String, reason: String) = error("unused")

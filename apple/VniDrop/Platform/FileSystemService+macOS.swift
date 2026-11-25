@@ -16,15 +16,40 @@ struct MacFileSystemService: FileSystemService {
 	}
 
 	func validateReceiveFolder(_ folder: ReceiveFolder) async -> FolderAccessStatus {
-		FileManager.default.isWritableFile(atPath: folder.value) ? .writable : .unavailable
+		let result: Result<FolderAccessStatus, Error> = await withReceiveFolderAccess(folder) { resolved in
+			.success(FileManager.default.isWritableFile(atPath: resolved.value) ? .writable : .unavailable)
+		}
+		switch result {
+		case .success(let status): return status
+		case .failure: return .permissionRequired
+		}
+	}
+
+	func withReceiveFolderAccess<Output>(
+		_ folder: ReceiveFolder,
+		operation: (ReceiveFolder) async -> Result<Output, Error>
+	) async -> Result<Output, Error> {
+		guard let bookmark = folder.securityScopeBookmark else { return await operation(folder) }
+		var stale = false
+		guard let url = try? URL(
+			resolvingBookmarkData: bookmark, options: [.withSecurityScope, .withoutUI],
+			relativeTo: nil, bookmarkDataIsStale: &stale
+		), url.startAccessingSecurityScopedResource() else {
+			return .failure(InvitationError.filesystemUnavailable)
+		}
+		defer { url.stopAccessingSecurityScopedResource() }
+		let resolved = ReceiveFolder(kind: .fileSystemPath, value: url.path, displayName: url.lastPathComponent)
+		return await operation(resolved)
 	}
 
 	func canRevealReceiveFolder(_ folder: ReceiveFolder) -> Bool { true }
 
 	func revealReceiveFolder(_ folder: ReceiveFolder) async -> Result<Void, Error> {
-		let url = URL(fileURLWithPath: folder.value, isDirectory: true)
-		NSWorkspace.shared.activateFileViewerSelecting([url])
-		return .success(())
+		await withReceiveFolderAccess(folder) { resolved in
+			let url = URL(fileURLWithPath: resolved.value, isDirectory: true)
+			NSWorkspace.shared.activateFileViewerSelecting([url])
+			return .success(())
+		}
 	}
 
 	func discardPickedFiles(_ files: [PickedShareFile]) async {

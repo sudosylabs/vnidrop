@@ -58,6 +58,77 @@ async fn open_all_returns_all_domain_stores_and_schemas() {
 }
 
 #[tokio::test]
+async fn a_future_profile_is_rejected_without_changing_its_schema() {
+    let temp = tempfile::tempdir().unwrap();
+    drop(persistence::open_all(temp.path()).await.unwrap());
+    let pool = open_profile_pool(temp.path()).await;
+    sqlx::raw_sql("PRAGMA user_version = 32767; CREATE TABLE contacts (id INTEGER);")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let err = persistence::open_all(temp.path())
+        .await
+        .err()
+        .expect("newer schema was opened");
+    assert!(err.to_string().contains("32767"));
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("PRAGMA user_version")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        32767
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM sqlite_master WHERE name = 'contacts'")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn a_failed_invitation_migration_rolls_back_earlier_schema_updates() {
+    let temp = tempfile::tempdir().unwrap();
+    let options = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(temp.path().join("vnidrop.sqlite3"))
+        .create_if_missing(true);
+    let pool = sqlx::SqlitePool::connect_with(options).await.unwrap();
+    sqlx::raw_sql(
+        "PRAGMA user_version = 7;
+         CREATE TABLE transfers (transfer_id INTEGER PRIMARY KEY, direction TEXT NOT NULL);
+         CREATE TABLE transfer_events (id TEXT PRIMARY KEY);",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    assert!(persistence::open_all(temp.path()).await.is_err());
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("PRAGMA user_version")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        7
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT name FROM pragma_table_info('transfers')")
+            .fetch_all(&pool)
+            .await
+            .unwrap(),
+        ["transfer_id", "direction"],
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT name FROM pragma_table_info('transfer_events')")
+            .fetch_all(&pool)
+            .await
+            .unwrap(),
+        ["id"],
+    );
+}
+
+#[tokio::test]
 async fn approved_sender_rows_backfill_authorization_delivery_once() {
     let temp = tempfile::tempdir().unwrap();
     let stores = persistence::open_all(temp.path()).await.unwrap();

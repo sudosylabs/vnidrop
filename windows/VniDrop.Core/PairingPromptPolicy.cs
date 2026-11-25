@@ -62,11 +62,11 @@ public static class PairingPromptPolicy
                 && EligibilityKey(eligibility) == candidate.Key);
 
     public static bool HasPending(
-        IEnumerable<ReceiverRequest> receiverRequests,
+        IEnumerable<InvitationReceiver> receiverRequests,
         IEnumerable<PendingTargetedOffer> targetedOffers,
         IEnumerable<DeviceRelationship> relationships,
         IEnumerable<PairingEligibilitySummary> eligibilities) =>
-        receiverRequests.Any(request => request.status == "requested")
+        receiverRequests.Any(request => request.Status == ReceiverStatus.Requested)
         || targetedOffers.Any()
         || relationships.Any(relationship => relationship.state == DeviceRelationshipState.PendingIncoming)
         || eligibilities.Any();

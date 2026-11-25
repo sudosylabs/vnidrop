@@ -36,6 +36,7 @@ impl CoreInner {
             targeted_preparations: self.active_targeted_preparations.load(Ordering::SeqCst),
             active_targeted_transfers,
             targeted_provider_availability,
+            active_outgoing_requests: self.provider_requests.lock().await.len() as u64,
         })
     }
 
@@ -218,9 +219,13 @@ impl CoreInner {
         if !self.active_shares.lock().await.contains_key(&transfer_id) {
             anyhow::bail!("transfer is not an active share");
         }
-        self.access_policy
+        if !self
+            .access_policy
             .approve_endpoint(transfer_id, endpoint_id.clone())
-            .await;
+            .await
+        {
+            anyhow::bail!("endpoint is blocked");
+        }
         self.emit_transfer(
             transfer_id,
             "send",

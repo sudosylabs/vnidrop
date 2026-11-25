@@ -7,6 +7,8 @@ namespace VniDrop.Platform;
 public static class Strings
 {
     private static readonly ResourceLoader Resources = new(Path.Combine(AppContext.BaseDirectory, "VniDrop.pri"), "Resources");
+    private static readonly string[] SizeUnitKeys =
+        ["windows_size_unit_byte", "windows_size_unit_kilobyte", "windows_size_unit_megabyte", "windows_size_unit_gigabyte", "windows_size_unit_terabyte"];
     public static string Get(string key)
     {
         try { var value = Resources.GetString(key); return string.IsNullOrEmpty(value) ? key : value; }
@@ -20,10 +22,9 @@ public static class Strings
     }
     public static string Size(ulong bytes)
     {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
         double size = bytes; var unit = 0;
-        while (size >= 1024 && unit < units.Length - 1) { size /= 1024; unit++; }
-        return $"{size.ToString(unit == 0 ? "N0" : "N1", CultureInfo.CurrentCulture)} {units[unit]}";
+        while (size >= 1024 && unit < SizeUnitKeys.Length - 1) { size /= 1024; unit++; }
+        return $"{size.ToString(unit == 0 ? "N0" : "N1", CultureInfo.CurrentCulture)} {Get(SizeUnitKeys[unit])}";
     }
     public static string FileSummary(ulong count, ulong bytes)
     {

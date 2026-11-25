@@ -12,12 +12,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vnidrop.app.isDesktop
 import com.vnidrop.app.ui.platform.LocalUiPlatform
 import com.vnidrop.app.ui.theme.LocalVniDropColors
+import com.vnidrop.app.ui.theme.VniDropThemeTokens
 
 @Composable
 fun PrimaryButton(
@@ -33,7 +33,10 @@ fun PrimaryButton(
 		enabled = enabled,
 		modifier = modifier.heightIn(min = if (desktop) 36.dp else 44.dp),
 		shape = if (desktop) RoundedCornerShape(6.dp) else ButtonDefaults.shape,
-		colors = if (desktop) ButtonDefaults.buttonColors(containerColor = LocalVniDropColors.current.brandButton, contentColor = Color.White) else ButtonDefaults.buttonColors(),
+		colors = if (desktop) ButtonDefaults.buttonColors(
+			containerColor = LocalVniDropColors.current.brandButton,
+			contentColor = VniDropThemeTokens.filledButtonContent,
+		) else ButtonDefaults.buttonColors(),
 	) {
 		leadingIcon?.let {
 			it()
@@ -113,7 +116,7 @@ fun DestructiveButton(
 		shape = if (desktop) RoundedCornerShape(6.dp) else ButtonDefaults.shape,
 		colors = ButtonDefaults.buttonColors(
 			containerColor = LocalVniDropColors.current.destructiveDefault,
-			contentColor = if (desktop) Color.White else MaterialTheme.colorScheme.onError,
+			contentColor = if (desktop) VniDropThemeTokens.filledButtonContent else MaterialTheme.colorScheme.onError,
 		),
 	) {
 		leadingIcon?.let {

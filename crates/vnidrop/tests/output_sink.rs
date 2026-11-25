@@ -93,6 +93,58 @@ fn exports_nested_files_to_output_sink() {
 }
 
 #[test]
+fn batches_large_exports_to_both_sink_versions() {
+    const CHUNK_BYTES: usize = 1024 * 1024;
+    let source_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("large.bin");
+    let content: Vec<_> = (0..2 * CHUNK_BYTES + 37)
+        .map(|offset| (offset % 251) as u8)
+        .collect();
+    std::fs::write(&source_path, &content).unwrap();
+    let sender = TestNode::new();
+    let share = share_path(&sender.core, &source_path, 40, "large.bin", false);
+
+    for versioned in [false, true] {
+        let receiver = TestNode::new();
+        let output_sink = Arc::new(MemoryOutputSink::default());
+        if versioned {
+            receive_with_sink_v2_response(
+                &sender.core,
+                share.transfer_id,
+                receiver.core.arc(),
+                share.ticket.clone(),
+                output_sink.clone(),
+                true,
+            )
+        } else {
+            receive_with_sink_response(
+                &sender.core,
+                share.transfer_id,
+                receiver.core.arc(),
+                share.ticket.clone(),
+                output_sink.clone(),
+                true,
+            )
+        }
+        .unwrap();
+
+        assert_eq!(output_sink.file("large.bin"), content);
+        assert_eq!(output_sink.terminal_state("large.bin"), Some("finished"));
+        assert_eq!(output_sink.write_calls(), 3);
+        let progress: Vec<_> = receiver
+            .sink
+            .events()
+            .into_iter()
+            .filter(|event| event.phase == "export" && event.kind == "progress")
+            .collect();
+        assert!(progress.len() <= 3);
+        let last =
+            serde_json::from_str::<serde_json::Value>(&progress.last().unwrap().data_json).unwrap();
+        assert_eq!(last["exported"].as_u64(), Some(content.len() as u64));
+    }
+}
+
+#[test]
 fn reports_output_sink_write_failure() {
     let source_dir = tempfile::tempdir().unwrap();
     let source_path = source_dir.path().join("hello.txt");

@@ -418,5 +418,10 @@
   <data name="windows_send_empty" xml:space="preserve"><value>Выберите файлы или папку и отправьте приглашение принимающему устройству. Также можно перетащить файлы сюда.</value></data>
   <data name="windows_share_busy" xml:space="preserve"><value>Завершите или закройте текущее окно общего доступа Windows, прежде чем делиться снова.</value></data>
   <data name="windows_share_description" xml:space="preserve"><value>Поделитесь через Windows, отсканируйте QR-код или сохраните файл приглашения.</value></data>
+  <data name="windows_size_unit_byte" xml:space="preserve"><value>Б</value></data>
+  <data name="windows_size_unit_gigabyte" xml:space="preserve"><value>ГБ</value></data>
+  <data name="windows_size_unit_kilobyte" xml:space="preserve"><value>КБ</value></data>
+  <data name="windows_size_unit_megabyte" xml:space="preserve"><value>МБ</value></data>
+  <data name="windows_size_unit_terabyte" xml:space="preserve"><value>ТБ</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Разблокировать</value></data>
 </root>

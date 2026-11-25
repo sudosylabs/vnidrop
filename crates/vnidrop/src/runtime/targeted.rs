@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use iroh_blobs::ticket::BlobTicket;
 
 use super::{targeted_tag_name, CoreInner};
 use crate::{
@@ -376,7 +375,7 @@ impl CoreInner {
         }
 
         match self.targeted_offers.respond(&transfer_id, accepted).await {
-            Ok(Some(_auth)) => match self.targeted_transfers.get_row(&transfer_id).await? {
+            Ok(true) => match self.targeted_transfers.get_row(&transfer_id).await? {
                 Some(row)
                     if row.role == TargetedTransferRole::Receiver
                         && row.state == TargetedTransferState::Approved
@@ -388,7 +387,7 @@ impl CoreInner {
                     "receiver acknowledged authorization without durable custody"
                 ))),
             },
-            Ok(None) => {
+            Ok(false) => {
                 self.targeted_transfers
                     .clear_accepted_offer_intent(&transfer_id)
                     .await?;
@@ -469,15 +468,4 @@ pub(super) fn map_connect_failure(error: irpc::Error) -> VnidropError {
         ));
     }
     VnidropError::device_unavailable(anyhow::anyhow!("device is not reachable: {rendered}"))
-}
-
-pub(super) trait BlobTicketParse {
-    fn from_str_compat(value: &str) -> Result<BlobTicket, String>;
-}
-
-impl BlobTicketParse for BlobTicket {
-    fn from_str_compat(value: &str) -> Result<BlobTicket, String> {
-        use std::str::FromStr;
-        BlobTicket::from_str(value).map_err(|error| error.to_string())
-    }
 }

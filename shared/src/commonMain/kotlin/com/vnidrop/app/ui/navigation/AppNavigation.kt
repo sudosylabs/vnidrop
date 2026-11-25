@@ -36,6 +36,8 @@ import com.vnidrop.app.ui.platform.DesktopNavigationWidthDp
 import com.vnidrop.app.ui.state.WindowClass
 import com.vnidrop.app.ui.theme.LocalVniDropColors
 import org.jetbrains.compose.resources.stringResource
+import vnidrop.shared.generated.resources.Res
+import vnidrop.shared.generated.resources.app_brand_name
 
 enum class NavigationStyle {
 	AndroidBottomBar,
@@ -124,7 +126,7 @@ private fun DesktopSidebarNavigation(
 		verticalArrangement = Arrangement.spacedBy(4.dp),
 	) {
 		Text(
-			text = "VniDrop",
+			text = stringResource(Res.string.app_brand_name),
 			modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
 			style = MaterialTheme.typography.titleMedium,
 			fontWeight = FontWeight.SemiBold,

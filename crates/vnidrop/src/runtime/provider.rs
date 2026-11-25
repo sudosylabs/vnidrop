@@ -237,11 +237,22 @@ impl CoreInner {
                 };
                 let _ = message.tx.send(decision).await;
             }
-            other => {
-                self.emit_endpoint(
-                    "provider",
-                    "provider-message",
-                    json!({ "debug": format!("{other:?}") }),
+            ProviderMessage::PushRequestReceived(message) => {
+                let _ = message
+                    .tx
+                    .send(Err(iroh_blobs::provider::events::AbortReason::Permission))
+                    .await;
+                self.emit_denied_request(
+                    message.inner.connection_id,
+                    message.inner.request_id,
+                    "push-not-supported",
+                );
+            }
+            ProviderMessage::PushRequestReceivedNotify(message) => {
+                self.emit_denied_request(
+                    message.inner.connection_id,
+                    message.inner.request_id,
+                    "push-not-supported",
                 );
             }
         }
@@ -298,10 +309,11 @@ impl CoreInner {
             .lock()
             .await
             .get(&connection_id)
-            .cloned();
+            .cloned()
+            .ok_or("missing-endpoint-id")?;
         let mut last_reason = "approval-required";
         for id in transfer_ids {
-            match self.access_policy.authorize(id, endpoint.as_deref()).await {
+            match self.access_policy.authorize(id, Some(&endpoint)).await {
                 Ok(lease) => return Ok((id, lease)),
                 Err(reason) => last_reason = reason,
             }
@@ -360,10 +372,15 @@ impl CoreInner {
             .cloned();
         let transfer_id = access.transfer_id;
         let request_key = (connection_id, request_id);
-        self.provider_requests
-            .lock()
-            .await
-            .insert(request_key, access);
+        let was_idle = {
+            let mut requests = self.provider_requests.lock().await;
+            let was_idle = requests.is_empty();
+            requests.insert(request_key, access);
+            was_idle
+        };
+        if was_idle {
+            self.emit_endpoint("runtime_obligation", "outgoing-work-changed", json!({}));
+        }
         let core = self.clone();
         tokio::spawn(async move {
             let outcome = consume_request_updates(rx, |update| match update {
@@ -421,7 +438,14 @@ impl CoreInner {
                 }
             })
             .await;
-            core.provider_requests.lock().await.remove(&request_key);
+            let became_idle = {
+                let mut requests = core.provider_requests.lock().await;
+                requests.remove(&request_key);
+                requests.is_empty()
+            };
+            if became_idle {
+                core.emit_endpoint("runtime_obligation", "outgoing-work-changed", json!({}));
+            }
             if outcome == RequestStreamOutcome::Aborted {
                 core.emit_transfer(
                     transfer_id,

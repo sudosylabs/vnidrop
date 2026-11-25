@@ -74,33 +74,39 @@ impl App {
             }
             app.clear_review_highlight();
             app.render();
-            app.dispatch(
-                move |session| {
-                    session.call(|core| {
-                        let directory = directory.to_string_lossy().into_owned();
-                        match command {
-                            Command::Accept | Command::Decline => {
-                                match core.respond_to_targeted_offer(
-                                    id,
-                                    matches!(command, Command::Accept),
-                                )? {
-                                    TargetedOfferResponse::Approved { transfer_id } => {
-                                        core.receive_targeted_transfer(transfer_id, directory)
-                                    }
-                                    TargetedOfferResponse::Declined
-                                    | TargetedOfferResponse::AlreadySettled { .. } => Ok(()),
-                                }
+            app.dispatch_background(
+                matches!(
+                    command,
+                    Command::Accept | Command::Transfer(Action::Receive | Action::Resume)
+                ),
+                move |session| match command {
+                    Command::Accept => {
+                        let directory = vnidrop_gnome::settings::receive_destination(&directory)?;
+                        session.call(|core| match core.respond_to_targeted_offer(id, true)? {
+                            TargetedOfferResponse::Approved { transfer_id } => {
+                                core.receive_targeted_transfer(transfer_id, directory)
                             }
-                            Command::Transfer(Action::Receive) => {
-                                core.receive_targeted_transfer(id, directory)
-                            }
-                            Command::Transfer(Action::Resume) => {
-                                core.resume_targeted_transfer(id, directory)
-                            }
-                            Command::Transfer(Action::Cancel) => core.cancel_targeted_transfer(id),
-                            Command::Transfer(Action::Delete) => core.delete_targeted_transfer(id),
-                        }
-                    })
+                            TargetedOfferResponse::Declined
+                            | TargetedOfferResponse::AlreadySettled { .. } => Ok(()),
+                        })
+                    }
+                    Command::Decline => {
+                        session.call(|core| core.respond_to_targeted_offer(id, false).map(|_| ()))
+                    }
+                    Command::Transfer(Action::Receive) => {
+                        let directory = vnidrop_gnome::settings::receive_destination(&directory)?;
+                        session.call(|core| core.receive_targeted_transfer(id, directory))
+                    }
+                    Command::Transfer(Action::Resume) => {
+                        let directory = vnidrop_gnome::settings::receive_destination(&directory)?;
+                        session.call(|core| core.resume_targeted_transfer(id, directory))
+                    }
+                    Command::Transfer(Action::Cancel) => {
+                        session.call(|core| core.cancel_targeted_transfer(id))
+                    }
+                    Command::Transfer(Action::Delete) => {
+                        session.call(|core| core.delete_targeted_transfer(id))
+                    }
                 },
                 move |app, result| {
                     app.targeted_busy.borrow_mut().remove(&key);
@@ -184,7 +190,7 @@ impl DeviceTransfers {
                 })
                 .collect::<Vec<_>>(),
             &*busy,
-            &directory,
+            directory.as_os_str().as_encoded_bytes(),
         ))
         .unwrap();
         if *self.rendered.borrow() == fingerprint {

@@ -54,7 +54,9 @@ pub(super) struct App {
     selected: RefCell<Option<(u64, String)>>,
     refreshing: Cell<bool>,
     refresh_again: Cell<bool>,
+    force_refresh_again: Cell<bool>,
     busy: Cell<usize>,
+    transfer_operations: Cell<usize>,
     closing: Cell<bool>,
     confirming_close: Cell<bool>,
     reconfiguring: Cell<bool>,
@@ -69,7 +71,7 @@ pub(super) struct App {
     receive_drafts: RefCell<HashMap<u64, dialogs::ReceiveDraft>>,
     rows: RefCell<Vec<details::TransferRow>>,
     detail_fingerprint: RefCell<String>,
-    preference_queue: RefCell<VecDeque<Preferences>>,
+    preference_queue: RefCell<VecDeque<dialogs::PreferenceWrite>>,
     saving_preferences: Cell<bool>,
     composer: RefCell<Option<Rc<composer::Composer>>>,
     activity: RefCell<Option<Rc<activity::Activity>>>,
@@ -205,7 +207,9 @@ impl App {
             selected: RefCell::new(None),
             refreshing: Cell::new(false),
             refresh_again: Cell::new(false),
+            force_refresh_again: Cell::new(false),
             busy: Cell::new(0),
+            transfer_operations: Cell::new(0),
             closing: Cell::new(false),
             confirming_close: Cell::new(false),
             reconfiguring: Cell::new(false),
@@ -495,13 +499,32 @@ impl App {
         operation: impl FnOnce(Arc<Session>) -> Result<T> + Send + 'static,
         complete: impl FnOnce(Rc<Self>, Result<T>) + 'static,
     ) {
-        let Some(session) = self.session.borrow().clone() else {
-            return;
-        };
-        if self.closing.get() || self.reconfiguring.get() {
+        self.dispatch_background(false, operation, complete);
+    }
+
+    fn dispatch_background<T: Send + 'static>(
+        self: &Rc<Self>,
+        starts_transfer: bool,
+        operation: impl FnOnce(Arc<Session>) -> Result<T> + Send + 'static,
+        complete: impl FnOnce(Rc<Self>, Result<T>) + 'static,
+    ) {
+        if self.closing.get() {
             return;
         }
+        let session = if self.reconfiguring.get() {
+            None
+        } else {
+            self.session.borrow().clone()
+        };
+        let Some(session) = session else {
+            complete(self.clone(), Err("error_starting_up"));
+            return;
+        };
         self.busy.set(self.busy.get() + 1);
+        if starts_transfer {
+            self.transfer_operations
+                .set(self.transfer_operations.get() + 1);
+        }
         let app = self.clone();
         let hold = self.application.hold();
         glib::spawn_future_local(async move {
@@ -509,6 +532,10 @@ impl App {
                 .await
                 .unwrap_or(Err("error_generic"));
             app.busy.set(app.busy.get() - 1);
+            if starts_transfer {
+                app.transfer_operations
+                    .set(app.transfer_operations.get() - 1);
+            }
             if !app.closing.get() {
                 complete(app, result);
             }
@@ -517,15 +544,21 @@ impl App {
     }
 
     fn refresh(self: &Rc<Self>) {
+        self.refresh_snapshot(true);
+    }
+
+    fn refresh_snapshot(self: &Rc<Self>, force: bool) {
         if self.reconfiguring.get() || self.session.borrow().is_none() {
             return;
         }
         if self.refreshing.replace(true) {
             self.refresh_again.set(true);
+            self.force_refresh_again
+                .set(self.force_refresh_again.get() || force);
             return;
         }
         self.dispatch(
-            |session| session.snapshot(),
+            move |session| session.presentation_snapshot(force),
             |app, result| {
                 app.refreshing.set(false);
                 match result {
@@ -539,7 +572,7 @@ impl App {
                     Err(key) => app.error(key),
                 }
                 if app.refresh_again.replace(false) {
-                    app.refresh();
+                    app.refresh_snapshot(app.force_refresh_again.replace(false));
                 }
             },
         );
@@ -567,12 +600,28 @@ impl App {
         }
         let app = self.clone();
         glib::spawn_future_local(async move {
-            let active = app.busy.get() != 0
-                || app
-                    .snapshot
-                    .borrow()
-                    .as_ref()
-                    .is_some_and(Snapshot::has_obligations);
+            // A newly opened session may restore shares before its first refresh.
+            while app.session.borrow().is_none() && app.busy.get() != 0 {
+                glib::timeout_future(Duration::from_millis(30)).await;
+            }
+            let transfer_was_running = app.transfer_operations.get() != 0;
+            let session = app.session.borrow().clone();
+            let obligations = if let Some(session) = session {
+                gio::spawn_blocking(move || session.has_obligations())
+                    .await
+                    .ok()
+                    .and_then(Result::ok)
+            } else {
+                None
+            };
+            let active = transfer_was_running
+                || app.transfer_operations.get() != 0
+                || obligations.unwrap_or_else(|| {
+                    app.snapshot
+                        .borrow()
+                        .as_ref()
+                        .is_some_and(Snapshot::has_obligations)
+                });
             if active
                 && !dialogs::confirm(
                     &app.window,
@@ -585,12 +634,12 @@ impl App {
                 app.confirming_close.set(false);
                 return;
             }
-            // Initialization must finish before its session can be shut down.
-            while app.session.borrow().is_none() && app.busy.get() != 0 {
-                glib::timeout_future(Duration::from_millis(30)).await;
-            }
             while app.saving_preferences.get() {
                 glib::timeout_future(Duration::from_millis(30)).await;
+            }
+            if app.reconfiguring.get() {
+                app.confirming_close.set(false);
+                return;
             }
             app.closing.set(true);
             for id in app.notifications.borrow_mut().withdraw_pending() {

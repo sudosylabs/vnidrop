@@ -351,21 +351,28 @@ impl DeviceRelationshipStore {
         Ok(())
     }
 
-    pub(super) async fn set_state(
+    pub(super) async fn activate_saved(
         &self,
         peer_endpoint_id: &str,
-        state: DeviceRelationshipState,
-    ) -> Result<(), VnidropError> {
-        sqlx::query(
-            "UPDATE device_relationships SET state = ?2, updated_at = ?3 WHERE remote_endpoint_id = ?1",
+    ) -> Result<bool, VnidropError> {
+        let updated = sqlx::query(
+            r#"
+            UPDATE device_relationships SET state = 'saved', updated_at = ?2
+            WHERE remote_endpoint_id = ?1 AND (
+                state = 'saved' OR (
+                    state IN ('pending_outgoing', 'pending_incoming')
+                    AND issued_grant_handle IS NOT NULL AND issued_grant_id IS NOT NULL
+                    AND held_grant_handle IS NOT NULL AND held_grant_id IS NOT NULL
+                )
+            )
+            "#,
         )
         .bind(peer_endpoint_id)
-        .bind(state_as_str(state))
         .bind(now_ms())
         .execute(&self.pool)
         .await
         .map_err(VnidropError::repository)?;
-        Ok(())
+        Ok(updated.rows_affected() == 1)
     }
 
     pub(super) async fn list_expired_pending_peers(

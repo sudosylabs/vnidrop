@@ -157,7 +157,215 @@ fn assert_scannable(window: &adw::ApplicationWindow, ticket: &str) {
     );
 }
 
-#[test]
+#[gtk::test]
+fn dispatch_rejection_completes_and_keeps_invitations_pending() {
+    adw::init().unwrap();
+    let application = adw::Application::builder()
+        .application_id("com.vnidrop.VniDrop.DispatchTest")
+        .flags(gio::ApplicationFlags::NON_UNIQUE)
+        .build();
+    application.register(None::<&gio::Cancellable>).unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let profile = root.path().join("profile");
+    let session = Session::open(
+        profile.to_str().unwrap().to_owned(),
+        vnidrop::CoreNetworkConfig {
+            mode: vnidrop::CoreRelayMode::LocalOnly,
+            relay_urls: vec![],
+        },
+    )
+    .unwrap();
+    let app = App::new(&application, profile);
+    app.session.replace(Some(session.clone()));
+    app.reconfiguring.set(true);
+
+    let result = Rc::new(Cell::new(None));
+    let completed = result.clone();
+    app.dispatch(
+        |_| panic!("reconfiguration must reject new work"),
+        move |_, outcome: Result<()>| completed.set(Some(outcome)),
+    );
+    app.enqueue_invitation(gio::File::for_path(root.path().join("queued.vnd")));
+    let pending = app.pending.borrow().len();
+    let reviewing = app.reviewing.get();
+    session.close();
+
+    assert_eq!(result.get(), Some(Err("error_starting_up")));
+    assert_eq!(pending, 1);
+    assert!(!reviewing);
+}
+
+#[gtk::test]
+fn queued_preference_changes_preserve_each_others_fields() {
+    adw::init().unwrap();
+    let application = adw::Application::builder()
+        .application_id("com.vnidrop.VniDrop.PreferenceQueueTest")
+        .flags(gio::ApplicationFlags::NON_UNIQUE)
+        .build();
+    application.register(None::<&gio::Cancellable>).unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let app = App::new(&application, root.path().join("profile"));
+    let initial = app.preferences.borrow().clone();
+
+    app.save_preferences(|prefs| prefs.theme = "Dark".into());
+    app.save_preferences(|prefs| prefs.diagnostics_install_id = "existing-test-id".into());
+    until("preference writes persisted", || {
+        !app.saving_preferences.get()
+    });
+
+    let persisted = Preferences::load(&app.profile, initial).unwrap();
+    assert_eq!(persisted.theme, "Dark");
+    assert_eq!(persisted.diagnostics_install_id, "existing-test-id");
+    app.window.destroy();
+}
+
+#[gtk::test]
+fn blocked_relay_apply_keeps_the_preferences_draft_open() {
+    adw::init().unwrap();
+    gtk::Settings::default()
+        .unwrap()
+        .set_gtk_enable_animations(false);
+    let application = adw::Application::builder()
+        .application_id("com.vnidrop.VniDrop.RelayApplyTest")
+        .flags(gio::ApplicationFlags::NON_UNIQUE)
+        .build();
+    application.register(None::<&gio::Cancellable>).unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let app = App::new(&application, root.path().join("profile"));
+    app.window.present();
+    app.busy.set(1);
+    app.show_preferences();
+    let dialog = app.window.visible_dialog().unwrap();
+    let mode =
+        settings_ui_tests::combo(dialog.upcast_ref(), &text("linux_network_policy")).unwrap();
+    mode.set_selected(1);
+
+    activate_button(&dialog, "relay_apply");
+    assert_eq!(app.window.visible_dialog(), Some(dialog.clone()));
+    assert_eq!(mode.selected(), 1);
+    assert!(!app.reconfiguring.get());
+    assert_eq!(
+        app.preferences.borrow().network.mode,
+        vnidrop::CoreRelayMode::Automatic
+    );
+    dialog.force_close();
+    app.window.destroy();
+}
+
+#[gtk::test]
+fn quit_does_not_confirm_for_unrelated_background_work() {
+    adw::init().unwrap();
+    let application = adw::Application::builder()
+        .application_id("com.vnidrop.VniDrop.QuitInBackgroundTest")
+        .flags(gio::ApplicationFlags::NON_UNIQUE)
+        .build();
+    application.register(None::<&gio::Cancellable>).unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let profile = root.path().join("profile");
+    let session = Session::open(
+        profile.to_str().unwrap().to_owned(),
+        vnidrop::CoreNetworkConfig {
+            mode: vnidrop::CoreRelayMode::LocalOnly,
+            relay_urls: vec![],
+        },
+    )
+    .unwrap();
+    let app = App::new(&application, profile);
+    app.session.replace(Some(session.clone()));
+    app.window.present();
+    app.busy.set(1);
+    app.request_close();
+    until("quit decision", || {
+        app.closing.get() || app.window.visible_dialog().is_some()
+    });
+    let prompted = app.window.visible_dialog().is_some();
+    if let Some(dialog) = app.window.visible_dialog() {
+        dialog.force_close();
+        until("dismissed quit confirmation", || {
+            !app.confirming_close.get()
+        });
+        session.close();
+        app.window.destroy();
+    } else {
+        until("window closed", || !app.window.is_visible());
+    }
+    assert!(
+        !prompted,
+        "unrelated background work triggered a transfer warning"
+    );
+}
+
+#[gtk::test]
+fn quit_confirms_when_the_latest_core_facts_show_a_live_share() {
+    adw::init().unwrap();
+    let application = adw::Application::builder()
+        .application_id("com.vnidrop.VniDrop.QuitSharingTest")
+        .flags(gio::ApplicationFlags::NON_UNIQUE)
+        .build();
+    application.register(None::<&gio::Cancellable>).unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let profile = root.path().join("profile");
+    let session = Session::open(
+        profile.to_str().unwrap().to_owned(),
+        vnidrop::CoreNetworkConfig {
+            mode: vnidrop::CoreRelayMode::LocalOnly,
+            relay_urls: vec![],
+        },
+    )
+    .unwrap();
+    let app = App::new(&application, profile);
+    app.session.replace(Some(session.clone()));
+    let idle = session.snapshot().unwrap();
+    assert!(!idle.has_obligations());
+    app.snapshot.replace(Some(idle));
+    app.window.present();
+
+    let source = root.path().join("stay-available.txt");
+    std::fs::write(&source, b"keep the share available").unwrap();
+    session
+        .call(|core| {
+            core.share_files(
+                vnidrop_gnome::draft::sources(vec![source]).unwrap(),
+                vnidrop::ShareMetadataInput {
+                    transfer_id: 42,
+                    transfer_name: Some("Available files".into()),
+                    sender_name: None,
+                    access_mode: vnidrop::TransferAccessMode::ApprovalRequired,
+                },
+            )
+        })
+        .unwrap();
+    app.request_close();
+    until("live share quit decision", || {
+        app.closing.get() || app.window.visible_dialog().is_some()
+    });
+    let prompted = app.window.visible_dialog().is_some();
+    if let Some(dialog) = app.window.visible_dialog() {
+        let cancel_label = text("button_cancel");
+        let cancel_button = || {
+            button(&dialog, &|button| {
+                button.is_mapped() && button.label().as_deref() == Some(cancel_label.as_str())
+            })
+        };
+        // On libadwaita 1.5 the sheet opens on a later frame than its dialog maps.
+        until("quit confirmation can be cancelled", || {
+            cancel_button().is_some()
+        });
+        cancel_button().unwrap().emit_clicked();
+        until("dismissed quit confirmation", || {
+            !app.confirming_close.get() && app.window.visible_dialog().is_none()
+        });
+        assert!(app.window.is_visible());
+        assert!(session.snapshot().unwrap().has_obligations());
+        session.close();
+        app.window.destroy();
+    } else {
+        until("window closed", || !app.window.is_visible());
+    }
+    assert!(prompted, "the live share needs a quit confirmation");
+}
+
+#[gtk::test]
 fn native_draft_approval_receive_and_shutdown() {
     adw::init().expect("GTK display (use xvfb-run for headless testing)");
     widget_tests::readiness_and_clipboard();
@@ -680,9 +888,11 @@ fn native_draft_approval_receive_and_shutdown() {
         .iter_mut()
         .find(|request| request.transfer_id == transfer.transfer_id)
         .unwrap();
-    request.status = "accepted".into();
-    request.completed_at = None;
-    let request = request.clone();
+    let mut updated = (**request).clone();
+    updated.status = "accepted".into();
+    updated.completed_at = None;
+    *request = updated.clone().into();
+    let request = updated;
     let event = |revision, kind: &str, bytes| {
         vnidrop::CoreEvent {
         id: format!("ui-progress-{revision}"), revision,
@@ -747,16 +957,19 @@ fn native_draft_approval_receive_and_shutdown() {
             .as_ref()
             .is_some_and(|qr| qr.ready.get())
     });
-    preview
-        .snapshot
-        .borrow_mut()
-        .as_mut()
-        .unwrap()
-        .transfers
-        .iter_mut()
-        .find(|t| t.transfer_id == transfer.transfer_id)
-        .unwrap()
-        .status = "stopped".into();
+    {
+        let mut snapshot = preview.snapshot.borrow_mut();
+        let transfer = snapshot
+            .as_mut()
+            .unwrap()
+            .transfers
+            .iter_mut()
+            .find(|t| t.transfer_id == transfer.transfer_id)
+            .unwrap();
+        let mut stopped = (**transfer).clone();
+        stopped.status = "stopped".into();
+        *transfer = stopped.into();
+    }
     preview.render();
     until("stopped share dismisses QR", || {
         preview.qr.borrow().is_none()
@@ -772,8 +985,10 @@ fn native_draft_approval_receive_and_shutdown() {
             .iter_mut()
             .find(|t| t.transfer_id == transfer.transfer_id)
             .unwrap();
-        transfer.status = "sharing".into();
-        transfer.ticket = Some("a".repeat(2954));
+        let mut sharing = (**transfer).clone();
+        sharing.status = "sharing".into();
+        sharing.ticket = Some("a".repeat(2954));
+        *transfer = sharing.into();
     }
     preview.show_qr(transfer.transfer_id);
     until("oversized QR fallback", || {

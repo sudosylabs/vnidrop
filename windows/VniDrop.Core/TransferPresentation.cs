@@ -7,13 +7,16 @@ public sealed record TransferProgress(double? Fraction, string LabelKey, string?
 
 public static class TransferPresentation
 {
+    public static string StopActionKey(InvitationDirection direction) =>
+        direction == InvitationDirection.Send ? "send_stop_sharing" : "button_cancel_receive";
+
     public static bool ShowsTargetedProgress(TargetedTransferState state, ulong totalSize) =>
         totalSize > 0 && state is TargetedTransferState.Connecting
             or TargetedTransferState.Transferring or TargetedTransferState.Interrupted;
 
-    public static ulong[] DeletableHistoryIds(IEnumerable<StoredTransfer> transfers) => transfers
-        .Where(transfer => transfer.status is "done" or "cancelled" or "stopped" or "failed")
-        .Select(transfer => transfer.transferId)
+    public static ulong[] DeletableHistoryIds(IEnumerable<InvitationTransfer> transfers) => transfers
+        .Where(transfer => transfer.Status is InvitationStatus.Done or InvitationStatus.Cancelled or InvitationStatus.Stopped or InvitationStatus.Failed)
+        .Select(transfer => transfer.Value.transferId)
         .Distinct()
         .ToArray();
 

@@ -11,6 +11,7 @@ import com.vnidrop.app.ui.feedback.UiMessage
 import com.vnidrop.app.ui.feedback.UiMessageController
 import com.vnidrop.app.ui.feedback.UiMessageTone
 import com.vnidrop.app.ui.feedback.UiText
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.transfer_deleted
@@ -53,6 +55,7 @@ class SendViewModel(
 
 	private val effects = Channel<SendEffect>(Channel.BUFFERED)
 	val effectFlow = effects.receiveAsFlow()
+	private var receiverHistoryJob: Job? = null
 
 	init {
 		viewModelScope.launch {
@@ -104,21 +107,32 @@ class SendViewModel(
 			it.copy(
 				selectedTransferId = creation.transferId,
 				detailPanel = TransferDetailPanel.Share,
+				receiverHistory = emptyList(),
 			)
 		}
 		refreshReceivers(creation.transferId)
 	}
 	fun openTransfer(transferId: ULong) {
-		_state.update { it.copy(selectedTransferId = transferId, detailPanel = null) }
+		_state.update {
+			it.copy(
+				selectedTransferId = transferId,
+				detailPanel = null,
+				receiverHistory = if (it.selectedTransferId == transferId) it.receiverHistory else emptyList(),
+			)
+		}
 		refreshReceivers(transferId)
 	}
-	fun closeTransferDetails() = _state.update {
-		it.copy(
-			selectedTransferId = null,
-			detailPanel = null,
-			receiverHistory = emptyList(),
-			isDeleteConfirmationOpen = false,
-		)
+	fun closeTransferDetails() {
+		receiverHistoryJob?.cancel()
+		_state.update {
+			it.copy(
+				selectedTransferId = null,
+				detailPanel = null,
+				receiverHistory = emptyList(),
+				isLoadingReceivers = false,
+				isDeleteConfirmationOpen = false,
+			)
+		}
 	}
 	fun openActivity() = _state.update { it.copy(detailPanel = TransferDetailPanel.Activity) }
 	fun openShare() {
@@ -152,11 +166,13 @@ class SendViewModel(
 			repository.delete(transferId).fold(
 				onSuccess = {
 					filePreviewRepository.remove(transferId)
+					receiverHistoryJob?.cancel()
 					_state.update {
 						it.copy(
 							selectedTransferId = null,
 							detailPanel = null,
 							receiverHistory = emptyList(),
+							isLoadingReceivers = false,
 							isDeleteConfirmationOpen = false,
 							deleteTargetTransferId = null,
 							isDeleting = false,
@@ -200,9 +216,12 @@ class SendViewModel(
 	}
 
 	private fun refreshReceivers(transferId: ULong) {
-		viewModelScope.launch {
-			_state.update { it.copy(isLoadingReceivers = true) }
-			repository.receiverRequests(transferId).fold(
+		receiverHistoryJob?.cancel()
+		_state.update { it.copy(isLoadingReceivers = true) }
+		receiverHistoryJob = viewModelScope.launch {
+			val result = repository.receiverRequests(transferId)
+			if (!isActive || _state.value.selectedTransferId != transferId) return@launch
+			result.fold(
 				onSuccess = { requests -> _state.update { it.copy(receiverHistory = requests, isLoadingReceivers = false) } },
 				onFailure = { error ->
 					_state.update { it.copy(isLoadingReceivers = false) }

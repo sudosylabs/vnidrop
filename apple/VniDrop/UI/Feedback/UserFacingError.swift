@@ -15,6 +15,14 @@ extension Error {
 		if let invitation = self as? InvitationError {
 			return invitation.uiText
 		}
+		let native = self as NSError
+		if native.domain == NSCocoaErrorDomain {
+			switch CocoaError.Code(rawValue: native.code) {
+			case .fileNoSuchFile, .fileReadNoSuchFile: return .resource(L10n.Error.selectionFailed)
+			case .fileReadNoPermission: return .resource(L10n.Error.filesystem)
+			default: break
+			}
+		}
 		if let vni = self as? VnidropError {
 			switch vni {
 			case .Ticket:
@@ -66,16 +74,10 @@ extension Error {
 	var isUserCancellation: Bool {
 		if let invitation = self as? InvitationError, case .cancelled = invitation { return true }
 		if let vni = self as? VnidropError, case .Cancelled = vni { return true }
-		let haystack = technicalDetail.lowercased()
-		if haystack.isEmpty {
-			// URLError / CocoaError cancellation without a message.
-			if let urlError = self as? URLError, urlError.code == .cancelled { return true }
-			return (self as NSError).code == NSUserCancelledError
-		}
-		return haystack.contains("cancelled")
-			|| haystack.contains("canceled")
-			|| haystack.contains("user cancelled")
-			|| haystack.contains("user canceled")
+		if self is CancellationError { return true }
+		let native = self as NSError
+		return (native.domain == NSCocoaErrorDomain && native.code == NSUserCancelledError)
+			|| (native.domain == NSURLErrorDomain && native.code == URLError.Code.cancelled.rawValue)
 	}
 
 	/// The other device answered, and the answer was no.

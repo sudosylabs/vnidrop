@@ -5,6 +5,16 @@ namespace VniDrop.Tests;
 
 public sealed class DialogPriorityPolicyTests
 {
+    [Theory]
+    [InlineData(DialogIntent.Standard, false)]
+    [InlineData(DialogIntent.Information, false)]
+    [InlineData(DialogIntent.Destructive, true)]
+    [InlineData(DialogIntent.Consent, true)]
+    public void ConsentAndDestructivePromptsRequireAnExplicitPrimaryAction(DialogIntent intent, bool expected)
+    {
+        Assert.Equal(expected, DialogIntentPolicy.RequiresExplicitPrimaryAction(intent));
+    }
+
     [Fact]
     public void AttentionRunsBeforeAnEarlierStandardRequest()
     {

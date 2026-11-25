@@ -1,8 +1,8 @@
-use std::{cell::RefCell, path::PathBuf, rc::Rc};
+use std::{cell::RefCell, path::PathBuf, rc::Rc, time::Duration};
 
 use adw::prelude::*;
 use gtk::{gio, glib};
-use vnidrop_gnome::invitation;
+use vnidrop_gnome::{error::Result, invitation, preferences::Preferences};
 
 use super::{i18n::text, App};
 
@@ -11,6 +11,11 @@ pub(super) struct ReceiveDraft {
     pub ticket: String,
     pub folder: PathBuf,
     pub name: String,
+}
+
+pub(super) struct PreferenceWrite {
+    update: Box<dyn FnOnce(&mut Preferences)>,
+    result: async_channel::Sender<Result<()>>,
 }
 
 pub async fn confirm(
@@ -131,6 +136,7 @@ impl App {
 
     pub(super) fn pump_invitations(self: &Rc<Self>) {
         if self.reviewing.get()
+            || self.reconfiguring.get()
             || self.session.borrow().is_none()
             || self.closing.get()
             || self.composer.borrow().is_some()
@@ -300,7 +306,8 @@ impl App {
                 );
                 app.selected
                     .replace(Some((metadata.transfer_id, "receive".into())));
-                app.dispatch(
+                app.dispatch_background(
+                    true,
                     move |session| session.call(|core| core.receive(ticket, path, Some(receiver))),
                     |app, result| {
                         if let Err(key) = result {
@@ -348,42 +355,54 @@ impl App {
 
     pub(super) fn save_preferences(
         self: &Rc<Self>,
-        preferences: vnidrop_gnome::preferences::Preferences,
-    ) {
-        if preferences.username.trim().is_empty() {
-            self.error("error_invalid_input");
-            return;
-        }
-        self.preference_queue.borrow_mut().push_back(preferences);
+        update: impl FnOnce(&mut Preferences) + 'static,
+    ) -> async_channel::Receiver<Result<()>> {
+        let (result, completion) = async_channel::bounded(1);
+        self.preference_queue
+            .borrow_mut()
+            .push_back(PreferenceWrite {
+                update: Box::new(update),
+                result,
+            });
         if self.saving_preferences.replace(true) {
-            return;
+            return completion;
         }
         let app = self.clone();
         let hold = self.application.hold();
         glib::spawn_future_local(async move {
             loop {
-                let Some(preferences) = app.preference_queue.borrow_mut().pop_front() else {
+                let Some(write) = app.preference_queue.borrow_mut().pop_front() else {
                     break;
                 };
+                // Relay reconfiguration commits its settings together with the new session.
+                while app.reconfiguring.get() {
+                    glib::timeout_future(Duration::from_millis(20)).await;
+                }
                 let path = app.profile.clone();
-                let next = preferences.clone();
-                match gio::spawn_blocking(move || preferences.save(&path))
+                let mut next = app.preferences.borrow().clone();
+                (write.update)(&mut next);
+                let preferences = next.clone();
+                let result = gio::spawn_blocking(move || preferences.save(&path))
                     .await
-                    .unwrap_or(Err("error_generic"))
-                {
+                    .unwrap_or(Err("error_generic"));
+                match result {
                     Ok(()) => {
                         app.preferences.replace(next);
                         app.apply_appearance();
                         app.update_notifications();
+                        let _ = write.result.try_send(Ok(()));
                     }
                     Err(key) => {
                         app.apply_appearance();
-                        app.error(key);
+                        if write.result.try_send(Err(key)).is_err() {
+                            app.error(key);
+                        }
                     }
                 }
             }
             app.saving_preferences.set(false);
             drop(hold);
         });
+        completion
     }
 }

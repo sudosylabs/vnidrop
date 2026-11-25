@@ -14,7 +14,7 @@ struct IosFileSystemService: FileSystemService {
 		let path = FileManager.default
 			.urls(for: .documentDirectory, in: .userDomainMask)
 			.first?.path ?? ""
-		return ReceiveFolder(kind: .fileSystemPath, value: path, displayName: "Documents")
+		return ReceiveFolder(kind: .fileSystemPath, value: path, displayName: String(localized: L10n.Storage.documentsName))
 	}
 
 	func validateReceiveFolder(_ folder: ReceiveFolder) async -> FolderAccessStatus {
@@ -65,6 +65,8 @@ struct IosFileSystemService: FileSystemService {
 		guard !files.isEmpty else {
 			return .failure(InvitationError.shareEmpty)
 		}
+		// The selection can be dismissed while Rust is still importing its paths.
+		defer { withExtendedLifetime(files) {} }
 		let sources = files.map { $0.toIosShareSource() }
 		guard case .invitation(let accessPolicy) = destination else {
 			return .failure(InvitationError.unsupportedOperation)
@@ -82,8 +84,7 @@ struct IosFileSystemService: FileSystemService {
 		guard !files.isEmpty else {
 			return .failure(InvitationError.shareEmpty)
 		}
-		// iOS picks by copying into the container, so no security scope has to be
-		// re-acquired here (unlike macOS).
+		defer { withExtendedLifetime(files) {} }
 		return await preparation.send(
 			sources: files.map { $0.toIosShareSource() },
 			transferName: transferName.isEmpty ? nil : transferName
@@ -102,7 +103,7 @@ struct IosFileSystemService: FileSystemService {
 }
 
 extension PickedShareFile {
-	/// iOS shares by filesystem path (from `asCopy` picker temp files).
+	/// Rust imports app-owned files and security-scoped folders by filesystem path.
 	func toIosShareSource() -> ShareSource {
 		ShareSource(kind: .path, value: value, displayName: displayName, isDirectory: isDirectory)
 	}

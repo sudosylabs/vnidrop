@@ -58,6 +58,12 @@ pub fn validate_folder(path: &Path) -> Result<()> {
     std::fs::remove_file(probe).map_err(|_| "error_filesystem")
 }
 
+pub fn receive_destination(path: &Path) -> Result<String> {
+    let destination = path.to_str().ok_or("linux_local_files_only")?;
+    validate_folder(path)?;
+    Ok(destination.to_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -111,5 +117,29 @@ mod tests {
         validate_folder(root.path()).unwrap();
         assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 1);
         assert_eq!(std::fs::read(file).unwrap(), b"keep");
+    }
+
+    #[test]
+    fn targeted_receive_destination_preserves_utf8_and_rejects_invalid_paths() {
+        let root = tempfile::tempdir().unwrap();
+        let folder = root.path().join("Téléchargements");
+        assert_eq!(
+            receive_destination(&folder).unwrap(),
+            folder.to_str().unwrap()
+        );
+        assert!(folder.is_dir());
+
+        let file = root.path().join("file.txt");
+        std::fs::write(&file, b"unchanged").unwrap();
+        assert_eq!(receive_destination(&file), Err("error_filesystem"));
+        assert_eq!(std::fs::read(file).unwrap(), b"unchanged");
+
+        #[cfg(unix)]
+        {
+            use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
+            let invalid = root.path().join(OsStr::from_bytes(b"invalid-\xff"));
+            assert_eq!(receive_destination(&invalid), Err("linux_local_files_only"));
+            assert!(!invalid.exists());
+        }
     }
 }

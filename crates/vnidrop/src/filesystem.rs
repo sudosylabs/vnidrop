@@ -1,6 +1,7 @@
 #[cfg(unix)]
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::{
+    collections::HashSet,
     fs::File,
     io::{self, Read, Write},
     path::{Component, Path, PathBuf},
@@ -12,6 +13,7 @@ use iroh_blobs::{api::TempTag, Hash};
 
 use crate::{
     api::{CoreLimits, ShareSource, SourceKind},
+    error::VnidropError,
     output_staging::OutputStaging,
     util::non_empty,
 };
@@ -288,9 +290,18 @@ pub(crate) fn collect_import_files(sources: Vec<ShareSource>) -> Result<Vec<Impo
     collect_import_files_with_limits(sources, &CoreLimits::default())
 }
 
+#[cfg(test)]
 pub(crate) fn collect_import_files_with_limits(
     sources: Vec<ShareSource>,
     limits: &CoreLimits,
+) -> Result<Vec<ImportSourceFile>> {
+    collect_import_files_with_cancellation(sources, limits, &|| Ok(()))
+}
+
+pub(crate) fn collect_import_files_with_cancellation(
+    sources: Vec<ShareSource>,
+    limits: &CoreLimits,
+    check_cancel: &impl Fn() -> Result<()>,
 ) -> Result<Vec<ImportSourceFile>> {
     if sources.len() as u64 > limits.max_sources {
         anyhow::bail!(
@@ -301,6 +312,7 @@ pub(crate) fn collect_import_files_with_limits(
     }
     let mut files = Vec::new();
     for source in sources {
+        check_cancel()?;
         match source.kind {
             SourceKind::Path | SourceKind::IosSecurityScopedUrl => {
                 // iOS security-scoped resources are still ordinary paths once
@@ -319,7 +331,7 @@ pub(crate) fn collect_import_files_with_limits(
                     })
                     .unwrap_or_else(|| "transfer".to_string());
                 if source.is_directory || path.is_dir() {
-                    collect_dir_files(&path, &display_name, &mut files)?;
+                    collect_dir_files(&path, &display_name, &mut files, check_cancel)?;
                 } else {
                     files.push(ImportSourceFile {
                         source: ImportSource::Path(path),
@@ -373,13 +385,21 @@ pub(crate) fn collect_import_files_with_limits(
         );
     }
     let mut known_total = 0u64;
+    let mut collection_names = HashSet::with_capacity(files.len());
     for file in &files {
+        check_cancel()?;
         if file.collection_name.len() as u64 > limits.max_path_bytes {
             anyhow::bail!(
                 "collection path exceeds {} bytes: {}",
                 limits.max_path_bytes,
                 file.collection_name
             );
+        }
+        if !collection_names.insert(file.collection_name.as_str()) {
+            return Err(VnidropError::InvalidInput {
+                reason: "selected files share the same output path".to_string(),
+            }
+            .into());
         }
         #[cfg(not(unix))]
         let ImportSource::Path(path) = &file.source;
@@ -422,8 +442,10 @@ fn collect_dir_files(
     root: &Path,
     display_name: &str,
     files: &mut Vec<ImportSourceFile>,
+    check_cancel: &impl Fn() -> Result<()>,
 ) -> Result<()> {
     for entry in walkdir::WalkDir::new(root).follow_links(false) {
+        check_cancel()?;
         let entry = entry?;
         if !entry.file_type().is_file() {
             continue;

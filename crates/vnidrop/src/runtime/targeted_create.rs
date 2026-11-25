@@ -100,10 +100,26 @@ impl CoreInner {
         self.limits
             .validate_metadata_text("transfer name", transfer_name.as_deref())
             .map_err(VnidropError::invalid_input)?;
-        let import = self
-            .import_sources(protocol_transfer_id, sources)
-            .await
-            .map_err(VnidropError::transfer)?;
+        let cancelled = || VnidropError::cancelled("targeted preparation stopped");
+        let check_cancel = || {
+            if gate.is_some_and(PreparationGate::is_import_cancelled) {
+                return Err(cancelled().into());
+            }
+            Ok(())
+        };
+        let import = self.import_sources(protocol_transfer_id, sources, check_cancel);
+        let import = if let Some(gate) = gate {
+            // Dropping the import closes its streams and releases temporary tags.
+            tokio::select! {
+                biased;
+                _ = gate.import_cancelled() => return Err(cancelled()),
+                result = import => result,
+            }
+        } else {
+            import.await
+        }
+        .map_err(VnidropError::transfer)?;
+        check_cancel().map_err(VnidropError::transfer)?;
         let payload_name = transfer_name
             .and_then(non_empty)
             .unwrap_or_else(|| import.default_name.clone());
@@ -130,9 +146,7 @@ impl CoreInner {
         if gate.is_some_and(|gate| !gate.begin_registration()) {
             self.teardown_targeted_payload(protocol_transfer_id, Some(&transfer_uuid))
                 .await;
-            return Err(VnidropError::invalid_input(anyhow::anyhow!(
-                "targeted preparation stopped"
-            )));
+            return Err(cancelled());
         }
 
         #[cfg(test)]

@@ -13,47 +13,45 @@ use serde_json::{Map, Value};
 
 use crate::util::now_ms;
 
+const MAX_TRACKED_IDENTITIES: usize = 1024;
+
 /// Per-identity quiet period after declines or repeated malformed traffic.
 #[derive(Clone)]
 pub(crate) struct IdentityCooldown {
-    inner: Arc<Mutex<CooldownInner>>,
+    inner: Arc<Mutex<HashMap<String, CooldownEntry>>>,
     cooldown_ms: i64,
-    strike_limit: u32,
+    strike_limit: u64,
 }
 
-#[derive(Default)]
-struct CooldownInner {
-    until: HashMap<String, i64>,
-    strikes: HashMap<String, u32>,
+struct CooldownEntry {
+    strikes: u64,
+    expires_at: i64,
 }
 
 impl IdentityCooldown {
     pub(crate) fn new(cooldown_ms: u64, strike_limit: u64) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(CooldownInner::default())),
-            cooldown_ms: cooldown_ms as i64,
-            strike_limit: strike_limit as u32,
+            inner: Arc::new(Mutex::new(HashMap::new())),
+            cooldown_ms: i64::try_from(cooldown_ms).unwrap_or(i64::MAX),
+            strike_limit,
         }
     }
 
     pub(crate) fn is_cooling(&self, identity: &str) -> bool {
         let now = now_ms();
-        let mut state = self
-            .inner
+        self.inner
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        state.until.retain(|_, until| *until > now);
-        state.until.contains_key(identity)
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(identity)
+            .is_some_and(|entry| self.entry_is_cooling(entry, now))
     }
 
     pub(crate) fn record_decline(&self, identity: &str) {
-        let until = now_ms() + self.cooldown_ms;
         let mut state = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        state.until.insert(identity.to_string(), until);
-        state.strikes.remove(identity);
+        self.track_identity(&mut state, identity, self.strike_limit, now_ms());
     }
 
     /// Count a malformed / spoofed / ineligible control-plane message.
@@ -61,23 +59,21 @@ impl IdentityCooldown {
     /// Trips cooldown once the strike limit is reached. Returns whether the
     /// identity is now cooling (including an already-active cooldown).
     pub(crate) fn record_malformed(&self, identity: &str) -> bool {
-        if self.is_cooling(identity) {
-            return true;
-        }
+        let now = now_ms();
         let mut state = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let strikes = state.strikes.entry(identity.to_string()).or_insert(0);
-        *strikes = strikes.saturating_add(1);
-        if *strikes >= self.strike_limit {
-            state
-                .until
-                .insert(identity.to_string(), now_ms() + self.cooldown_ms);
-            state.strikes.remove(identity);
+        let previous_strikes = state
+            .get(identity)
+            .filter(|entry| entry.expires_at > now)
+            .map_or(0, |entry| entry.strikes);
+        if previous_strikes >= self.strike_limit {
             return true;
         }
-        false
+        let strikes = previous_strikes.saturating_add(1);
+        self.track_identity(&mut state, identity, strikes, now);
+        strikes >= self.strike_limit
     }
 
     pub(crate) fn clear_strikes(&self, identity: &str) {
@@ -85,7 +81,45 @@ impl IdentityCooldown {
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        state.strikes.remove(identity);
+        if state
+            .get(identity)
+            .is_some_and(|entry| entry.strikes < self.strike_limit)
+        {
+            state.remove(identity);
+        }
+    }
+
+    fn entry_is_cooling(&self, entry: &CooldownEntry, now: i64) -> bool {
+        entry.strikes >= self.strike_limit && entry.expires_at > now
+    }
+
+    fn track_identity(
+        &self,
+        state: &mut HashMap<String, CooldownEntry>,
+        identity: &str,
+        strikes: u64,
+        now: i64,
+    ) {
+        let entry = CooldownEntry {
+            strikes,
+            expires_at: now.saturating_add(self.cooldown_ms),
+        };
+        if let Some(previous) = state.get_mut(identity) {
+            *previous = entry;
+            return;
+        }
+        if state.len() == MAX_TRACKED_IDENTITIES {
+            let (oldest_identity, oldest) = state
+                .iter()
+                .min_by_key(|(_, entry)| (self.entry_is_cooling(entry, now), entry.expires_at))
+                .expect("full cooldown tracker");
+            if self.entry_is_cooling(oldest, now) && strikes < self.strike_limit {
+                return;
+            }
+            let oldest_identity = oldest_identity.clone();
+            state.remove(&oldest_identity);
+        }
+        state.insert(identity.to_owned(), entry);
     }
 }
 
@@ -193,8 +227,12 @@ fn collapse_long_hex(input: &str) -> String {
                 out.push_str(&input[start..i]);
             }
         } else {
-            out.push(bytes[i] as char);
-            i += 1;
+            let start = i;
+            while i < bytes.len() && !bytes[i].is_ascii_hexdigit() {
+                i += 1;
+            }
+            // ASCII hex boundaries cannot split a UTF-8 character.
+            out.push_str(&input[start..i]);
         }
     }
     out
@@ -224,6 +262,30 @@ mod tests {
         guard.record_decline("b");
         assert!(guard.is_cooling("b"));
         assert!(guard.is_cooling("a"));
+    }
+
+    #[test]
+    fn cooldown_bounds_tracked_identities_and_preserves_active_cooldowns() {
+        let guard = IdentityCooldown::new(60_000, 3);
+        guard.record_decline("declined");
+        for index in 0..2048 {
+            guard.record_malformed(&format!("malformed-{index}"));
+        }
+        assert!(guard.is_cooling("declined"));
+        assert!(!guard.record_malformed("new-peer"));
+        assert!(!guard.record_malformed("new-peer"));
+        assert!(guard.record_malformed("new-peer"));
+        {
+            let tracked = guard.inner.lock().unwrap();
+            assert!(tracked.len() <= 1024);
+        }
+
+        for index in 0..2048 {
+            guard.record_decline(&format!("declined-{index}"));
+        }
+        assert!(guard.is_cooling("declined-2047"));
+        let tracked = guard.inner.lock().unwrap();
+        assert!(tracked.len() <= 1024);
     }
 
     #[test]
@@ -264,6 +326,15 @@ mod tests {
         assert!(!scrubbed.contains("vnd1:"));
         assert!(!scrubbed.contains("0123456789abcdef"));
         assert!(scrubbed.contains(REDACTED));
+    }
+
+    #[test]
+    fn redact_text_preserves_unicode_around_sensitive_values() {
+        let text = "Impossible d’ouvrir José/写真 😀: é0123456789abcdef0123456789abcdef漢";
+        assert_eq!(
+            redact_text(text),
+            "Impossible d’ouvrir José/写真 😀: é[redacted]漢"
+        );
     }
 
     #[test]

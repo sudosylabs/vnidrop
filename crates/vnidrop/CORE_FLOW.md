@@ -30,7 +30,8 @@ bytes through Kotlin memory.
 2. VniDrop tickets first connect to the handshake ALPN
    `/vnidrop/handshake/2` and send `RequestTransfer` metadata to the sender.
 3. If approved, the receiver connects to the blobs ALPN, downloads the
-   collection, and streams files to `output_dir`.
+   collection, and streams files to `output_dir`. Each export must match the
+   downloaded collection's file size before publication.
 4. If refused, expired, unknown, or cancelled, the receive transfer is marked
    `failed` or `cancelled` and emits an error/lifecycle event.
 5. Only `vnd1:` VniDrop tickets are accepted. Raw iroh `BlobTicket` strings are
@@ -79,11 +80,12 @@ bytes through Kotlin memory.
 
 ## Core States And Events
 
-- Transfer statuses: `sharing`, `receiving`, `done`, `failed`, `cancelled`,
-  `stopped`.
-- Main event phases: `endpoint`, `import`, `ticket`, `handshake`, `approval`,
-  `access`, `transfer`, `download`, `export`, `delivery`, `lifecycle`, `error`,
-  `pairing`, and `targeted_transfer` (see catalog below).
+- Invitation transfer statuses include `importing`, `sharing`, `receiving`,
+  `done`, `failed`, `cancelled`, and `stopped`.
+- Event phases include `startup`, `recovery`, `shutdown`, `provider`, `error`,
+  `import`, `ticket`, `lifecycle`, `network`, `download`, `export`, `access`,
+  `handshake`, `approval`, `transfer`, `delivery`, `pairing`,
+  `targeted_transfer`, and `runtime_obligation`.
 - Events are sent to `CoreEventSink` immediately and persisted through the event
   hub. `list_events` flushes queued persistence before reading SQLite.
 - `shutdown()` is idempotent and flushes events before stopping the router.
@@ -118,6 +120,8 @@ Domain contract v2 does not transport transfer identity in these event payloads.
 - Imports and receives are recorded before work begins. A process restart marks
   interrupted work failed and expires approval requests that no longer have an
   in-memory responder.
+- Pending invitation delivery receipts retry for up to 24 hours after the
+  receive outcome. Expiry leaves the local transfer outcome intact.
 - Persisted shares are restored only when their root collection is complete and
   readable. Missing or corrupt roots fail closed and emit a recovery event.
 - Receive destinations use a no-overwrite policy. Rust syncs each file in
@@ -128,9 +132,10 @@ Domain contract v2 does not transport transfer identity in these event payloads.
 - Android defaults to the shared system Downloads collection via MediaStore
   (`ReceiveFolderKind.AndroidPublicDownloads` on API 29+). Files show up in the
   user's Downloads UI like a browser download. Custom folders still use a SAF
-  tree URI from the folder picker. Both Android sinks stream through
-  `ReceiveOutputSink` instead of raw filesystem paths. Pre-Android 10 falls
-  back to the public Downloads path with legacy storage permission.
+  tree URI from the folder picker. Both Android sinks open a writable file
+  descriptor for each staged file and lend it to Rust through
+  `ReceiveOutputSinkV2`. Pre-Android 10 falls back to the public Downloads
+  path with legacy storage permission.
 - Foreign output sinks receive exactly one terminal callback after a successful
   `start_file`: `finish_file` or `abort_file`.
 
@@ -157,9 +162,12 @@ transfer records invokes the same cleanup after live shares have been stopped.
 sizes, metadata, retained events, pending approvals, concurrent transfers, and
 the event persistence queue. `initialize` uses conservative defaults (including
 bounded ticket size, pending approvals, and total collection bytes);
-`initialize_with_limits` supports stricter deployments and tests. Cheap limits
-are checked before durable or network work, while remote collection limits are
-checked before downloading file content.
+`initialize_with_limits` supports stricter deployments and tests. Invitation
+sends check the selected source count and transfer name before inserting the
+`importing` record. Import then expands sources and enforces collection path,
+file count, and byte limits before publishing a share. Receives check ticket
+limits before connecting and bound remote collection metadata before downloading
+file content.
 
 Manual `approve_endpoint_for_transfer` only applies to active shares, requires a
 non-empty endpoint id, and creates a time-limited session (same TTL as handshake

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2026 Sudosy Labs. SPDX-License-Identifier: FSFAP -->
+<component type="desktop-application">
+  <id>com.vnidrop.VniDrop</id>
+  <metadata_license>FSFAP</metadata_license>
+  <project_license>Apache-2.0</project_license>
+  <name>VniDrop</name>
+  <summary>Send files directly between devices</summary>
+  <summary xml:lang="fr">Envoyez des fichiers directement entre appareils</summary>
+  <summary xml:lang="es">Envía archivos directamente entre dispositivos</summary>
+  <summary xml:lang="it">Invia file direttamente tra dispositivi</summary>
+  <summary xml:lang="de">Dateien direkt zwischen Geräten senden</summary>
+  <summary xml:lang="pt">Envie ficheiros diretamente entre dispositivos</summary>
+  <summary xml:lang="pl">Wysyłaj pliki bezpośrednio między urządzeniami</summary>
+  <summary xml:lang="nl">Verstuur bestanden rechtstreeks tussen apparaten</summary>
+  <summary xml:lang="ru">Отправляйте файлы напрямую между устройствами</summary>
+  <description>
+    <p>VniDrop moves files and folders straight from one device to another over the network, without uploading them to any file-hosting service. There’s no account to create, and no copy of your transfer is left in the cloud once you’re done.</p>
+    <p xml:lang="fr">VniDrop transfère fichiers et dossiers directement d’un appareil à un autre sur le réseau, sans les téléverser vers un service d’hébergement. Aucun compte à créer, et aucune copie de votre transfert ne reste dans le cloud une fois terminé.</p>
+    <p xml:lang="es">VniDrop transfiere archivos y carpetas directamente de un dispositivo a otro a través de la red, sin subirlos a ningún servicio de alojamiento. No hay que crear ninguna cuenta y no queda ninguna copia de su transferencia en la nube una vez que termina.</p>
+    <p xml:lang="it">VniDrop trasferisce file e cartelle direttamente da un dispositivo a un altro sulla rete, senza caricarli su alcun servizio di hosting. Non c’è alcun account da creare e nessuna copia del suo trasferimento rimane nel cloud una volta terminato.</p>
+    <p xml:lang="de">VniDrop überträgt Dateien und Ordner direkt von einem Gerät auf ein anderes über das Netzwerk, ohne sie auf einen Hosting-Dienst hochzuladen. Es muss kein Konto erstellt werden, und nach Abschluss verbleibt keine Kopie Ihrer Übertragung in der Cloud.</p>
+    <p xml:lang="pt">O VniDrop transfere ficheiros e pastas diretamente de um dispositivo para outro através da rede, sem os carregar para qualquer serviço de alojamento. Não é necessário criar qualquer conta e não fica nenhuma cópia da sua transferência na nuvem depois de terminar.</p>
+    <p xml:lang="pl">VniDrop przesyła pliki i foldery bezpośrednio z jednego urządzenia na drugie przez sieć, bez przesyłania ich do jakiejkolwiek usługi hostingowej. Nie trzeba zakładać konta, a po zakończeniu żadna kopia transferu nie pozostaje w chmurze.</p>
+    <p xml:lang="nl">VniDrop verplaatst bestanden en mappen rechtstreeks van het ene apparaat naar het andere via het netwerk, zonder ze naar een hostingdienst te uploaden. U hoeft geen account aan te maken en er blijft geen kopie van uw overdracht in de cloud achter zodra u klaar bent.</p>
+    <p xml:lang="ru">VniDrop передаёт файлы и папки напрямую с одного устройства на другое по сети, не загружая их в какой-либо хостинг-сервис. Не нужно создавать учётную запись, и после завершения ни одна копия вашей передачи не остаётся в облаке.</p>
+  </description>
+  <developer id="fr.sudosy">
+    <name>Sudosy Labs</name>
+  </developer>
+  <launchable type="desktop-id">com.vnidrop.VniDrop.desktop</launchable>
+  <url type="homepage">https://github.com/sudosylabs/vnidrop</url>
+  <url type="bugtracker">https://github.com/sudosylabs/vnidrop/issues</url>
+  <provides>
+    <binary>vnidrop</binary>
+  </provides>
+  <content_rating type="oars-1.1" />
+</component>

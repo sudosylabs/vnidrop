@@ -418,5 +418,10 @@
   <data name="windows_send_empty" xml:space="preserve"><value>Kies bestanden of een map en deel een uitnodiging met het ontvangende apparaat. Je kunt hier ook bestanden neerzetten.</value></data>
   <data name="windows_share_busy" xml:space="preserve"><value>Voltooi of sluit de huidige Windows-deelactie voordat u opnieuw deelt.</value></data>
   <data name="windows_share_description" xml:space="preserve"><value>Deel via Windows, scan de QR-code of sla een uitnodigingsbestand op.</value></data>
+  <data name="windows_size_unit_byte" xml:space="preserve"><value>B</value></data>
+  <data name="windows_size_unit_gigabyte" xml:space="preserve"><value>GB</value></data>
+  <data name="windows_size_unit_kilobyte" xml:space="preserve"><value>KB</value></data>
+  <data name="windows_size_unit_megabyte" xml:space="preserve"><value>MB</value></data>
+  <data name="windows_size_unit_terabyte" xml:space="preserve"><value>TB</value></data>
   <data name="windows_unblock" xml:space="preserve"><value>Deblokkeren</value></data>
 </root>

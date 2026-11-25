@@ -66,8 +66,119 @@ private final class BlockingCoreBindingFactory: CoreBindingFactory, @unchecked S
 	}
 }
 
+private final class BlockingReceiveCore: VnidropCore, @unchecked Sendable {
+	private let started = DispatchSemaphore(value: 0)
+	private let release = DispatchSemaphore(value: 0)
+
+	init() {
+		super.init(noPointer: .init())
+	}
+
+	required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+		super.init(unsafeFromRawPointer: pointer)
+	}
+
+	override func status() -> RuntimeStatus {
+		RuntimeStatus(endpointId: "test", addr: "", activeTransfers: 1, activeShares: 0)
+	}
+
+	override func listTransfers() throws -> [StoredTransfer] { [] }
+	override func listEvents(transferId: UInt64?) throws -> [CoreEvent] { [] }
+	override func shutdown() {}
+
+	override func runtimeObligationFacts() throws -> RuntimeObligationFacts {
+		RuntimeObligationFacts(
+			activeInvitationTransfers: 1, invitationProviderAvailability: 0,
+			targetedPreparations: 0, activeTargetedTransfers: 0, targetedProviderAvailability: 0,
+			activeOutgoingRequests: 0
+		)
+	}
+
+	override func receive(ticket: String, outputDir: String, receiverName: String?) throws {
+		blockReceive()
+	}
+
+	override func receiveTargetedTransfer(transferId: String, outputDir: String) throws {
+		blockReceive()
+	}
+
+	override func resumeTargetedTransfer(id: String, outputDir: String) throws {
+		blockReceive()
+	}
+
+	func waitForReceive() -> Bool {
+		started.wait(timeout: .now() + 2) == .success
+	}
+
+	func unblockReceive() {
+		release.signal()
+	}
+
+	private func blockReceive() {
+		started.signal()
+		release.wait()
+	}
+}
+
+private struct FixedCoreBindingFactory: CoreBindingFactory {
+	let core: VnidropCore
+
+	func initialize(appDataDir: String, eventSink: CoreEventSink, networkConfiguration: RelayConfiguration) throws -> VnidropCore {
+		core
+	}
+
+	func resetUnrecoverableIdentity(
+		appDataDir: String, eventSink: CoreEventSink, networkConfiguration: RelayConfiguration
+	) throws -> VnidropCore {
+		core
+	}
+}
+
+private final class ThreadCheckedCore: VnidropCore, @unchecked Sendable {
+	init() {
+		super.init(noPointer: .init())
+	}
+
+	required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+		super.init(unsafeFromRawPointer: pointer)
+	}
+
+	override func status() -> RuntimeStatus {
+		XCTAssertFalse(Thread.isMainThread, "Reading native status blocked the main thread")
+		return RuntimeStatus(endpointId: "test", addr: "", activeTransfers: 0, activeShares: 0)
+	}
+
+	override func listTransfers() throws -> [StoredTransfer] {
+		XCTAssertFalse(Thread.isMainThread, "Reading native transfers blocked the main thread")
+		return []
+	}
+
+	override func listEvents(transferId: UInt64?) throws -> [CoreEvent] {
+		XCTAssertFalse(Thread.isMainThread, "Reading native events blocked the main thread")
+		return []
+	}
+
+	override func shutdown() {
+		XCTAssertFalse(Thread.isMainThread, "Stopping the native core blocked the main thread")
+	}
+}
+
 @MainActor
 final class CoreRepositoryLifecycleTests: XCTestCase {
+	func testInitializationAndShutdownKeepNativeCallsOffTheMainThread() async throws {
+		let core = ThreadCheckedCore()
+		let repository = CoreRepository(coreFactory: FixedCoreBindingFactory(core: core))
+
+		let initialized = await repository.initialize(appDataDir: "/tmp/test", networkConfiguration: .automatic)
+		try initialized.get()
+		XCTAssertTrue(repository.state.isInitialized)
+		XCTAssertEqual(repository.state.status?.endpointId, "test")
+
+		await repository.shutdown()
+		XCTAssertFalse(repository.state.isInitialized)
+		XCTAssertNil(repository.state.status)
+	}
+
 	func testIdleRequirementRejectsInvitationAndTargetedObligations() {
 		let idle = RuntimeObligationFactsModel(
 			activeInvitationTransfers: 0, invitationProviderAvailability: 0,
@@ -124,6 +235,53 @@ final class CoreRepositoryLifecycleTests: XCTestCase {
 			return XCTFail("The blocking factory should fail the first initialization")
 		}
 		XCTAssertTrue(error is BlockingCoreFactoryError)
+	}
+
+	func testRuntimeFactsRemainAvailableWhileReceiving() async throws {
+		let core = BlockingReceiveCore()
+		let repository = CoreRepository(coreFactory: FixedCoreBindingFactory(core: core))
+		let initialized = await repository.initialize(appDataDir: "/tmp/test", networkConfiguration: .automatic)
+		try initialized.get()
+
+		let receives: [(String, @MainActor () async -> Result<Void, Error>)] = [
+			("invitation", { await repository.receive(ticket: "ticket", outputDir: "/tmp", receiverName: "Tester") }),
+			("security-scoped invitation", {
+				await repository.receiveIntoSecurityScopedDirectory(ticket: "ticket", outputDirectoryUrl: "file:///tmp", receiverName: "Tester")
+			}),
+			("targeted", { await repository.receiveTargetedTransfer(transferId: "transfer", outputDirectoryUrl: "file:///tmp") }),
+			("targeted resume", { await repository.resumeTargetedTransfer(id: "transfer", outputDirectoryUrl: "file:///tmp") }),
+		]
+		for (name, receive) in receives {
+			let active = Task { await receive() }
+			let started = await Task.detached { core.waitForReceive() }.value
+			let finished = DispatchSemaphore(value: 0)
+			let factsCall = Task {
+				let facts = await repository.runtimeObligationFacts()
+				finished.signal()
+				return facts
+			}
+			let factsArrived = await Self.didSignal(finished)
+			if factsArrived {
+				let restart = await repository.initialize(appDataDir: "/tmp/restart", networkConfiguration: .automatic)
+				assertLifecycleFailure(restart, equals: .activeNetworkWork)
+			}
+			core.unblockReceive()
+			let received = await active.value
+			let facts = await factsCall.value
+			XCTAssertTrue(started, "\(name) never entered the core")
+			XCTAssertTrue(factsArrived, "\(name) blocked the runtime facts call")
+			try received.get()
+			XCTAssertTrue(try facts.get().requiresRuntime)
+		}
+		await repository.shutdown()
+	}
+
+	private nonisolated static func didSignal(_ semaphore: DispatchSemaphore) async -> Bool {
+		await withCheckedContinuation { continuation in
+			DispatchQueue.global().async {
+				continuation.resume(returning: semaphore.wait(timeout: .now() + 2) == .success)
+			}
+		}
 	}
 
 	private func assertLifecycleFailure<T>(

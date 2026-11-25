@@ -46,7 +46,8 @@ public sealed class TransferDetailsPageActions(TransferItem item)
 
     public async Task ActivityAsync()
     {
-        var events = App.Window.Model.Events.Where(e => e.transferId == item.Transfer.transferId)
+        var history = await App.Window.Model.ActivityEventsAsync(item.Transfer.transferId);
+        var events = history
             .Select(e => (Event: e, Key: TransferPresentation.ActivityKey(e))).Where(e => e.Key is not null).OrderByDescending(e => e.Event.timestamp).ToArray();
         var panel = Panel();
         if (events.Length == 0) panel.Children.Add(Text(Strings.Get("transfer_no_activity"), true));
@@ -63,22 +64,35 @@ public sealed class TransferDetailsPageActions(TransferItem item)
 
     public async Task ReceiversAsync()
     {
-        var receivers = App.Window.Model.Snapshot?.Requests.Where(r => r.transferId == item.Transfer.transferId).OrderByDescending(r => r.requestedAt).ToArray() ?? [];
+        var receivers = App.Window.Model.Snapshot?.Requests.Where(r => r.Value.transferId == item.Transfer.transferId).OrderByDescending(r => r.Value.requestedAt).ToArray() ?? [];
+        var events = App.Window.Model.EventsForTransfer(item.Transfer.transferId, includeEndpointEvents: true);
         var panel = Panel();
         if (receivers.Length == 0) panel.Children.Add(Text(Strings.Get("transfer_no_receivers"), true));
-        foreach (var receiver in receivers)
+        foreach (var entry in receivers)
         {
+            var receiver = entry.Value;
             var name = receiver.receiverName ?? receiver.receiverDeviceName ?? Strings.Get("transfer_nearby_device");
             var block = new StackPanel { Spacing = 5, Padding = new(0, 9, 0, 9) };
             block.Children.Add(new TextBlock { Text = name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
             if (receiver.receiverDeviceName is { } device && device != name) block.Children.Add(Text(device, true));
-            var progress = receiver.status is "requested" or "accepted" ? TransferPresentation.ReceiverProgress(App.Window.Model.Events, item.Transfer.transferId, receiver.remoteEndpointId, item.Transfer.totalSize) : null;
+            var status = entry.Status;
+            var progress = status is ReceiverStatus.Requested or ReceiverStatus.Accepted ? TransferPresentation.ReceiverProgress(events, item.Transfer.transferId, receiver.remoteEndpointId, item.Transfer.totalSize) : null;
             if (progress is not null)
             {
                 block.Children.Add(new ProgressBar { IsIndeterminate = progress.Fraction is null, Value = (progress.Fraction ?? 0) * 100 });
                 block.Children.Add(Text(Strings.Get(progress.LabelKey) + (progress.Fraction is { } p ? " · " + p.ToString("P0") : ""), true));
             }
-            else block.Children.Add(Text(Strings.Get(receiver.status switch { "requested" => "transfer_receiver_requested", "accepted" => "transfer_receiver_accepted", "completed" => "transfer_receiver_completed", "refused" => "transfer_receiver_refused", "expired" => "transfer_receiver_expired", "failed" => "transfer_receiver_failed", _ => "transfer_receiver_unknown" }), true));
+            else block.Children.Add(Text(Strings.Get(status switch
+            {
+                ReceiverStatus.Requested => "transfer_receiver_requested",
+                ReceiverStatus.Accepted => "transfer_receiver_accepted",
+                ReceiverStatus.Completed => "transfer_receiver_completed",
+                ReceiverStatus.Refused => "transfer_receiver_refused",
+                ReceiverStatus.Expired => "transfer_receiver_expired",
+                ReceiverStatus.Failed => "transfer_receiver_failed",
+                ReceiverStatus.Unknown => "transfer_receiver_unknown",
+                _ => throw new ArgumentOutOfRangeException(nameof(status)),
+            }), true));
             if (!string.IsNullOrWhiteSpace(receiver.reason)) block.Children.Add(Text(receiver.reason!, true));
             panel.Children.Add(block);
         }
@@ -93,7 +107,7 @@ public sealed class TransferDetailsPageActions(TransferItem item)
     public async Task<bool> DeleteAsync()
     {
         if (!item.CanDelete) return false;
-        var body = item.Transfer.direction == "receive" ? Strings.Format("receive_delete_history_description", ("transferName", item.Name)) : Strings.Format("transfer_delete_description", ("transferName", item.Name));
+        var body = item.Direction == InvitationDirection.Receive ? Strings.Format("receive_delete_history_description", ("transferName", item.Name)) : Strings.Format("transfer_delete_description", ("transferName", item.Name));
         if (await App.Window.DialogAsync(Strings.Get("transfer_delete_title"), body, Strings.Get("button_delete_transfer"), intent: DialogIntent.Destructive) != ContentDialogResult.Primary) return false;
         return await App.Window.Model.PerformAsync(() => App.Window.Model.Session.RunAsync(c => c.DeleteTransfer(item.Transfer.transferId)));
     }

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.preferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.vnidrop.app.core.FileSystemService
 import com.vnidrop.app.core.ReceiveFolder
 import com.vnidrop.app.core.ReceiveFolderKind
 import com.vnidrop.app.core.RelayMode
@@ -17,6 +18,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okio.Path.Companion.toPath
 
 data class AppPreferences(
@@ -53,7 +56,9 @@ interface PreferencesRepository {
 class AppPreferencesRepository(
 	private val dataStore: DataStore<Preferences>,
 	private val defaults: AppPreferencesDefaults,
+	private val fileSystem: FileSystemService? = null,
 ) : PreferencesRepository {
+	private val receiveFolderUpdates = Mutex()
 	override val preferences: Flow<AppPreferences> = dataStore.data
 		.catch {
 			emit(preferencesOf(PreferenceKeys.RelayMode to RelayMode.StrictCustom.name))
@@ -97,11 +102,20 @@ class AppPreferencesRepository(
 	}
 
 	override suspend fun setReceiveFolder(folder: ReceiveFolder) {
-		dataStore.edit { prefs ->
-			prefs[PreferenceKeys.ReceiveFolderKind] = folder.kind.name
-			prefs[PreferenceKeys.ReceiveFolderValue] = folder.value
-			prefs[PreferenceKeys.ReceiveFolderDisplayName] = folder.displayName
+		receiveFolderUpdates.withLock {
+			val save: suspend () -> Unit = {
+				dataStore.edit { prefs ->
+					prefs[PreferenceKeys.ReceiveFolderKind] = folder.kind.name
+					prefs[PreferenceKeys.ReceiveFolderValue] = folder.value
+					prefs[PreferenceKeys.ReceiveFolderDisplayName] = folder.displayName
+				}
+			}
+			if (fileSystem != null) fileSystem.commitReceiveFolderAccess(folder, save) else save()
 		}
+	}
+
+	internal suspend fun reconcileReceiveFolderAccess() = receiveFolderUpdates.withLock {
+		fileSystem?.reconcileReceiveFolderAccess(resolveReceiveFolder(dataStore.data.first(), defaults.receiveFolder))
 	}
 
 	override suspend fun resetReceiveFolder() {

@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using VniDrop.Core;
@@ -9,7 +10,10 @@ namespace VniDrop.Views;
 public sealed partial class DevicesPage : Page
 {
     private readonly HashSet<string> busy = [];
-    private SavedDeviceItem[] savedItems = [];
+    private readonly ObservableCollection<SavedDeviceItem> savedItems = [];
+    private readonly ObservableCollection<DeviceActionRowItem> pendingItems = [];
+    private readonly ObservableCollection<DeviceActionRowItem> eligibleItems = [];
+    private readonly ObservableCollection<DeviceActionRowItem> blockedItems = [];
     private string? selectedEndpointId;
     private bool isWide;
     private bool rendering;
@@ -18,6 +22,10 @@ public sealed partial class DevicesPage : Page
     public DevicesPage()
     {
         InitializeComponent();
+        SavedDevices.ItemsSource = savedItems;
+        PendingItems.ItemsSource = pendingItems;
+        EligibleItems.ItemsSource = eligibleItems;
+        BlockedItems.ItemsSource = blockedItems;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         SizeChanged += PageSizeChanged;
@@ -86,7 +94,7 @@ public sealed partial class DevicesPage : Page
             .Select(endpoint => DeviceActionRowItem.Blocked(endpoint, busy.Contains($"blocked:{endpoint}")))
             .ToArray();
 
-        savedItems = snapshot.Devices
+        var devices = snapshot.Devices
             .Select(device => new SavedDeviceItem(
                 device,
                 snapshot.TargetedTransfers.Count(transfer =>
@@ -97,15 +105,15 @@ public sealed partial class DevicesPage : Page
         rendering = true;
         try
         {
-            PendingItems.ItemsSource = pending;
+            DeviceListRows.Synchronize(pendingItems, pending, item => item.Key);
             PendingSection.Visibility = pending.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
-            EligibleItems.ItemsSource = eligible;
+            DeviceListRows.Synchronize(eligibleItems, eligible, item => item.Key);
             EligibleSection.Visibility = eligible.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
-            BlockedItems.ItemsSource = blocked;
+            DeviceListRows.Synchronize(blockedItems, blocked, item => item.Key);
             BlockedSection.Visibility = blocked.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
-            SavedDevices.ItemsSource = savedItems;
-            SavedDevicesHeading.Visibility = savedItems.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
-            SavedEmpty.Visibility = savedItems.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            DeviceListRows.Synchronize(savedItems, devices, item => item.Id);
+            SavedDevicesHeading.Visibility = savedItems.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+            SavedEmpty.Visibility = savedItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
         finally
         {
@@ -135,7 +143,7 @@ public sealed partial class DevicesPage : Page
         BodyGrid.Width = Math.Min(maximumWidth, availableWidth);
         isWide = BodyGrid.Width >= 960;
 
-        var showDetails = isWide && savedItems.Length > 0;
+        var showDetails = isWide && savedItems.Count > 0;
         PaneDividerColumn.Width = showDetails ? new GridLength(37) : new GridLength(0);
         DetailsColumn.Width = showDetails ? new GridLength(420) : new GridLength(0);
         PaneDivider.Visibility = showDetails ? Visibility.Visible : Visibility.Collapsed;

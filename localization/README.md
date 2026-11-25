@@ -10,6 +10,10 @@ A Bun CLI generates the platform-native files from it:
 | `windows` | `windows/VniDrop/Strings/<locale>/Resources.resw` | WinUI resource map, named arguments preserved |
 | `linux` | `linux/data/strings.json` | Embedded GNOME catalog, named arguments and plural categories preserved |
 
+The generator also writes the Apple permission descriptions into localized
+`InfoPlist.strings` files and updates their English fallbacks in `Info.plist`.
+Linux desktop and MIME comments are generated in place in the packaging files.
+
 ## Workflow
 
 ```bash

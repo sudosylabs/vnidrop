@@ -3,7 +3,9 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:VniDrop.Controls"
-    xmlns:p="using:VniDrop.Platform">
+    xmlns:p="using:VniDrop.Platform"
+    xmlns:native="using:VniDrop.Native"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls">
   <Grid
       x:Name="PageRoot"
       Padding="{StaticResource VniDropPagePadding}">
@@ -147,7 +149,16 @@
               Text="{x:Bind p:Strings.Get('metadata_files')}"
               Style="{StaticResource VniDropSectionTitleStyle}" />
           <Border Style="{StaticResource VniDropCardStyle}" Padding="8">
-            <ItemsControl x:Name="Files" />
+            <muxc:ItemsRepeater x:Name="Files">
+              <muxc:ItemsRepeater.ItemTemplate>
+                <DataTemplate x:DataType="native:ReceivedArtifact">
+                  <HyperlinkButton
+                      Content="{x:Bind relativePath}"
+                      Tag="{x:Bind locator}"
+                      Click="OpenFileFolder" />
+                </DataTemplate>
+              </muxc:ItemsRepeater.ItemTemplate>
+            </muxc:ItemsRepeater>
           </Border>
         </StackPanel>
 

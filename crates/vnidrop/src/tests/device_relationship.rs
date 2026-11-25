@@ -652,6 +652,25 @@ fn block_rejects_pairing_and_invitation_handshake_unblock_restores_neither() {
 }
 
 #[test]
+fn blocked_peer_loses_provider_access_and_previous_approval() {
+    let sender = ProtectedNode::new();
+    let source = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(source.path(), b"shared bytes").unwrap();
+    let share = share_path(&sender.core, source.path(), 90_033);
+    let peer = "test-peer".to_string();
+
+    sender
+        .core
+        .register_provider_request_for_test(share.transfer_id);
+    assert!(sender.core.provider_request_is_active_for_test());
+
+    sender.core.block_device(peer.clone()).unwrap();
+    assert!(!sender.core.provider_request_is_active_for_test());
+    sender.core.unblock_device(peer).unwrap();
+    assert!(!sender.core.provider_request_is_active_for_test());
+}
+
+#[test]
 fn reinstalled_peer_is_never_merged_by_name_or_metadata() {
     let alice = ProtectedNode::new();
     let bob = ProtectedNode::new();

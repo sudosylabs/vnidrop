@@ -1,7 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
 use serde_json::Value;
-use vnidrop::{CoreEvent, ReceiverRequest, StoredTransfer};
+use vnidrop::CoreEvent;
+
+use crate::presentation::{
+    InvitationReceiver, InvitationStatus, InvitationTransfer, ReceiverStatus,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Progress {
@@ -17,8 +21,11 @@ impl Progress {
     }
 }
 
-pub fn for_transfer(events: &[CoreEvent], transfer: &StoredTransfer) -> Option<Progress> {
-    if !matches!(transfer.status.as_str(), "importing" | "receiving") {
+pub fn for_transfer(events: &[CoreEvent], transfer: &InvitationTransfer) -> Option<Progress> {
+    if !matches!(
+        transfer.lifecycle,
+        InvitationStatus::Importing | InvitationStatus::Receiving
+    ) {
         return None;
     }
     let latest = events.iter().find(|event| {
@@ -83,10 +90,10 @@ pub fn for_transfer(events: &[CoreEvent], transfer: &StoredTransfer) -> Option<P
 
 pub fn for_receiver(
     events: &[CoreEvent],
-    request: &ReceiverRequest,
+    request: &InvitationReceiver,
     total: u64,
 ) -> Option<Progress> {
-    if request.status != "accepted" {
+    if request.delivery != ReceiverStatus::Accepted {
         return None;
     }
     let endpoint = &request.remote_endpoint_id;

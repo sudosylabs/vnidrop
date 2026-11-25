@@ -86,17 +86,11 @@ impl TargetedTimingFaultAdapter {
     pub(crate) fn hold_preparation_before_registration(
         &self,
     ) -> TargetedPreparationRegistrationGate {
-        let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
-        let (release_tx, release_rx) = tokio::sync::oneshot::channel();
-        *self
-            .inner
-            .targeted_preparation_registration_gate
-            .lock()
-            .expect("targeted preparation registration gate") = Some((ready_tx, release_rx));
-        TargetedPreparationRegistrationGate {
-            ready: ready_rx,
-            release: release_tx,
-        }
+        hold_preparation(&self.inner.targeted_preparation_registration_gate)
+    }
+
+    pub(crate) fn hold_preparation_during_import(&self) -> TargetedPreparationRegistrationGate {
+        hold_preparation(&self.inner.targeted_preparation_import_gate)
     }
 
     pub(crate) fn hold_all_transfer_slots(&self) -> tokio::sync::oneshot::Sender<()> {
@@ -118,6 +112,25 @@ impl TargetedTimingFaultAdapter {
     }
 }
 
+pub(super) type TargetedPreparationPauseChannels = std::sync::Mutex<
+    Option<(
+        std::sync::mpsc::SyncSender<()>,
+        tokio::sync::oneshot::Receiver<()>,
+    )>,
+>;
+
+fn hold_preparation(
+    pause: &TargetedPreparationPauseChannels,
+) -> TargetedPreparationRegistrationGate {
+    let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
+    let (release_tx, release_rx) = tokio::sync::oneshot::channel();
+    *pause.lock().expect("targeted preparation pause") = Some((ready_tx, release_rx));
+    TargetedPreparationRegistrationGate {
+        ready: ready_rx,
+        release: release_tx,
+    }
+}
+
 pub(crate) struct TargetedPreparationRegistrationGate {
     ready: std::sync::mpsc::Receiver<()>,
     release: tokio::sync::oneshot::Sender<()>,
@@ -125,7 +138,9 @@ pub(crate) struct TargetedPreparationRegistrationGate {
 
 impl TargetedPreparationRegistrationGate {
     pub(crate) fn wait_until_held(&self) {
-        self.ready.recv().expect("preparation reached registration");
+        self.ready
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("preparation reached the test pause");
     }
 
     pub(crate) fn release(self) {
@@ -135,14 +150,18 @@ impl TargetedPreparationRegistrationGate {
 
 impl CoreInner {
     pub(super) async fn wait_for_targeted_preparation_registration_gate(&self) {
-        let gate = self
-            .targeted_preparation_registration_gate
-            .lock()
-            .expect("targeted preparation registration gate")
-            .take();
-        if let Some((ready, release)) = gate {
-            let _ = ready.send(());
-            let _ = release.await;
-        }
+        wait_for_preparation_release(&self.targeted_preparation_registration_gate).await;
+    }
+
+    pub(super) async fn wait_for_targeted_preparation_import_gate(&self) {
+        wait_for_preparation_release(&self.targeted_preparation_import_gate).await;
+    }
+}
+
+async fn wait_for_preparation_release(pause: &TargetedPreparationPauseChannels) {
+    let gate = pause.lock().expect("targeted preparation pause").take();
+    if let Some((ready, release)) = gate {
+        let _ = ready.send(());
+        let _ = release.await;
     }
 }

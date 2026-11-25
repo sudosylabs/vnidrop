@@ -6,7 +6,7 @@ use anyhow::Result;
 use serde_json::json;
 
 use super::CoreInner;
-use crate::{error::VnidropError, util::now_ms};
+use crate::error::VnidropError;
 
 impl CoreInner {
     pub(super) async fn list_pairing_eligibilities(
@@ -95,9 +95,8 @@ impl CoreInner {
         self: &Arc<Self>,
         peer_endpoint_id: String,
     ) -> Result<(), crate::error::VnidropError> {
-        let now = now_ms();
-        self.blocked_devices
-            .block_endpoint(&peer_endpoint_id, now)
+        self.access_policy
+            .block_endpoint(&self.blocked_devices, &peer_endpoint_id)
             .await
             .map_err(VnidropError::repository)?;
         let outcome = self
@@ -124,8 +123,8 @@ impl CoreInner {
         &self,
         peer_endpoint_id: String,
     ) -> Result<(), crate::error::VnidropError> {
-        self.blocked_devices
-            .unblock_endpoint(&peer_endpoint_id)
+        self.access_policy
+            .unblock_endpoint(&self.blocked_devices, &peer_endpoint_id)
             .await
             .map_err(VnidropError::repository)?;
         // Unblock removes only the deny rule; grants/relationships stay gone.

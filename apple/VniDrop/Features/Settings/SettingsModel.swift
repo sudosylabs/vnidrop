@@ -422,7 +422,6 @@ final class SettingsModel: ObservableObject {
 		if state.isCalculatingStorage { return }
 		state.isCalculatingStorage = true
 		state.storageLoadFailed = false
-		let tempDir = NSTemporaryDirectory()
 		Task {
 			// The core initializes asynchronously at launch; poll briefly so opening
 			// Storage early doesn't leave the summary stuck.
@@ -443,7 +442,8 @@ final class SettingsModel: ObservableObject {
 				let received = artifacts.reduce(UInt64(0)) { total, artifact in
 					total + SettingsModel.fileSize(artifact.locator)
 				}
-				return (received, SettingsModel.directorySize(tempDir))
+				let temporary = AppTemporaryDirectory.existing().map { SettingsModel.directorySize($0.path) } ?? 0
+				return (received, temporary)
 			}.value
 			let breakdown = StorageBreakdown(
 				receivedFiles: diskSizes.0,
@@ -493,14 +493,14 @@ final class SettingsModel: ObservableObject {
 			return
 		}
 		state.isCleaningStorage = true
-		let tempDir = NSTemporaryDirectory()
+		let systemTempDir = FileManager.default.temporaryDirectory
 		let dataDir = environment.defaultCoreDataDir
 		// Only clean the receive folder's trash when it is app-owned (iOS fixed
 		// Documents), never a user-chosen macOS folder like ~/Downloads.
 		let receiveTrashRoot = fileSystemService.supportsCustomReceiveFolders ? nil : state.receiveFolder?.value
 		Task {
 			let freed = await Task.detached {
-				SettingsModel.reclaimJunk(tempDir: tempDir, dataDir: dataDir, receiveTrashRoot: receiveTrashRoot)
+				SettingsModel.reclaimJunk(systemTempDir: systemTempDir, dataDir: dataDir, receiveTrashRoot: receiveTrashRoot)
 			}.value
 			state.isCleaningStorage = false
 			loadStorageUsage()
@@ -551,15 +551,14 @@ final class SettingsModel: ObservableObject {
 
 	/// Deletes temp-directory contents and `.Trash` folders under the given roots,
 	/// returning the number of bytes reclaimed. Runs off the main actor.
-	nonisolated static func reclaimJunk(tempDir: String, dataDir: String, receiveTrashRoot: String?) -> UInt64 {
+	nonisolated static func reclaimJunk(systemTempDir: URL, dataDir: String, receiveTrashRoot: String?) -> UInt64 {
 		let fm = FileManager.default
 		var freed: UInt64 = 0
-		// Empty the temporary directory.
-		if let entries = try? fm.contentsOfDirectory(atPath: tempDir) {
-			for name in entries {
-				let path = (tempDir as NSString).appendingPathComponent(name)
-				freed += itemSize(path)
-				try? fm.removeItem(atPath: path)
+		if let appTemp = AppTemporaryDirectory.existing(under: systemTempDir),
+			let entries = try? fm.contentsOfDirectory(at: appTemp, includingPropertiesForKeys: nil) {
+			for entry in entries {
+				freed += itemSize(entry.path)
+				try? fm.removeItem(at: entry)
 			}
 		}
 		// Remove stray `.Trash` folders inside app-owned directories.

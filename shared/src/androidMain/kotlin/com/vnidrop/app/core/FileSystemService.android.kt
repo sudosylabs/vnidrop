@@ -1,19 +1,36 @@
 package com.vnidrop.app.core
 
+import android.Manifest
 import android.content.ContentValues
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
+import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.system.ErrnoException
+import android.system.Os
 import android.system.OsConstants
 import android.webkit.MimeTypeMap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.stringResource
+import vnidrop.shared.generated.resources.Res
+import vnidrop.shared.generated.resources.storage_downloads_name
 import uniffi.vnidrop.PublishedOutput
 import uniffi.vnidrop.ReceiveOutputSinkV2
 import uniffi.vnidrop.ReceivedLocatorKind
@@ -21,19 +38,64 @@ import uniffi.vnidrop.TargetedOutputVerifier
 import uniffi.vnidrop.VnidropException
 import java.io.File
 import java.io.IOException
-import java.io.OutputStream
 import java.net.URLConnection
 import java.util.UUID
 
 @Composable
 actual fun rememberFileSystemService(): FileSystemService {
 	val context = LocalContext.current.applicationContext
-	return remember(context) { AndroidFileSystemService(context) }
+	val downloadsName = stringResource(Res.string.storage_downloads_name)
+	val permission = viewModel { LegacyDownloadsPermissionRequest(downloadsName) }
+	val launcher = rememberLauncherForActivityResult(
+		ActivityResultContracts.RequestPermission(),
+		permission::complete,
+	)
+	SideEffect {
+		permission.launch = { launcher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) }
+		permission.downloadsName = downloadsName
+	}
+	return remember(context, permission) {
+		AndroidFileSystemService(context, permission::request, { permission.downloadsName })
+	}
+}
+
+private class LegacyDownloadsPermissionRequest(var downloadsName: String) : ViewModel() {
+	var launch: (() -> Unit)? = null
+	private var pending: CompletableDeferred<Boolean>? = null
+
+	suspend fun request(): Boolean {
+		pending?.let { return it.await() }
+		val launchPermission = launch ?: return false
+		val result = CompletableDeferred<Boolean>()
+		pending = result
+		try {
+			launchPermission()
+		} catch (_: IllegalStateException) {
+			complete(false)
+		}
+		return result.await()
+	}
+
+	fun complete(granted: Boolean) {
+		val result = pending
+		pending = null
+		result?.complete(granted)
+	}
+
+	override fun onCleared() {
+		pending?.cancel()
+		pending = null
+		launch = null
+	}
 }
 
 private class AndroidFileSystemService(
 	private val context: Context,
+	private val requestLegacyDownloadsPermission: suspend () -> Boolean,
+	private val downloadsName: () -> String,
 ) : FileSystemService {
+	private val receiveFolderGrants = AndroidReceiveFolderGrants(context.contentResolver)
+
 	override fun defaultReceiveFolder(): ReceiveFolder {
 		// Match desktop: shared system Downloads. On Android 10+ this is MediaStore,
 		// not a raw filesystem path (scoped storage). Older APIs fall back to the
@@ -42,26 +104,54 @@ private class AndroidFileSystemService(
 			ReceiveFolder(
 				kind = ReceiveFolderKind.AndroidPublicDownloads,
 				value = AndroidPublicDownloadsToken,
-				displayName = "Downloads",
+				displayName = downloadsName(),
 			)
 		} else {
 			val publicDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
 			ReceiveFolder(
 				kind = ReceiveFolderKind.FileSystemPath,
 				value = publicDownloads.absolutePath,
-				displayName = "Downloads",
+				displayName = downloadsName(),
 			)
 		}
 	}
 
-	override suspend fun validateReceiveFolder(folder: ReceiveFolder): FolderAccessStatus =
+	override fun needsReceiveFolderPermission(folder: ReceiveFolder): Boolean =
+		Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+			folder.kind == ReceiveFolderKind.FileSystemPath &&
+			folder.value == defaultReceiveFolder().value &&
+			ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+
+	override suspend fun requestReceiveFolderPermission(folder: ReceiveFolder): Boolean =
+		!needsReceiveFolderPermission(folder) || requestLegacyDownloadsPermission()
+
+	override suspend fun reconcileReceiveFolderAccess(folder: ReceiveFolder) =
+		receiveFolderGrants.reconcile(folder.documentTree())
+
+	override suspend fun commitReceiveFolderAccess(folder: ReceiveFolder, save: suspend () -> Unit) =
+		receiveFolderGrants.update(folder.documentTree(), save)
+
+	override suspend fun <T> withReceiveOutputSink(
+		folder: ReceiveFolder,
+		receive: suspend (ReceiveOutputSinkV2?) -> T,
+	): T {
+		val tree = folder.documentTree() ?: return receive(createReceiveOutputSink(folder))
+		return receiveFolderGrants.withAccess(tree) { receive(createReceiveOutputSink(folder)) }
+	}
+
+	private fun ReceiveFolder.documentTree(): Uri? =
+		if (kind == ReceiveFolderKind.AndroidTreeUri) value.toUri() else null
+
+	override suspend fun validateReceiveFolder(folder: ReceiveFolder): FolderAccessStatus = withContext(Dispatchers.IO) {
+		if (needsReceiveFolderPermission(folder)) return@withContext FolderAccessStatus.PermissionRequired
 		when (folder.kind) {
 			ReceiveFolderKind.FileSystemPath -> context.validatePath(folder.value)
 			ReceiveFolderKind.AndroidPublicDownloads -> context.validatePublicDownloads()
 			ReceiveFolderKind.AndroidTreeUri -> context.validateTreeUri(folder.value)
 		}
+	}
 
-	override suspend fun inspectReceivedArtifacts(artifacts: List<ReceivedArtifactModel>): ReceivedStorageInspection {
+	override suspend fun inspectReceivedArtifacts(artifacts: List<ReceivedArtifactModel>): ReceivedStorageInspection = withContext(Dispatchers.IO) {
 		var bytes = 0UL
 		var existing = 0
 		var missing = 0
@@ -101,12 +191,14 @@ private class AndroidFileSystemService(
 				}
 			}
 		}
-		return ReceivedStorageInspection(bytes, existing, missing, inaccessible)
+		ReceivedStorageInspection(bytes, existing, missing, inaccessible)
 	}
 
-	override suspend fun temporaryUsage(appDataDir: String): ULong = directorySize(context.cacheDir)
+	override suspend fun temporaryUsage(appDataDir: String): ULong = withContext(Dispatchers.IO) {
+		directorySize(context.cacheDir)
+	}
 
-	override suspend fun reclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong {
+	override suspend fun reclaimTemporaryStorage(appDataDir: String, receiveFolder: ReceiveFolder): ULong = withContext(Dispatchers.IO) {
 		var reclaimed = 0UL
 		context.cacheDir.listFiles().orEmpty().forEach { entry ->
 			val size = if (entry.isDirectory) directorySize(entry) else entry.length().coerceAtLeast(0L).toULong()
@@ -127,7 +219,7 @@ private class AndroidFileSystemService(
 					if (trash.deleteRecursively()) reclaimed += size
 				}
 		}
-		return reclaimed
+		reclaimed
 	}
 
 	override fun createReceiveOutputSink(folder: ReceiveFolder): ReceiveOutputSinkV2? =
@@ -166,8 +258,11 @@ private fun Context.validatePublicDownloads(): FolderAccessStatus =
 			val probeName = ".vnidrop-write-test-${UUID.randomUUID()}"
 			val sink = AndroidMediaStoreDownloadsSink(this)
 			sink.startFile(probeName)
-			sink.writeChunk(probeName, byteArrayOf(1))
-			sink.abortFile(probeName, "write probe complete")
+			try {
+				sink.probeWrite(probeName)
+			} finally {
+				sink.abortFile(probeName, "write probe complete")
+			}
 			FolderAccessStatus.Writable
 		}.getOrDefault(FolderAccessStatus.Unavailable)
 
@@ -181,8 +276,11 @@ private fun Context.validateTreeUri(value: String): FolderAccessStatus {
 			val probe = AndroidTreeReceiveOutputSink(this, uri)
 			val probeName = ".vnidrop-write-test-${UUID.randomUUID()}"
 			probe.startFile(probeName)
-			probe.writeChunk(probeName, byteArrayOf())
-			probe.abortFile(probeName, "write probe complete")
+			try {
+				probe.probeWrite(probeName)
+			} finally {
+				probe.abortFile(probeName, "write probe complete")
+			}
 			FolderAccessStatus.Writable
 		}.getOrDefault(FolderAccessStatus.Unavailable)
 	}
@@ -219,11 +317,11 @@ private fun Throwable.toReceiveSinkException(): VnidropException {
  * Files appear in the user's Downloads app / Files UI the same way a browser
  * download would. Nested relative paths become subfolders under Download/.
  */
-private class AndroidMediaStoreDownloadsSink(
+internal class AndroidMediaStoreDownloadsSink(
 	private val context: Context,
 ) : ReceiveOutputSinkV2, TargetedOutputVerifier {
 	private data class PendingDocument(
-		val stream: OutputStream,
+		val descriptor: ParcelFileDescriptor,
 		val uri: Uri,
 	)
 
@@ -251,7 +349,7 @@ private class AndroidMediaStoreDownloadsSink(
 			}
 			val uri = resolver.insert(downloadsCollection(), values)
 				?: error("Could not create Downloads entry for $relativePath")
-			val stream = runCatching { resolver.openOutputStream(uri, "w") }
+			val descriptor = runCatching { resolver.openFileDescriptor(uri, "w") }
 				.getOrElse { error ->
 					resolver.delete(uri, null, null)
 					throw error
@@ -259,29 +357,33 @@ private class AndroidMediaStoreDownloadsSink(
 				resolver.delete(uri, null, null)
 					error("Could not open output stream for $relativePath")
 				}
-			pending[relativePath] = PendingDocument(stream, uri)
+			pending[relativePath] = PendingDocument(descriptor, uri)
 		}
 	}
 
-	override fun writeChunk(relativePath: String, bytes: ByteArray) {
-		receiveSinkCall {
-			val document = pending[relativePath] ?: error("Output stream is not open for $relativePath")
-			document.stream.write(bytes)
-		}
+	override fun writableFileDescriptor(relativePath: String): Int = receiveSinkCall {
+		checkNotNull(pending[relativePath]).descriptor.fd
+	}
+
+	override fun writeChunk(relativePath: String, bytes: ByteArray): Unit =
+		error("Android outputs require a writable descriptor")
+
+	fun probeWrite(relativePath: String) {
+		val descriptor = checkNotNull(pending[relativePath]).descriptor
+		check(Os.write(descriptor.fileDescriptor, byteArrayOf(0), 0, 1) == 1)
 	}
 
 	override fun finishFile(relativePath: String): PublishedOutput = receiveSinkCall {
 		val document = pending.remove(relativePath) ?: error("Output stream is not open for $relativePath")
 		try {
-			document.stream.flush()
-			document.stream.close()
+			document.descriptor.close()
 			val published = ContentValues().apply {
 				put(MediaStore.MediaColumns.IS_PENDING, 0)
 			}
 			val updated = resolver.update(document.uri, published, null, null)
 			check(updated == 1) { "Could not publish received file $relativePath" }
 		} catch (error: Throwable) {
-			runCatching { document.stream.close() }
+			runCatching { document.descriptor.closeWithError("Receive did not publish") }
 			resolver.delete(document.uri, null, null)
 			throw error
 		}
@@ -291,7 +393,7 @@ private class AndroidMediaStoreDownloadsSink(
 	override fun abortFile(relativePath: String, reason: String) {
 		receiveSinkCall {
 			val document = pending.remove(relativePath) ?: return@receiveSinkCall
-			runCatching { document.stream.close() }
+			runCatching { document.descriptor.closeWithError("Receive did not publish") }
 			resolver.delete(document.uri, null, null)
 		}
 	}
@@ -378,7 +480,7 @@ private class AndroidTreeReceiveOutputSink(
 	private val treeUri: Uri,
 ) : ReceiveOutputSinkV2, TargetedOutputVerifier {
 	private data class PendingDocument(
-		val stream: OutputStream,
+		val descriptor: ParcelFileDescriptor,
 		val temporaryUri: Uri,
 		val parentUri: Uri,
 		val finalName: String,
@@ -392,9 +494,6 @@ private class AndroidTreeReceiveOutputSink(
 			// Defense in depth: Rust also validates, but sinks must reject traversal alone.
 			requireSafeRelativePathParts(relativePath)
 			val (parent, finalName) = checkNotNull(resolveParent(relativePath))
-			if (findChild(parent, finalName) != null) {
-				throw VnidropException.DestinationExists("Destination already exists: $relativePath")
-			}
 			val temporaryName = ".vnidrop-${UUID.randomUUID()}.part"
 			val temporaryUri = DocumentsContract.createDocument(
 				context.contentResolver,
@@ -402,29 +501,35 @@ private class AndroidTreeReceiveOutputSink(
 				"application/octet-stream",
 				temporaryName,
 			) ?: error("Could not create temporary file for $relativePath")
-			val stream = try {
-				context.contentResolver.openOutputStream(temporaryUri, "w")
+			val descriptor = try {
+				context.contentResolver.openFileDescriptor(temporaryUri, "w")
 					?: error("Could not open output stream for $relativePath")
 			} catch (error: Exception) {
 				runCatching { DocumentsContract.deleteDocument(context.contentResolver, temporaryUri) }
 					.exceptionOrNull()?.let { cleanupError -> error.addSuppressed(cleanupError) }
 				throw error
 			}
-			pending[relativePath] = PendingDocument(stream, temporaryUri, parent, finalName)
+			pending[relativePath] = PendingDocument(descriptor, temporaryUri, parent, finalName)
 		}
 	}
 
-	override fun writeChunk(relativePath: String, bytes: ByteArray) {
-		receiveSinkCall {
-			val document = pending[relativePath] ?: error("Output stream is not open for $relativePath")
-			document.stream.write(bytes)
-		}
+	override fun writableFileDescriptor(relativePath: String): Int = receiveSinkCall {
+		checkNotNull(pending[relativePath]).descriptor.fd
+	}
+
+	override fun writeChunk(relativePath: String, bytes: ByteArray): Unit =
+		error("Android outputs require a writable descriptor")
+
+	fun probeWrite(relativePath: String) {
+		val descriptor = checkNotNull(pending[relativePath]).descriptor
+		check(Os.write(descriptor.fileDescriptor, byteArrayOf(0), 0, 1) == 1)
 	}
 
 	override fun finishFile(relativePath: String): PublishedOutput = receiveSinkCall {
 		val document = pending.remove(relativePath) ?: error("Output stream is not open for $relativePath")
+		var ownedUri = document.temporaryUri
 		try {
-			document.stream.close()
+			document.descriptor.close()
 			if (findChild(document.parentUri, document.finalName) != null) {
 				throw VnidropException.DestinationExists("Destination already exists: $relativePath")
 			}
@@ -435,10 +540,18 @@ private class AndroidTreeReceiveOutputSink(
 					document.finalName,
 				),
 			) { "Could not commit received file $relativePath" }
+			ownedUri = finalUri
+			val projection = arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+			val finalName = context.contentResolver.query(finalUri, projection, null, null, null)
+				?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+			if (finalName != document.finalName) {
+				throw VnidropException.DestinationExists("Destination name changed while publishing: $relativePath")
+			}
 			PublishedOutput(ReceivedLocatorKind.ANDROID_DOCUMENT, finalUri.toString())
 		} catch (error: Throwable) {
-			runCatching { document.stream.close() }
-			DocumentsContract.deleteDocument(context.contentResolver, document.temporaryUri)
+			runCatching { document.descriptor.closeWithError("Receive did not publish") }
+			runCatching { DocumentsContract.deleteDocument(context.contentResolver, ownedUri) }
+				.exceptionOrNull()?.let { cleanup -> error.addSuppressed(cleanup) }
 			throw error
 		}
 	}
@@ -446,7 +559,7 @@ private class AndroidTreeReceiveOutputSink(
 	override fun abortFile(relativePath: String, reason: String) {
 		receiveSinkCall {
 			val document = pending.remove(relativePath) ?: return@receiveSinkCall
-			runCatching { document.stream.close() }
+			runCatching { document.descriptor.closeWithError("Receive did not publish") }
 			DocumentsContract.deleteDocument(context.contentResolver, document.temporaryUri)
 		}
 	}
@@ -497,20 +610,35 @@ private class AndroidTreeReceiveOutputSink(
 	}
 
 	private fun findChild(parent: Uri, name: String): Uri? =
-		findChildMatching(parent) { _, displayName -> displayName == name }
+		findChildMatching(parent, displayName = name) { _, candidate -> candidate == name }
 
-	private fun findChildMatching(parent: Uri, matches: (String, String) -> Boolean): Uri? {
+	private fun findChildMatching(
+		parent: Uri,
+		displayName: String? = null,
+		matches: (String, String) -> Boolean,
+	): Uri? {
 		val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
 			treeUri,
 			DocumentsContract.getDocumentId(parent),
 		)
-		context.contentResolver.query(
-			childrenUri,
-			arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME),
-			null,
-			null,
-			null,
-		)?.use { cursor ->
+		val resolver = context.contentResolver
+		val projection = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+		val cursor = if (displayName != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+			val query = Bundle().apply {
+				putString(DocumentsContract.QUERY_ARG_DISPLAY_NAME, displayName)
+			}
+			try {
+				resolver.query(childrenUri, projection, query, null)
+			} catch (_: IllegalArgumentException) {
+				resolver.query(childrenUri, projection, null, null, null)
+			} catch (_: UnsupportedOperationException) {
+				resolver.query(childrenUri, projection, null, null, null)
+			}
+		} else {
+			resolver.query(childrenUri, projection, null, null, null)
+		}
+		// Providers may ignore query arguments or match a substring.
+		checkNotNull(cursor).use { cursor ->
 			val idIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
 			val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
 			while (cursor.moveToNext()) {

@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Condvar, Mutex};
 
-use tokio::runtime::Handle;
+use tokio::{runtime::Handle, sync::watch};
 
 use super::CoreInner;
 use crate::{
@@ -26,6 +26,7 @@ enum PreparationPhase {
 pub(super) struct PreparationGate {
     phase: Mutex<PreparationPhase>,
     changed: Condvar,
+    stop_import: watch::Sender<bool>,
 }
 
 impl PreparationGate {
@@ -33,6 +34,7 @@ impl PreparationGate {
         Self {
             phase: Mutex::new(PreparationPhase::Ready),
             changed: Condvar::new(),
+            stop_import: watch::Sender::new(false),
         }
     }
 
@@ -57,6 +59,15 @@ impl PreparationGate {
         debug_assert!(matches!(*phase, PreparationPhase::Preparing));
         *phase = PreparationPhase::Registering;
         true
+    }
+
+    pub(super) fn is_import_cancelled(&self) -> bool {
+        *self.stop_import.borrow()
+    }
+
+    pub(super) async fn import_cancelled(&self) {
+        let mut stopped = self.stop_import.subscribe();
+        let _ = stopped.wait_for(|requested| *requested).await;
     }
 
     fn registered(&self, id: String) {
@@ -86,6 +97,7 @@ impl PreparationGate {
                 }
                 PreparationPhase::Preparing => {
                     *phase = PreparationPhase::StopRequested;
+                    self.stop_import.send_replace(true);
                     phase = self
                         .changed
                         .wait(phase)

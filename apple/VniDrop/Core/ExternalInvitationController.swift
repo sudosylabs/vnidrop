@@ -40,8 +40,16 @@ final class ExternalInvitationController: ObservableObject {
 		enqueue(validateInvitation(raw))
 	}
 
-	func reportOpenFailure(message: String) {
-		enqueue(.failure(InvitationError.raw(message)))
+	func openInvitation(from url: URL) async {
+		guard url.pathExtension.caseInsensitiveCompare(vniDropInvitationExtension) == .orderedSame else {
+			enqueue(.failure(InvitationError.invalidInvitationURL))
+			return
+		}
+		let result = await Task.detached { Result { try readInvitationFile(url) } }.value
+		switch result {
+		case .success(let raw): openInvitation(raw: raw)
+		case .failure: enqueue(result)
+		}
 	}
 
 	private func enqueue(_ result: Result<String, Error>) {

@@ -18,6 +18,7 @@ import com.vnidrop.app.runtime.ProcessRetentionCoordinator
 import com.vnidrop.app.runtime.SavedDeviceListenIntent
 import com.vnidrop.app.ui.feedback.UiMessageController
 import com.vnidrop.app.ui.theme.ThemeMode
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,6 +26,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 class AppGraph(
 	val dependencies: AppDependencies,
@@ -44,6 +46,7 @@ class AppGraph(
 			themeMode = ThemeMode.System,
 			notificationsEnabled = false,
 		),
+		fileSystem = dependencies.fileSystemService,
 	)
 	val diagnostics = DiagnosticsCoordinator.create(
 		appVersion = dependencies.environment.appVersion,
@@ -92,6 +95,17 @@ class AppGraph(
 	init {
 		AppLogger.initialize(dependencies.environment.defaultCoreDataDir)
 		diagnostics.start()
+		if (dependencies.environment.uiPlatform == UiPlatform.Android) {
+			applicationScope.launch {
+				try {
+					preferencesRepository.reconcileReceiveFolderAccess()
+				} catch (error: CancellationException) {
+					throw error
+				} catch (error: Exception) {
+					AppLogger.error("storage", "Could not reconcile receive folder access", error)
+				}
+			}
+		}
 	}
 
 	fun close() {

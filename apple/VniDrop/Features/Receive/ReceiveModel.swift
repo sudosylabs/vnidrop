@@ -217,14 +217,14 @@ final class ReceiveModel: ObservableObject {
 		state.lastReceiveError = nil
 		state.activeReceiveTransferId = transferId
 		Task {
-			let result: Result<Void, Error>
-			if folder.kind == .iosSecurityScopedUrl {
-				result = await repository.receiveIntoSecurityScopedDirectory(
-					ticket: current.ticket, outputDirectoryUrl: folder.value, receiverName: current.receiverName
-				)
-			} else {
-				result = await repository.receive(
-					ticket: current.ticket, outputDir: folder.value, receiverName: current.receiverName
+			let result = await fileSystemService.withReceiveFolderAccess(folder) { destination in
+				if destination.kind == .iosSecurityScopedUrl {
+					return await repository.receiveIntoSecurityScopedDirectory(
+						ticket: current.ticket, outputDirectoryUrl: destination.value, receiverName: current.receiverName
+					)
+				}
+				return await repository.receive(
+					ticket: current.ticket, outputDir: destination.value, receiverName: current.receiverName
 				)
 			}
 			switch result {

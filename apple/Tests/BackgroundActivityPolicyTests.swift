@@ -17,19 +17,33 @@ final class BackgroundActivityPolicyTests: XCTestCase {
 		XCTAssertFalse(BackgroundActivityPolicy.requiresAssertion(facts()))
 	}
 
+	func testForegroundIdleHoldTracksWorkAndIgnoresAvailableShares() {
+		let active = [
+			facts(activeInvitationTransfers: 1), facts(targetedPreparations: 1),
+			facts(activeTargetedTransfers: 1), facts(activeOutgoingRequests: 1),
+		]
+		XCTAssertTrue(active.allSatisfy(BackgroundActivityPolicy.requiresForegroundIdleHold))
+		XCTAssertFalse(BackgroundActivityPolicy.requiresForegroundIdleHold(facts()))
+		XCTAssertFalse(BackgroundActivityPolicy.requiresForegroundIdleHold(
+			facts(invitationProviderAvailability: 1, targetedProviderAvailability: 1)
+		))
+	}
+
 	private func facts(
 		activeInvitationTransfers: UInt64 = 0,
 		invitationProviderAvailability: UInt64 = 0,
 		targetedPreparations: UInt64 = 0,
 		activeTargetedTransfers: UInt64 = 0,
-		targetedProviderAvailability: UInt64 = 0
+		targetedProviderAvailability: UInt64 = 0,
+		activeOutgoingRequests: UInt64 = 0
 	) -> RuntimeObligationFactsModel {
 		RuntimeObligationFactsModel(
 			activeInvitationTransfers: activeInvitationTransfers,
 			invitationProviderAvailability: invitationProviderAvailability,
 			targetedPreparations: targetedPreparations,
 			activeTargetedTransfers: activeTargetedTransfers,
-			targetedProviderAvailability: targetedProviderAvailability
+			targetedProviderAvailability: targetedProviderAvailability,
+			activeOutgoingRequests: activeOutgoingRequests
 		)
 	}
 }

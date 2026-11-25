@@ -15,9 +15,10 @@ use crate::draft::Preparation;
 fn session(path: &Path) -> Arc<Session> {
     let (sender, changes) = async_channel::bounded(1);
     let events = Arc::new(Mutex::new(EventHistory::default()));
+    let event_revisions = Arc::new(Mutex::new(EventRevisions::default()));
     let core = VnidropCore::initialize_for_integration_test(
         path.to_str().unwrap().into(),
-        Arc::new(EventSink(sender, events.clone())),
+        Arc::new(EventSink(sender, events.clone(), event_revisions.clone())),
         CoreLimits::default(),
         CoreNetworkConfig {
             mode: CoreRelayMode::LocalOnly,
@@ -25,7 +26,112 @@ fn session(path: &Path) -> Arc<Session> {
         },
     )
     .unwrap();
-    Session::with_core(core, changes, events).unwrap()
+    Session::with_core(core, changes, events, event_revisions).unwrap()
+}
+
+#[test]
+fn presentation_progress_keeps_receiver_decisions_and_updates_live_events() {
+    let profile = tempfile::tempdir().unwrap();
+    let session = session(profile.path());
+    let first = session.presentation_snapshot(false).unwrap();
+    let (sender, _) = async_channel::bounded(1);
+    let sink = EventSink(
+        sender,
+        session.events.clone(),
+        session.event_revisions.clone(),
+    );
+    let progress = CoreEvent {
+        id: "live-progress".into(),
+        timestamp: i64::MAX,
+        revision: 1,
+        scope: "transfer".into(),
+        transfer_id: Some(7),
+        direction: Some("receive".into()),
+        phase: "download".into(),
+        kind: "progress".into(),
+        data_json: "{}".into(),
+    };
+    let cached_version = session.event_revisions.lock().unwrap().snapshot;
+    sink.on_event(progress.clone());
+    let second = session.presentation_snapshot(false).unwrap();
+    assert_eq!(
+        session.event_revisions.lock().unwrap().snapshot,
+        cached_version
+    );
+    assert_eq!(first.requests.len(), second.requests.len());
+    assert!(second
+        .events
+        .iter()
+        .any(|event| event.id == "live-progress"));
+
+    sink.on_event(CoreEvent {
+        id: "approval-update".into(),
+        phase: "approval".into(),
+        kind: "receiver-requested".into(),
+        ..progress
+    });
+    assert!(session
+        .event_revisions
+        .lock()
+        .unwrap()
+        .receivers
+        .contains(&7));
+    session.close();
+}
+
+#[test]
+fn transfer_activity_reads_durable_events_after_the_live_window_evicts_them() {
+    let root = tempfile::tempdir().unwrap();
+    let session = session(&root.path().join("profile"));
+    let file = root.path().join("document.txt");
+    std::fs::write(&file, b"document").unwrap();
+    session
+        .call(|core| {
+            core.share_files(
+                vec![ShareSource {
+                    kind: SourceKind::Path,
+                    value: file.to_str().unwrap().into(),
+                    display_name: None,
+                    is_directory: false,
+                }],
+                metadata(77),
+            )
+        })
+        .unwrap();
+    let ready = session
+        .transfer_events(77)
+        .unwrap()
+        .into_iter()
+        .find(|event| event.phase == "ticket" && event.kind == "created")
+        .expect("share creation persisted before the API returns");
+
+    session
+        .events
+        .lock()
+        .unwrap()
+        .merge((0..2048).map(|revision| CoreEvent {
+            id: format!("unrelated-{revision}"),
+            revision,
+            timestamp: i64::MAX,
+            scope: "transfer".into(),
+            transfer_id: Some(78),
+            direction: Some("send".into()),
+            phase: "lifecycle".into(),
+            kind: "done".into(),
+            data_json: "{}".into(),
+        }));
+    assert!(!session
+        .presentation_snapshot(false)
+        .unwrap()
+        .events
+        .iter()
+        .any(|event| event.id == ready.id));
+    assert!(session
+        .transfer_events(77)
+        .unwrap()
+        .iter()
+        .any(|event| event.id == ready.id));
+    session.close();
 }
 
 fn metadata(id: u64) -> ShareMetadataInput {
@@ -37,7 +143,7 @@ fn metadata(id: u64) -> ShareMetadataInput {
     }
 }
 
-fn wait_request(sender: &Session, id: u64) -> ReceiverRequest {
+fn wait_request(sender: &Session, id: u64) -> InvitationReceiver {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         if let Some(request) = sender
@@ -89,7 +195,7 @@ fn approval_and_cancel_are_available_while_receive_blocks() {
     });
     let request = wait_request(&sender, 120);
     sender
-        .call(|core| core.respond_receiver_request(request.id, true, None))
+        .call(|core| core.respond_receiver_request(request.id.clone(), true, None))
         .unwrap();
     completion
         .recv_timeout(Duration::from_secs(10))
@@ -334,7 +440,7 @@ fn native_device_commands_require_mutual_consent_and_preserve_revocation() {
         });
         let request = wait_request(&sender, 220);
         sender
-            .call(|core| core.respond_receiver_request(request.id, true, None))
+            .call(|core| core.respond_receiver_request(request.id.clone(), true, None))
             .unwrap();
         worker.join().unwrap().unwrap();
         let eligible = wait_device(&sender, |d| matches!(d.state, DeviceState::Eligible { .. }));
@@ -498,7 +604,7 @@ fn native_pairing_decline_never_creates_saved_access() {
         });
         let request = wait_request(&sender, 320);
         sender
-            .call(|core| core.respond_receiver_request(request.id, true, None))
+            .call(|core| core.respond_receiver_request(request.id.clone(), true, None))
             .unwrap();
         worker.join().unwrap().unwrap();
         let eligible = wait_device(&sender, |d| matches!(d.state, DeviceState::Eligible { .. }));

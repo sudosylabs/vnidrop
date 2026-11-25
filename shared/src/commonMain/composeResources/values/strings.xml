@@ -374,6 +374,9 @@
     <string name="saved_devices_forgotten">Saved device forgotten</string>
     <string name="saved_devices_blocked">Device blocked</string>
     <string name="saved_devices_labeled">Label updated</string>
+    <string name="app_brand_name">VniDrop</string>
+    <string name="android_notification_channel_transfers">Transfer requests</string>
+    <string name="storage_downloads_name">Downloads</string>
     <plurals name="transfer_file_count">
         <item quantity="other">%1$d files</item>
         <item quantity="one">%1$d file</item>

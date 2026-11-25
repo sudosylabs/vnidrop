@@ -7,7 +7,7 @@ use std::{
     ops::Deref,
     path::Path,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         mpsc, Arc, Condvar, Mutex,
     },
     thread::JoinHandle,
@@ -227,6 +227,7 @@ pub struct MemoryOutputSink {
     /// When set, every write waits until [Self::release_write_gate] opens the gate.
     write_gate: Option<Arc<(Mutex<bool>, Condvar)>>,
     write_entered: AtomicBool,
+    write_calls: AtomicUsize,
 }
 
 impl MemoryOutputSink {
@@ -238,6 +239,7 @@ impl MemoryOutputSink {
             write_delay: Duration::ZERO,
             write_gate: None,
             write_entered: AtomicBool::new(false),
+            write_calls: AtomicUsize::new(0),
         }
     }
 
@@ -249,6 +251,7 @@ impl MemoryOutputSink {
             write_delay: delay,
             write_gate: None,
             write_entered: AtomicBool::new(false),
+            write_calls: AtomicUsize::new(0),
         }
     }
 
@@ -264,6 +267,7 @@ impl MemoryOutputSink {
             write_delay: Duration::ZERO,
             write_gate: Some(Arc::new((Mutex::new(false), Condvar::new()))),
             write_entered: AtomicBool::new(false),
+            write_calls: AtomicUsize::new(0),
         }
     }
 
@@ -291,6 +295,10 @@ impl MemoryOutputSink {
     pub fn has_entered_write(&self) -> bool {
         self.write_entered.load(Ordering::SeqCst)
     }
+
+    pub fn write_calls(&self) -> usize {
+        self.write_calls.load(Ordering::Relaxed)
+    }
 }
 
 impl ReceiveOutputSink for MemoryOutputSink {
@@ -300,6 +308,7 @@ impl ReceiveOutputSink for MemoryOutputSink {
     }
 
     fn write_chunk(&self, relative_path: String, bytes: Vec<u8>) -> Result<(), VnidropError> {
+        self.write_calls.fetch_add(1, Ordering::Relaxed);
         self.write_entered.store(true, Ordering::SeqCst);
         if let Some(gate) = &self.write_gate {
             let (lock, cvar) = gate.as_ref();

@@ -13,14 +13,14 @@ fn assert_review_visible(app: &Rc<App>, button: &gtk::Button) {
 
 pub(super) fn review_routes_to_the_pending_decision(app: &Rc<App>) {
     let mut snapshot = app.snapshot.borrow().clone().unwrap();
-    let mut oldest = snapshot.requests[0].clone();
+    let mut oldest = (*snapshot.requests[0]).clone();
     oldest.id = "oldest-pending".into();
     oldest.status = "requested".into();
     oldest.requested_at = 1;
     let mut newer = oldest.clone();
     newer.id = "newer-pending".into();
     newer.requested_at = 2;
-    snapshot.requests = vec![newer, oldest.clone()];
+    snapshot.requests = vec![newer.into(), oldest.clone().into()];
     app.snapshot.replace(Some(snapshot));
     app.show_devices();
     app.window.set_default_size(390, 700);
@@ -135,8 +135,9 @@ pub(super) fn notification_routes_after_modal_closes(app: &Rc<App>) {
     use vnidrop_gnome::notifications::Target;
     let saved = app.snapshot.borrow().clone().unwrap();
     let mut fixture = saved.clone();
-    fixture.requests[0].status = "requested".into();
-    let request = fixture.requests[0].clone();
+    let mut request = (*fixture.requests[0]).clone();
+    request.status = "requested".into();
+    fixture.requests[0] = request.clone().into();
     app.snapshot.replace(Some(fixture));
     app.show_devices();
     let (dialog, _, _) = super::super::dialogs::content("linux_about");

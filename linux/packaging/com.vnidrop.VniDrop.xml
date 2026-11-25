@@ -2,6 +2,14 @@
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
   <mime-type type="application/vnd.vnidrop.transfer">
     <comment>VniDrop transfer invitation</comment>
+    <comment xml:lang="fr">Invitation de transfert VniDrop</comment>
+    <comment xml:lang="es">Invitación de transferencia de VniDrop</comment>
+    <comment xml:lang="it">Invito al trasferimento VniDrop</comment>
+    <comment xml:lang="de">VniDrop-Übertragungseinladung</comment>
+    <comment xml:lang="pt">Convite de transferência VniDrop</comment>
+    <comment xml:lang="pl">Zaproszenie do transferu VniDrop</comment>
+    <comment xml:lang="nl">VniDrop-overdrachtsuitnodiging</comment>
+    <comment xml:lang="ru">Приглашение к передаче VniDrop</comment>
     <glob pattern="*.vnd"/>
   </mime-type>
 </mime-info>

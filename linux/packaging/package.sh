@@ -16,6 +16,7 @@ trap 'rm -rf "$stage"' EXIT
 install -Dm755 "$binary" "$stage/usr/bin/vnidrop"
 install -Dm644 "$root/LICENSE" "$stage/usr/share/licenses/vnidrop/LICENSE"
 install -Dm644 "$root/linux/packaging/com.vnidrop.VniDrop.desktop" "$stage/usr/share/applications/com.vnidrop.VniDrop.desktop"
+install -Dm644 "$root/linux/packaging/com.vnidrop.VniDrop.metainfo.xml" "$stage/usr/share/metainfo/com.vnidrop.VniDrop.metainfo.xml"
 install -Dm644 "$root/linux/packaging/com.vnidrop.VniDrop.service" "$stage/usr/share/dbus-1/services/com.vnidrop.VniDrop.service"
 install -Dm644 "$root/linux/packaging/com.vnidrop.VniDrop.xml" "$stage/usr/share/mime/packages/com.vnidrop.VniDrop.xml"
 install -Dm644 "$root/assets/linux/app-icon.svg" "$stage/usr/share/icons/hicolor/scalable/apps/com.vnidrop.VniDrop.svg"
@@ -31,6 +32,7 @@ Maintainer: Sudosy Labs <support@sudosy.fr>
 Section: net
 Priority: optional
 Depends: libc6 (>= 2.39), libgtk-4-1 (>= 4.10), libadwaita-1-0 (>= 1.5), libglib2.0-0t64 (>= 2.80), libgdk-pixbuf-2.0-0, libsecret-1-0, shared-mime-info, desktop-file-utils, xdg-utils
+Recommends: gnome-keyring
 Description: Native GNOME peer-to-peer file transfer
  Send files and folders directly between devices with explicit approval.
 CONTROL
@@ -51,6 +53,7 @@ License: Apache-2.0
 URL: https://github.com/vnidrop/vnidrop
 Source0: payload.tar.gz
 Requires: gtk4 >= 4.10, libadwaita >= 1.5, libsecret, shared-mime-info, desktop-file-utils, xdg-utils
+Recommends: gnome-keyring
 %global debug_package %{nil}
 %description
 Send files and folders directly between devices with explicit approval.
@@ -63,6 +66,7 @@ tar -xzf %{SOURCE0} -C %{buildroot}
 /usr/bin/vnidrop
 /usr/share/licenses/vnidrop/LICENSE
 /usr/share/applications/com.vnidrop.VniDrop.desktop
+/usr/share/metainfo/com.vnidrop.VniDrop.metainfo.xml
 /usr/share/dbus-1/services/com.vnidrop.VniDrop.service
 /usr/share/mime/packages/com.vnidrop.VniDrop.xml
 /usr/share/icons/hicolor/scalable/apps/com.vnidrop.VniDrop.svg

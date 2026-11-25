@@ -160,10 +160,57 @@ async fn receive_completion_persists_delivery_receipt_until_recorded() {
     assert_eq!(pending[0].request_id, "request-93");
     assert_eq!(pending[0].token, "receipt-token");
     reopened
-        .delete_pending_delivery_receipt("request-93")
+        .delete_pending_delivery_receipt(&pending[0])
         .await
         .unwrap();
     assert!(reopened
+        .list_pending_delivery_receipts()
+        .await
+        .unwrap()
+        .is_empty());
+}
+
+#[tokio::test]
+async fn cancelled_receive_cannot_replace_or_recreate_a_completed_receipt() {
+    let temp = tempfile::tempdir().unwrap();
+    let repository = Repository::open(temp.path()).await.unwrap();
+    repository
+        .start_receive(transfer(
+            94,
+            TransferDirection::Receive,
+            TransferStatus::Receiving,
+        ))
+        .await
+        .unwrap();
+    let receipt = |failure_reason| PendingDeliveryReceiptInsert {
+        local_transfer_id: 94,
+        sender_blob_ticket: "blob-ticket",
+        request_id: "request-94",
+        sender_transfer_id: 49,
+        token: "receipt-token",
+        failure_reason,
+    };
+    repository
+        .complete_receive_with_pending_receipt(receipt(None))
+        .await
+        .unwrap();
+    repository
+        .queue_failed_delivery_receipt(receipt(Some("cancelled")))
+        .await
+        .unwrap();
+    let pending = repository.list_pending_delivery_receipts().await.unwrap();
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0].failure_reason, None);
+
+    repository
+        .delete_pending_delivery_receipt(&pending[0])
+        .await
+        .unwrap();
+    repository
+        .queue_failed_delivery_receipt(receipt(Some("cancelled")))
+        .await
+        .unwrap();
+    assert!(repository
         .list_pending_delivery_receipts()
         .await
         .unwrap()

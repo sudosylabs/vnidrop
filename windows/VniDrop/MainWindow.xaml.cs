@@ -251,32 +251,33 @@ public sealed partial class MainWindow : Window
             while (Model.Ready && !closing && Model.Snapshot is { } snapshot)
             {
                 var pendingRequests = snapshot.Requests
-                    .Where(candidate => candidate.status == "requested")
+                    .Where(candidate => candidate.Status == ReceiverStatus.Requested)
                     .ToArray();
                 var request = pendingRequests.FirstOrDefault(candidate =>
-                    !shownRequests.Contains("invitation:" + candidate.id));
+                    !shownRequests.Contains("invitation:" + candidate.Value.id));
                 if (request is not null)
                 {
-                    var key = "invitation:" + request.id;
+                    var key = "invitation:" + request.Value.id;
                     shownRequests.Add(key);
                     var result = await DialogAsync(
                         Strings.Get("approval_connection_request"),
                         Strings.Format(
                             "approval_request_body",
-                            ("receiver", request.receiverName ?? request.receiverDeviceName ?? Strings.Get("approval_nearby_device")),
-                            ("transferName", request.transferName)),
+                            ("receiver", request.Value.receiverName ?? request.Value.receiverDeviceName ?? Strings.Get("approval_nearby_device")),
+                            ("transferName", request.Value.transferName)),
                         Strings.Get("button_approve"),
                         Strings.Get("button_refuse"),
+                        intent: DialogIntent.Consent,
                         priority: DialogPriority.Attention,
                         canShow: () => Model.Snapshot?.Requests.Any(candidate =>
-                            candidate.id == request.id && candidate.status == "requested") == true);
+                            candidate.Value.id == request.Value.id && candidate.Status == ReceiverStatus.Requested) == true);
                     if (!Model.Ready || closing || result == ContentDialogResult.None)
                     {
                         return;
                     }
 
                     var success = await Model.PerformAsync(() => Model.Session.RunAsync(core =>
-                        core.RespondReceiverRequest(request.id, result == ContentDialogResult.Primary, null)));
+                        core.RespondReceiverRequest(request.Value.id, result == ContentDialogResult.Primary, null)));
                     if (!success)
                     {
                         shownRequests.Remove(key);
@@ -299,6 +300,7 @@ public sealed partial class MainWindow : Window
                             Strings.Format("saved_devices_transfer_files", ("count", offer.fileCount), ("size", Strings.Size(offer.totalSize)))),
                         Strings.Get("button_receive"),
                         Strings.Get("button_refuse"),
+                        intent: DialogIntent.Consent,
                         priority: DialogPriority.Attention,
                         canShow: () => Model.Snapshot?.Offers.Any(candidate =>
                             candidate.transferId == offer.transferId) == true);
@@ -337,6 +339,7 @@ public sealed partial class MainWindow : Window
                         Strings.Format("pairing_request_body", ("device", deviceName)),
                         Strings.Get("pairing_accept"),
                         Strings.Get("pairing_decline"),
+                        intent: DialogIntent.Consent,
                         priority: DialogPriority.Attention,
                         canShow: () => PairingStillPending(Model.Snapshot, pairing))
                     : await DialogAsync(
@@ -344,6 +347,7 @@ public sealed partial class MainWindow : Window
                         PromptContent(deviceName, Strings.Get("pairing_allow_body"), emphasizePrimary: true),
                         Strings.Get("pairing_allow_confirm"),
                         Strings.Get("pairing_decline"),
+                        intent: DialogIntent.Consent,
                         priority: DialogPriority.Attention,
                         canShow: () => PairingStillPending(Model.Snapshot, pairing));
                 if (!Model.Ready || closing || pairingResult == ContentDialogResult.None)

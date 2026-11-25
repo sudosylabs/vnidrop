@@ -374,6 +374,9 @@
     <string name="saved_devices_forgotten">Zapomniano zapisane urządzenie</string>
     <string name="saved_devices_blocked">Urządzenie zablokowane</string>
     <string name="saved_devices_labeled">Zaktualizowano etykietę</string>
+    <string name="app_brand_name">VniDrop</string>
+    <string name="android_notification_channel_transfers">Prośby o transfer</string>
+    <string name="storage_downloads_name">Pobrane</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d plik</item>
         <item quantity="few">%1$d pliki</item>

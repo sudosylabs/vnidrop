@@ -113,6 +113,30 @@ fn android_content_uri_must_be_opened_by_platform_code() {
 }
 
 #[test]
+fn rejects_two_source_files_with_the_same_destination_name() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut sources = Vec::new();
+    for folder in ["first", "second"] {
+        let parent = temp.path().join(folder);
+        std::fs::create_dir(&parent).unwrap();
+        let path = parent.join("report.txt");
+        std::fs::write(&path, folder).unwrap();
+        sources.push(ShareSource {
+            kind: SourceKind::Path,
+            value: path.to_str().unwrap().to_string(),
+            display_name: None,
+            is_directory: false,
+        });
+    }
+
+    let error = collect_import_files(sources).unwrap_err();
+    assert!(matches!(
+        error.downcast_ref::<crate::error::VnidropError>(),
+        Some(crate::error::VnidropError::InvalidInput { .. })
+    ));
+}
+
+#[test]
 fn directory_sources_preserve_safe_relative_names() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path().join("picked");

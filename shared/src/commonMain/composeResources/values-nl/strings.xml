@@ -374,6 +374,9 @@
     <string name="saved_devices_forgotten">Opgeslagen apparaat vergeten</string>
     <string name="saved_devices_blocked">Apparaat geblokkeerd</string>
     <string name="saved_devices_labeled">Label bijgewerkt</string>
+    <string name="app_brand_name">VniDrop</string>
+    <string name="android_notification_channel_transfers">Overdrachtsverzoeken</string>
+    <string name="storage_downloads_name">Downloads</string>
     <plurals name="transfer_file_count">
         <item quantity="one">%1$d bestand</item>
         <item quantity="other">%1$d bestanden</item>

@@ -17,6 +17,7 @@ impl App {
         self.session.replace(Some(session.clone()));
         self.refreshing.set(false);
         self.refresh_again.set(false);
+        self.force_refresh_again.set(false);
         self.set_ready(true);
         self.refresh();
         let weak = Rc::downgrade(self);
@@ -35,17 +36,29 @@ impl App {
                 {
                     break;
                 }
-                app.refresh();
+                app.refresh_snapshot(false);
             }
         });
     }
 
-    fn reconfigure(self: &Rc<Self>, next: Preferences, maintenance: Maintenance) {
+    fn reconfigure(
+        self: &Rc<Self>,
+        next: Preferences,
+        maintenance: Maintenance,
+        relay_dialog: Option<adw::PreferencesDialog>,
+    ) {
+        let notify_failure = |key| {
+            if let Some(dialog) = &relay_dialog {
+                dialog.add_toast(adw::Toast::new(&text(key)));
+            } else {
+                self.error(key);
+            }
+        };
         if self.reconfiguring.get()
             || self.saving_preferences.get()
             || self.busy.get() > usize::from(self.refreshing.get()) + self.settings_reads.get()
         {
-            self.error("relay_apply_active_transfers");
+            notify_failure("relay_apply_active_transfers");
             return;
         }
         if self
@@ -54,8 +67,16 @@ impl App {
             .as_ref()
             .is_some_and(|s| s.has_obligations())
         {
-            self.error("relay_apply_active_transfers");
+            notify_failure("relay_apply_active_transfers");
             return;
+        }
+        if self.session.borrow().is_none() {
+            notify_failure("error_starting_up");
+            return;
+        }
+        if let Some(dialog) = &relay_dialog {
+            dialog.set_can_close(false);
+            dialog.set_sensitive(false);
         }
         self.reconfiguring.set(true);
         self.set_ready(false);
@@ -80,6 +101,7 @@ impl App {
                 glib::timeout_future(Duration::from_millis(20)).await;
             }
             let session = app.session.borrow_mut().take();
+            let mut failure = Some("error_starting_up");
             if let Some(session) = session {
                 let (profile, previous) = (app.profile.clone(), app.preferences.borrow().clone());
                 let result = gio::spawn_blocking(move || {
@@ -95,6 +117,7 @@ impl App {
                 app.reconfiguring.set(false);
                 match result {
                     Ok(result) => {
+                        failure = result.error;
                         app.preferences.replace(result.preferences);
                         if let Some(session) = result.session {
                             app.attach_session(session);
@@ -102,23 +125,31 @@ impl App {
                             app.snapshot.borrow_mut().take();
                             app.startup_error("relay_restore_failed");
                         }
-                        app.error(
-                            result
-                                .error
-                                .unwrap_or(if maintenance == Maintenance::Cache {
-                                    "storage_transfer_cache_cleared"
-                                } else if maintenance == Maintenance::Temporary {
-                                    "linux_storage_cleaned"
-                                } else {
-                                    "relay_settings_applied"
-                                }),
-                        );
                     }
-                    Err(_) => app.startup_error("relay_restore_failed"),
+                    Err(_) => {
+                        failure = Some("relay_restore_failed");
+                        app.startup_error("relay_restore_failed");
+                    }
                 }
             }
             app.reconfiguring.set(false);
             app.window.set_sensitive(true);
+            if let Some(dialog) = &relay_dialog {
+                dialog.set_sensitive(true);
+                dialog.set_can_close(true);
+                if let Some(key) = failure {
+                    dialog.add_toast(adw::Toast::new(&text(key)));
+                } else {
+                    dialog.close();
+                }
+            }
+            if failure.is_none() || relay_dialog.is_none() {
+                app.error(failure.unwrap_or(match maintenance {
+                    Maintenance::Cache => "storage_transfer_cache_cleared",
+                    Maintenance::Temporary => "linux_storage_cleaned",
+                    Maintenance::None => "relay_settings_applied",
+                }));
+            }
             app.pump_invitations();
             drop(hold);
         });
@@ -188,6 +219,7 @@ impl App {
         ]);
         let theme = adw::ComboRow::builder()
             .title(text("appearance_title"))
+            .use_subtitle(true)
             .model(&themes)
             .selected(match preferences.theme.as_str() {
                 "Light" => 1,
@@ -201,13 +233,7 @@ impl App {
             let Some(app) = weak.upgrade() else {
                 return;
             };
-            let mut next = app
-                .preference_queue
-                .borrow()
-                .back()
-                .cloned()
-                .unwrap_or_else(|| app.preferences.borrow().clone());
-            next.theme = ["System", "Light", "Dark"][row.selected() as usize].into();
+            let theme = ["System", "Light", "Dark"][row.selected() as usize];
             app.application
                 .style_manager()
                 .set_color_scheme(match row.selected() {
@@ -215,7 +241,7 @@ impl App {
                     2 => adw::ColorScheme::ForceDark,
                     _ => adw::ColorScheme::Default,
                 });
-            app.save_preferences(next);
+            app.save_preferences(move |prefs| prefs.theme = theme.into());
         });
         group.add(&theme);
         let notifications = adw::SwitchRow::builder()
@@ -233,31 +259,33 @@ impl App {
             let Some(app) = weak.upgrade() else {
                 return;
             };
-            let mut next = app.preferences.borrow().clone();
-            next.username = username.text().trim().into();
-            next.receive_directory = folder_path.borrow().clone();
-            next.theme = ["System", "Light", "Dark"][theme.selected() as usize].into();
-            next.notifications = notifications.is_active();
-            if next.username.is_empty() {
+            let username = username.text().trim().to_owned();
+            let receive_directory = folder_path.borrow().clone();
+            let notifications = notifications.is_active();
+            if username.is_empty() {
                 app.error("error_invalid_input");
                 return;
             }
             let (app, close, button) = (app.clone(), close.clone(), button.clone());
             button.set_sensitive(false);
             glib::spawn_future_local(async move {
-                if next.notifications && !super::notifications::available().await {
+                if notifications && !super::notifications::available().await {
                     app.error("notifications_unsupported");
                     button.set_sensitive(true);
                     return;
                 }
-                let path = next.receive_directory.clone();
+                let path = receive_directory.clone();
                 let result =
                     gio::spawn_blocking(move || vnidrop_gnome::settings::validate_folder(&path))
                         .await
                         .unwrap_or(Err("error_filesystem"));
                 match result {
                     Ok(()) => {
-                        app.save_preferences(next);
+                        app.save_preferences(move |prefs| {
+                            prefs.username = username;
+                            prefs.receive_directory = receive_directory;
+                            prefs.notifications = notifications;
+                        });
                         close.close();
                     }
                     Err(key) => app.error(key),
@@ -278,6 +306,7 @@ impl App {
         ]);
         let mode = adw::ComboRow::builder()
             .title(text("linux_network_policy"))
+            .use_subtitle(true)
             .model(&modes)
             .selected(match preferences.network.mode {
                 Mode::Automatic => 0,
@@ -368,10 +397,9 @@ impl App {
             ) {
                 Ok(config) => {
                     next.network = config;
-                    close.close();
-                    app.reconfigure(next, Maintenance::None);
+                    app.reconfigure(next, Maintenance::None, Some(close.clone()));
                 }
-                Err(key) => app.error(key),
+                Err(key) => close.add_toast(adw::Toast::new(&text(key))),
             }
         });
         page.add(&network);
@@ -410,7 +438,7 @@ impl App {
                 .await
                 {
                     let next = app.preferences.borrow().clone();
-                    app.reconfigure(next, Maintenance::Cache);
+                    app.reconfigure(next, Maintenance::Cache, None);
                 }
             });
         });
@@ -433,7 +461,7 @@ impl App {
                 .await
                 {
                     let next = app.preferences.borrow().clone();
-                    app.reconfigure(next, Maintenance::Temporary);
+                    app.reconfigure(next, Maintenance::Temporary, None);
                 }
             });
         });
@@ -516,7 +544,6 @@ impl App {
 }
 
 fn wrap_choices(row: &adw::ComboRow) {
-    row.set_use_subtitle(true);
     row.set_subtitle_lines(0);
     let factory = gtk::SignalListItemFactory::new();
     factory.connect_setup(|_, object| {

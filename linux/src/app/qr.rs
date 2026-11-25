@@ -1,3 +1,5 @@
+use vnidrop_gnome::presentation::InvitationDirection;
+
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -22,7 +24,7 @@ impl App {
             snapshot
                 .transfers
                 .iter()
-                .find(|t| t.transfer_id == transfer_id && t.direction == "send")
+                .find(|t| t.transfer_id == transfer_id && t.role == InvitationDirection::Send)
                 .and_then(presentation::invitation)
                 .map(str::to_owned)
         });
@@ -112,7 +114,7 @@ impl QrDialog {
         let current = snapshot
             .transfers
             .iter()
-            .find(|t| t.transfer_id == self.transfer_id && t.direction == "send")
+            .find(|t| t.transfer_id == self.transfer_id && t.role == InvitationDirection::Send)
             .and_then(presentation::invitation);
         if current != Some(self.ticket.as_str()) {
             self.dialog.close();

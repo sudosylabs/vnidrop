@@ -1,6 +1,6 @@
 use super::*;
 use serde_json::json;
-use vnidrop::TransferAccessMode;
+use vnidrop::{ReceiverRequest, StoredTransfer, TransferAccessMode};
 
 fn event(revision: u64, phase: &str, kind: &str, data: Value) -> CoreEvent {
     CoreEvent {
@@ -75,7 +75,7 @@ fn receiver_progress_uses_fingerprints_and_separates_interleaved_connections_and
         ),
     ];
     assert_eq!(
-        for_receiver(&events, &request("receiver-a"), 100),
+        for_receiver(&events, &request("receiver-a").into(), 100),
         Some(Progress {
             label: "progress_sending",
             bytes: Some(75),
@@ -83,15 +83,15 @@ fn receiver_progress_uses_fingerprints_and_separates_interleaved_connections_and
         })
     );
     assert_eq!(
-        for_receiver(&events, &request("receiver-b"), 100)
+        for_receiver(&events, &request("receiver-b").into(), 100)
             .unwrap()
             .fraction(),
         Some(1.0)
     );
-    assert_eq!(for_receiver(&events, &request("other"), 100), None);
+    assert_eq!(for_receiver(&events, &request("other").into(), 100), None);
     let mut later = request("receiver-a");
     later.requested_at = 7;
-    assert_eq!(for_receiver(&events, &later, 100), None);
+    assert_eq!(for_receiver(&events, &later.into(), 100), None);
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn missing_endpoint_maps_through_connection_and_aborted_streams_do_not_erase_oth
         ),
     ];
     assert_eq!(
-        for_receiver(&events, &request("receiver"), 100)
+        for_receiver(&events, &request("receiver").into(), 100)
             .unwrap()
             .bytes,
         Some(30)
@@ -142,7 +142,7 @@ fn missing_endpoint_maps_through_connection_and_aborted_streams_do_not_erase_oth
     )];
     aborted.extend(events);
     assert_eq!(
-        for_receiver(&aborted, &request("receiver"), 100),
+        for_receiver(&aborted, &request("receiver").into(), 100),
         Some(Progress {
             label: "progress_interrupted",
             bytes: None,
@@ -151,7 +151,7 @@ fn missing_endpoint_maps_through_connection_and_aborted_streams_do_not_erase_oth
     );
     let mut completed = request("receiver");
     completed.status = "completed".into();
-    assert_eq!(for_receiver(&aborted, &completed, 100), None);
+    assert_eq!(for_receiver(&aborted, &completed.into(), 100), None);
 }
 
 #[test]
@@ -174,14 +174,14 @@ fn receiving_progress_handles_phases_unknown_totals_and_durable_terminal_state()
     let mut receiving = event(1, "download", "progress", json!({"downloaded": 20}));
     receiving.direction = Some("receive".into());
     assert_eq!(
-        for_transfer(&[receiving.clone()], &transfer)
+        for_transfer(&[receiving.clone()], &transfer.clone().into())
             .unwrap()
             .fraction(),
         None
     );
     transfer.total_size = 100;
     assert_eq!(
-        for_transfer(&[receiving.clone()], &transfer)
+        for_transfer(&[receiving.clone()], &transfer.clone().into())
             .unwrap()
             .fraction(),
         Some(0.2)
@@ -189,7 +189,7 @@ fn receiving_progress_handles_phases_unknown_totals_and_durable_terminal_state()
     receiving.phase = "export".into();
     receiving.data_json = json!({"exported":"30","file_size":60}).to_string();
     assert_eq!(
-        for_transfer(&[receiving.clone()], &transfer),
+        for_transfer(&[receiving.clone()], &transfer.clone().into()),
         Some(Progress {
             label: "progress_saving",
             bytes: Some(30),
@@ -197,7 +197,7 @@ fn receiving_progress_handles_phases_unknown_totals_and_durable_terminal_state()
         })
     );
     transfer.status = "done".into();
-    assert_eq!(for_transfer(&[receiving], &transfer), None);
+    assert_eq!(for_transfer(&[receiving], &transfer.clone().into()), None);
 }
 
 #[test]

@@ -251,33 +251,44 @@ fn startup_processes_persisted_delivery_receipts() {
     let preparation_runtime = tokio::runtime::Runtime::new().unwrap();
     preparation_runtime.block_on(async {
         let repository = Repository::open(temp.path()).await.unwrap();
-        repository
-            .start_receive(TransferUpsert {
-                transfer_id: 94,
-                peer_id: None,
-                direction: TransferDirection::Receive,
-                status: TransferStatus::Receiving,
-                transfer_name: Some("completed receive"),
-                sender_name: None,
-                content_hash: Some("hash"),
-                ticket: None,
-                file_count: 1,
-                total_size: 5,
-                access_mode: "approval_required",
-            })
-            .await
-            .unwrap();
-        repository
-            .complete_receive_with_pending_receipt(PendingDeliveryReceiptInsert {
-                local_transfer_id: 94,
-                sender_blob_ticket: "invalid-ticket",
-                request_id: "request-94",
-                sender_transfer_id: 49,
-                token: "receipt-token",
-                failure_reason: None,
-            })
-            .await
-            .unwrap();
+        for (id, request) in [(94, "request-94"), (95, "request-95")] {
+            repository
+                .start_receive(TransferUpsert {
+                    transfer_id: id,
+                    peer_id: None,
+                    direction: TransferDirection::Receive,
+                    status: TransferStatus::Receiving,
+                    transfer_name: Some("completed receive"),
+                    sender_name: None,
+                    content_hash: Some("hash"),
+                    ticket: None,
+                    file_count: 1,
+                    total_size: 5,
+                    access_mode: "approval_required",
+                })
+                .await
+                .unwrap();
+            repository
+                .complete_receive_with_pending_receipt(PendingDeliveryReceiptInsert {
+                    local_transfer_id: id,
+                    sender_blob_ticket: "invalid-ticket",
+                    request_id: request,
+                    sender_transfer_id: 49,
+                    token: "receipt-token",
+                    failure_reason: None,
+                })
+                .await
+                .unwrap();
+        }
+        let options =
+            sqlx::sqlite::SqliteConnectOptions::new().filename(temp.path().join("vnidrop.sqlite3"));
+        let pool = sqlx::SqlitePool::connect_with(options).await.unwrap();
+        sqlx::query(
+            "UPDATE pending_delivery_receipts SET created_at = 0 WHERE request_id = 'request-95'",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
     });
     drop(preparation_runtime);
 
@@ -288,11 +299,17 @@ fn startup_processes_persisted_delivery_receipts() {
     .unwrap();
     let started = std::time::Instant::now();
     loop {
-        if core.list_events(Some(94)).unwrap().iter().any(|event| {
+        let processed = core.list_events(Some(94)).unwrap().iter().any(|event| {
             event.phase == "delivery"
                 && event.kind == "receipt-rejected"
                 && event.data_json.contains("invalid-sender-ticket")
-        }) {
+        });
+        let expired = core
+            .list_events(Some(95))
+            .unwrap()
+            .iter()
+            .any(|event| event.phase == "delivery" && event.kind == "receipt-expired");
+        if processed && expired {
             break;
         }
         assert!(
@@ -301,7 +318,20 @@ fn startup_processes_persisted_delivery_receipts() {
         );
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
+    assert!(core
+        .list_transfers()
+        .unwrap()
+        .iter()
+        .any(|transfer| transfer.transfer_id == 95 && transfer.status == "done"));
     core.shutdown();
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        let repository = Repository::open(temp.path()).await.unwrap();
+        assert!(repository
+            .list_pending_delivery_receipts()
+            .await
+            .unwrap()
+            .is_empty());
+    });
 }
 
 #[test]

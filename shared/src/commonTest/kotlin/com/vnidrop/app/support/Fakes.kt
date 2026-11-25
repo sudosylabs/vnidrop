@@ -49,6 +49,7 @@ class FakeCoreGateway : CoreGateway {
 	val mutableSignals = MutableSharedFlow<CoreSignal>(extraBufferCapacity = 16)
 	override val signals: SharedFlow<CoreSignal> = mutableSignals
 	val requests = mutableMapOf<ULong, List<ReceiverRequestModel>>()
+	var receiverRequestsHandler: (suspend (ULong) -> Result<List<ReceiverRequestModel>>)? = null
 	var responseResult: Result<Unit> = Result.success(Unit)
 	val responses = mutableListOf<Triple<String, Boolean, String?>>()
 	var shareResult: Result<Share> = Result.failure(UnsupportedOperationException())
@@ -200,7 +201,8 @@ class FakeCoreGateway : CoreGateway {
 		}
 		return clearReceiveHistoryResult
 	}
-	override suspend fun receiverRequests(transferId: ULong) = Result.success(requests[transferId].orEmpty())
+	override suspend fun receiverRequests(transferId: ULong) =
+		receiverRequestsHandler?.invoke(transferId) ?: Result.success(requests[transferId].orEmpty())
 	override suspend fun respondReceiverRequest(requestId: String, accepted: Boolean, reason: String?): Result<Unit> {
 		responses += Triple(requestId, accepted, reason)
 		return responseResult
@@ -448,17 +450,31 @@ class FakeFileSystemService(
 	private val receiveOutputSink: ReceiveOutputSinkV2? = null,
 ) : FileSystemService {
 	var supportsCustomFolders = true
+	var storagePermissionNeeded = false
+	var storagePermissionGrantedOnRequest = false
+	var storagePermissionRequests = 0
 	var effectiveFolder: ReceiveFolder? = null
 	var canRevealFolder = false
 	var reclaimedTemporaryBytes = 0UL
 	var reclaimTemporaryStorageCount = 0
 	var revealFolderResult: Result<Unit> = Result.success(Unit)
 	val revealedFolders = mutableListOf<ReceiveFolder>()
+	val validatedFolders = mutableListOf<ReceiveFolder>()
 	override val supportsCustomReceiveFolders: Boolean get() = supportsCustomFolders
 	override fun defaultReceiveFolder() = folder
 	override fun effectiveReceiveFolder(configuredFolder: ReceiveFolder) =
 		effectiveFolder ?: super.effectiveReceiveFolder(configuredFolder)
-	override suspend fun validateReceiveFolder(folder: ReceiveFolder) = FolderAccessStatus.Writable
+	override suspend fun validateReceiveFolder(folder: ReceiveFolder): FolderAccessStatus {
+		validatedFolders += folder
+		return if (storagePermissionNeeded) FolderAccessStatus.PermissionRequired else FolderAccessStatus.Writable
+	}
+	override fun needsReceiveFolderPermission(folder: ReceiveFolder) = storagePermissionNeeded
+	override suspend fun requestReceiveFolderPermission(folder: ReceiveFolder): Boolean {
+		if (!storagePermissionNeeded) return true
+		storagePermissionRequests += 1
+		if (storagePermissionGrantedOnRequest) storagePermissionNeeded = false
+		return storagePermissionGrantedOnRequest
+	}
 	override suspend fun inspectReceivedArtifacts(artifacts: List<ReceivedArtifactModel>) =
 		ReceivedStorageInspection(artifacts.fold(0UL) { total, item -> total + item.logicalSize }, artifacts.size, 0, 0)
 	override suspend fun temporaryUsage(appDataDir: String): ULong = 0UL

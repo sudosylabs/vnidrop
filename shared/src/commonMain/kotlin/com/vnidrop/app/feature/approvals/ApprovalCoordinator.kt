@@ -18,7 +18,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -87,12 +88,24 @@ class ApprovalCoordinator internal constructor(
 			}
 		}
 		scope.launch {
-			repository.state.collectLatest { core ->
-				if (core.isInitialized) {
-					core.transfers
-						.filter { it.direction == TransferDirection.Send && it.status == TransferStatus.Sharing }
-						.forEach { refresh(it.transferId) }
+			var previous = emptySet<ULong>()
+			repository.state.map { core ->
+				if (!core.isInitialized) return@map emptySet()
+				core.transfers.asSequence()
+					.filter { it.direction == TransferDirection.Send && it.status == TransferStatus.Sharing }
+					.map { it.transferId }.toSet()
+			}.distinctUntilChanged().collect { sharing ->
+				val removed = previous - sharing
+				if (removed.isNotEmpty()) {
+					val pending = _state.value.pending.filter { it.transferId in removed }
+					_state.update { state -> state.copy(pending = state.pending.filterNot { it.transferId in removed }) }
+					pending.forEach { request ->
+						publishedNotificationIds.remove(request.id)
+						notifications.cancel(notificationId(request.id))
+					}
 				}
+				(sharing - previous).forEach { refresh(it) }
+				previous = sharing
 			}
 		}
 		scope.launch {
@@ -156,7 +169,9 @@ class ApprovalCoordinator internal constructor(
 
 	private suspend fun synchronizeNotifications(context: NotificationContext) {
 		if (context.foreground || !context.enabled || context.permission != NotificationPermission.Granted) {
-			publishedNotificationIds.forEach { notifications.cancel(notificationId(it)) }
+			val withdrawnIds = publishedNotificationIds.toList()
+			publishedNotificationIds.clear()
+			withdrawnIds.forEach { notifications.cancel(notificationId(it)) }
 			return
 		}
 		context.pending.filterNot { it.id in publishedNotificationIds }.forEach { request ->

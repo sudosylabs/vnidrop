@@ -1,12 +1,13 @@
-use std::{collections::HashSet, fmt, io, path::Path, sync::Arc, time::Duration};
+use std::{collections::HashSet, fmt, path::Path, sync::Arc, time::Duration};
 
 #[cfg(any(test, all(feature = "integration-test-store", debug_assertions)))]
 use std::{collections::HashMap, sync::Mutex};
 
-use data_encoding::HEXLOWER;
 use iroh::SecretKey;
 use sqlx::{Row, SqlitePool};
+use subtle::ConstantTimeEq;
 use uuid::Uuid;
+use zeroize::ZeroizeOnDrop;
 
 use crate::{error::VnidropError, util::now_ms};
 
@@ -14,9 +15,15 @@ use crate::{error::VnidropError, util::now_ms};
 pub(crate) mod android;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) mod apple;
+mod legacy_identity;
 #[cfg(any(test, target_os = "linux"))]
 pub(crate) mod linux;
+mod metadata;
 mod platform;
+
+use legacy_identity::{read_legacy_endpoint_identity, remove_legacy_identity_durably};
+use metadata::SecretMetadataState;
+pub(crate) use metadata::{ensure_schema, SecretMetadataStore};
 #[cfg(any(test, target_os = "windows"))]
 pub(crate) mod windows;
 
@@ -32,27 +39,27 @@ const SECRET_BYTES: usize = 32;
 const HANDLE_NAMESPACE: &str = "vnidrop";
 const HANDLE_VERSION: &str = "v1";
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, ZeroizeOnDrop)]
 pub(crate) struct SecretMaterial(Vec<u8>);
 
 impl SecretMaterial {
     pub(crate) fn new(bytes: Vec<u8>) -> Result<Self, VnidropError> {
-        if bytes.len() != SECRET_BYTES || bytes.iter().all(|byte| *byte == 0) {
+        let material = Self(bytes);
+        if material.0.len() != SECRET_BYTES || material.0.iter().all(|byte| *byte == 0) {
             return Err(VnidropError::SecureStorageCorrupted {
                 reason: "protected secret has invalid key material".to_string(),
             });
         }
-        Ok(Self(bytes))
+        Ok(material)
     }
 
     fn endpoint_id(&self) -> String {
-        let bytes: [u8; SECRET_BYTES] = self.0.as_slice().try_into().expect("validated length");
-        SecretKey::from_bytes(&bytes).public().to_string()
+        self.secret_key().public().to_string()
     }
 
-    fn into_secret_key(self) -> SecretKey {
-        let bytes: [u8; SECRET_BYTES] = self.0.try_into().expect("validated length");
-        SecretKey::from_bytes(&bytes)
+    fn secret_key(&self) -> SecretKey {
+        let bytes: &[u8; SECRET_BYTES] = self.as_bytes().try_into().expect("validated length");
+        SecretKey::from_bytes(bytes)
     }
 
     pub(crate) fn as_bytes(&self) -> &[u8] {
@@ -63,6 +70,14 @@ impl SecretMaterial {
         self.0.clone()
     }
 }
+
+impl PartialEq for SecretMaterial {
+    fn eq(&self, other: &Self) -> bool {
+        bool::from(self.as_bytes().ct_eq(other.as_bytes()))
+    }
+}
+
+impl Eq for SecretMaterial {}
 
 impl fmt::Debug for SecretMaterial {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -163,188 +178,6 @@ pub(crate) trait SecureSecretStore: Send + Sync {
     fn list_handles(&self) -> Result<Vec<SecretHandle>, SecureSecretStoreError>;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SecretMetadataState {
-    Staged,
-    Active,
-    Disabled,
-}
-
-impl SecretMetadataState {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Staged => "staged",
-            Self::Active => "active",
-            Self::Disabled => "disabled",
-        }
-    }
-
-    fn parse(value: &str) -> Result<Self, VnidropError> {
-        match value {
-            "staged" => Ok(Self::Staged),
-            "active" => Ok(Self::Active),
-            "disabled" => Ok(Self::Disabled),
-            _ => Err(VnidropError::SecureStorageCorrupted {
-                reason: "protected secret has an unknown metadata state".to_string(),
-            }),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct SecretMetadata {
-    handle: SecretHandle,
-    kind: SecretKind,
-    state: SecretMetadataState,
-    expected_identity: Option<String>,
-}
-
-pub(crate) async fn ensure_schema(pool: &SqlitePool) -> anyhow::Result<()> {
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS protected_secret_refs (
-            handle TEXT PRIMARY KEY,
-            kind TEXT NOT NULL,
-            state TEXT NOT NULL,
-            expected_identity TEXT,
-            created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
-        );
-        "#,
-    )
-    .execute(pool)
-    .await?;
-    sqlx::query(
-        r#"
-        CREATE UNIQUE INDEX IF NOT EXISTS protected_secret_one_endpoint_identity
-            ON protected_secret_refs(kind)
-            WHERE kind = 'endpoint-identity' AND state != 'disabled'
-        "#,
-    )
-    .execute(pool)
-    .await?;
-    Ok(())
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct SecretMetadataStore {
-    pool: SqlitePool,
-}
-
-impl SecretMetadataStore {
-    pub(crate) fn new(pool: SqlitePool) -> Self {
-        Self { pool }
-    }
-
-    async fn stage(
-        &self,
-        handle: &SecretHandle,
-        kind: SecretKind,
-        expected_identity: Option<&str>,
-    ) -> Result<(), VnidropError> {
-        let now = now_ms();
-        sqlx::query(
-            r#"
-            INSERT INTO protected_secret_refs
-                (handle, kind, state, expected_identity, created_at, updated_at)
-            VALUES (?1, ?2, 'staged', ?3, ?4, ?4)
-            "#,
-        )
-        .bind(handle.as_str())
-        .bind(kind.as_str())
-        .bind(expected_identity)
-        .bind(now)
-        .execute(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(())
-    }
-
-    async fn activate(&self, handle: &SecretHandle) -> Result<(), VnidropError> {
-        self.set_state(handle, SecretMetadataState::Active).await
-    }
-
-    async fn disable(&self, handle: &SecretHandle) -> Result<(), VnidropError> {
-        self.set_state(handle, SecretMetadataState::Disabled).await
-    }
-
-    async fn set_state(
-        &self,
-        handle: &SecretHandle,
-        state: SecretMetadataState,
-    ) -> Result<(), VnidropError> {
-        sqlx::query(
-            "UPDATE protected_secret_refs SET state = ?2, updated_at = ?3 WHERE handle = ?1",
-        )
-        .bind(handle.as_str())
-        .bind(state.as_str())
-        .bind(now_ms())
-        .execute(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        Ok(())
-    }
-
-    async fn find(&self, handle: &SecretHandle) -> Result<Option<SecretMetadata>, VnidropError> {
-        let row = sqlx::query(
-            "SELECT handle, kind, state, expected_identity FROM protected_secret_refs WHERE handle = ?1",
-        )
-        .bind(handle.as_str())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        row.map(row_to_metadata).transpose()
-    }
-
-    async fn list(&self) -> Result<Vec<SecretMetadata>, VnidropError> {
-        let rows = sqlx::query(
-            "SELECT handle, kind, state, expected_identity FROM protected_secret_refs ORDER BY handle",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        rows.into_iter().map(row_to_metadata).collect()
-    }
-
-    async fn find_active_kind(
-        &self,
-        kind: SecretKind,
-    ) -> Result<Option<SecretMetadata>, VnidropError> {
-        let row = sqlx::query(
-            r#"
-            SELECT handle, kind, state, expected_identity
-            FROM protected_secret_refs
-            WHERE kind = ?1 AND state = 'active'
-            ORDER BY created_at ASC
-            LIMIT 1
-            "#,
-        )
-        .bind(kind.as_str())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(VnidropError::repository)?;
-        row.map(row_to_metadata).transpose()
-    }
-
-    async fn contains_kind(&self, kind: SecretKind) -> Result<bool, VnidropError> {
-        let row = sqlx::query("SELECT 1 FROM protected_secret_refs WHERE kind = ?1 LIMIT 1")
-            .bind(kind.as_str())
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(VnidropError::repository)?;
-        Ok(row.is_some())
-    }
-}
-
-fn row_to_metadata(row: sqlx::sqlite::SqliteRow) -> Result<SecretMetadata, VnidropError> {
-    Ok(SecretMetadata {
-        handle: SecretHandle(row.get(0)),
-        kind: SecretKind::parse(row.get::<String, _>(1).as_str())?,
-        state: SecretMetadataState::parse(row.get::<String, _>(2).as_str())?,
-        expected_identity: row.get(3),
-    })
-}
-
 pub(crate) struct SecretCustody {
     metadata: SecretMetadataStore,
     store: Arc<dyn SecureSecretStore>,
@@ -361,7 +194,7 @@ pub(crate) async fn start_endpoint_identity(
     let secret_key = custody
         .initialize_endpoint_identity(legacy_path)
         .await?
-        .into_secret_key();
+        .secret_key();
     Ok((secret_key, custody))
 }
 
@@ -510,12 +343,11 @@ impl SecretCustody {
         Ok(material)
     }
 
-    /// Removes protected material and disables its metadata. Idempotent.
+    /// Disables access before deleting the protected material. Idempotent.
     pub(crate) async fn remove(&self, handle: &SecretHandle) -> Result<(), VnidropError> {
-        if self.metadata.find(handle).await?.is_some() {
-            self.metadata.disable(handle).await?;
-        }
-        self.delete_if_present(handle).await
+        self.metadata.disable(handle).await?;
+        self.delete_if_present(handle).await?;
+        self.metadata.purge_disabled(handle).await
     }
 
     pub(crate) async fn list_active_handles(
@@ -656,7 +488,13 @@ impl SecretCustody {
 
         for entry in metadata {
             if entry.state == SecretMetadataState::Disabled {
-                self.delete_if_present(&entry.handle).await?;
+                // The identity marker prevents an implicit rekey on startup.
+                if entry.kind != SecretKind::EndpointIdentity
+                    || stored_handles.contains(&entry.handle)
+                {
+                    self.delete_if_present(&entry.handle).await?;
+                }
+                self.metadata.purge_disabled(&entry.handle).await?;
                 continue;
             }
             match self.store_get_raw(entry.handle.clone()).await? {
@@ -669,8 +507,7 @@ impl SecretCustody {
                                 reason: "protected endpoint identity is corrupted".to_string(),
                             });
                         }
-                        self.metadata.disable(&entry.handle).await?;
-                        self.delete_if_present(&entry.handle).await?;
+                        self.remove(&entry.handle).await?;
                         summary.disabled += 1;
                     } else if entry.state == SecretMetadataState::Staged {
                         self.metadata.activate(&entry.handle).await?;
@@ -683,8 +520,7 @@ impl SecretCustody {
                     if entry.kind == SecretKind::EndpointIdentity {
                         return Err(map_store_error(error));
                     }
-                    self.metadata.disable(&entry.handle).await?;
-                    self.delete_if_present(&entry.handle).await?;
+                    self.remove(&entry.handle).await?;
                     summary.disabled += 1;
                 }
                 Err(error) => return Err(map_store_error(error)),
@@ -795,50 +631,6 @@ impl SecretCustody {
         }
         Ok(())
     }
-}
-
-async fn remove_legacy_identity_durably(path: &Path) -> Result<(), VnidropError> {
-    let path = path.to_path_buf();
-    tokio::task::spawn_blocking(move || {
-        match std::fs::remove_file(&path) {
-            Ok(()) => {}
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
-            Err(error) => return Err(VnidropError::filesystem(error)),
-        }
-        #[cfg(unix)]
-        {
-            let parent = path.parent().ok_or_else(|| {
-                VnidropError::filesystem(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "legacy identity path has no parent",
-                ))
-            })?;
-            std::fs::File::open(parent)
-                .and_then(|directory| directory.sync_all())
-                .map_err(VnidropError::filesystem)?;
-        }
-        Ok(())
-    })
-    .await
-    .map_err(VnidropError::internal)?
-}
-
-async fn read_legacy_endpoint_identity(path: &Path) -> Result<SecretMaterial, VnidropError> {
-    let encoded = match tokio::fs::read_to_string(path).await {
-        Ok(encoded) => encoded,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return Err(VnidropError::SecureStorageMissing {
-                reason: "no protected or legacy endpoint identity exists".to_string(),
-            });
-        }
-        Err(error) => return Err(VnidropError::filesystem(error)),
-    };
-    let bytes = HEXLOWER.decode(encoded.trim().as_bytes()).map_err(|_| {
-        VnidropError::SecureStorageCorrupted {
-            reason: "legacy endpoint key encoding is invalid".to_string(),
-        }
-    })?;
-    SecretMaterial::new(bytes)
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

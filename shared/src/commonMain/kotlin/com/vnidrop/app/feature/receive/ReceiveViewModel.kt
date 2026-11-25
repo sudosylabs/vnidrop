@@ -22,12 +22,17 @@ import com.vnidrop.app.ui.feedback.toUiText
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import vnidrop.shared.generated.resources.Res
 import vnidrop.shared.generated.resources.button_retry
 import vnidrop.shared.generated.resources.button_show_in_files
 import vnidrop.shared.generated.resources.error_invitation_empty
+import vnidrop.shared.generated.resources.folder_status_permission_required
+import vnidrop.shared.generated.resources.folder_status_unavailable
 import vnidrop.shared.generated.resources.receive_open_files_failed
 import vnidrop.shared.generated.resources.receive_completed
 import vnidrop.shared.generated.resources.receive_history_cleared
@@ -46,6 +51,8 @@ data class ReceiveState(
 	val receiverName: String = "",
 	val receiveFolder: ReceiveFolder? = null,
 	val folderAccessStatus: FolderAccessStatus = FolderAccessStatus.Unavailable,
+	val needsFolderPermission: Boolean = false,
+	val isRequestingFolderPermission: Boolean = false,
 	val isInspecting: Boolean = false,
 	val isReceiving: Boolean = false,
 	val activeReceiveTransferId: ULong? = null,
@@ -55,7 +62,8 @@ data class ReceiveState(
 ) {
 	fun canReceive(coreInitialized: Boolean): Boolean =
 		coreInitialized && ticket.isNotBlank() && inspection != null &&
-			folderAccessStatus == FolderAccessStatus.Writable && !isReceiving && !isInspecting
+			(folderAccessStatus == FolderAccessStatus.Writable || needsFolderPermission) &&
+			!isRequestingFolderPermission && !isReceiving && !isInspecting
 }
 
 class ReceiveViewModel(
@@ -74,16 +82,24 @@ class ReceiveViewModel(
 	init {
 		viewModelScope.launch {
 			preferencesRepository.preferences.collect { preferences ->
-				val receiveFolder = fileSystemService.effectiveReceiveFolder(preferences.receiveFolder)
-				val status = fileSystemService.validateReceiveFolder(receiveFolder)
-				_state.update { current ->
-					current.copy(
-						receiverName = current.receiverName.ifBlank { preferences.username },
-						receiveFolder = receiveFolder,
-						folderAccessStatus = status,
-					)
-				}
+				_state.update { current -> current.copy(receiverName = current.receiverName.ifBlank { preferences.username }) }
 			}
+		}
+		viewModelScope.launch {
+			preferencesRepository.preferences
+				.map { fileSystemService.effectiveReceiveFolder(it.receiveFolder) }
+				.distinctUntilChanged()
+				.collectLatest { receiveFolder ->
+					val status = fileSystemService.validateReceiveFolder(receiveFolder)
+					_state.update { current ->
+						current.copy(
+							receiveFolder = receiveFolder,
+							folderAccessStatus = status,
+							needsFolderPermission = status == FolderAccessStatus.PermissionRequired &&
+								fileSystemService.needsReceiveFolderPermission(receiveFolder),
+						)
+					}
+				}
 		}
 		viewModelScope.launch {
 			coreState.collect { snapshot ->
@@ -174,6 +190,10 @@ class ReceiveViewModel(
 		val current = state.value
 		val folder = current.receiveFolder ?: return
 		if (!current.canReceive(coreState.value.isInitialized)) return
+		if (current.needsFolderPermission) {
+			requestFolderPermission(folder, current.ticket)
+			return
+		}
 		val transferId = current.inspection?.metadata?.transferId ?: return
 		receiveRegistered = false
 		cancelPending = false
@@ -181,11 +201,12 @@ class ReceiveViewModel(
 			it.copy(isReceiving = true, lastReceiveError = null, activeReceiveTransferId = transferId)
 		}
 		viewModelScope.launch {
-			val outputSink = fileSystemService.createReceiveOutputSink(folder)
-			val result = if (outputSink != null) {
-				repository.receiveWithOutputSinkV2(current.ticket, outputSink, current.receiverName)
-			} else {
-				repository.receive(current.ticket, folder.value, current.receiverName)
+			val result = fileSystemService.withReceiveOutputSink(folder) { outputSink ->
+				if (outputSink != null) {
+					repository.receiveWithOutputSinkV2(current.ticket, outputSink, current.receiverName)
+				} else {
+					repository.receive(current.ticket, folder.value, current.receiverName)
+				}
 			}
 			result.fold(
 				onSuccess = {
@@ -237,6 +258,32 @@ class ReceiveViewModel(
 					)
 				},
 			)
+		}
+	}
+
+	private fun requestFolderPermission(folder: ReceiveFolder, ticket: String) {
+		_state.update { it.copy(isRequestingFolderPermission = true, lastReceiveError = null) }
+		viewModelScope.launch {
+			val granted = fileSystemService.requestReceiveFolderPermission(folder)
+			val status = if (granted) fileSystemService.validateReceiveFolder(folder) else FolderAccessStatus.PermissionRequired
+			_state.update { current ->
+				val updated = current.copy(isRequestingFolderPermission = false)
+				if (current.receiveFolder != folder) return@update updated
+				val error = when (status) {
+					FolderAccessStatus.Writable -> null
+					FolderAccessStatus.PermissionRequired -> UiText.Resource(Res.string.folder_status_permission_required)
+					FolderAccessStatus.Unavailable -> UiText.Resource(Res.string.folder_status_unavailable)
+				}
+				updated.copy(
+					folderAccessStatus = status,
+					needsFolderPermission = fileSystemService.needsReceiveFolderPermission(folder),
+					lastReceiveError = if (current.ticket == ticket) error else updated.lastReceiveError,
+				)
+			}
+			val current = state.value
+			if (status == FolderAccessStatus.Writable && current.receiveFolder == folder && current.ticket == ticket) {
+				receive()
+			}
 		}
 	}
 

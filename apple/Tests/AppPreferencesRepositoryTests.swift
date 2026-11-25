@@ -101,4 +101,28 @@ final class AppPreferencesRepositoryTests: XCTestCase {
 		repo.resetReceiveFolder()
 		XCTAssertEqual(repo.preferences.receiveFolder.value, "/tmp")
 	}
+
+	func testReceiveFolderBookmarkSurvivesReloadAndReset() {
+		let store = defaults()
+		store.set("fileSystemPath", forKey: "receive_folder_kind")
+		store.set("/legacy", forKey: "receive_folder_value")
+		store.set("Previous Folder", forKey: "receive_folder_display_name")
+		let original = AppPreferencesRepository(defaults: store, fallback: fallback())
+		XCTAssertEqual(original.preferences.receiveFolder.value, "/legacy")
+		XCTAssertNil(original.preferences.receiveFolder.securityScopeBookmark)
+
+		let bookmark = Data([1, 2, 3])
+		original.setReceiveFolder(ReceiveFolder(
+			kind: .fileSystemPath, value: "/custom", displayName: "Custom",
+			securityScopeBookmark: bookmark
+		))
+
+		let reloaded = AppPreferencesRepository(defaults: store, fallback: fallback())
+		XCTAssertEqual(reloaded.preferences.receiveFolder.securityScopeBookmark, bookmark)
+		XCTAssertEqual(reloaded.preferences.receiveFolder.value, "/custom")
+
+		reloaded.resetReceiveFolder()
+		XCTAssertNil(reloaded.preferences.receiveFolder.securityScopeBookmark)
+		XCTAssertEqual(reloaded.preferences.receiveFolder.value, "/tmp")
+	}
 }

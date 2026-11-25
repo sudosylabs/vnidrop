@@ -114,6 +114,50 @@ final class SettingsModelTests: XCTestCase {
 		XCTAssertEqual(Set(core.deletedTransfers), [2, 3])
 	}
 
+	func testReclaimJunkLeavesOtherApplicationsTemporaryFiles() throws {
+		let files = FileManager.default
+		let root = files.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		defer { try? files.removeItem(at: root) }
+		let sharedTemp = root.appendingPathComponent("shared", isDirectory: true)
+		let appTemp = sharedTemp.appendingPathComponent("com.vnidrop.app", isDirectory: true)
+		let data = root.appendingPathComponent("data", isDirectory: true)
+		try files.createDirectory(at: appTemp, withIntermediateDirectories: true)
+		try files.createDirectory(at: data, withIntermediateDirectories: true)
+		let foreignFile = sharedTemp.appendingPathComponent("other-app.tmp")
+		let appFile = appTemp.appendingPathComponent("vnidrop.tmp")
+		try Data("foreign content".utf8).write(to: foreignFile)
+		try Data("vnidrop content".utf8).write(to: appFile)
+
+		_ = SettingsModel.reclaimJunk(systemTempDir: sharedTemp, dataDir: data.path, receiveTrashRoot: nil)
+
+		XCTAssertFalse(files.fileExists(atPath: appFile.path))
+		XCTAssertEqual(try Data(contentsOf: foreignFile), Data("foreign content".utf8))
+	}
+
+	func testReclaimJunkLeavesFilesBehindAnAppTemporaryDirectorySymlink() throws {
+		let files = FileManager.default
+		let root = files.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		defer { try? files.removeItem(at: root) }
+		let sharedTemp = root.appendingPathComponent("shared", isDirectory: true)
+		let foreign = root.appendingPathComponent("foreign", isDirectory: true)
+		try files.createDirectory(at: sharedTemp, withIntermediateDirectories: true)
+		try files.createDirectory(at: foreign, withIntermediateDirectories: true)
+		let foreignFile = foreign.appendingPathComponent("foreign.tmp")
+		try Data("preserve".utf8).write(to: foreignFile)
+		try files.createSymbolicLink(
+			at: sharedTemp.appendingPathComponent("com.vnidrop.app"),
+			withDestinationURL: foreign
+		)
+
+		_ = SettingsModel.reclaimJunk(
+			systemTempDir: sharedTemp,
+			dataDir: root.appendingPathComponent("data").path,
+			receiveTrashRoot: nil
+		)
+
+		XCTAssertEqual(try Data(contentsOf: foreignFile), Data("preserve".utf8))
+	}
+
 	func testNetworkSettingsExposeCurrentEndpointId() {
 		let core = FakeCoreGateway()
 		let model = makeModel(core, preferences: Fixtures.preferences())

@@ -40,10 +40,13 @@ import com.vnidrop.app.ui.feedback.UiMessageController
 import com.vnidrop.app.ui.feedback.UiText
 import com.vnidrop.app.ui.navigation.AppDestination
 import com.vnidrop.app.ui.theme.ThemeMode
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -508,6 +511,43 @@ class ViewModelsTest {
 	}
 
 	@Test
+	fun sendViewModelIgnoresAnOlderReceiverListAfterReopeningTheSameTransfer() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val first = ReceiverRequestModel(
+			id = "previous", transferId = 1UL, remoteEndpointId = "peer", transferName = "Photos",
+			receiverName = "Receiver", receiverDeviceName = null, appVersion = "1.0",
+			status = ReceiverDeliveryStatus.Accepted, reason = null, requestedAt = 1L,
+			respondedAt = 2L, completedAt = null,
+		)
+		val current = first.copy(id = "latest", status = ReceiverDeliveryStatus.Completed, completedAt = 3L)
+		val delayed = CompletableDeferred<List<ReceiverRequestModel>>()
+		var firstTransferRequests = 0
+		val core = FakeCoreGateway().apply {
+			receiverRequestsHandler = { id ->
+				val requests = when {
+					id != 1UL -> emptyList()
+					firstTransferRequests++ == 0 -> withContext(NonCancellable) { delayed.await() }
+					else -> listOf(current)
+				}
+				Result.success(requests)
+			}
+		}
+		val viewModel = SendViewModel(core, FakeFilePreviewRepository(), UiMessageController())
+		viewModel.openTransfer(1UL)
+		advanceUntilIdle()
+		viewModel.openTransfer(2UL)
+		advanceUntilIdle()
+		viewModel.openTransfer(1UL)
+		advanceUntilIdle()
+		assertEquals(listOf(current), viewModel.state.value.receiverHistory)
+
+		delayed.complete(listOf(first))
+		advanceUntilIdle()
+		assertEquals(listOf(current), viewModel.state.value.receiverHistory)
+		assertFalse(viewModel.state.value.isLoadingReceivers)
+	}
+
+	@Test
 	fun sendViewModelTracksReceiverCompletionForCatalogProgress() = runTest {
 		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 		val accepted = ReceiverRequestModel(
@@ -692,6 +732,36 @@ class ViewModelsTest {
 	}
 
 	@Test
+	fun receiveViewModelRequestsLegacyDownloadsAccessBeforeStarting() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val core = FakeCoreGateway().apply {
+			mutableState.value = mutableState.value.copy(isInitialized = true)
+			inspectionResult = Result.success(sampleTicketInspection())
+		}
+		val fileSystem = FakeFileSystemService(folder).apply { storagePermissionNeeded = true }
+		val viewModel = ReceiveViewModel(core, fileSystem, preferences(), UiMessageController())
+		viewModel.onInvitationResult(com.vnidrop.app.feature.receive.ReceiveMethod.InvitationFile, Result.success("ticket"))
+		advanceUntilIdle()
+
+		assertTrue(viewModel.state.value.canReceive(coreInitialized = true))
+		viewModel.receive()
+		advanceUntilIdle()
+
+		assertEquals(1, fileSystem.storagePermissionRequests)
+		assertEquals(0, core.receiveCount)
+		assertEquals("ticket", viewModel.state.value.ticket)
+		assertTrue(viewModel.state.value.canReceive(coreInitialized = true))
+
+		fileSystem.storagePermissionGrantedOnRequest = true
+		viewModel.receive()
+		advanceUntilIdle()
+
+		assertEquals(2, fileSystem.storagePermissionRequests)
+		assertEquals(1, core.receiveCount)
+		assertEquals("ticket", core.lastReceiveTicket)
+	}
+
+	@Test
 	fun receiveViewModelOffersCompletedFolderInFilesWhenPlatformSupportsIt() = runTest {
 		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 		val core = FakeCoreGateway().apply {
@@ -725,6 +795,25 @@ class ViewModelsTest {
 		advanceUntilIdle()
 
 		assertEquals(internalFolder, viewModel.state.value.receiveFolder)
+	}
+
+	@Test
+	fun receiveViewModelOnlyProbesWhenTheEffectiveFolderChanges() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val preferences = preferences()
+		val fileSystem = FakeFileSystemService(folder)
+		val viewModel = ReceiveViewModel(FakeCoreGateway(), fileSystem, preferences, UiMessageController())
+		advanceUntilIdle()
+
+		preferences.mutablePreferences.value = preferences.mutablePreferences.value.copy(notificationsEnabled = true)
+		advanceUntilIdle()
+		assertEquals(listOf(folder), fileSystem.validatedFolders)
+
+		val newFolder = folder.copy(value = "/alternate/Downloads")
+		preferences.mutablePreferences.value = preferences.mutablePreferences.value.copy(receiveFolder = newFolder)
+		advanceUntilIdle()
+		assertEquals(listOf(folder, newFolder), fileSystem.validatedFolders)
+		assertEquals(newFolder, viewModel.state.value.receiveFolder)
 	}
 
 	@Test

@@ -12,6 +12,10 @@ public static class TransferDetailsInput {
 '@
 $Executable = (Resolve-Path -LiteralPath $Executable).Path
 $ProfileDirectory = (Resolve-Path -LiteralPath $ProfileDirectory).Path
+$catalog = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot '../../localization/strings.json') | ConvertFrom-Json
+$kilobyteUnits = $catalog.strings.windows_size_unit_kilobyte.translations.PSObject.Properties.Value |
+    Sort-Object -Unique | ForEach-Object { [regex]::Escape($_) }
+$fixtureSizePattern = '^22[.,]0 (?:{0})$' -f ($kilobyteUnits -join '|')
 $appProcess = $null
 function Wait-Until([scriptblock]$Predicate, [string]$Failure) {
     $watch = [Diagnostics.Stopwatch]::StartNew()
@@ -36,7 +40,9 @@ function Assert-Summary {
     $count = Control 'FileCountText'
     $size = Control 'TransferSizeText'
     $access = Control 'AccessText'
-    if ($count.Current.Name -ne '22' -or $size.Current.Name -notmatch '^22[.,]0 KB$') { throw 'The fixture must show separate file count and transfer size values.' }
+    if ($count.Current.Name -ne '22' -or $size.Current.Name -cnotmatch $fixtureSizePattern) {
+        throw "The fixture must show 22 files and 22.0 kilobytes. Count='$($count.Current.Name)' Size='$($size.Current.Name)'."
+    }
     $countBounds = $count.Current.BoundingRectangle
     $sizeBounds = $size.Current.BoundingRectangle
     $accessBounds = $access.Current.BoundingRectangle
@@ -70,23 +76,43 @@ try {
         Resize-Window $width 760
         Wait-Until { try { Assert-Summary; return $true } catch { $script:layoutFailure = $_.Exception.Message; return $false } } "Transfer summary is misaligned at $width effective pixels."
     }
+    Invoke-Control 'Close'
+    Wait-Until { Control 'PrimaryButton' } 'The active fixture did not show a close confirmation.'
+    if ((Control 'AppTitleBar').Current.IsEnabled -or (Control 'PART_PaneToggleButton').Current.IsEnabled) {
+        throw 'Title-bar navigation must disable while closing.'
+    }
+    Invoke-Control 'CloseButton'
+    Wait-Until { (Control 'AppTitleBar').Current.IsEnabled -and (Control 'PART_PaneToggleButton').Current.IsEnabled } 'Cancelling close did not restore title-bar navigation.'
+
     foreach ($id in @('TransferActivityButton', 'TransferReceiversButton')) {
         Invoke-Control $id
         Wait-Until { Control 'DialogListViewport' } 'History dialog did not open.'
         Invoke-Control 'PART_BackButton'
+        $previousHeight = 0
+        $previousViewportHeight = 0
         foreach ($height in @(760, 500, 760)) {
             Resize-Window 500 $height
             $viewport = Control 'DialogListViewport'
+            $close = Control 'CloseButton'
             $scroll = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-            Wait-Until { $viewport.Current.BoundingRectangle.Height -le [Math]::Min(440 * $scale, $height * $scale * 0.6) } 'History viewport exceeded its height cap after resizing.'
+            Wait-Until {
+                $bounds = $viewport.Current.BoundingRectangle
+                $buttonBounds = $close.Current.BoundingRectangle
+                $bounds.Height -le [Math]::Min(440 * $scale, $height * $scale * 0.6) -and
+                    ($height -le $previousHeight -or $bounds.Height -gt $previousViewportHeight) -and
+                    !$close.Current.IsOffscreen -and $buttonBounds.Top -ge $bounds.Bottom -and
+                    $buttonBounds.Bottom -le $script:root.Current.BoundingRectangle.Bottom
+            } "History viewport and close button did not settle after resizing to $height effective pixels."
+            $previousHeight = $height
+            $previousViewportHeight = $viewport.Current.BoundingRectangle.Height
             if (!$scroll.Current.VerticallyScrollable -or $scroll.Current.HorizontallyScrollable) { throw 'Long history must scroll vertically inside the dialog.' }
             $outerScroll = (Control 'ContentScrollViewer').GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
             if ($outerScroll.Current.VerticallyScrollable) { throw 'The dialog title must not scroll with the list.' }
-            $closeBefore = (Control 'CloseButton').Current.BoundingRectangle
+            $closeBefore = $close.Current.BoundingRectangle
             $scroll.SetScrollPercent(-1, 100)
             Wait-Until { $scroll.Current.VerticalScrollPercent -ge 99 } 'Could not reach the last history item.'
-            $closeAfter = (Control 'CloseButton').Current.BoundingRectangle
-            if ($closeBefore -ne $closeAfter -or (Control 'CloseButton').Current.IsOffscreen) { throw 'The dialog close button moved or disappeared while scrolling.' }
+            $closeAfter = $close.Current.BoundingRectangle
+            if ($closeBefore -ne $closeAfter -or $close.Current.IsOffscreen) { throw 'The dialog close button moved or disappeared while scrolling.' }
             $scroll.SetScrollPercent(-1, 0)
         }
         Invoke-Control 'CloseButton'
@@ -95,13 +121,6 @@ try {
             throw 'Title-bar Back must not navigate the page underneath an open dialog.'
         }
     }
-    $appProcess.CloseMainWindow() | Out-Null
-    Wait-Until { Control 'PrimaryButton' } 'The active fixture did not show a close confirmation.'
-    if ((Control 'AppTitleBar').Current.IsEnabled -or (Control 'PART_PaneToggleButton').Current.IsEnabled) {
-        throw 'Title-bar navigation must disable while closing.'
-    }
-    Invoke-Control 'CloseButton'
-    Wait-Until { (Control 'AppTitleBar').Current.IsEnabled -and (Control 'PART_PaneToggleButton').Current.IsEnabled } 'Cancelling close did not restore title-bar navigation.'
     Write-Output 'PASS: transfer metadata, action alignment, bounded history scrolling, modal Back protection, and title-bar state during close and cancel.'
 } catch {
     Write-Output ("FAIL: " + $_.ScriptStackTrace)

@@ -260,7 +260,7 @@ final class CoreRepositoryLifecycleTests: XCTestCase {
 				finished.signal()
 				return facts
 			}
-			let factsArrived = await Task.detached { Self.didSignal(finished) }.value
+			let factsArrived = await Self.didSignal(finished)
 			if factsArrived {
 				let restart = await repository.initialize(appDataDir: "/tmp/restart", networkConfiguration: .automatic)
 				assertLifecycleFailure(restart, equals: .activeNetworkWork)
@@ -276,8 +276,12 @@ final class CoreRepositoryLifecycleTests: XCTestCase {
 		await repository.shutdown()
 	}
 
-	private nonisolated static func didSignal(_ semaphore: DispatchSemaphore) -> Bool {
-		semaphore.wait(timeout: .now() + 2) == .success
+	private nonisolated static func didSignal(_ semaphore: DispatchSemaphore) async -> Bool {
+		await withCheckedContinuation { continuation in
+			DispatchQueue.global().async {
+				continuation.resume(returning: semaphore.wait(timeout: .now() + 2) == .success)
+			}
+		}
 	}
 
 	private func assertLifecycleFailure<T>(

@@ -337,14 +337,19 @@ fn quit_confirms_when_the_latest_core_facts_show_a_live_share() {
         .unwrap();
     app.request_close();
     until("live share quit decision", || {
-        app.closing.get() || app.window.visible_dialog().is_some()
+        app.closing.get()
+            || app
+                .window
+                .visible_dialog()
+                .is_some_and(|dialog| dialog.is_mapped())
     });
     let prompted = app.window.visible_dialog().is_some();
     if let Some(dialog) = app.window.visible_dialog() {
-        dialog.force_close();
+        activate_button(&dialog, "button_cancel");
         until("dismissed quit confirmation", || {
-            !app.confirming_close.get()
+            !app.confirming_close.get() && app.window.visible_dialog().is_none()
         });
+        assert!(app.window.is_visible());
         assert!(session.snapshot().unwrap().has_obligations());
         session.close();
         app.window.destroy();

@@ -337,15 +337,21 @@ fn quit_confirms_when_the_latest_core_facts_show_a_live_share() {
         .unwrap();
     app.request_close();
     until("live share quit decision", || {
-        app.closing.get()
-            || app
-                .window
-                .visible_dialog()
-                .is_some_and(|dialog| dialog.is_mapped())
+        app.closing.get() || app.window.visible_dialog().is_some()
     });
     let prompted = app.window.visible_dialog().is_some();
     if let Some(dialog) = app.window.visible_dialog() {
-        activate_button(&dialog, "button_cancel");
+        let cancel_label = text("button_cancel");
+        let cancel_button = || {
+            button(&dialog, &|button| {
+                button.is_mapped() && button.label().as_deref() == Some(cancel_label.as_str())
+            })
+        };
+        // On libadwaita 1.5 the sheet opens on a later frame than its dialog maps.
+        until("quit confirmation can be cancelled", || {
+            cancel_button().is_some()
+        });
+        cancel_button().unwrap().emit_clicked();
         until("dismissed quit confirmation", || {
             !app.confirming_close.get() && app.window.visible_dialog().is_none()
         });

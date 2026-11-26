@@ -64,3 +64,31 @@ final class PlatformPickerTests: XCTestCase {
 	}
 }
 #endif
+
+#if os(macOS)
+@MainActor
+final class MacShareBookmarkTests: XCTestCase {
+	func testRenamedSelectionUsesResolvedFile() async throws {
+		let fm = FileManager.default
+		let dir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+		defer { try? fm.removeItem(at: dir) }
+		let original = dir.appendingPathComponent("original")
+		try Data("chosen".utf8).write(to: original)
+		let bookmark = try original.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: [.fileResourceIdentifierKey], relativeTo: nil)
+		try fm.moveItem(at: original, to: dir.appendingPathComponent("renamed"))
+		let selection = PickedShareFile(value: original.path, displayName: "original", securityScopeBookmark: bookmark)
+		let result = await MacFileSystemService().withScopedSources([selection]) { sources in
+			Result { try Data(contentsOf: URL(fileURLWithPath: XCTUnwrap(sources.first).value)) }
+		}
+		XCTAssertEqual(try result.get(), Data("chosen".utf8))
+
+		try Data("replacement".utf8).write(to: original)
+		let retried = await MacFileSystemService().withScopedSources([selection]) { sources in
+			Result { try Data(contentsOf: URL(fileURLWithPath: XCTUnwrap(sources.first).value)) }
+		}
+		// Different filesystems can still resolve the original after path reuse.
+		if case .success(let bytes) = retried { XCTAssertEqual(bytes, Data("chosen".utf8)) }
+	}
+}
+#endif

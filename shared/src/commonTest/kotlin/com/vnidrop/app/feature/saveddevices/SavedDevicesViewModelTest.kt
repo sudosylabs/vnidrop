@@ -284,6 +284,24 @@ class SavedDevicesViewModelTest {
 	}
 
 	@Test
+	fun cancelReachesCoreWhileManualResumeIsBlocked() = runTest {
+		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+		val core = initializedCore()
+		val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+		core.resumeGate = gate
+		val viewModel = createViewModel(core)
+		advanceUntilIdle()
+		viewModel.resumeTargetedTransfer("item")
+		runCurrent()
+		assertEquals(listOf("item"), core.resumedTargetedTransferIds)
+		viewModel.cancelTargetedTransfer("item")
+		runCurrent()
+		assertEquals(listOf("item"), core.cancelledTargetedTransferIds)
+		gate.complete(Unit)
+		advanceUntilIdle()
+	}
+
+	@Test
 	fun transferHistoryResumeCancelAndDeleteStayTransferIdScoped() = runTest {
 		Dispatchers.setMain(StandardTestDispatcher(testScheduler))
 		val core = initializedCore().apply {

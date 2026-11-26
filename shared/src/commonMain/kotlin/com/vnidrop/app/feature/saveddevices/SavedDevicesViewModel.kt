@@ -46,6 +46,7 @@ data class SavedDevicesState(
 	val targetedOffers: TargetedOfferState = TargetedOfferState(),
 	val busyPeerIds: Set<String> = emptySet(),
 	val busyTransferIds: Set<String> = emptySet(),
+	val pullingTransferIds: Set<String> = emptySet(),
 	val labelingPeerId: String? = null,
 	val labelDraft: String = "",
 	val isSavingLabel: Boolean = false,
@@ -248,8 +249,16 @@ class SavedDevicesViewModel(
 		}
 	}
 
-	private fun runTransfer(transferId: String, resume: Boolean) = mutateTransfer(transferId) {
-		pullTargetedTransfer(transferId, resume)
+	private fun runTransfer(transferId: String, resume: Boolean) {
+		if (transferId in _state.value.busyTransferIds || transferId in _state.value.pullingTransferIds) return
+		_state.update { it.copy(pullingTransferIds = it.pullingTransferIds + transferId) }
+		viewModelScope.launch {
+			try {
+				pullTargetedTransfer(transferId, resume).fold(onSuccess = { refresh() }, onFailure = messages::error)
+			} finally {
+				_state.update { it.copy(pullingTransferIds = it.pullingTransferIds - transferId) }
+			}
+		}
 	}
 
 	private suspend fun pullTargetedTransfer(transferId: String, resume: Boolean): Result<Unit> {

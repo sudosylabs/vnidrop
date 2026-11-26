@@ -360,9 +360,11 @@ class FakeCoreGateway : CoreGateway {
 		receivedTargetedViaSinkIds += transferId
 		return receiveResult
 	}
+	var resumeGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
 	override suspend fun resumeTargetedTransfer(id: String, outputDir: String): Result<Unit> {
 		resumedTargetedTransferIds += id
 		resumedTargetedPathDirs += id to outputDir
+		resumeGate?.await()
 		return receiveResult
 	}
 	override suspend fun resumeTargetedTransferWithOutputSinkV2(

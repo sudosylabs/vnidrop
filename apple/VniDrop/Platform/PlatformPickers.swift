@@ -123,10 +123,11 @@ enum PickerSupport {
 		return Task.detached(priority: .userInitiated) {
 			var files: [PickedShareFile] = []
 			for (url, access) in selections {
-				if Task.isCancelled { break }
-				if let file = stageIosFile(from: url, isDirectory: isDirectory, access: access, copyFile: copyFile) {
-					files.append(file)
+				guard !Task.isCancelled, let file = stageIosFile(from: url, isDirectory: isDirectory, access: access, copyFile: copyFile) else {
+					await IosFileSystemService().discardPickedFiles(files)
+					return []
 				}
+				files.append(file)
 			}
 			return files
 		}

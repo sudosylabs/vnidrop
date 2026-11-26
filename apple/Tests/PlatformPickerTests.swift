@@ -43,6 +43,23 @@ final class PlatformPickerTests: XCTestCase {
 		XCTAssertEqual(counter.count, 1)
 	}
 
+	func testSecondStagingFailureReleasesBothScopesAndDiscardsFirstCopy() async throws {
+		let counter = ScopeReleaseCounter()
+		let first = URL(fileURLWithPath: "/first")
+		let second = URL(fileURLWithPath: "/second")
+		let marker = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		defer { try? FileManager.default.removeItem(at: marker) }
+		let result = await PickerSupport.stageShareSelection([first, second], isDirectory: false,
+			acquireAccess: { _ in { counter.release() } }, copyFile: { source, destination in
+				if source == second { throw CocoaError(.fileReadNoPermission) }
+				try Data("selected".utf8).write(to: destination)
+				try Data(destination.path.utf8).write(to: marker)
+			}).value
+		XCTAssertTrue(result.isEmpty)
+		XCTAssertEqual(counter.count, 2)
+		XCTAssertFalse(FileManager.default.fileExists(atPath: try String(contentsOf: marker, encoding: .utf8)))
+	}
+
 	func testPickingAnIosDirectoryRetainsAccessUntilTheSelectionIsReleased() async {
 		let counter = ScopeReleaseCounter()
 		let folder = URL(fileURLWithPath: "/tmp/picked-folder", isDirectory: true)

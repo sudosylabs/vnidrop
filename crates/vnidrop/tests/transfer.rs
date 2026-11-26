@@ -259,3 +259,35 @@ fn receive_refuses_to_overwrite_existing_destination() {
             && event.kind == "receiver-failed"
     }));
 }
+
+#[test]
+fn receive_accepts_the_senders_exact_payload_limit() {
+    let fixtures = tempfile::tempdir().unwrap();
+    let open = |name| {
+        CoreGuard::start_with_limits(
+            &fixtures.path().join(name),
+            Arc::new(RecordingSink::default()),
+            CoreLimits {
+                max_total_bytes: 4096,
+                ..CoreLimits::default()
+            },
+        )
+    };
+    let sender = open("sender");
+    let receiver = open("receiver");
+    let file = fixtures.path().join("sample");
+    std::fs::write(&file, vec![0u8; 4096]).unwrap();
+    let share = share_path(&sender, &file, 17, "sample", false);
+    sender
+        .set_transfer_access_mode(17, vnidrop::TransferAccessMode::Public)
+        .unwrap();
+    let target = fixtures.path().join("out");
+    receiver
+        .receive(share.ticket, target.to_string_lossy().to_string(), None)
+        .unwrap();
+    assert_eq!(receiver.list_transfers().unwrap()[0].status, "done");
+    assert_eq!(
+        std::fs::read(target.join("sample")).unwrap(),
+        vec![0u8; 4096]
+    );
+}

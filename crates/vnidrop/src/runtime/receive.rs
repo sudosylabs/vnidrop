@@ -329,13 +329,14 @@ impl CoreInner {
                 self.limits.max_collection_files
             );
         }
-        if total_size > self.limits.max_total_bytes {
+        let metadata_size = check_collection_metadata_size(&sizes, self.limits.max_path_bytes)?;
+        let payload_size = total_size - metadata_size;
+        if payload_size > self.limits.max_total_bytes {
             anyhow::bail!(
-                "remote collection size {total_size} exceeds limit {}",
+                "remote collection size {payload_size} exceeds limit {}",
                 self.limits.max_total_bytes
             );
         }
-        check_collection_metadata_size(&sizes, self.limits.max_path_bytes)?;
         self.emit_transfer(
             transfer_id,
             "receive",

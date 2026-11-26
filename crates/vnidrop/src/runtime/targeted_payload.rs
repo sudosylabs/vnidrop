@@ -85,10 +85,6 @@ impl CoreInner {
                 .await
                 .context("failed to get targeted payload sizes")
                 .map_err(VnidropError::network)?;
-        let remote_size = sizes
-            .iter()
-            .try_fold(0u64, |total, size| total.checked_add(*size))
-            .context("remote collection size overflow")?;
         let total_files = sizes.len().saturating_sub(1) as u64;
         if total_files != expected_file_count {
             anyhow::bail!(
@@ -114,9 +110,9 @@ impl CoreInner {
                 self.limits.max_collection_files
             );
         }
-        if remote_size > self.limits.max_total_bytes {
+        if payload_size > self.limits.max_total_bytes {
             anyhow::bail!(
-                "remote collection size {remote_size} exceeds limit {}",
+                "remote payload size {payload_size} exceeds limit {}",
                 self.limits.max_total_bytes
             );
         }

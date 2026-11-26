@@ -155,12 +155,13 @@ impl DeviceRelationshipService {
             let mut issued_missing = issued.is_none();
             if let Some(handle) = &issued {
                 live_handles.insert(handle.clone());
-                if custody
+                match custody
                     .load(&SecretHandle::from_stored(handle.clone()))
                     .await
-                    .is_err()
                 {
-                    issued_missing = true;
+                    Ok(_) => {}
+                    Err(VnidropError::SecureStorageMissing { .. }) => issued_missing = true,
+                    Err(error) => return Err(error),
                 }
             }
             if let Some(handle) = &held {

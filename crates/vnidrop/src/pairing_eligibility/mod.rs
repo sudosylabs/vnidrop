@@ -61,8 +61,12 @@ impl PairingEligibilityService {
                 continue;
             };
             let handle = SecretHandle::from_stored(entry.secret_handle.clone());
-            if custody.load(&handle).await.is_err() {
-                self.delete_entry_silent(&entry).await?;
+            match custody.load(&handle).await {
+                Ok(_) => {}
+                Err(VnidropError::SecureStorageMissing { .. }) => {
+                    self.delete_entry_silent(&entry).await?
+                }
+                Err(error) => return Err(error),
             }
         }
         if let Some(custody) = &self.custody {
@@ -185,10 +189,11 @@ impl PairingEligibilityService {
             .await
         {
             Ok(material) => material,
-            Err(_) => {
+            Err(VnidropError::SecureStorageMissing { .. }) => {
                 self.delete_entry_silent(&entry).await?;
                 return Ok(None);
             }
+            Err(error) => return Err(error),
         };
         self.delete_entry(&entry).await?;
         Ok(Some(TakenEligibility {

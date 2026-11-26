@@ -3404,3 +3404,42 @@ fn approval_secret_failure_keeps_durable_consent_retryable() {
     }
     assert_eq!(transfer.state, TargetedTransferState::Approved);
 }
+
+#[test]
+fn locked_grant_store_preserves_saved_relationship_across_restart() {
+    struct LockAfterIdentity(Arc<FaultInjectingSecretStore>);
+    impl CoreEventSink for LockAfterIdentity {
+        fn on_event(&self, event: CoreEvent) {
+            if event.phase == "startup" && event.kind == "endpoint-online" {
+                self.0.fail_with(Some(ReferenceStoreFailure::Locked));
+            }
+        }
+    }
+    let config = CoreNetworkConfig {
+        mode: CoreRelayMode::LocalOnly,
+        relay_urls: vec![],
+    };
+    let mut sender = ProtectedNode::with_network_config(config.clone());
+    let receiver = ProtectedNode::with_network_config(config);
+    establish_saved(&sender, &receiver, 62003);
+    let peer = sender.core().list_saved_devices().unwrap().remove(0);
+    sender
+        .core()
+        .set_saved_device_label(peer.endpoint_id, Some("My saved device".into()))
+        .unwrap();
+    let saved = sender.core().list_saved_devices().unwrap();
+    sender.core.take().unwrap().shutdown();
+    let core = VnidropCore::initialize_with_test_secret_store_and_network(
+        sender.data_dir.path().to_string_lossy().into_owned(),
+        Arc::new(LockAfterIdentity(sender.secret_store.clone())),
+        sender.secret_store.clone(),
+        sender.network_config.clone(),
+    )
+    .unwrap();
+    sender.secret_store.fail_with(None);
+    assert_eq!(core.list_saved_devices().unwrap(), saved);
+    core.shutdown();
+    drop(core);
+    let sender = sender.restart();
+    assert_eq!(sender.core().list_saved_devices().unwrap(), saved);
+}

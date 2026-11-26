@@ -119,74 +119,55 @@ impl CoreInner {
         let download_tag = self.store.tags().temp_tag(hash_and_format).await?;
         let get = self.store.remote().fetch(connection, hash_and_format);
         let mut stream = get.stream();
+        let mut next_sample = tokio::time::Instant::now();
         loop {
             let Some(item) = stream.next().await else {
                 anyhow::bail!("targeted download ended without completion");
             };
-            match item {
-                GetProgressItem::Progress(_) => {
-                    let verified = self
-                        .store
-                        .remote()
-                        .local(hash_and_format)
-                        .await?
-                        .local_bytes()
-                        .saturating_sub(hash_sequence_bytes)
-                        .saturating_sub(collection_metadata_bytes)
-                        .min(payload_size);
-                    if self
-                        .targeted_transfers
-                        .advance_verified_bytes(targeted_transfer_id, verified)
-                        .await?
-                    {
-                        self.emit_transfer(
-                            transfer_id,
-                            "receive",
-                            "download",
-                            "progress",
-                            json!({ "downloaded": verified, "total_size": payload_size }),
-                        );
-                        self.emit_targeted_lifecycle("progress");
-                    }
+            let complete = match item {
+                GetProgressItem::Progress(_) if tokio::time::Instant::now() < next_sample => {
+                    continue
                 }
-                GetProgressItem::Done(_) => {
-                    let verified = self
-                        .store
-                        .remote()
-                        .local(hash_and_format)
-                        .await?
-                        .local_bytes()
-                        .saturating_sub(hash_sequence_bytes)
-                        .saturating_sub(collection_metadata_bytes)
-                        .min(payload_size);
-                    if verified != payload_size {
-                        anyhow::bail!(
-                            "targeted payload completed with {verified} verified bytes, expected {payload_size}"
-                        );
-                    }
-                    if self
-                        .targeted_transfers
-                        .advance_verified_bytes(targeted_transfer_id, verified)
-                        .await?
-                    {
-                        self.emit_transfer(
-                            transfer_id,
-                            "receive",
-                            "download",
-                            "progress",
-                            json!({ "downloaded": verified, "total_size": payload_size }),
-                        );
-                        self.emit_targeted_lifecycle("progress");
-                    }
-                    break;
-                }
+                GetProgressItem::Progress(_) => false,
+                GetProgressItem::Done(_) => true,
                 GetProgressItem::Error(error) => {
                     return Err(VnidropError::network(anyhow::anyhow!(
                         "targeted download failed: {error}"
                     ))
                     .into());
                 }
+            };
+            // local() observes every child blob. Limit intermediate scans while always verifying completion.
+            let verified = self
+                .store
+                .remote()
+                .local(hash_and_format)
+                .await?
+                .local_bytes()
+                .saturating_sub(hash_sequence_bytes)
+                .saturating_sub(collection_metadata_bytes)
+                .min(payload_size);
+            if complete && verified != payload_size {
+                anyhow::bail!("targeted payload completed with {verified} verified bytes, expected {payload_size}");
             }
+            if self
+                .targeted_transfers
+                .advance_verified_bytes(targeted_transfer_id, verified)
+                .await?
+            {
+                self.emit_transfer(
+                    transfer_id,
+                    "receive",
+                    "download",
+                    "progress",
+                    json!({ "downloaded": verified, "total_size": payload_size }),
+                );
+                self.emit_targeted_lifecycle("progress");
+            }
+            if complete {
+                break;
+            }
+            next_sample = tokio::time::Instant::now() + std::time::Duration::from_millis(250);
         }
         let collection = Collection::load(hash_and_format.hash, self.store.as_ref()).await?;
         self.export_targeted_collection(

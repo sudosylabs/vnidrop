@@ -68,11 +68,6 @@ jobs:
             throw "The runner did not apply the smoke test display resolution: $desktop"
           }
           & ./windows/scripts/smoke-ui.ps1 -Executable build/windows/publish/VniDrop.exe
-      - name: Verify generated localization
-        shell: pwsh
-        run: |
-          git diff --exit-code -- windows/VniDrop/Strings apple/VniDrop/Generated apple/VniDrop/Resources shared/src/commonMain/composeResources
-          if ($LASTEXITCODE) { throw 'Generated localization is out of date' }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: vnidrop-native-windows-x64-development

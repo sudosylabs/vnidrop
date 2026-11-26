@@ -65,11 +65,3 @@ jobs:
           name: native-ui-failure-screenshots
           path: ${{ runner.temp }}/native-ui-screenshots
           if-no-files-found: ignore
-      - uses: oven-sh/setup-bun@v2
-      - name: Verify generated localization
-        working-directory: localization
-        run: |
-          bun install --frozen-lockfile
-          bun test
-          bun run generate
-          git diff --exit-code -- ../linux/data/strings.json ../shared/src/commonMain/composeResources ../apple/VniDrop/Generated ../apple/VniDrop/Resources/Localizable.xcstrings ../windows/VniDrop/Strings

@@ -129,6 +129,8 @@ Domain contract v2 does not transport transfer identity in these event payloads.
   publishing it with a no-clobber hard link or exclusive rename. App-profile
   ownership records let startup and storage maintenance reclaim interrupted
   staging. Cleanup only touches recorded files whose ownership marker matches.
+  Invitation retries verify the published file identity, size, and content
+  before reusing it, including after a process restart.
 - Android defaults to the shared system Downloads collection via MediaStore
   (`ReceiveFolderKind.AndroidPublicDownloads` on API 29+). Files show up in the
   user's Downloads UI like a browser download. Custom folders still use a SAF

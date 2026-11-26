@@ -215,6 +215,44 @@ impl Repository {
         Ok(row.get(0))
     }
 
+    pub(crate) async fn output_identity(&self, id: &str, locator: &str) -> Result<Option<String>> {
+        Ok(sqlx::query_scalar(
+            "SELECT file_identity FROM invitation_receive_outputs WHERE local_id = ? AND locator = ?",
+        )
+        .bind(id)
+        .bind(locator)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
+    pub(crate) async fn checkpoint_output(
+        &self,
+        id: &str,
+        locator: &str,
+        identity: &str,
+    ) -> Result<()> {
+        sqlx::query(
+            "INSERT INTO invitation_receive_outputs (local_id, locator, file_identity)
+             VALUES (?, ?, ?) ON CONFLICT(local_id, locator)
+             DO UPDATE SET file_identity = excluded.file_identity",
+        )
+        .bind(id)
+        .bind(locator)
+        .bind(identity)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub(crate) async fn forget_output(&self, id: &str, locator: &str) -> Result<()> {
+        sqlx::query("DELETE FROM invitation_receive_outputs WHERE local_id = ? AND locator = ?")
+            .bind(id)
+            .bind(locator)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     pub(crate) async fn record_received_artifact(
         &self,
         artifact: ReceivedArtifactInsert<'_>,

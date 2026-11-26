@@ -3443,3 +3443,47 @@ fn locked_grant_store_preserves_saved_relationship_across_restart() {
     let sender = sender.restart();
     assert_eq!(sender.core().list_saved_devices().unwrap(), saved);
 }
+
+#[test]
+fn invitation_retry_after_restart_reuses_its_verified_output() {
+    let config = CoreNetworkConfig {
+        mode: CoreRelayMode::LocalOnly,
+        relay_urls: vec![],
+    };
+    let sender = ProtectedNode::with_network_config(config.clone());
+    let receiver = ProtectedNode::with_network_config(config);
+    let source = tempfile::tempdir().unwrap();
+    let output = tempfile::tempdir().unwrap();
+    let a = source.path().join("a");
+    let b = source.path().join("b");
+    std::fs::write(&a, b"a").unwrap();
+    std::fs::write(&b, b"b").unwrap();
+    let shared = sender
+        .core()
+        .share_files(
+            vec![targeted_source(&a), targeted_source(&b)],
+            ShareMetadataInput {
+                transfer_id: 62002,
+                transfer_name: Some("synthetic".into()),
+                sender_name: None,
+                access_mode: TransferAccessMode::Public,
+            },
+        )
+        .unwrap();
+    let destination = output.path().to_string_lossy().into_owned();
+    std::fs::write(output.path().join("b"), b"previous").unwrap();
+    let first = receiver
+        .core()
+        .receive(shared.ticket.clone(), destination.clone(), None);
+    assert!(matches!(first, Err(VnidropError::DestinationExists { .. })));
+    assert_eq!(std::fs::read(output.path().join("a")).unwrap(), b"a");
+    assert_eq!(std::fs::read(output.path().join("b")).unwrap(), b"previous");
+    std::fs::remove_file(output.path().join("b")).unwrap();
+    let receiver = receiver.restart();
+    let retry = receiver.core().receive(shared.ticket, destination, None);
+    retry.unwrap();
+    assert_eq!(std::fs::read(output.path().join("a")).unwrap(), b"a");
+    assert_eq!(std::fs::read(output.path().join("b")).unwrap(), b"b");
+    let receiver = receiver.restart();
+    assert_eq!(receiver.core().list_transfers().unwrap()[0].status, "done");
+}

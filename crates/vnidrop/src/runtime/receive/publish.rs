@@ -322,29 +322,31 @@ impl CoreInner {
                 self.limits.max_path_bytes
             );
         }
-        let checkpoint = if let Some(id) = transfer.targeted_id {
-            let path = std::path::absolute(safe_output_path(output_dir, relative_path)?)
-                .map_err(VnidropError::filesystem)?;
-            let locator = path.to_string_lossy().into_owned();
-            if let Some(identity) = self
-                .targeted_transfers
+        let path = std::path::absolute(safe_output_path(output_dir, relative_path)?)
+            .map_err(VnidropError::filesystem)?;
+        let locator = path.to_string_lossy().into_owned();
+        let previous = if let Some(id) = transfer.targeted_id {
+            self.targeted_transfers
                 .receive_output_identity(id, &locator)
                 .await?
-            {
-                let verified = tokio::task::spawn_blocking(move || {
-                    verify_published_output(&path, &identity, hash)
-                })
-                .await
-                .map_err(VnidropError::internal)?
-                .map_err(VnidropError::filesystem)?;
-                if verified {
-                    return Ok(());
-                }
-            }
-            Some((id, locator))
+        } else if let Some(id) = transfer.local_id {
+            self.repository.output_identity(id, &locator).await?
         } else {
             None
         };
+        if let Some(identity) = previous {
+            let verified = tokio::task::spawn_blocking(move || {
+                verify_published_output(&path, &identity, hash)
+            })
+            .await
+            .map_err(VnidropError::internal)?
+            .map_err(VnidropError::filesystem)?;
+            if verified {
+                return self
+                    .record_path_artifact(transfer, relative_path, &locator, expected_size)
+                    .await;
+            }
+        }
         let (pending_file, writer) =
             AtomicOutputFile::create_tracked(output_dir, relative_path, Some(&self.app_data_dir))
                 .map_err(VnidropError::filesystem)?;
@@ -367,34 +369,47 @@ impl CoreInner {
             .await
             .map_err(VnidropError::internal)?
             .map_err(VnidropError::filesystem)?;
-        let track_output = checkpoint.is_some();
         let identity = tokio::task::spawn_blocking(move || {
             writer.sync_all()?;
-            track_output
-                .then(|| output_file_identity(&writer))
-                .transpose()
+            output_file_identity(&writer)
         })
         .await
         .map_err(VnidropError::internal)?
         .map_err(VnidropError::filesystem)?;
-        if let (Some((id, locator)), Some(identity)) = (&checkpoint, &identity) {
-            // Rename and hard-link preserve this identity, so a crash just before
-            // or after publication still leaves an unambiguous checkpoint.
+        // Publication preserves the staged file identity across a crash.
+        if let Some(id) = transfer.targeted_id {
             self.targeted_transfers
-                .record_receive_output(id, locator, identity)
+                .record_receive_output(id, &locator, &identity)
+                .await?;
+        } else if let Some(id) = transfer.local_id {
+            self.repository
+                .checkpoint_output(id, &locator, &identity)
                 .await?;
         }
-        let locator = pending_file.target().to_string_lossy().to_string();
+        let published_locator = pending_file.target().to_string_lossy().to_string();
         if let Err(error) = pending_file.commit().map_err(VnidropError::filesystem) {
             if matches!(error, VnidropError::DestinationExists { .. }) {
-                if let Some((id, target)) = checkpoint {
+                if let Some(id) = transfer.targeted_id {
                     self.targeted_transfers
-                        .forget_receive_output(id, &target)
+                        .forget_receive_output(id, &locator)
                         .await?;
+                } else if let Some(id) = transfer.local_id {
+                    self.repository.forget_output(id, &locator).await?;
                 }
             }
             return Err(error.into());
         }
+        self.record_path_artifact(transfer, relative_path, &published_locator, exported_size)
+            .await
+    }
+
+    async fn record_path_artifact(
+        &self,
+        transfer: ReceivedTransfer<'_>,
+        relative_path: &str,
+        locator: &str,
+        exported_size: u64,
+    ) -> Result<()> {
         if let Some(local_id) = transfer.local_id {
             self.repository
                 .record_received_artifact(ReceivedArtifactInsert {
@@ -402,7 +417,7 @@ impl CoreInner {
                     protocol_transfer_id: transfer.protocol_id,
                     relative_path,
                     locator_kind: ReceivedLocatorKind::FilesystemPath,
-                    locator: &locator,
+                    locator,
                     logical_size: exported_size,
                 })
                 .await

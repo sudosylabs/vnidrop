@@ -3487,3 +3487,29 @@ fn invitation_retry_after_restart_reuses_its_verified_output() {
     let receiver = receiver.restart();
     assert_eq!(receiver.core().list_transfers().unwrap()[0].status, "done");
 }
+
+#[test]
+fn cold_sender_can_offer_to_saved_local_only_peer() {
+    let config = CoreNetworkConfig {
+        mode: CoreRelayMode::LocalOnly,
+        relay_urls: vec![],
+    };
+    let sender = ProtectedNode::with_network_config(config.clone());
+    let receiver = ProtectedNode::with_network_config(config);
+    establish_saved(&sender, &receiver, 62001);
+    let sender = sender.restart();
+    let source = tempfile::tempdir().unwrap();
+    let path = source.path().join("synthetic.txt");
+    std::fs::write(&path, b"synthetic").unwrap();
+    let preparation = sender
+        .core()
+        .new_targeted_transfer_preparation(receiver.core().status().endpoint_id)
+        .unwrap();
+    let transfer = preparation
+        .send(vec![targeted_source(&path)], None)
+        .unwrap();
+    assert_eq!(
+        wait_for_pending_offer(&receiver.core()).transfer_id,
+        transfer.id
+    );
+}

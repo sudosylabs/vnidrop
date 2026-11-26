@@ -544,14 +544,24 @@ impl DeviceRelationshipService {
             .parse()
             .context("unusable peer endpoint id")
             .map_err(VnidropError::invalid_input)?;
-        let raw = if let Some(info) = self.endpoint.remote_info(parsed).await {
-            let mut addr = EndpointAddr::from(parsed);
-            addr.addrs = info.addrs().map(|entry| entry.addr().clone()).collect();
-            let _ = encode_persisted_sender_address(&addr);
-            addr
+        let mut raw = EndpointAddr::from(parsed);
+        if let Some(info) = self.endpoint.remote_info(parsed).await {
+            raw.addrs = info.addrs().map(|entry| entry.addr().clone()).collect();
+        }
+        if raw.is_empty() {
+            if let Some(stored) = self.store.saved_address(peer_endpoint_id).await? {
+                let addr = crate::ticket::parse_persisted_sender_address(&stored)
+                    .map_err(VnidropError::repository)?;
+                if addr.id == parsed {
+                    raw = addr;
+                }
+            }
         } else {
-            EndpointAddr::from(parsed)
-        };
+            let stored = encode_persisted_sender_address(&raw).map_err(VnidropError::repository)?;
+            self.store
+                .remember_address(peer_endpoint_id, &stored)
+                .await?;
+        }
         filter_peer_addr_for_relay_mode(&raw, self.relay_mode, &self.custom_relay_urls).map_err(
             |error| {
                 VnidropError::relay_policy_incompatible(anyhow::anyhow!(

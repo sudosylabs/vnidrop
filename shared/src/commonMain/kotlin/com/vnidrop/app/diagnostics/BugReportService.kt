@@ -6,6 +6,8 @@ import com.vnidrop.app.logging.platformNowMillis
 import com.vnidrop.app.preferences.PreferencesRepository
 import com.vnidrop.app.util.randomUuidString
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 data class BugReportDraft(
 	val whatHappened: String,
@@ -27,6 +29,9 @@ class BugReportService(
 		AppLogger.readLatestLogs(AppLogger.DefaultBugReportLogBytes)
 	},
 ) {
+	private val submission = Mutex()
+	private var pending: Pair<BugReportDraft, BugReport>? = null
+
 	fun assemble(
 		draft: BugReportDraft,
 		deviceInfo: DeviceInfo?,
@@ -55,17 +60,18 @@ class BugReportService(
 		)
 	}
 
-	suspend fun submit(draft: BugReportDraft, deviceInfo: DeviceInfo?): Result<BugReport> {
+	suspend fun submit(draft: BugReportDraft, deviceInfo: DeviceInfo?): Result<BugReport> = submission.withLock {
 		val what = draft.whatHappened.trim()
 		val expected = draft.expected.trim()
 		if (what.isEmpty()) {
-			return Result.failure(IllegalArgumentException("Describe what happened."))
+			return@withLock Result.failure(IllegalArgumentException("Describe what happened."))
 		}
 		if (expected.isEmpty()) {
-			return Result.failure(IllegalArgumentException("Describe what you expected."))
+			return@withLock Result.failure(IllegalArgumentException("Describe what you expected."))
 		}
 		val installId = preferencesRepository.ensureDiagnosticsInstallId()
-		val report = assemble(draft, deviceInfo, installId)
+		val report = pending?.takeIf { it.first == draft && it.second.installId == sanitizeDiagnosticsInstallId(installId) }?.second
+			?: assemble(draft, deviceInfo, installId).also { pending = draft to it }
 		val send = try {
 			transport.sendBugReport(report)
 		} catch (cancelled: CancellationException) {
@@ -73,8 +79,9 @@ class BugReportService(
 		} catch (error: Throwable) {
 			Result.failure(error)
 		}
-		return send.fold(
+		send.fold(
 			onSuccess = {
+				pending = null
 				AppLogger.info("bug_report", "submitted", mapOf("id" to report.id))
 				Result.success(report)
 			},

@@ -479,8 +479,8 @@ final class SettingsModel: ObservableObject {
 	}
 
 	/// Reclaims disk space the core's transfer deletion doesn't touch: the app's
-	/// temporary directory (leftover picker/staging copies) and any stray `.Trash`
-	/// folders that accumulate inside app-owned directories. Never touches received
+	/// temporary directory (leftover picker/staging copies) and system trash at the roots
+	/// of app-owned directories. Never touches received
 	/// files, the core database, or user-chosen receive folders.
 	func freeUpSpace() {
 		if state.isCleaningStorage { return }
@@ -561,28 +561,7 @@ final class SettingsModel: ObservableObject {
 				try? fm.removeItem(at: entry)
 			}
 		}
-		// Remove stray `.Trash` folders inside app-owned directories.
-		for root in [dataDir, receiveTrashRoot].compactMap({ $0 }) {
-			for trash in trashDirectories(under: root) {
-				freed += directorySize(trash)
-				try? fm.removeItem(atPath: trash)
-			}
-		}
-		return freed
-	}
-
-	/// Paths of every directory named `.Trash` under `root` (not descending into them).
-	private nonisolated static func trashDirectories(under root: String) -> [String] {
-		let url = URL(fileURLWithPath: root, isDirectory: true)
-		guard let enumerator = FileManager.default.enumerator(
-			at: url, includingPropertiesForKeys: [.isDirectoryKey]
-		) else { return [] }
-		var result: [String] = []
-		for case let fileURL as URL in enumerator where fileURL.lastPathComponent == trashDirectoryName {
-			result.append(fileURL.path)
-			enumerator.skipDescendants()
-		}
-		return result
+		return freed + purgeTrash(under: [dataDir, receiveTrashRoot].compactMap { $0 })
 	}
 
 	/// Allocated size of a file or directory (0 if missing).

@@ -114,6 +114,25 @@ final class SettingsModelTests: XCTestCase {
 		XCTAssertEqual(Set(core.deletedTransfers), [2, 3])
 	}
 
+	func testReclaimJunkPreservesNestedReceivedTrashNames() throws {
+		let files = FileManager.default
+		let root = files.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		defer { try? files.removeItem(at: root) }
+		let documents = root.appendingPathComponent("Documents")
+		let paths = ["album/.Trash/photo", "archive/.Trash", ".Trash/discarded"]
+		let bytes = Data("received".utf8)
+		for path in paths {
+			let url = documents.appendingPathComponent(path)
+			try files.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+			try bytes.write(to: url)
+		}
+		_ = SettingsModel.reclaimJunk(systemTempDir: root, dataDir: root.path, receiveTrashRoot: documents.path)
+		for path in paths.prefix(2) {
+			XCTAssertEqual(try Data(contentsOf: documents.appendingPathComponent(path)), bytes)
+		}
+		XCTAssertFalse(files.fileExists(atPath: documents.appendingPathComponent(".Trash").path))
+	}
+
 	func testReclaimJunkLeavesOtherApplicationsTemporaryFiles() throws {
 		let files = FileManager.default
 		let root = files.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)

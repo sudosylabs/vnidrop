@@ -17,6 +17,21 @@ import uniffi.vnidrop.ReceivedLocatorKind
 @SdkSuppress(minSdkVersion = 29)
 class AndroidReceiveDescriptorTest {
 	@Test
+	fun unreadableNestedFolderRejectsWholeSelection() {
+		val folder = PickedShareFile(value = "content://example/tree/root", displayName = "folder", isDirectory = true)
+		var queries = 0
+		kotlin.test.assertFailsWith<IllegalStateException> {
+			expandShareDirectory(folder) { _, projection ->
+				if (++queries == 1) android.database.MatrixCursor(projection).apply {
+					addRow(arrayOf<Any?>("a", "a.txt", "text/plain", 1))
+					addRow(arrayOf<Any?>("b", "folder", android.provider.DocumentsContract.Document.MIME_TYPE_DIR, null))
+				} else null
+			}
+		}
+		assertEquals(2, queries)
+	}
+
+	@Test
 	fun mediaStorePublishesBytesWrittenToItsDescriptor() {
 		val context = InstrumentationRegistry.getInstrumentation().targetContext
 		val sink = AndroidMediaStoreDownloadsSink(context)

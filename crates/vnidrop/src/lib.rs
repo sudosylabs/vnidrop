@@ -28,11 +28,11 @@ mod util;
 
 pub use api::{
     clear_inactive_transfer_cache, default_core_limits, default_core_network_config,
-    receive_staging_bytes, saved_device_capabilities, CoreEvent, CoreEventSink, CoreLimits,
-    CoreNetworkConfig, CoreRelayMode, CoreStorageUsage, DeviceRelationship,
-    DeviceRelationshipState, PairingEligibilitySummary, PendingTargetedOffer, PublishedOutput,
-    ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact, ReceivedLocatorKind, ReceiverRequest,
-    RuntimeObligationFacts, RuntimeStatus, SavedDevice, SavedDeviceCapabilities,
+    receive_staging_bytes, receiver_progress_key, saved_device_capabilities, CoreEvent,
+    CoreEventSink, CoreLimits, CoreNetworkConfig, CoreRelayMode, CoreStorageUsage,
+    DeviceRelationship, DeviceRelationshipState, PairingEligibilitySummary, PendingTargetedOffer,
+    PublishedOutput, ReceiveOutputSink, ReceiveOutputSinkV2, ReceivedArtifact, ReceivedLocatorKind,
+    ReceiverRequest, RuntimeObligationFacts, RuntimeStatus, SavedDevice, SavedDeviceCapabilities,
     ShareMetadataInput, ShareResult, ShareSource, SourceKind, StoredTransfer,
     TargetedOfferResponse, TargetedOutputVerifier, TargetedPreparationStopOutcome,
     TargetedTransfer, TargetedTransferRole, TargetedTransferState, TicketInspection,

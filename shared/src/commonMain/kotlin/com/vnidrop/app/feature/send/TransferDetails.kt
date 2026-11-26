@@ -216,7 +216,7 @@ internal fun ReceiverHistoryPanel(
 				if (index > 0) HorizontalDivider(color = LocalVniDropColors.current.borderDefault)
 				val sendProgress = when (receiver.status) {
 					ReceiverDeliveryStatus.Accepted, ReceiverDeliveryStatus.Requested ->
-						progressForReceiver(events, receiver.transferId, receiver.remoteEndpointId, transferTotalSize)
+						progressForReceiver(events, receiver.transferId, receiver.progressKey, transferTotalSize)
 					else -> null
 				}
 				ReceiverRow(receiver, sendProgress)

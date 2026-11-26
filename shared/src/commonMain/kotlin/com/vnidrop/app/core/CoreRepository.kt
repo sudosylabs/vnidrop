@@ -619,6 +619,7 @@ private fun ReceiverRequest.toModel(): ReceiverRequestModel = ReceiverRequestMod
 	id = id,
 	transferId = transferId,
 	remoteEndpointId = remoteEndpointId,
+	progressKey = uniffi.vnidrop.receiverProgressKey(remoteEndpointId),
 	transferName = transferName,
 	receiverName = receiverName,
 	receiverDeviceName = receiverDeviceName,

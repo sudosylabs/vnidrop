@@ -689,3 +689,9 @@ pub trait TargetedOutputVerifier: Send + Sync {
         published: bool,
     ) -> Result<Option<i32>, VnidropError>;
 }
+
+/// Opaque key used to associate a typed receiver with redacted provider events.
+#[uniffi::export]
+pub fn receiver_progress_key(endpoint_id: String) -> String {
+    crate::control_plane::fingerprint(&endpoint_id)
+}

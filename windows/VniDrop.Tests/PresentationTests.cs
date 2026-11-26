@@ -154,6 +154,17 @@ public class PresentationTests
     }
 
     [Fact]
+    public void TypedReceiverMatchesItsRedactedProviderProgress()
+    {
+        const string receiver = "fixture-receiver";
+        var progress = Event("transfer", "progress", System.Text.Json.JsonSerializer.Serialize(new {
+            endpoint_id = VnidropMethods.ReceiverProgressKey(receiver), offset = 25
+        })) with { direction = "send" };
+        Assert.Equal(.25, TransferPresentation.ReceiverProgress([progress], 7, receiver, 100)?.Fraction);
+        Assert.Null(TransferPresentation.ReceiverProgress([progress], 7, "other-receiver", 100));
+    }
+
+    [Fact]
     public void ProgressAcceptsRustByteAliasesAndRejectsInvalidData()
     {
         var valid = Event("download", "progress", "{\"downloaded\":25,\"total_size\":100,\"file_name\":\"résumé.txt\"}");

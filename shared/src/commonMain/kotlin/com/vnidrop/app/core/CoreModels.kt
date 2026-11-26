@@ -125,6 +125,7 @@ data class ReceiverRequestModel(
 	val requestedAt: Long,
 	val respondedAt: Long?,
 	val completedAt: Long?,
+	val progressKey: String = remoteEndpointId,
 )
 
 enum class ReceiverDeliveryStatus {

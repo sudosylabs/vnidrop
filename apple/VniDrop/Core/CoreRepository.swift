@@ -907,7 +907,7 @@ private extension ReceiverRequest {
 			id: id, transferId: transferId, remoteEndpointId: remoteEndpointId,
 			transferName: transferName, receiverName: receiverName, receiverDeviceName: receiverDeviceName,
 			appVersion: appVersion, status: Self.status(status), reason: reason,
-			requestedAt: requestedAt, respondedAt: respondedAt, completedAt: completedAt
+			requestedAt: requestedAt, respondedAt: respondedAt, completedAt: completedAt, progressKey: receiverProgressKey(endpointId: remoteEndpointId)
 		)
 	}
 

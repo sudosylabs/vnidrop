@@ -220,7 +220,7 @@ struct ReceiverHistoryPanel: View {
 		switch receiver.status {
 		case .accepted, .requested:
 			return progressForReceiver(events: events, transferId: receiver.transferId,
-									   remoteEndpointId: receiver.remoteEndpointId, totalSizeHint: transferTotalSize)
+									   remoteEndpointId: receiver.progressKey ?? receiver.remoteEndpointId, totalSizeHint: transferTotalSize)
 		default: return nil
 		}
 	}

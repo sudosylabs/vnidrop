@@ -191,7 +191,7 @@ struct SendScreen: View {
 		if active.isEmpty { return nil }
 		let fractions = active.compactMap {
 			progressForReceiver(events: model.coreState.events, transferId: transfer.transferId,
-								 remoteEndpointId: $0.remoteEndpointId, totalSizeHint: transfer.totalSize)?.progress
+								 remoteEndpointId: $0.progressKey ?? $0.remoteEndpointId, totalSizeHint: transfer.totalSize)?.progress
 		}
 		let combined = fractions.isEmpty ? nil : fractions.reduce(0, +) / Double(fractions.count)
 		if active.count == 1 {

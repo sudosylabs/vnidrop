@@ -105,7 +105,15 @@ fn transfers_file_between_two_cores() {
     assert!(!completed
         .data_json
         .contains(receiver.core.status().endpoint_id.as_str()));
-    assert!(completed.data_json.contains("redacted"));
+    let requests = sender
+        .core
+        .list_receiver_requests(share.transfer_id)
+        .unwrap();
+    let key = vnidrop::receiver_progress_key(requests[0].remote_endpoint_id.clone());
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&completed.data_json).unwrap()["endpoint_id"],
+        key
+    );
 
     assert!(!sender.core.delete_terminal_transfer_history().unwrap());
     assert_eq!(sender.core.list_transfers().unwrap()[0].status, "sharing");

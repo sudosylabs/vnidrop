@@ -9,8 +9,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 actual fun rememberReceiveInvitationActions(): ReceiveInvitationActions {
@@ -22,15 +27,22 @@ actual fun rememberReceiveInvitationActions(): ReceiveInvitationActions {
 			QrScanner(activity, onResult = session::complete, onDismiss = { session.close(); qrSession = null })
 		}
 	}
+	val scope = rememberCoroutineScope()
+	var fileRead by remember { mutableStateOf<Job?>(null) }
 	var fileResult by remember { mutableStateOf<((Result<String>) -> Unit)?>(null) }
 	val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
 		val callback = fileResult.also { fileResult = null } ?: return@rememberLauncherForActivityResult
 		if (uri == null) return@rememberLauncherForActivityResult
-		callback(runCatching {
-			val bytes = context.contentResolver.openInputStream(uri)?.use { it.readInvitationBytes() }
-				?: error("The invitation could not be opened")
-			decodeInvitationBytes(bytes)
-		})
+		fileRead = scope.launch {
+			val result = withContext(Dispatchers.IO) {
+				runCatching {
+					val bytes = context.contentResolver.openInputStream(uri)?.use { it.readInvitationBytes() }
+						?: error("The invitation could not be opened")
+					decodeInvitationBytes(bytes)
+				}
+			}
+			callback(result)
+		}
 	}
 	return remember(activity, filePicker) {
 		object : ReceiveInvitationActions {
@@ -50,6 +62,9 @@ actual fun rememberReceiveInvitationActions(): ReceiveInvitationActions {
 			}
 
 			override fun cancel() {
+				fileRead?.cancel()
+				fileRead = null
+				fileResult = null
 				qrSession?.close()
 				qrSession = null
 			}

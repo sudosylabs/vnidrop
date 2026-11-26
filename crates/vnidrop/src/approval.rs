@@ -160,6 +160,28 @@ impl ApprovalService {
         }
     }
 
+    pub(crate) async fn refuse_pending(
+        &self,
+        transfer_id: u64,
+        reason: &str,
+    ) -> anyhow::Result<()> {
+        let mut pending = self.pending.lock().await;
+        for id in self
+            .repository
+            .refuse_pending_requests(transfer_id, reason)
+            .await?
+        {
+            if let Some(sender) = pending.remove(&id) {
+                let _ = sender.send(ApprovalDecision {
+                    request_id: id,
+                    accepted: false,
+                    reason: Some(reason.to_owned()),
+                });
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) async fn respond(
         &self,
         request_id: String,
@@ -365,6 +387,21 @@ impl ApprovalService {
             tracing::error!(%error, "failed to persist receiver request");
             return self
                 .deny(request.transfer_id, remote_endpoint_id, "repository-error")
+                .await;
+        }
+
+        // Stop may have drained requests between the initial access check and registration.
+        if !self
+            .repository
+            .send_exists(request.transfer_id, &request.transfer_hash)
+            .await
+            .unwrap_or(false)
+        {
+            let _ = self
+                .respond(request_id.clone(), false, Some("share-stopped".into()))
+                .await;
+            return self
+                .deny(request.transfer_id, remote_endpoint_id, "share-stopped")
                 .await;
         }
 

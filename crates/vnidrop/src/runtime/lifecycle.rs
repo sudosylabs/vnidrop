@@ -7,7 +7,7 @@ use super::{share_tag_name, CoreInner, ReceiveAttempt};
 use crate::{
     access_policy::mode_to_storage,
     api::{RuntimeObligationFacts, RuntimeStatus, TransferAccessMode},
-    transfer_state::{ReceiverRequestStatus, TransferDirection, TransferStatus},
+    transfer_state::{TransferDirection, TransferStatus},
 };
 
 impl CoreInner {
@@ -102,6 +102,9 @@ impl CoreInner {
             self.unregister_transfer_hashes(transfer_id).await;
             self.access_policy.remove_transfer(transfer_id).await;
             self.store.tags().delete(share_tag_name(&local_id)).await?;
+            self.approval
+                .refuse_pending(transfer_id, "share-stopped")
+                .await?;
             self.emit_transfer(transfer_id, "send", "lifecycle", "share-stopped", json!({}));
             return Ok(());
         }
@@ -144,18 +147,9 @@ impl CoreInner {
                 .await?;
         }
 
-        for request in self.repository.list_receiver_requests(transfer_id).await? {
-            if request.status == ReceiverRequestStatus::Requested.as_str() {
-                let _ = self
-                    .approval
-                    .respond(
-                        request.id,
-                        false,
-                        Some("transfer deleted by sender".to_string()),
-                    )
-                    .await;
-            }
-        }
+        self.approval
+            .refuse_pending(transfer_id, "transfer deleted by sender")
+            .await?;
 
         self.active_shares.lock().await.remove(&transfer_id);
         self.unregister_transfer_hashes(transfer_id).await;

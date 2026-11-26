@@ -271,3 +271,33 @@ fn pending_approval_limit_denies_excess_receiver() {
         .unwrap();
     assert!(first.join().unwrap().is_err());
 }
+
+#[test]
+fn stopping_share_resolves_pending_receiver() {
+    let source_dir = tempfile::tempdir().unwrap();
+    let output_dir = tempfile::tempdir().unwrap();
+    let source_path = source_dir.path().join("waiting.txt");
+    std::fs::write(&source_path, b"waiting").unwrap();
+    let sender = TestNode::new();
+    let receiver = TestNode::new();
+    let share = share_path(&sender.core, &source_path, 26, "waiting.txt", false);
+    let receiver_core = receiver.core.arc();
+    let ticket = share.ticket;
+    let output = output_dir.path().to_string_lossy().to_string();
+    let worker = std::thread::spawn(move || {
+        receiver_core.receive(ticket, output, Some("receiver".to_string()))
+    });
+
+    let request = wait_for_receiver_request(&sender.core, share.transfer_id);
+    sender.core.cancel_transfer(share.transfer_id).unwrap();
+    let row = sender
+        .core
+        .list_receiver_requests(share.transfer_id)
+        .unwrap()
+        .into_iter()
+        .find(|r| r.id == request.id)
+        .unwrap();
+    assert_eq!(row.status, "refused");
+    assert!(worker.join().unwrap().is_err());
+    assert!(!output_dir.path().join("waiting.txt").exists());
+}

@@ -21,27 +21,7 @@ async fn targeted_progress_waits_for_event_transaction_and_completes_durably() {
         None
     );
     assert!(reconciler.reconciliation_changed().now_or_never().is_none());
-    targeted
-        .insert(&TargetedTransferRow {
-            id: "receive".to_string(),
-            protocol_transfer_id: 1,
-            sender_endpoint_id: "sender".to_string(),
-            receiver_endpoint_id: "receiver".to_string(),
-            manifest_id: "manifest".to_string(),
-            content_hash: "content".to_string(),
-            transfer_name: "payload".to_string(),
-            file_count: 1,
-            total_size: 8,
-            verified_bytes: 0,
-            blob_ticket: None,
-            authorization_secret_handle: None,
-            role: TargetedTransferRole::Receiver,
-            state: TargetedTransferState::Transferring,
-            created_at: 1,
-            updated_at: 1,
-        })
-        .await
-        .unwrap();
+    targeted.insert(&transferring_receiver()).await.unwrap();
     assert_eq!(targeted.clear_terminal_history().await.unwrap(), 0);
     assert_eq!(targeted.list().await.unwrap().len(), 1);
     let event = CoreEvent {
@@ -136,4 +116,72 @@ async fn targeted_progress_waits_for_event_transaction_and_completes_durably() {
     let events = invitation.list_events(None, 10).await.unwrap();
     assert_eq!(events.len(), 1);
     assert_eq!((&events[0].id, events[0].revision), (&event.id, 2));
+}
+
+fn transferring_receiver() -> TargetedTransferRow {
+    TargetedTransferRow {
+        id: "receive".to_string(),
+        protocol_transfer_id: 1,
+        sender_endpoint_id: "sender".to_string(),
+        receiver_endpoint_id: "receiver".to_string(),
+        manifest_id: "manifest".to_string(),
+        content_hash: "content".to_string(),
+        transfer_name: "payload".to_string(),
+        file_count: 1,
+        total_size: 8,
+        verified_bytes: 0,
+        blob_ticket: None,
+        authorization_secret_handle: None,
+        role: TargetedTransferRole::Receiver,
+        state: TargetedTransferState::Transferring,
+        created_at: 1,
+        updated_at: 1,
+    }
+}
+
+#[tokio::test]
+async fn terminal_notice_survives_restart_and_a_stale_cancel_ack() {
+    let temp = tempfile::tempdir().unwrap();
+    let pool = super::open_pool(temp.path()).await.unwrap();
+    targeted_transfer::ensure_schema(&pool).await.unwrap();
+    let store = TargetedTransferStore::new(pool.clone());
+    let row = transferring_receiver();
+    store.insert(&row).await.unwrap();
+    assert!(store
+        .transition_terminal(&row.id, TargetedTransferState::Cancelled, true)
+        .await
+        .unwrap());
+    store
+        .settle_terminal_notice(&row.id, false, false)
+        .await
+        .unwrap();
+    assert!(store.next_reconciliation_attempt().await.unwrap().is_some());
+    pool.close().await;
+
+    let pool = super::open_pool(temp.path()).await.unwrap();
+    let store = TargetedTransferStore::new(pool.clone());
+    assert!(store.next_reconciliation_attempt().await.unwrap().is_some());
+    assert!(store
+        .transition_terminal(&row.id, TargetedTransferState::Deleted, true)
+        .await
+        .unwrap());
+    store
+        .settle_terminal_notice(&row.id, false, true)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE targeted_terminal_notices SET next_attempt_at = 0")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let (id, peer, deleted, expiry) = store.next_terminal_notice().await.unwrap().unwrap();
+    assert_eq!(
+        (id, peer, deleted),
+        (row.id.clone(), row.sender_endpoint_id, true)
+    );
+    assert!(expiry > crate::util::now_ms());
+    store
+        .settle_terminal_notice(&row.id, true, true)
+        .await
+        .unwrap();
+    assert_eq!(store.next_reconciliation_attempt().await.unwrap(), None);
 }

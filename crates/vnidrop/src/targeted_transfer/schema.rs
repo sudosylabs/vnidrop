@@ -125,6 +125,13 @@ pub(crate) async fn ensure_schema(pool: &SqlitePool) -> anyhow::Result<()> {
     .await?;
     sqlx::query(
         r#"
+        CREATE TABLE IF NOT EXISTS targeted_terminal_notices (
+            transfer_id TEXT PRIMARY KEY REFERENCES targeted_transfers(id) ON DELETE CASCADE,
+            peer_id TEXT NOT NULL,
+            deleted INTEGER NOT NULL,
+            next_attempt_at INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL
+        );
         CREATE TRIGGER IF NOT EXISTS clear_terminal_targeted_receive_outputs
         AFTER UPDATE OF state ON targeted_transfers
         WHEN NEW.state IN ('completed', 'cancelled', 'failed', 'deleted')

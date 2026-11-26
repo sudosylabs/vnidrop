@@ -608,6 +608,23 @@ impl TargetedTransferModule {
             .await
     }
 
+    pub(crate) async fn next_terminal_notice(
+        &self,
+    ) -> Result<Option<(String, String, bool, i64)>, VnidropError> {
+        self.store.next_terminal_notice().await
+    }
+
+    pub(crate) async fn settle_terminal_notice(
+        &self,
+        id: &str,
+        deleted: bool,
+        delivered: bool,
+    ) -> Result<(), VnidropError> {
+        self.store
+            .settle_terminal_notice(id, deleted, delivered)
+            .await
+    }
+
     pub(crate) fn reconciliation_changed(&self) -> impl std::future::Future<Output = ()> + '_ {
         self.store.reconciliation_changed()
     }

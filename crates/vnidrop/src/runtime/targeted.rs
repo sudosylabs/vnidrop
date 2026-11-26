@@ -250,17 +250,7 @@ impl CoreInner {
             TargetedTransferRole::Receiver => &row.sender_endpoint_id,
         };
         if row.state != TargetedTransferState::Deleted {
-            if let Ok(addr) = self.device_relationships.peer_addr(peer_id).await {
-                let client = TargetedTransferProtocol::client(self.endpoint.clone(), addr);
-                let _ = tokio::time::timeout(
-                    self.connection_timeout(),
-                    client.cancel_offer(CancelTargetedOffer {
-                        transfer_id: id.clone(),
-                        terminal: Some(TargetedTransferState::Cancelled),
-                    }),
-                )
-                .await;
-            }
+            self.deliver_terminal_notice(&id, peer_id, false).await?;
         }
         Ok(())
     }
@@ -319,17 +309,7 @@ impl CoreInner {
             TargetedTransferRole::Receiver => &row.sender_endpoint_id,
         };
         if changed {
-            if let Ok(addr) = self.device_relationships.peer_addr(peer_id).await {
-                let client = TargetedTransferProtocol::client(self.endpoint.clone(), addr);
-                let _ = tokio::time::timeout(
-                    self.connection_timeout(),
-                    client.cancel_offer(CancelTargetedOffer {
-                        transfer_id: id.clone(),
-                        terminal: Some(TargetedTransferState::Deleted),
-                    }),
-                )
-                .await;
-            }
+            self.deliver_terminal_notice(&id, peer_id, true).await?;
         }
         Ok(())
     }

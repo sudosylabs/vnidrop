@@ -65,7 +65,9 @@ bytes through Kotlin memory.
    idempotent retry. Targeted cancel and delete synchronously signal local active
    work before durable cleanup; forget and block revoke affected relationships
    and active targeted work within their core operation. All four durably deny
-   reuse and perform idempotent payload/secret cleanup.
+   reuse and perform idempotent payload/secret cleanup. Locally cancelled or
+   deleted transfers retry peer notification for up to seven days while the
+   relationship remains saved.
 7. A missing or corrupted endpoint credential remains fail-closed during normal
    startup. The explicit pre-start identity-reset constructor accepts only that
    unrecoverable state, atomically invalidates identity-bound relationships,

@@ -33,6 +33,9 @@ impl CoreInner {
                             core.release_completed_targeted_payloads().await;
                             core.retry_targeted_authorization_deliveries().await;
                             core.retry_targeted_completions().await;
+                            if let Err(error) = core.retry_terminal_notice().await {
+                                tracing::warn!(%error, "failed to reconcile terminal notice");
+                            }
                             // Bound retries if a durable row could not be updated.
                             RECONCILIATION_RETRY_DELAY
                         } else {
@@ -51,6 +54,59 @@ impl CoreInner {
             }
         });
         *self.targeted_reconciliation_task.lock().await = Some(task);
+    }
+
+    async fn retry_terminal_notice(&self) -> Result<(), VnidropError> {
+        if let Some((id, peer, deleted, expires)) =
+            self.targeted_transfers.next_terminal_notice().await?
+        {
+            if expires > now_ms() {
+                match self.device_relationships.require_saved(&peer).await {
+                    Ok(()) => return self.deliver_terminal_notice(&id, &peer, deleted).await,
+                    Err(VnidropError::Permission { .. }) => {}
+                    Err(error) => {
+                        self.targeted_transfers
+                            .settle_terminal_notice(&id, deleted, false)
+                            .await?;
+                        return Err(error);
+                    }
+                }
+            }
+            self.targeted_transfers
+                .settle_terminal_notice(&id, deleted, true)
+                .await?;
+        }
+        Ok(())
+    }
+
+    pub(super) async fn deliver_terminal_notice(
+        &self,
+        id: &str,
+        peer: &str,
+        deleted: bool,
+    ) -> Result<(), VnidropError> {
+        use crate::api::TargetedTransferState;
+        use crate::targeted_transfer::protocol::{CancelTargetedOffer, CancelWireOfferResponse};
+        let delivered = if let Ok(addr) = self.device_relationships.peer_addr(peer).await {
+            let client = TargetedTransferProtocol::client(self.endpoint.clone(), addr);
+            let message = CancelTargetedOffer {
+                transfer_id: id.to_owned(),
+                terminal: Some(if deleted {
+                    TargetedTransferState::Deleted
+                } else {
+                    TargetedTransferState::Cancelled
+                }),
+            };
+            matches!(
+                tokio::time::timeout(self.connection_timeout(), client.cancel_offer(message)).await,
+                Ok(Ok(CancelWireOfferResponse::Cancelled))
+            )
+        } else {
+            false
+        };
+        self.targeted_transfers
+            .settle_terminal_notice(id, deleted, delivered)
+            .await
     }
 
     async fn retry_targeted_completions(&self) {

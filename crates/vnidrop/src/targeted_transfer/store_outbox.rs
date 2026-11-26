@@ -15,6 +15,8 @@ impl TargetedTransferStore {
         sqlx::query_scalar(
             r#"
             SELECT MIN(next_attempt_at) FROM (
+                SELECT next_attempt_at FROM targeted_terminal_notices
+                UNION ALL
                 SELECT o.next_attempt_at
                 FROM targeted_authorization_delivery_outbox o
                 JOIN targeted_transfers t ON t.id = o.transfer_id
@@ -273,6 +275,49 @@ impl TargetedTransferStore {
         Ok(())
     }
 
+    pub(crate) async fn next_terminal_notice(
+        &self,
+    ) -> Result<Option<(String, String, bool, i64)>, VnidropError> {
+        sqlx::query_as(
+            "SELECT transfer_id, peer_id, deleted, expires_at FROM targeted_terminal_notices
+            WHERE next_attempt_at <= ? ORDER BY next_attempt_at LIMIT 1",
+        )
+        .bind(now_ms())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(VnidropError::repository)
+    }
+
+    pub(crate) async fn settle_terminal_notice(
+        &self,
+        id: &str,
+        deleted: bool,
+        delivered: bool,
+    ) -> Result<(), VnidropError> {
+        if delivered {
+            sqlx::query(
+                "DELETE FROM targeted_terminal_notices WHERE transfer_id = ? AND deleted = ?",
+            )
+            .bind(id)
+            .bind(deleted)
+            .execute(&self.pool)
+            .await
+            .map_err(VnidropError::repository)?;
+        } else {
+            sqlx::query(
+                "UPDATE targeted_terminal_notices SET next_attempt_at = MIN(expires_at, ?)
+                 WHERE transfer_id = ? AND deleted = ?",
+            )
+            .bind(now_ms() + 30_000)
+            .bind(id)
+            .bind(deleted)
+            .execute(&self.pool)
+            .await
+            .map_err(VnidropError::repository)?;
+        }
+        Ok(())
+    }
+
     /// Commit a local terminal denial and optional secret cleanup atomically.
     pub(crate) async fn transition_terminal(
         &self,
@@ -333,10 +378,30 @@ impl TargetedTransferStore {
         .execute(&mut *transaction)
         .await
         .map_err(VnidropError::repository)?;
+        let enqueue = clear_authorization && result.rows_affected() == 1;
+        if enqueue {
+            let now = now_ms();
+            sqlx::query(
+                "INSERT OR REPLACE INTO targeted_terminal_notices
+                    (transfer_id, peer_id, deleted, next_attempt_at, expires_at)
+                 SELECT id, CASE role WHEN 'sender' THEN receiver_endpoint_id ELSE sender_endpoint_id END,
+                       ?2 = 'deleted', ?3, ?4 FROM targeted_transfers WHERE id = ?1",
+            )
+            .bind(id)
+            .bind(state)
+            .bind(now + 5_000)
+            .bind(now + 7 * 86_400_000)
+            .execute(&mut *transaction)
+            .await
+            .map_err(VnidropError::repository)?;
+        }
         transaction
             .commit()
             .await
             .map_err(VnidropError::repository)?;
+        if enqueue {
+            self.reconciliation_changed.notify_one();
+        }
         Ok(result.rows_affected() == 1)
     }
 }

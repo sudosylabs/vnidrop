@@ -107,6 +107,11 @@ fn transfers_file_between_two_cores() {
         .contains(receiver.core.status().endpoint_id.as_str()));
     assert!(completed.data_json.contains("redacted"));
 
+    assert!(!sender.core.delete_terminal_transfer_history().unwrap());
+    assert_eq!(sender.core.list_transfers().unwrap()[0].status, "sharing");
+    assert!(receiver.core.delete_terminal_transfer_history().unwrap());
+    assert!(receiver.core.list_transfers().unwrap().is_empty());
+    assert_eq!(receiver.core.list_received_artifacts().unwrap(), artifacts);
     receiver.core.delete_receive_history().unwrap();
     assert_eq!(receiver.core.list_received_artifacts().unwrap(), artifacts);
 }

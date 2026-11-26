@@ -669,6 +669,28 @@ impl VnidropCore {
             .map_err(VnidropError::transfer)
     }
 
+    /// Clear terminal invitation and targeted history, preserving active work and published files.
+    /// Returns whether the caller can proceed to idle cache maintenance.
+    pub fn delete_terminal_transfer_history(&self) -> Result<bool, VnidropError> {
+        self.block_on(async {
+            self.inner.event_hub.flush().await;
+            self.inner
+                .repository
+                .delete_terminal_history(false)
+                .await
+                .map_err(VnidropError::repository)?;
+            self.inner
+                .targeted_transfers
+                .clear_terminal_history()
+                .await?;
+            // Interrupted receives retain verified partial blobs even while the runtime is idle.
+            Ok(self.inner.targeted_transfers.list().await?.is_empty()
+                && self.inner.targeted_offers.list().await.is_empty()
+                && self.inner.runtime_obligation_facts().await?
+                    == RuntimeObligationFacts::default())
+        })
+    }
+
     pub fn delete_receive_history(&self) -> Result<u64, VnidropError> {
         self.block_on(self.inner.delete_receive_history())
             .map_err(VnidropError::repository)

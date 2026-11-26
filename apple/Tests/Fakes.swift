@@ -93,6 +93,11 @@ final class FakeCoreGateway: CoreGateway {
 	}
 	func cancel(transferId: UInt64) async -> Result<Void, Error> { cancelledTransfers.append(transferId); return cancelResult }
 	func delete(transferId: UInt64) async -> Result<Void, Error> { deletedTransfers.append(transferId); return deleteResult }
+	private(set) var terminalHistoryClearCount = 0
+	func deleteTerminalTransferHistory(appDataDir: String, networkConfiguration: RelayConfiguration) async -> Result<Void, Error> {
+		terminalHistoryClearCount += 1
+		return .success(())
+	}
 	func clearReceiveHistory() async -> Result<UInt64, Error> { clearReceiveHistoryCount += 1; return clearReceiveHistoryResult }
 	func storageUsage() async -> Result<CoreStorageUsageModel, Error> {
 		.success(CoreStorageUsageModel(blobStoreBytes: 0, appDataBytes: 0))

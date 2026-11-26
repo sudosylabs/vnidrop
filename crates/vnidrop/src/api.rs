@@ -539,7 +539,7 @@ pub struct RuntimeStatus {
 }
 
 /// Neutral core facts used by platform lifecycle policy.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
 pub struct RuntimeObligationFacts {
     pub active_invitation_transfers: u64,
     pub invitation_provider_availability: u64,

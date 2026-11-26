@@ -111,15 +111,9 @@ public sealed partial class StoragePage : Page
             !BeginWork(DeleteAllRow, "storage_deleting")) return;
         try
         {
-            var snapshot = App.Window.Model.Snapshot;
-            var ids = TransferPresentation.DeletableHistoryIds(snapshot?.Transfers ?? []);
-            var targetedIds = TransferPresentation.DeletableTargetedHistoryIds(snapshot?.TargetedTransfers ?? []);
-            foreach (var id in ids) await App.Window.Model.Session.RunAsync(c => c.DeleteTransfer(id));
-            foreach (var id in targetedIds) await App.Window.Model.Session.RunAsync(c => c.DeleteTargetedTransfer(id));
+            var canReclaimCache = await App.Window.Model.Session.RunAsync(c => c.DeleteTerminalTransferHistory());
             await App.Window.Model.RefreshAsync(true);
-            var facts = await App.Window.Model.Session.RunAsync(c => c.RuntimeObligationFacts());
-            if (facts.activeInvitationTransfers + facts.activeTargetedTransfers + facts.invitationProviderAvailability
-                + facts.targetedProviderAvailability + facts.targetedPreparations == 0)
+            if (canReclaimCache)
                 await App.Window.Model.ClearCacheAsync();
         }
         catch (Exception ex) { App.Window.Model.Report(ex); }

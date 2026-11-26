@@ -155,8 +155,10 @@ removes orphan share tags, and never restores a stopped share.
 
 The explicit transfer-cache action is available only when no transfer or share is
 active. It shuts the core down cleanly, removes the app-owned blob store, and then
-restarts the core with the same identity and network configuration. Deleting all
-transfer records invokes the same cleanup after live shares have been stopped.
+restarts the core with the same identity and network configuration. Clearing
+terminal history preserves ongoing transfers, pending receipts, and published
+files. Cache cleanup runs when the core is idle and no resumable transfer or
+pending offer needs its cache.
 
 ## Resource Limits
 

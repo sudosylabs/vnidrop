@@ -59,6 +59,7 @@ protocol CoreGateway: AnyObject {
 	) async -> Result<Void, Error>
 	func cancel(transferId: UInt64) async -> Result<Void, Error>
 	func delete(transferId: UInt64) async -> Result<Void, Error>
+	func deleteTerminalTransferHistory(appDataDir: String, networkConfiguration: RelayConfiguration) async -> Result<Void, Error>
 	func clearReceiveHistory() async -> Result<UInt64, Error>
 	func storageUsage() async -> Result<CoreStorageUsageModel, Error>
 	func receivedArtifacts() async -> Result<[ReceivedArtifactModel], Error>

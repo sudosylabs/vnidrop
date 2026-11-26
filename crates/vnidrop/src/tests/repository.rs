@@ -902,6 +902,11 @@ async fn deleting_receive_history_only_removes_terminal_receives_and_dependants(
             .is_empty());
     }
     assert_eq!(repository.delete_receive_history().await.unwrap(), 0);
+    assert_eq!(repository.delete_terminal_history(false).await.unwrap(), 1);
+    let remaining = repository.list_transfers().await.unwrap();
+    assert_eq!(remaining.len(), 2);
+    assert!(remaining.iter().any(|t| t.transfer_id == 103));
+    assert!(remaining.iter().any(|t| t.transfer_id == 105));
 }
 
 #[tokio::test]

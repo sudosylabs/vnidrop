@@ -42,6 +42,8 @@ async fn targeted_progress_waits_for_event_transaction_and_completes_durably() {
         })
         .await
         .unwrap();
+    assert_eq!(targeted.clear_terminal_history().await.unwrap(), 0);
+    assert_eq!(targeted.list().await.unwrap().len(), 1);
     let event = CoreEvent {
         id: "progress".to_string(),
         revision: 1,
@@ -105,6 +107,8 @@ async fn targeted_progress_waits_for_event_transaction_and_completes_durably() {
     let completed = targeted.get_row("receive").await.unwrap().unwrap();
     assert_eq!(completed.state, TargetedTransferState::Completed);
     assert_eq!(completed.verified_bytes, completed.total_size);
+    assert_eq!(targeted.clear_terminal_history().await.unwrap(), 1);
+    assert!(targeted.list().await.unwrap().is_empty());
     let pending = targeted.list_pending_completions().await.unwrap();
     assert_eq!(pending.len(), 1);
     assert_eq!(pending[0].id, completed.id);

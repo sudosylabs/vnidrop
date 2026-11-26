@@ -225,6 +225,7 @@ interface CoreGateway {
 	suspend fun receivedArtifacts(): Result<List<ReceivedArtifactModel>>
 	suspend fun cancel(transferId: ULong): Result<Unit>
 	suspend fun delete(transferId: ULong): Result<Unit>
+	suspend fun deleteTerminalTransferHistory(): Result<Boolean>
 	suspend fun clearReceiveHistory(): Result<ULong>
 	suspend fun receiverRequests(transferId: ULong): Result<List<ReceiverRequestModel>>
 	suspend fun respondReceiverRequest(requestId: String, accepted: Boolean, reason: String? = null): Result<Unit>

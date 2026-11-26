@@ -160,6 +160,13 @@ impl TargetedTransferModule {
         self.store.get(id).await
     }
 
+    pub(crate) async fn clear_terminal_history(&self) -> Result<(), VnidropError> {
+        if self.store.clear_terminal_history().await? > 0 {
+            (self.emit_lifecycle)("history-cleared");
+        }
+        Ok(())
+    }
+
     pub(crate) async fn list(&self) -> Result<Vec<TargetedTransfer>, VnidropError> {
         self.store.list().await
     }

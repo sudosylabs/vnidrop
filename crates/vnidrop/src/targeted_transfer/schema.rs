@@ -140,6 +140,13 @@ pub(crate) async fn ensure_schema(pool: &SqlitePool) -> anyhow::Result<()> {
         .fetch_all(pool)
         .await?;
     let has = |name: &str| columns.iter().any(|row| row.get::<String, _>(1) == name);
+    if !has("history_hidden") {
+        sqlx::query(
+            "ALTER TABLE targeted_transfers ADD COLUMN history_hidden INTEGER NOT NULL DEFAULT 0",
+        )
+        .execute(pool)
+        .await?;
+    }
     if !has("verified_bytes") {
         sqlx::query(
             "ALTER TABLE targeted_transfers ADD COLUMN verified_bytes INTEGER NOT NULL DEFAULT 0",

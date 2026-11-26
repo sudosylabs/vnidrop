@@ -101,7 +101,7 @@ final class SettingsModelTests: XCTestCase {
 		XCTAssertNil(model.state.bugReportError)
 	}
 
-	func testDeleteAllTransfersDeletesEveryTransfer() async {
+	func testDeleteAllTransfersUsesTerminalHistoryOperation() async {
 		let core = FakeCoreGateway()
 		let model = makeModel(core, preferences: Fixtures.preferences())
 		core.setState(CoreState(isInitialized: true, transfers: [
@@ -110,8 +110,8 @@ final class SettingsModelTests: XCTestCase {
 		]))
 
 		model.deleteAllTransfers()
-		await waitUntil { core.deletedTransfers.count == 2 }
-		XCTAssertEqual(Set(core.deletedTransfers), [2, 3])
+		await waitUntil { core.terminalHistoryClearCount == 1 }
+		XCTAssertTrue(core.deletedTransfers.isEmpty)
 	}
 
 	func testReclaimJunkPreservesNestedReceivedTrashNames() throws {

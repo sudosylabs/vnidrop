@@ -456,24 +456,21 @@ final class SettingsModel: ObservableObject {
 		}
 	}
 
-	/// Deletes every send/receive transfer via the core, freeing the imported
-	/// shared-file content and clearing history. Node identity and received files
-	/// are left untouched.
+	/// Clears terminal history and releases cached payloads when the core is idle.
 	func deleteAllTransfers() {
 		if state.isDeletingTransfers { return }
 		state.isDeletingTransfers = true
 		Task {
-			var failures = 0
-			for id in repository.state.transfers.map(\.transferId) {
-				if case .failure = await repository.delete(transferId: id) { failures += 1 }
-			}
+			let result = await repository.deleteTerminalTransferHistory(
+				appDataDir: environment.defaultCoreDataDir, networkConfiguration: preferences.preferences.relayConfiguration
+			)
 			_ = await repository.refresh()
 			state.isDeletingTransfers = false
-			if failures == 0 {
+			switch result {
+			case .success:
 				loadStorageUsage()
 				messages.show(UiMessage(text: .resource(L10n.Storage.transfersDeleted), tone: .success))
-			} else {
-				messages.error(InvitationError.deleteRecordsFailed)
+			case .failure(let error): messages.error(error)
 			}
 		}
 	}

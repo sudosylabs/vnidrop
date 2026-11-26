@@ -186,6 +186,13 @@ class FakeCoreGateway : CoreGateway {
 		}
 		return deleteResult
 	}
+	var terminalHistoryClearCount = 0
+	var historyCacheReclaimable = true
+	override suspend fun deleteTerminalTransferHistory(): Result<Boolean> {
+		terminalHistoryClearCount++
+		return Result.success(historyCacheReclaimable)
+	}
+
 	override suspend fun clearReceiveHistory(): Result<ULong> {
 		clearReceiveHistoryCount += 1
 		clearReceiveHistoryResult.onSuccess {

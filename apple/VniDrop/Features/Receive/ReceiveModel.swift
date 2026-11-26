@@ -251,8 +251,8 @@ final class ReceiveModel: ObservableObject {
 				messages.tryShow(UiMessage(
 					text: uiText,
 					tone: .error,
-					actionLabel: .resource(L10n.Button.retry),
-					onAction: { self.receive() }
+					actionLabel: error.canRetryWithoutChangingInput ? .resource(L10n.Button.retry) : nil,
+					onAction: error.canRetryWithoutChangingInput ? { self.receive() } : nil
 				))
 			}
 		}

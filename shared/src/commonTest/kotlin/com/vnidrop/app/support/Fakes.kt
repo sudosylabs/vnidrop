@@ -186,6 +186,13 @@ class FakeCoreGateway : CoreGateway {
 		}
 		return deleteResult
 	}
+	var terminalHistoryClearCount = 0
+	var historyCacheReclaimable = true
+	override suspend fun deleteTerminalTransferHistory(): Result<Boolean> {
+		terminalHistoryClearCount++
+		return Result.success(historyCacheReclaimable)
+	}
+
 	override suspend fun clearReceiveHistory(): Result<ULong> {
 		clearReceiveHistoryCount += 1
 		clearReceiveHistoryResult.onSuccess {
@@ -353,9 +360,11 @@ class FakeCoreGateway : CoreGateway {
 		receivedTargetedViaSinkIds += transferId
 		return receiveResult
 	}
+	var resumeGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
 	override suspend fun resumeTargetedTransfer(id: String, outputDir: String): Result<Unit> {
 		resumedTargetedTransferIds += id
 		resumedTargetedPathDirs += id to outputDir
+		resumeGate?.await()
 		return receiveResult
 	}
 	override suspend fun resumeTargetedTransferWithOutputSinkV2(

@@ -58,6 +58,7 @@ import vnidrop.shared.generated.resources.status_transferring
 internal fun LazyListScope.targetedTransferItems(
 	transfers: List<SavedDeviceTransferItem>,
 	busyTransferIds: Set<String>,
+	pullingTransferIds: Set<String> = emptySet(),
 	onAction: (String, SavedDeviceTransferAction) -> Unit,
 	showHeading: Boolean = true,
 ) {
@@ -78,7 +79,8 @@ internal fun LazyListScope.targetedTransferItems(
 			}
 			TargetedTransferRow(
 				transfer = transfer,
-				busy = transfer.id in busyTransferIds,
+				busy = transfer.id in busyTransferIds || transfer.id in pullingTransferIds,
+				cancelEnabled = transfer.id !in busyTransferIds,
 				onAction = { action -> onAction(transfer.id, action) },
 			)
 		}
@@ -89,6 +91,7 @@ internal fun LazyListScope.targetedTransferItems(
 private fun TargetedTransferRow(
 	transfer: SavedDeviceTransferItem,
 	busy: Boolean,
+	cancelEnabled: Boolean,
 	onAction: (SavedDeviceTransferAction) -> Unit,
 ) {
 	val colors = LocalVniDropColors.current
@@ -157,7 +160,7 @@ private fun TargetedTransferRow(
 				color = colors.foregroundLighter,
 			)
 		}
-		TransferActions(transfer, busy, onAction)
+		TransferActions(transfer, busy, cancelEnabled, onAction)
 	}
 }
 
@@ -165,6 +168,7 @@ private fun TargetedTransferRow(
 private fun TransferActions(
 	transfer: SavedDeviceTransferItem,
 	busy: Boolean,
+	cancelEnabled: Boolean,
 	onAction: (SavedDeviceTransferAction) -> Unit,
 ) {
 	Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -187,7 +191,7 @@ private fun TransferActions(
 			SavedDeviceTransferAction.Cancel in transfer.availableActions -> SecondaryButton(
 				stringResource(Res.string.saved_devices_transfer_cancel),
 				{ onAction(SavedDeviceTransferAction.Cancel) },
-				enabled = !busy,
+				enabled = cancelEnabled,
 				leadingIcon = { PlatformIcon(AppIcon.StopCircle, contentDescription = null, modifier = Modifier.size(18.dp)) },
 			)
 			SavedDeviceTransferAction.Delete in transfer.availableActions -> SecondaryButton(

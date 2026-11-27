@@ -75,6 +75,7 @@ internal fun SavedDeviceDetailsDrawer(
 	transfers: List<SavedDeviceTransferItem>,
 	busy: Boolean,
 	busyTransferIds: Set<String>,
+	pullingTransferIds: Set<String> = emptySet(),
 	windowClass: WindowClass,
 	onDismiss: () -> Unit,
 	onSend: () -> Unit,
@@ -185,6 +186,7 @@ internal fun SavedDeviceDetailsDrawer(
 				targetedTransferItems(
 					transfers = transfers,
 					busyTransferIds = busyTransferIds,
+					pullingTransferIds = pullingTransferIds,
 					onAction = onTransferAction,
 					showHeading = false,
 				)

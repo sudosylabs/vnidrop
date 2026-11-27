@@ -50,7 +50,7 @@ export default function GuidePage() {
 
             <section id="previews" className={styles.section}>
               <h2>Try a preview</h2>
-              <p>Previews use Release builds and skip Microsoft Store, App Store, and Play Store submission. macOS builds are still signed and notarized. Each preview has its own release notes, five download files, a build manifest, and SHA256 checksums.</p>
+              <p>Previews use Release builds and skip Microsoft Store, App Store, and Play Store submission. macOS builds are still signed and notarized. Each preview has its own release notes, packages for its selected platforms, a build manifest, and SHA256 checksums.</p>
               <p><Link className="text-link" href="/download/#preview">Find the latest preview →</Link></p>
               <h3>Installing and updating</h3>
               <p>Download subsequent previews manually. Preview releases do not update the normal macOS update feed or Homebrew cask, and they do not replace the normal release links.</p>

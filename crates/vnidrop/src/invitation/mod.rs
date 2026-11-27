@@ -215,6 +215,44 @@ impl Repository {
         Ok(row.get(0))
     }
 
+    pub(crate) async fn output_identity(&self, id: &str, locator: &str) -> Result<Option<String>> {
+        Ok(sqlx::query_scalar(
+            "SELECT file_identity FROM invitation_receive_outputs WHERE local_id = ? AND locator = ?",
+        )
+        .bind(id)
+        .bind(locator)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
+    pub(crate) async fn checkpoint_output(
+        &self,
+        id: &str,
+        locator: &str,
+        identity: &str,
+    ) -> Result<()> {
+        sqlx::query(
+            "INSERT INTO invitation_receive_outputs (local_id, locator, file_identity)
+             VALUES (?, ?, ?) ON CONFLICT(local_id, locator)
+             DO UPDATE SET file_identity = excluded.file_identity",
+        )
+        .bind(id)
+        .bind(locator)
+        .bind(identity)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub(crate) async fn forget_output(&self, id: &str, locator: &str) -> Result<()> {
+        sqlx::query("DELETE FROM invitation_receive_outputs WHERE local_id = ? AND locator = ?")
+            .bind(id)
+            .bind(locator)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     pub(crate) async fn record_received_artifact(
         &self,
         artifact: ReceivedArtifactInsert<'_>,
@@ -611,23 +649,27 @@ impl Repository {
     }
 
     pub(crate) async fn delete_receive_history(&self) -> Result<u64> {
+        self.delete_terminal_history(true).await
+    }
+
+    pub(crate) async fn delete_terminal_history(&self, receive_only: bool) -> Result<u64> {
         self.maybe_fail_write()?;
-        let mut transaction = self.pool.begin().await?;
+        let mut transaction = self.pool.begin_with("BEGIN IMMEDIATE").await?;
 
         // Delete dependants before their transfer rows. Keep the terminal-state
-        // predicate on every statement so receive work that is still active and
-        // every send record remain outside this transaction's scope.
+        // predicate on every statement so active work retains all of its records.
         sqlx::query(
             r#"
             DELETE FROM receiver_requests
             WHERE transfer_id IN (
                 SELECT transfer_id
                 FROM transfers
-                WHERE direction = 'receive'
-                  AND status IN ('done', 'failed', 'cancelled')
+                WHERE (?1 = 0 OR direction = 'receive')
+                  AND status IN ('done', 'failed', 'cancelled', 'stopped')
             )
             "#,
         )
+        .bind(receive_only)
         .execute(&mut *transaction)
         .await?;
         sqlx::query(
@@ -636,11 +678,12 @@ impl Repository {
             WHERE transfer_id IN (
                 SELECT transfer_id
                 FROM transfers
-                WHERE direction = 'receive'
-                  AND status IN ('done', 'failed', 'cancelled')
+                WHERE (?1 = 0 OR direction = 'receive')
+                  AND status IN ('done', 'failed', 'cancelled', 'stopped')
             )
             "#,
         )
+        .bind(receive_only)
         .execute(&mut *transaction)
         .await?;
         #[cfg(test)]
@@ -653,10 +696,11 @@ impl Repository {
         let deleted = sqlx::query(
             r#"
             DELETE FROM transfers
-            WHERE direction = 'receive'
-              AND status IN ('done', 'failed', 'cancelled')
+            WHERE (?1 = 0 OR direction = 'receive')
+              AND status IN ('done', 'failed', 'cancelled', 'stopped')
             "#,
         )
+        .bind(receive_only)
         .execute(&mut *transaction)
         .await?;
 

@@ -71,10 +71,38 @@ check-version: ## Validate the canonical version and its platform mappings.
 	cd $(ROOT) && packaging/version/resolve-version.sh verify
 	cd $(ROOT) && $(GRADLE) verifyVersion $(GRADLE_FLAGS)
 
-check-release: ## Validate coordinated release scripts and workflow YAML.
-	cd $(ROOT) && bash -n apple/scripts/build-core.sh apple/scripts/tests/test-build-core.sh
-	cd $(ROOT) && bash -n apple/scripts/build-dmg.sh apple/scripts/tests/test-build-dmg.sh packaging/android/tests/test-build-release.sh
-	cd $(ROOT) && bash -n apple/scripts/notarize.sh apple/scripts/sign-exported-app.sh apple/scripts/tests/test-notarize.sh apple/scripts/tests/test-sign-exported-app.sh apple/scripts/generate-appconfig.sh apple/scripts/tests/test-generate-appconfig.sh apple/scripts/generate-appcast.sh apple/scripts/tests/test-generate-appcast.sh make/tests/test-open-apple.sh make/tests/test-with-secret-service.sh make/with-secret-service.sh packaging/android/build-release.sh packaging/android/verify-apk-signature.sh packaging/android/tests/test_verify_apk_signature.sh packaging/release/assemble-release.sh packaging/release/test-assemble-release.sh packaging/release/test-release-config.sh linux/packaging/package.sh linux/packaging/verify.sh linux/packaging/verify-mime.sh linux/packaging/tests/test-verify-mime.sh
+RELEASE_SHELL_SCRIPTS := apple/scripts/build-core.sh \
+	apple/scripts/tests/test-build-core.sh \
+	apple/scripts/build-dmg.sh \
+	apple/scripts/tests/test-build-dmg.sh \
+	packaging/android/tests/test-build-release.sh \
+	apple/scripts/notarize.sh \
+	apple/scripts/sign-exported-app.sh \
+	apple/scripts/tests/test-notarize.sh \
+	apple/scripts/tests/test-sign-exported-app.sh \
+	apple/scripts/generate-appconfig.sh \
+	apple/scripts/tests/test-generate-appconfig.sh \
+	apple/scripts/generate-appcast.sh \
+	apple/scripts/tests/test-generate-appcast.sh \
+	make/tests/test-open-apple.sh \
+	make/tests/test-with-secret-service.sh \
+	make/with-secret-service.sh \
+	packaging/android/build-release.sh \
+	packaging/android/verify-apk-signature.sh \
+	packaging/android/tests/test_verify_apk_signature.sh \
+	packaging/release/assemble-release.sh \
+	packaging/release/test-assemble-release.sh \
+	packaging/release/test-release-config.sh \
+	linux/packaging/package.sh \
+	linux/packaging/verify.sh \
+	linux/packaging/verify-mime.sh \
+	linux/packaging/tests/test-verify-mime.sh
+
+.PHONY: check-release-shell
+check-release-shell:
+	@for script in $(RELEASE_SHELL_SCRIPTS); do bash -n "$$script" || exit 1; done
+
+check-release: check-release-shell ## Validate coordinated release scripts and workflow YAML.
 	cd $(ROOT) && apple/scripts/tests/test-notarize.sh
 	cd $(ROOT) && apple/scripts/tests/test-generate-appconfig.sh
 	cd $(ROOT) && apple/scripts/tests/test-sign-exported-app.sh

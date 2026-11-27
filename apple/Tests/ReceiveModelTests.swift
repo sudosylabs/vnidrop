@@ -1,4 +1,5 @@
 import XCTest
+import VnidropCore
 @testable import VniDrop
 
 /// Ports the receive-side state-machine assertions from `feature/ViewModelsTest.kt`.
@@ -93,6 +94,23 @@ final class ReceiveModelTests: XCTestCase {
 		core.setState(CoreState(isInitialized: true))
 		await pending.value
 		XCTAssertTrue(ready)
+	}
+
+	func testReceiveErrorOffersRetryOnlyForTransientFailure() async {
+		for (error, retry) in [(VnidropError.DestinationExists(reason: "occupied"), false), (.Network(reason: "offline"), true)] {
+			let core = FakeCoreGateway()
+			let messages = UiMessageController()
+			let model = ReceiveModel(repository: core, fileSystemService: FakeFileSystemService(), preferences: Fixtures.preferences(), messages: messages)
+			core.setState(CoreState(isInitialized: true))
+			core.inspectionResult = .success(TicketInspectionModel(kind: "vnidrop", metadata: TransferMetadataModel(
+				transferId: 7, transferName: "test", senderName: nil, contentHash: "hash", fileCount: 1, totalSize: 1)))
+			core.receiveResult = .failure(error)
+			model.onInvitationResult(.invitationFile, .success("ticket"))
+			await waitUntil { model.state.inspection != nil && model.state.receiveFolder != nil }
+			model.receive()
+			await waitUntil { messages.current?.tone == .error }
+			XCTAssertEqual(messages.current?.onAction != nil, retry)
+		}
 	}
 
 	func testCancelWaitsForTheInspectedReceiveToRegister() async {

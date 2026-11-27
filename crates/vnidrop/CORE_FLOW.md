@@ -65,7 +65,9 @@ bytes through Kotlin memory.
    idempotent retry. Targeted cancel and delete synchronously signal local active
    work before durable cleanup; forget and block revoke affected relationships
    and active targeted work within their core operation. All four durably deny
-   reuse and perform idempotent payload/secret cleanup.
+   reuse and perform idempotent payload/secret cleanup. Locally cancelled or
+   deleted transfers retry peer notification for up to seven days while the
+   relationship remains saved.
 7. A missing or corrupted endpoint credential remains fail-closed during normal
    startup. The explicit pre-start identity-reset constructor accepts only that
    unrecoverable state, atomically invalidates identity-bound relationships,
@@ -129,6 +131,8 @@ Domain contract v2 does not transport transfer identity in these event payloads.
   publishing it with a no-clobber hard link or exclusive rename. App-profile
   ownership records let startup and storage maintenance reclaim interrupted
   staging. Cleanup only touches recorded files whose ownership marker matches.
+  Invitation retries verify the published file identity, size, and content
+  before reusing it, including after a process restart.
 - Android defaults to the shared system Downloads collection via MediaStore
   (`ReceiveFolderKind.AndroidPublicDownloads` on API 29+). Files show up in the
   user's Downloads UI like a browser download. Custom folders still use a SAF
@@ -153,8 +157,10 @@ removes orphan share tags, and never restores a stopped share.
 
 The explicit transfer-cache action is available only when no transfer or share is
 active. It shuts the core down cleanly, removes the app-owned blob store, and then
-restarts the core with the same identity and network configuration. Deleting all
-transfer records invokes the same cleanup after live shares have been stopped.
+restarts the core with the same identity and network configuration. Clearing
+terminal history preserves ongoing transfers, pending receipts, and published
+files. Cache cleanup runs when the core is idle and no resumable transfer or
+pending offer needs its cache.
 
 ## Resource Limits
 

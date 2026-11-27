@@ -18,6 +18,7 @@ struct SavedDevicesState: Equatable {
 	/// Peers with a mutation in flight; their row actions are disabled.
 	var busyPeerIds: Set<String> = []
 	var busyTransferIds: Set<String> = []
+	var pullingTransferIds: Set<String> = []
 	/// Peer whose label editor is open, or nil when closed.
 	var labelingPeerId: String?
 	var labelDraft = ""
@@ -267,11 +268,11 @@ final class SavedDevicesModel: ObservableObject {
 	// MARK: - Targeted transfer lifecycle
 
 	func receiveTargetedTransfer(_ transferId: String) {
-		mutateTransfer(transferId) { await self.pullTargetedTransfer(transferId, resume: false) }
+		startPull(transferId, resume: false)
 	}
 
 	func resumeTargetedTransfer(_ transferId: String) {
-		mutateTransfer(transferId) { await self.pullTargetedTransfer(transferId, resume: true) }
+		startPull(transferId, resume: true)
 	}
 
 	func cancelTargetedTransfer(_ transferId: String) {
@@ -280,6 +281,17 @@ final class SavedDevicesModel: ObservableObject {
 
 	func deleteTargetedTransfer(_ transferId: String) {
 		mutateTransfer(transferId) { await self.repository.deleteTargetedTransfer(id: transferId) }
+	}
+
+	private func startPull(_ id: String, resume: Bool) {
+		guard !state.busyTransferIds.contains(id), state.pullingTransferIds.insert(id).inserted else { return }
+		Task {
+			defer { state.pullingTransferIds.remove(id) }
+			switch await pullTargetedTransfer(id, resume: resume) {
+			case .success: await refresh()
+			case .failure(let error): messages.error(error)
+			}
+		}
 	}
 
 	private func pullTargetedTransfer(_ transferId: String, resume: Bool) async -> Result<Void, Error> {

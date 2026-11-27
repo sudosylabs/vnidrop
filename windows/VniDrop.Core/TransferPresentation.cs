@@ -47,11 +47,13 @@ public static class TransferPresentation
 
     public static TransferProgress? ReceiverProgress(IReadOnlyList<CoreEvent> events, ulong id, string endpoint, ulong totalSize)
     {
+        var progressKey = VnidropMethods.ReceiverProgressKey(endpoint);
+        bool MatchesReceiver(string? value) => value == progressKey || value == endpoint;
         var parsed = events.Select(e => (Event: e, Data: Data(e))).ToArray();
-        var connections = parsed.Where(p => Text(p.Data, "endpoint_id") == endpoint).Select(p => Text(p.Data, "connection_id")).Where(c => c is not null).ToHashSet();
+        var connections = parsed.Where(p => MatchesReceiver(Text(p.Data, "endpoint_id"))).Select(p => Text(p.Data, "connection_id")).Where(c => c is not null).ToHashSet();
         var relevant = parsed.Where(p => p.Event.transferId == id && p.Event.direction == "send" && p.Event.phase == "transfer" &&
             p.Event.kind is "started" or "progress" or "completed" or "aborted" &&
-            (Text(p.Data, "endpoint_id") is { } peer ? peer == endpoint : Text(p.Data, "connection_id") is { } connection && connections.Contains(connection))).ToArray();
+            (Text(p.Data, "endpoint_id") is { } peer ? MatchesReceiver(peer) : Text(p.Data, "connection_id") is { } connection && connections.Contains(connection))).ToArray();
         if (relevant.Length == 0) return null;
         if (relevant[^1].Event.kind == "aborted") return new(null, "progress_interrupted");
         var requests = new Dictionary<string, (double Offset, double? Size, bool Aborted)>();

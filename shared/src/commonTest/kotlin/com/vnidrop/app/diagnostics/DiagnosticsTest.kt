@@ -238,6 +238,24 @@ class DiagnosticsTest {
 	}
 
 	@Test
+	fun unacknowledgedBugReportReusesItsCompletePayloadOnRetry() = runTest {
+		val sent = mutableListOf<BugReport>()
+		val transport = object : DiagnosticsTransport {
+			override suspend fun sendBugReport(report: BugReport): Result<Unit> {
+				sent.add(report)
+				return if (sent.size == 1) Result.failure(IllegalStateException("lost response")) else Result.success(Unit)
+			}
+		}
+		val service = BugReportService(fakePrefs(), transport, "1.0", "Test")
+		val draft = BugReportDraft("what", "expected")
+		assertTrue(service.submit(draft, device()).isFailure)
+		assertTrue(service.submit(draft, device()).isSuccess)
+		assertEquals(sent[0], sent[1])
+		assertTrue(service.submit(draft.copy(whatHappened = "new report"), device()).isSuccess)
+		assertTrue(sent[2].id != sent[1].id)
+	}
+
+	@Test
 	fun bugReportSubmitsWithRedactedLogs() = runTest {
 		val transport = RecordingDiagnosticsTransport()
 		val service = BugReportService(

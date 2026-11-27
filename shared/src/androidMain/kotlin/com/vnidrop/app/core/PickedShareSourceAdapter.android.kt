@@ -1,6 +1,7 @@
 package com.vnidrop.app.core
 
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.compose.runtime.Composable
@@ -28,7 +29,9 @@ private class AndroidPickedShareSourceAdapter(
 			require(files.isNotEmpty()) { "Select at least one file to share" }
 			// Expand SAF trees into file descriptors with relative collection paths.
 			val expanded = files.flatMap { file ->
-				if (file.isDirectory) context.expandShareDirectory(file) else listOf(file)
+				if (file.isDirectory) expandShareDirectory(file) { uri, projection ->
+					context.contentResolver.query(uri, projection, null, null, null)
+				} else listOf(file)
 			}
 			require(expanded.isNotEmpty()) { "No files found in the selected folder" }
 			val result = withOpenedShareDescriptors(expanded, open = { file ->
@@ -91,13 +94,13 @@ internal suspend fun <Source, Descriptor : Closeable, Result> withOpenedShareDes
  * Rust cannot accept a directory FD. Collection paths preserve the folder
  * root name so receivers see `Folder/nested/file.txt`.
  */
-private fun Context.expandShareDirectory(folder: PickedShareFile): List<PickedShareFile> {
+internal fun expandShareDirectory(folder: PickedShareFile, children: (Uri, Array<String>) -> Cursor?): List<PickedShareFile> {
 	val treeUri = Uri.parse(folder.value)
 	val rootId = DocumentsContract.getTreeDocumentId(treeUri)
 	val out = mutableListOf<PickedShareFile>()
 	fun walk(documentId: String, relativePath: String) {
 		val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, documentId)
-		contentResolver.query(
+		val result = children(
 			childrenUri,
 			arrayOf(
 				DocumentsContract.Document.COLUMN_DOCUMENT_ID,
@@ -105,18 +108,20 @@ private fun Context.expandShareDirectory(folder: PickedShareFile): List<PickedSh
 				DocumentsContract.Document.COLUMN_MIME_TYPE,
 				DocumentsContract.Document.COLUMN_SIZE,
 			),
-			null,
-			null,
-			null,
-		)?.use { cursor ->
+		)
+		checkNotNull(result) { "Could not read folder contents" }.use { cursor ->
+			val extras = cursor.extras
+			check(!extras.getBoolean(DocumentsContract.EXTRA_LOADING) && extras.getString(DocumentsContract.EXTRA_ERROR) == null) {
+				"Folder contents are incomplete"
+			}
 			val idIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
 			val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
 			val mimeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
 			val sizeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
 			while (cursor.moveToNext()) {
-				val id = cursor.getString(idIndex) ?: continue
-				val name = cursor.getString(nameIndex) ?: continue
-				val mime = cursor.getString(mimeIndex)
+				val id = checkNotNull(cursor.getString(idIndex))
+				val name = checkNotNull(cursor.getString(nameIndex))
+				val mime = checkNotNull(cursor.getString(mimeIndex))
 				val childRelative = if (relativePath.isEmpty()) name else "$relativePath/$name"
 				if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
 					walk(id, childRelative)

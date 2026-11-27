@@ -117,6 +117,7 @@ internal fun SavedDevicesScreen(
 			transfers = state.targetedTransfers.filter { it.peerEndpointId == selectedDevice.endpointId },
 			busy = selectedDevice.endpointId in state.busyPeerIds,
 			busyTransferIds = state.busyTransferIds,
+			pullingTransferIds = state.pullingTransferIds,
 			windowClass = windowClass,
 			onDismiss = { selectedDeviceId = null },
 			onSend = {

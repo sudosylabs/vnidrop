@@ -99,24 +99,35 @@ struct MacFileSystemService: FileSystemService {
 	/// captured at pick time) and holds it across `body`. The core imports the bytes
 	/// during that call, so access only needs to survive it; without this the import
 	/// fails with EPERM under the App Store sandbox.
-	private func withScopedSources<T>(
+	func withScopedSources<T>(
 		_ files: [PickedShareFile],
 		_ body: ([ShareSource]) async -> Result<T, Error>
 	) async -> Result<T, Error> {
 		var scopedURLs: [URL] = []
-		for file in files {
-			guard let bookmark = file.securityScopeBookmark else { continue }
-			var stale = false
-			guard let url = try? URL(
-				resolvingBookmarkData: bookmark, options: .withSecurityScope,
-				relativeTo: nil, bookmarkDataIsStale: &stale
-			), url.startAccessingSecurityScopedResource() else { continue }
-			scopedURLs.append(url)
-		}
 		defer { scopedURLs.forEach { $0.stopAccessingSecurityScopedResource() } }
-
-		let sources = files.map {
-			ShareSource(kind: .path, value: $0.value, displayName: $0.displayName, isDirectory: $0.isDirectory)
+		var sources: [ShareSource] = []
+		for file in files {
+			var path = file.value
+			if let bookmark = file.securityScopeBookmark {
+				var stale = false
+				guard let url = try? URL(
+					resolvingBookmarkData: bookmark, options: [.withSecurityScope, .withoutUI],
+					relativeTo: nil, bookmarkDataIsStale: &stale
+				), url.startAccessingSecurityScopedResource() else {
+					return .failure(InvitationError.filesystemUnavailable)
+				}
+				scopedURLs.append(url)
+				// Foundation may resolve a stale bookmark to a replacement at its former path.
+				let captured = NSURL.resourceValues(forKeys: [.fileResourceIdentifierKey], fromBookmarkData: bookmark)?[.fileResourceIdentifierKey] as? NSObject
+				if let captured {
+					let current = try? url.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier
+					guard captured.isEqual(current) else { return .failure(InvitationError.filesystemUnavailable) }
+				} else if stale {
+					return .failure(InvitationError.filesystemUnavailable)
+				}
+				path = url.path
+			}
+			sources.append(ShareSource(kind: .path, value: path, displayName: file.displayName, isDirectory: file.isDirectory))
 		}
 		return await body(sources)
 	}

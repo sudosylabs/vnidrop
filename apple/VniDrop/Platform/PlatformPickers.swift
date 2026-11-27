@@ -123,16 +123,17 @@ enum PickerSupport {
 		return Task.detached(priority: .userInitiated) {
 			var files: [PickedShareFile] = []
 			for (url, access) in selections {
-				if Task.isCancelled { break }
-				if let file = stageIosFile(from: url, isDirectory: isDirectory, access: access, copyFile: copyFile) {
-					files.append(file)
+				guard !Task.isCancelled, let file = stageIosFile(from: url, isDirectory: isDirectory, access: access, copyFile: copyFile) else {
+					await IosFileSystemService().discardPickedFiles(files)
+					return []
 				}
+				files.append(file)
 			}
 			return files
 		}
 		#else
 		let files = urls.compactMap { pickedFile(from: $0, isDirectory: isDirectory, acquireAccess: acquireAccess) }
-		return Task { files }
+		return Task { files.count == urls.count ? files : [] }
 		#endif
 	}
 
@@ -164,9 +165,9 @@ enum PickerSupport {
 		defer { releaseAccess?() }
 		let size = isDirectory ? nil : (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize.map { UInt64($0) }
 		// The App Store sandbox needs the bookmark when Rust opens the selected path.
-		let bookmark = try? url.bookmarkData(
-			options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil
-		)
+		guard let bookmark = try? url.bookmarkData(
+			options: .withSecurityScope, includingResourceValuesForKeys: [.fileResourceIdentifierKey], relativeTo: nil
+		) else { return nil }
 		return PickedShareFile(
 			value: url.path, displayName: url.lastPathComponent, sizeBytes: size,
 			isTemporaryCopy: false, isDirectory: isDirectory, securityScopeBookmark: bookmark

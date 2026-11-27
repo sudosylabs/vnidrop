@@ -182,6 +182,7 @@ struct ReceiverRequestModel: Equatable, Identifiable, Sendable {
 	let requestedAt: Int64
 	let respondedAt: Int64?
 	let completedAt: Int64?
+	var progressKey: String? = nil
 }
 
 struct CoreState: Equatable, Sendable {

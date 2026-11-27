@@ -28,6 +28,22 @@ impl Repository {
         Ok(())
     }
 
+    pub(crate) async fn refuse_pending_requests(
+        &self,
+        transfer_id: u64,
+        reason: &str,
+    ) -> Result<Vec<String>> {
+        Ok(sqlx::query_scalar(
+            "UPDATE receiver_requests SET status = 'refused', reason = ?2, responded_at = ?3
+             WHERE transfer_id = ?1 AND status = 'requested' RETURNING id",
+        )
+        .bind(to_db_id(transfer_id)?)
+        .bind(reason)
+        .bind(now_ms())
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
     pub(crate) async fn update_receiver_request_status(
         &self,
         id: &str,

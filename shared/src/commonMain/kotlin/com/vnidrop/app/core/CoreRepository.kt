@@ -245,6 +245,12 @@ class CoreRepository internal constructor(
 		_signals.tryEmit(CoreSignal.ReceiverHistoryChanged(transferId))
 	}
 
+	override suspend fun deleteTerminalTransferHistory(): Result<Boolean> = runCore { activeCore ->
+		val canReclaimCache = activeCore.deleteTerminalTransferHistory()
+		refreshSnapshot(activeCore)
+		canReclaimCache
+	}
+
 	override suspend fun clearReceiveHistory(): Result<ULong> = runCore { activeCore ->
 		val deleted = activeCore.deleteReceiveHistory()
 		refreshSnapshot(activeCore)
@@ -613,6 +619,7 @@ private fun ReceiverRequest.toModel(): ReceiverRequestModel = ReceiverRequestMod
 	id = id,
 	transferId = transferId,
 	remoteEndpointId = remoteEndpointId,
+	progressKey = uniffi.vnidrop.receiverProgressKey(remoteEndpointId),
 	transferName = transferName,
 	receiverName = receiverName,
 	receiverDeviceName = receiverDeviceName,

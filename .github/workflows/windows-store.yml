@@ -104,8 +104,6 @@ jobs:
           VNIDROP_DIAGNOSTICS_REQUIRED: ${{ github.event_name != 'pull_request' && '1' || '0' }}
         run: |
           ./windows/scripts/build.ps1 -Configuration Release -Test -Publish
-          git diff --exit-code -- windows/VniDrop/Strings apple/VniDrop/Generated apple/VniDrop/Resources shared/src/commonMain/composeResources
-          if ($LASTEXITCODE) { throw 'Generated localization is out of date' }
 
       - name: Create direct installer
         shell: pwsh

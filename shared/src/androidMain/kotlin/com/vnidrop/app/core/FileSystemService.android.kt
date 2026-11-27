@@ -125,8 +125,10 @@ private class AndroidFileSystemService(
 	override suspend fun requestReceiveFolderPermission(folder: ReceiveFolder): Boolean =
 		!needsReceiveFolderPermission(folder) || requestLegacyDownloadsPermission()
 
-	override suspend fun reconcileReceiveFolderAccess(folder: ReceiveFolder) =
+	override suspend fun reconcileReceiveFolderAccess(folder: ReceiveFolder) {
+		withContext(Dispatchers.IO) { context.recoverReceiveStages() }
 		receiveFolderGrants.reconcile(folder.documentTree())
+	}
 
 	override suspend fun commitReceiveFolderAccess(folder: ReceiveFolder, save: suspend () -> Unit) =
 		receiveFolderGrants.update(folder.documentTree(), save)
@@ -487,6 +489,7 @@ private class AndroidTreeReceiveOutputSink(
 	)
 
 	private val pending = mutableMapOf<String, PendingDocument>()
+	private val journal = AndroidStageJournal.open(context)
 
 	override fun startFile(relativePath: String) {
 		receiveSinkCall {
@@ -502,6 +505,11 @@ private class AndroidTreeReceiveOutputSink(
 				temporaryName,
 			) ?: error("Could not create temporary file for $relativePath")
 			val descriptor = try {
+				val column = DocumentsContract.Document.COLUMN_DISPLAY_NAME
+				val stageName = context.contentResolver.query(temporaryUri, arrayOf(column), null, null, null)
+					?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+				check(!stageName.isNullOrEmpty() && stageName != finalName) { "Could not identify temporary document" }
+				journal.remember(temporaryUri, stageName)
 				context.contentResolver.openFileDescriptor(temporaryUri, "w")
 					?: error("Could not open output stream for $relativePath")
 			} catch (error: Exception) {
@@ -547,6 +555,7 @@ private class AndroidTreeReceiveOutputSink(
 			if (finalName != document.finalName) {
 				throw VnidropException.DestinationExists("Destination name changed while publishing: $relativePath")
 			}
+			journal.forget(document.temporaryUri)
 			PublishedOutput(ReceivedLocatorKind.ANDROID_DOCUMENT, finalUri.toString())
 		} catch (error: Throwable) {
 			runCatching { document.descriptor.closeWithError("Receive did not publish") }
@@ -560,7 +569,7 @@ private class AndroidTreeReceiveOutputSink(
 		receiveSinkCall {
 			val document = pending.remove(relativePath) ?: return@receiveSinkCall
 			runCatching { document.descriptor.closeWithError("Receive did not publish") }
-			DocumentsContract.deleteDocument(context.contentResolver, document.temporaryUri)
+			if (DocumentsContract.deleteDocument(context.contentResolver, document.temporaryUri)) journal.forget(document.temporaryUri)
 		}
 	}
 

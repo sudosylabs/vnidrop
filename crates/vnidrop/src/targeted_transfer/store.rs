@@ -407,12 +407,24 @@ impl TargetedTransferStore {
         row.map(row_to_full).transpose()
     }
 
+    /// Keep terminal rows for receipt reconciliation, cleanup and replay protection.
+    pub(crate) async fn clear_terminal_history(&self) -> Result<u64, VnidropError> {
+        Ok(sqlx::query(
+            "UPDATE targeted_transfers SET history_hidden = 1 WHERE history_hidden = 0
+             AND state IN ('completed', 'declined', 'cancelled', 'failed', 'deleted')",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?
+        .rows_affected())
+    }
+
     pub(crate) async fn list(&self) -> Result<Vec<TargetedTransfer>, VnidropError> {
         let rows = sqlx::query(
             r#"
             SELECT id, role, sender_endpoint_id, receiver_endpoint_id, manifest_id, transfer_name,
                    file_count, total_size, verified_bytes, state, created_at, updated_at
-            FROM targeted_transfers
+            FROM targeted_transfers WHERE history_hidden = 0
             ORDER BY updated_at DESC
             "#,
         )

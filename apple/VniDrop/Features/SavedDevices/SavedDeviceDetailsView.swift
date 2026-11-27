@@ -121,7 +121,8 @@ struct SavedDeviceDetailsView: View {
 					ForEach(transfers) { transfer in
 						TargetedTransferRow(
 							transfer: transfer,
-							busy: state.busyTransferIds.contains(transfer.id),
+							busy: state.busyTransferIds.contains(transfer.id) || state.pullingTransferIds.contains(transfer.id),
+							cancelEnabled: !state.busyTransferIds.contains(transfer.id),
 							onReceive: { model.receiveTargetedTransfer(transfer.id) },
 							onResume: { model.resumeTargetedTransfer(transfer.id) },
 							onCancel: { model.cancelTargetedTransfer(transfer.id) },
@@ -236,6 +237,7 @@ private struct ActionRow: View {
 private struct TargetedTransferRow: View {
 	let transfer: SavedDeviceTransferItem
 	let busy: Bool
+	let cancelEnabled: Bool
 	let onReceive: () -> Void
 	let onResume: () -> Void
 	let onCancel: () -> Void
@@ -286,7 +288,7 @@ private struct TargetedTransferRow: View {
 					.menuStyle(.borderlessButton)
 					.menuIndicator(.hidden)
 					.fixedSize()
-					.disabled(busy)
+					.disabled(transfer.availableActions.contains(.cancel) ? !cancelEnabled : busy)
 				}
 			}
 

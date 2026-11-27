@@ -43,6 +43,23 @@ final class PlatformPickerTests: XCTestCase {
 		XCTAssertEqual(counter.count, 1)
 	}
 
+	func testSecondStagingFailureReleasesBothScopesAndDiscardsFirstCopy() async throws {
+		let counter = ScopeReleaseCounter()
+		let first = URL(fileURLWithPath: "/first")
+		let second = URL(fileURLWithPath: "/second")
+		let marker = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		defer { try? FileManager.default.removeItem(at: marker) }
+		let result = await PickerSupport.stageShareSelection([first, second], isDirectory: false,
+			acquireAccess: { _ in { counter.release() } }, copyFile: { source, destination in
+				if source == second { throw CocoaError(.fileReadNoPermission) }
+				try Data("selected".utf8).write(to: destination)
+				try Data(destination.path.utf8).write(to: marker)
+			}).value
+		XCTAssertTrue(result.isEmpty)
+		XCTAssertEqual(counter.count, 2)
+		XCTAssertFalse(FileManager.default.fileExists(atPath: try String(contentsOf: marker, encoding: .utf8)))
+	}
+
 	func testPickingAnIosDirectoryRetainsAccessUntilTheSelectionIsReleased() async {
 		let counter = ScopeReleaseCounter()
 		let folder = URL(fileURLWithPath: "/tmp/picked-folder", isDirectory: true)
@@ -61,6 +78,34 @@ final class PlatformPickerTests: XCTestCase {
 		}
 		picked = nil
 		XCTAssertEqual(counter.count, 1)
+	}
+}
+#endif
+
+#if os(macOS)
+@MainActor
+final class MacShareBookmarkTests: XCTestCase {
+	func testRenamedSelectionUsesResolvedFile() async throws {
+		let fm = FileManager.default
+		let dir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+		defer { try? fm.removeItem(at: dir) }
+		let original = dir.appendingPathComponent("original")
+		try Data("chosen".utf8).write(to: original)
+		let bookmark = try original.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: [.fileResourceIdentifierKey], relativeTo: nil)
+		try fm.moveItem(at: original, to: dir.appendingPathComponent("renamed"))
+		let selection = PickedShareFile(value: original.path, displayName: "original", securityScopeBookmark: bookmark)
+		let result = await MacFileSystemService().withScopedSources([selection]) { sources in
+			Result { try Data(contentsOf: URL(fileURLWithPath: XCTUnwrap(sources.first).value)) }
+		}
+		XCTAssertEqual(try result.get(), Data("chosen".utf8))
+
+		try Data("replacement".utf8).write(to: original)
+		let retried = await MacFileSystemService().withScopedSources([selection]) { sources in
+			Result { try Data(contentsOf: URL(fileURLWithPath: XCTUnwrap(sources.first).value)) }
+		}
+		// Different filesystems can still resolve the original after path reuse.
+		if case .success(let bytes) = retried { XCTAssertEqual(bytes, Data("chosen".utf8)) }
 	}
 }
 #endif

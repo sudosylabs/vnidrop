@@ -148,7 +148,7 @@ internal fun TransferCatalog(
 					val activeReceiverEndpointIds = receiversByTransfer[transfer.transferId]
 						.orEmpty()
 						.filter { it.status == ReceiverDeliveryStatus.Accepted }
-						.mapTo(mutableSetOf()) { it.remoteEndpointId }
+						.mapTo(mutableSetOf()) { it.progressKey }
 					val progress = when (transfer.status) {
 						TransferStatus.Importing -> progressForTransfer(events, transfer.transferId)
 						TransferStatus.Sharing -> activeSendProgress(

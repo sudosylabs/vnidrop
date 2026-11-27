@@ -104,6 +104,17 @@ impl Repository {
 
         sqlx::query(
             r#"
+            CREATE TABLE IF NOT EXISTS invitation_receive_outputs (
+                local_id TEXT NOT NULL REFERENCES transfers(local_id) ON DELETE CASCADE,
+                locator TEXT NOT NULL,
+                file_identity TEXT NOT NULL,
+                PRIMARY KEY(local_id, locator)
+            );
+            CREATE TRIGGER IF NOT EXISTS clear_invitation_outputs AFTER UPDATE ON transfers
+            WHEN NEW.status = 'done' OR OLD.content_hash IS NOT NEW.content_hash OR OLD.peer_id IS NOT NEW.peer_id
+            BEGIN
+                DELETE FROM invitation_receive_outputs WHERE local_id = OLD.local_id;
+            END;
             CREATE TABLE IF NOT EXISTS received_artifacts (
                 id TEXT PRIMARY KEY,
                 transfer_local_id TEXT NOT NULL,

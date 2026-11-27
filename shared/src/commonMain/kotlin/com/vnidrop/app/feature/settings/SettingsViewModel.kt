@@ -283,18 +283,18 @@ class SettingsViewModel(
 		if (_state.value.isDeletingTransfers || _state.value.isClearingTransferCache) return
 		viewModelScope.launch {
 			_state.update { it.copy(isDeletingTransfers = true) }
-			val failures = repository.state.value.transfers
-				.map { repository.delete(it.transferId) }
-				.count { it.isFailure }
-			val cleanup = repository.clearTransferCache()
+			val result = runCatching {
+				val canReclaimCache = repository.deleteTerminalTransferHistory().getOrThrow()
+				if (canReclaimCache) {
+					repository.clearTransferCache().getOrThrow()
+				}
+			}.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
 			_state.update { it.copy(isDeletingTransfers = false) }
 			loadStorageUsage()
-			if (failures > 0) {
-				messages.error(IllegalStateException("Could not delete $failures transfer records"))
-			} else if (cleanup.isSuccess) {
-				messages.tryShow(UiMessage(UiText.Resource(Res.string.storage_transfers_deleted), UiMessageTone.Success))
-			}
-			cleanup.onFailure(messages::error)
+			result.fold(
+				onSuccess = { messages.tryShow(UiMessage(UiText.Resource(Res.string.storage_transfers_deleted), UiMessageTone.Success)) },
+				onFailure = messages::error,
+			)
 		}
 	}
 

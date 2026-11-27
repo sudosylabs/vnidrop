@@ -406,7 +406,9 @@ final class SavedDevicesModelTests: XCTestCase {
 		let model = await makeModel()
 
 		model.resumeTargetedTransfer("t1")
-		await waitUntil { !model.state.busyTransferIds.contains("t1") }
+		model.cancelTargetedTransfer("t1")
+		await waitUntil { !model.state.pullingTransferIds.contains("t1") && !model.state.busyTransferIds.contains("t1") }
+		XCTAssertEqual(gateway.cancelledTargetedTransfers, ["t1"])
 
 		XCTAssertEqual(gateway.targetedResumes.map(\.id), ["t1"])
 		XCTAssertTrue(gateway.targetedReceives.isEmpty)

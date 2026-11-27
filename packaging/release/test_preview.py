@@ -109,6 +109,19 @@ class PreviewAssemblyTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "must be empty"):
             self.assemble()
 
+    def test_preview_notes_match_selected_downloads(self):
+        import subprocess
+        import sys
+        for platforms in ("windows", "windows,linux,android,macos"):
+            with self.subTest(platforms=platforms):
+                self.output = self.output.parent / platforms
+                self.assemble(platforms=platforms)
+                path = self.output / "preview-manifest.json"
+                notes = subprocess.check_output([sys.executable, Path(__file__).with_name("preview-notes.py"), path], text=True)
+                files = [row["name"] for row in json.loads(path.read_text())["files"]]
+                self.assertEqual([line[3:-1] for line in notes.splitlines() if line.startswith("- `")], files)
+                self.assertEqual("preview APK" in notes, "android" in platforms)
+
     def test_windows_and_linux_preview_needs_no_apple_or_android_assets(self):
         self.payloads[2].unlink()
         self.payloads[4].unlink()

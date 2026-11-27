@@ -115,6 +115,11 @@ impl DeviceRelationshipStore {
                 .execute(pool)
                 .await?;
         }
+        if !has("peer_address") {
+            sqlx::query("ALTER TABLE device_relationships ADD COLUMN peer_address TEXT")
+                .execute(pool)
+                .await?;
+        }
         if !has("local_label") {
             sqlx::query("ALTER TABLE device_relationships ADD COLUMN local_label TEXT")
                 .execute(pool)
@@ -399,6 +404,33 @@ impl DeviceRelationshipStore {
             .await
             .map_err(VnidropError::repository)?;
         Ok(())
+    }
+
+    pub(super) async fn remember_address(
+        &self,
+        peer: &str,
+        address: &str,
+    ) -> Result<(), VnidropError> {
+        sqlx::query(
+            "UPDATE device_relationships SET peer_address = ?1
+             WHERE remote_endpoint_id = ?2 AND peer_address IS NOT ?1",
+        )
+        .bind(address)
+        .bind(peer)
+        .execute(&self.pool)
+        .await
+        .map_err(VnidropError::repository)?;
+        Ok(())
+    }
+
+    pub(super) async fn saved_address(&self, peer: &str) -> Result<Option<String>, VnidropError> {
+        sqlx::query_scalar(
+            "SELECT peer_address FROM device_relationships WHERE remote_endpoint_id = ? AND peer_address IS NOT NULL",
+        )
+        .bind(peer)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(VnidropError::repository)
     }
 
     pub(super) async fn find_row(

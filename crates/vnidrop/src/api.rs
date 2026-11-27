@@ -539,7 +539,7 @@ pub struct RuntimeStatus {
 }
 
 /// Neutral core facts used by platform lifecycle policy.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
 pub struct RuntimeObligationFacts {
     pub active_invitation_transfers: u64,
     pub invitation_provider_availability: u64,
@@ -688,4 +688,10 @@ pub trait TargetedOutputVerifier: Send + Sync {
         locator: String,
         published: bool,
     ) -> Result<Option<i32>, VnidropError>;
+}
+
+/// Opaque key used to associate a typed receiver with redacted provider events.
+#[uniffi::export]
+pub fn receiver_progress_key(endpoint_id: String) -> String {
+    crate::control_plane::fingerprint(&endpoint_id)
 }

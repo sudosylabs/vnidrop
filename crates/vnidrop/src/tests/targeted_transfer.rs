@@ -3404,3 +3404,112 @@ fn approval_secret_failure_keeps_durable_consent_retryable() {
     }
     assert_eq!(transfer.state, TargetedTransferState::Approved);
 }
+
+#[test]
+fn locked_grant_store_preserves_saved_relationship_across_restart() {
+    struct LockAfterIdentity(Arc<FaultInjectingSecretStore>);
+    impl CoreEventSink for LockAfterIdentity {
+        fn on_event(&self, event: CoreEvent) {
+            if event.phase == "startup" && event.kind == "endpoint-online" {
+                self.0.fail_with(Some(ReferenceStoreFailure::Locked));
+            }
+        }
+    }
+    let config = CoreNetworkConfig {
+        mode: CoreRelayMode::LocalOnly,
+        relay_urls: vec![],
+    };
+    let mut sender = ProtectedNode::with_network_config(config.clone());
+    let receiver = ProtectedNode::with_network_config(config);
+    establish_saved(&sender, &receiver, 62003);
+    let peer = sender.core().list_saved_devices().unwrap().remove(0);
+    sender
+        .core()
+        .set_saved_device_label(peer.endpoint_id, Some("My saved device".into()))
+        .unwrap();
+    let saved = sender.core().list_saved_devices().unwrap();
+    sender.core.take().unwrap().shutdown();
+    let core = VnidropCore::initialize_with_test_secret_store_and_network(
+        sender.data_dir.path().to_string_lossy().into_owned(),
+        Arc::new(LockAfterIdentity(sender.secret_store.clone())),
+        sender.secret_store.clone(),
+        sender.network_config.clone(),
+    )
+    .unwrap();
+    sender.secret_store.fail_with(None);
+    assert_eq!(core.list_saved_devices().unwrap(), saved);
+    core.shutdown();
+    drop(core);
+    let sender = sender.restart();
+    assert_eq!(sender.core().list_saved_devices().unwrap(), saved);
+}
+
+#[test]
+fn invitation_retry_after_restart_reuses_its_verified_output() {
+    let config = CoreNetworkConfig {
+        mode: CoreRelayMode::LocalOnly,
+        relay_urls: vec![],
+    };
+    let sender = ProtectedNode::with_network_config(config.clone());
+    let receiver = ProtectedNode::with_network_config(config);
+    let source = tempfile::tempdir().unwrap();
+    let output = tempfile::tempdir().unwrap();
+    let a = source.path().join("a");
+    let b = source.path().join("b");
+    std::fs::write(&a, b"a").unwrap();
+    std::fs::write(&b, b"b").unwrap();
+    let shared = sender
+        .core()
+        .share_files(
+            vec![targeted_source(&a), targeted_source(&b)],
+            ShareMetadataInput {
+                transfer_id: 62002,
+                transfer_name: Some("synthetic".into()),
+                sender_name: None,
+                access_mode: TransferAccessMode::Public,
+            },
+        )
+        .unwrap();
+    let destination = output.path().to_string_lossy().into_owned();
+    std::fs::write(output.path().join("b"), b"previous").unwrap();
+    let first = receiver
+        .core()
+        .receive(shared.ticket.clone(), destination.clone(), None);
+    assert!(matches!(first, Err(VnidropError::DestinationExists { .. })));
+    assert_eq!(std::fs::read(output.path().join("a")).unwrap(), b"a");
+    assert_eq!(std::fs::read(output.path().join("b")).unwrap(), b"previous");
+    std::fs::remove_file(output.path().join("b")).unwrap();
+    let receiver = receiver.restart();
+    let retry = receiver.core().receive(shared.ticket, destination, None);
+    retry.unwrap();
+    assert_eq!(std::fs::read(output.path().join("a")).unwrap(), b"a");
+    assert_eq!(std::fs::read(output.path().join("b")).unwrap(), b"b");
+    let receiver = receiver.restart();
+    assert_eq!(receiver.core().list_transfers().unwrap()[0].status, "done");
+}
+
+#[test]
+fn cold_sender_can_offer_to_saved_local_only_peer() {
+    let config = CoreNetworkConfig {
+        mode: CoreRelayMode::LocalOnly,
+        relay_urls: vec![],
+    };
+    let sender = ProtectedNode::with_network_config(config.clone());
+    let receiver = ProtectedNode::with_network_config(config);
+    establish_saved(&sender, &receiver, 62001);
+    let sender = sender.restart();
+    let source = tempfile::tempdir().unwrap();
+    let path = source.path().join("synthetic.txt");
+    std::fs::write(&path, b"synthetic").unwrap();
+    let preparation = sender
+        .core()
+        .new_targeted_transfer_preparation(receiver.core().status().endpoint_id)
+        .unwrap();
+    let transfer = preparation
+        .send(vec![targeted_source(&path)], None)
+        .unwrap();
+    assert_eq!(
+        wait_for_pending_offer(&receiver.core()).transfer_id,
+        transfer.id
+    );
+}

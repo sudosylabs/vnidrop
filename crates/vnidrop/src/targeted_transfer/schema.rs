@@ -125,6 +125,13 @@ pub(crate) async fn ensure_schema(pool: &SqlitePool) -> anyhow::Result<()> {
     .await?;
     sqlx::query(
         r#"
+        CREATE TABLE IF NOT EXISTS targeted_terminal_notices (
+            transfer_id TEXT PRIMARY KEY REFERENCES targeted_transfers(id) ON DELETE CASCADE,
+            peer_id TEXT NOT NULL,
+            deleted INTEGER NOT NULL,
+            next_attempt_at INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL
+        );
         CREATE TRIGGER IF NOT EXISTS clear_terminal_targeted_receive_outputs
         AFTER UPDATE OF state ON targeted_transfers
         WHEN NEW.state IN ('completed', 'cancelled', 'failed', 'deleted')
@@ -140,6 +147,13 @@ pub(crate) async fn ensure_schema(pool: &SqlitePool) -> anyhow::Result<()> {
         .fetch_all(pool)
         .await?;
     let has = |name: &str| columns.iter().any(|row| row.get::<String, _>(1) == name);
+    if !has("history_hidden") {
+        sqlx::query(
+            "ALTER TABLE targeted_transfers ADD COLUMN history_hidden INTEGER NOT NULL DEFAULT 0",
+        )
+        .execute(pool)
+        .await?;
+    }
     if !has("verified_bytes") {
         sqlx::query(
             "ALTER TABLE targeted_transfers ADD COLUMN verified_bytes INTEGER NOT NULL DEFAULT 0",

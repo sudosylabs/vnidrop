@@ -123,6 +123,10 @@ final class CoreRepository: ObservableObject, CoreGateway {
 		appDataDir: String,
 		networkConfiguration: RelayConfiguration
 	) async -> Result<Void, Error> {
+		await restart(appDataDir: appDataDir, networkConfiguration: networkConfiguration, clearingCache: false)
+	}
+
+	private func restart(appDataDir: String, networkConfiguration: RelayConfiguration, clearingCache: Bool) async -> Result<Void, Error> {
 		guard !isNetworkTransitionInProgress else {
 			return .failure(CoreNetworkLifecycleError.transitionInProgress)
 		}
@@ -138,22 +142,23 @@ final class CoreRepository: ObservableObject, CoreGateway {
 				existing.shutdown()
 				self.core = nil
 			}
+			let cleanup = Result { if clearingCache { _ = try clearInactiveTransferCache(appDataDir: appDataDir) } }
 			let created = try self.coreFactory.initialize(
 				appDataDir: appDataDir,
 				eventSink: sink,
 				networkConfiguration: networkConfiguration
 			)
 			self.core = created
-			return created
+			return (created, cleanup)
 		}
 		switch result {
-		case .success(let created):
+		case .success(let (created, cleanup)):
 			_ = await refresh()
 			guard shutdownTask == nil, core === created else {
 				return .failure(CoreNetworkLifecycleError.transitionInProgress)
 			}
 			self.state.isInitialized = true
-			return .success(())
+			return cleanup
 		case .failure(let error):
 			if error as? CoreNetworkLifecycleError != .activeNetworkWork {
 				self.state = CoreState()
@@ -312,6 +317,20 @@ final class CoreRepository: ObservableObject, CoreGateway {
 			self.signalsSubject.send(.receiverHistoryChanged(transferId: transferId))
 		}
 		return result
+	}
+
+	func deleteTerminalTransferHistory(appDataDir: String, networkConfiguration: RelayConfiguration) async -> Result<Void, Error> {
+		let result = await runCore {
+			try self.requireCore().deleteTerminalTransferHistory()
+		}
+		switch result {
+		case .failure(let error): return .failure(error)
+		case .success(false): return .success(())
+		case .success(true):
+			let cleanup = await restart(appDataDir: appDataDir, networkConfiguration: networkConfiguration, clearingCache: true)
+			if case .failure(let error) = cleanup, error as? CoreNetworkLifecycleError == .activeNetworkWork { return .success(()) }
+			return cleanup
+		}
 	}
 
 	func clearReceiveHistory() async -> Result<UInt64, Error> {
@@ -888,7 +907,7 @@ private extension ReceiverRequest {
 			id: id, transferId: transferId, remoteEndpointId: remoteEndpointId,
 			transferName: transferName, receiverName: receiverName, receiverDeviceName: receiverDeviceName,
 			appVersion: appVersion, status: Self.status(status), reason: reason,
-			requestedAt: requestedAt, respondedAt: respondedAt, completedAt: completedAt
+			requestedAt: requestedAt, respondedAt: respondedAt, completedAt: completedAt, progressKey: receiverProgressKey(endpointId: remoteEndpointId)
 		)
 	}
 

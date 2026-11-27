@@ -260,9 +260,16 @@ class ViewModelsTest {
 		viewModel.deleteAllTransfers()
 		advanceUntilIdle()
 
-		assertEquals(listOf(41UL), core.deletedTransfers)
+		assertEquals(1, core.terminalHistoryClearCount)
+		assertTrue(core.deletedTransfers.isEmpty())
 		assertEquals(1, core.clearTransferCacheCount)
 		assertFalse(viewModel.state.value.isDeletingTransfers)
+
+		core.historyCacheReclaimable = false
+		viewModel.deleteAllTransfers()
+		advanceUntilIdle()
+		assertEquals(2, core.terminalHistoryClearCount)
+		assertEquals(1, core.clearTransferCacheCount)
 	}
 
 	@Test

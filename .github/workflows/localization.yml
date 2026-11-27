@@ -1,0 +1,20 @@
+name: Localization
+on:
+  pull_request:
+  push:
+    branches: [master]
+permissions:
+  contents: read
+jobs:
+  generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: make check-localization localization
+      - run: bun test
+        working-directory: localization
+      - name: Check all generated outputs
+        run: |
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
